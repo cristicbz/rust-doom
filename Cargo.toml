@@ -1,0 +1,13 @@
+[package]
+name = "rs-thingy"
+version = "0.0.1"
+authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
+
+[dependencies.sdl2]
+git = "https://github.com/AngryLawyer/rust-sdl2"
+
+[dependencies.gl]
+git = "https://github.com/bjz/gl-rs"
+
+[dependencies.zmq]
+git = "https://github.com/cristicbz/rust-zmq"
