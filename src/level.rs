@@ -144,13 +144,8 @@ fn ssector_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line2f>,
                 return if b.y > a.y { Less } else { Greater }
             }
 
-            let d = ac.cross(&bc);
-
-            if d < 0.0 { Less }
-            else if d > 0.0 { Greater }
-            else if ac.squared_norm() > bc.squared_norm() { Greater }
-            else { Less }
-
+            if ac.cross(&bc) < 0.0 { Less }
+            else { Greater }
         });
 
     // Remove duplicates.
