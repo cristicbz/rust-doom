@@ -7,6 +7,16 @@ use super::types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg,
 use super::util::from_wad_coords;
 
 
+static THINGS_OFFSET: uint = 1;
+static LINEDEFS_OFFSET: uint = 2;
+static SIDEDEFS_OFFSET: uint = 3;
+static VERTICES_OFFSET: uint = 4;
+static SEGS_OFFSET: uint = 5;
+static SSECTORS_OFFSET: uint = 6;
+static NODES_OFFSET: uint = 7;
+static SECTORS_OFFSET: uint = 8;
+
+
 pub struct Level {
     pub things: Vec<WadThing>,
     pub linedefs: Vec<WadLinedef>,
@@ -23,14 +33,14 @@ impl Level {
     pub fn from_archive(wad: &mut Archive, name: &LevelName) -> Level {
         info!("Reading level data for '{}'...", str::from_utf8(name).unwrap());
         let start_index = wad.get_lump_index(name).expect("No such level.");
-        let things = wad.read_lump::<WadThing>(start_index + 1);
-        let linedefs = wad.read_lump::<WadLinedef>(start_index + 2);
-        let sidedefs = wad.read_lump::<WadSidedef>(start_index + 3);
-        let vertices = wad.read_lump::<WadVertex>(start_index + 4);
-        let segs = wad.read_lump::<WadSeg>(start_index + 5);
-        let subsectors = wad.read_lump::<WadSubsector>(start_index + 6);
-        let nodes = wad.read_lump::<WadNode>(start_index + 7);
-        let sectors = wad.read_lump::<WadSector>(start_index + 8);
+        let things = wad.read_lump(start_index + THINGS_OFFSET);
+        let linedefs = wad.read_lump(start_index + LINEDEFS_OFFSET);
+        let sidedefs = wad.read_lump(start_index + SIDEDEFS_OFFSET);
+        let vertices = wad.read_lump(start_index + VERTICES_OFFSET);
+        let segs = wad.read_lump(start_index + SEGS_OFFSET);
+        let subsectors = wad.read_lump(start_index + SSECTORS_OFFSET);
+        let nodes = wad.read_lump(start_index + NODES_OFFSET);
+        let sectors = wad.read_lump(start_index + SECTORS_OFFSET);
 
         info!("Loaded level '{}':", str::from_utf8(name).unwrap());
         info!("    {:4} things", things.len())
