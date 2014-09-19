@@ -82,7 +82,7 @@ impl Scene {
     fn new() -> Scene {
         let mut wad = WadFile::open(&Path::new("doom1.wad")).unwrap();
         let level_name: [u8, ..8] =
-            [b'E', b'1', b'M', b'2', b'\0', b'\0', b'\0', b'\0'];
+            [b'E', b'1', b'M', b'1', b'\0', b'\0', b'\0', b'\0'];
         let level = Level::new(&mut wad, &level_name);
 
         check_gl!(gl::ClearColor(0.0, 0.1, 0.4, 0.0));
@@ -91,9 +91,6 @@ impl Scene {
         let mut player = Player::new(Default::default());
         {
             let start = level.get_start_pos();
-            //player.set_position(&Vec3::new(-91.916847, 11.4352, -92.7907));
-            //player.get_camera_mut().set_pitch(1.4);
-            //player.get_camera_mut().set_yaw(0.0);
             player.set_position(&Vec3::new(start.x, 1.0, start.y));
         }
 

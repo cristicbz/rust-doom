@@ -10,8 +10,10 @@ use vbo::VertexBuffer;
 use wad::WadFile;
 
 static DRAW_WALLS : bool = true;
-static WIRE_FLOORS : bool = false;
+static WIRE_FLOORS : bool = true;
 static SINGLE_SEGMENT : i16 = -1;
+static SSECTOR_BSP_TOLERANCE : f32 = 1e-4;
+static SSECTOR_SEG_TOLERANCE : f32 = 0.1;
 
 pub type LevelName = [u8, ..8];
 
@@ -146,7 +148,7 @@ fn ssector_to_vbo(lvl: &WadLevel, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
 
             let mut push = true;
             for l3 in lines.iter() {
-                if l3.signed_distance(&point) < -1e-5 {
+                if l3.signed_distance(&point) < -SSECTOR_BSP_TOLERANCE {
                     push = false;
                     break;
                 }
@@ -156,7 +158,7 @@ fn ssector_to_vbo(lvl: &WadLevel, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
                 for seg in segs.iter() {
                     let (v1, v2) = lvl.seg_vertices(seg);
                     if Line::from_points(v1, &v2)
-                            .signed_distance(&point) > 1.0 {
+                            .signed_distance(&point) > SSECTOR_SEG_TOLERANCE {
                         push = false;
                         break;
                     }
