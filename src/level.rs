@@ -10,7 +10,7 @@ use vbo::VertexBuffer;
 use wad::WadFile;
 
 static DRAW_WALLS : bool = true;
-static WIRE_FLOORS : bool = true;
+static WIRE_FLOORS : bool = false;
 static SINGLE_SEGMENT : i16 = -1;
 static SSECTOR_BSP_TOLERANCE : f32 = 1e-4;
 static SSECTOR_SEG_TOLERANCE : f32 = 0.1;

@@ -83,7 +83,7 @@ impl Player {
         self.camera.move_by(move);
 
         if move.norm() > 0.0 {
-            info!("Pos: {}", self.camera.get_position())
+            //info!("Pos: {}", self.camera.get_position())
         }
     }
 
