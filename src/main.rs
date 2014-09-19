@@ -36,6 +36,7 @@ pub mod shlex;
 pub mod wad;
 pub mod level;
 pub mod vbo;
+pub mod line;
 
 fn create_opengl_window(title : &str,
                         width : int,

@@ -1,5 +1,6 @@
 use check_gl;
 use gl;
+use line::{Line2, Line2f};
 use numvec::{Vec2f, Vec2, Numvec};
 use shader::{Shader, Uniform};
 use mat4::Mat4;
@@ -68,47 +69,6 @@ impl Level {
     }
 }
 
-struct Line {
-    origin: Vec2f,
-    displace: Vec2f,
-}
-
-impl Line {
-    pub fn from_origin_and_displace(origin: Vec2f, displace: Vec2f) -> Line {
-        Line { origin: origin, displace: displace.normalized() }
-    }
-
-    pub fn from_point_pair((origin, towards): (Vec2f, Vec2f)) -> Line {
-        Line { origin: origin, displace: (towards - origin).normalized() }
-    }
-
-    pub fn inverted_halfspaces(&self) -> Line {
-        Line { origin: self.origin, displace: -self.displace }
-    }
-
-    pub fn signed_distance(&self, to: &Vec2f) -> f32 {
-        to.cross(&self.displace) + self.displace.cross(&self.origin)
-    }
-
-    pub fn intersect_offset(&self, other: &Line) -> Option<f32> {
-        let numerator = self.displace.cross(&other.displace);
-        if numerator.abs() < 1e-10 {
-            None
-        } else {
-            Some((other.origin - self.origin).cross(&other.displace) /
-                 numerator)
-        }
-    }
-
-    pub fn intersect_point(&self, other: &Line) -> Option<Vec2f> {
-        self.intersect_offset(other).map(|offset| self.at_offset(offset))
-    }
-
-    pub fn at_offset(&self, offset: f32) -> Vec2f {
-        self.origin + self.displace * offset
-    }
-}
-
 
 fn vbo_push_wall(vbo_data: &mut Vec<f32>, lvl: &wad::Level,
                  seg: &WadSeg, (low, high): (WadCoord, WadCoord)) {
@@ -124,7 +84,7 @@ fn vbo_push_wall(vbo_data: &mut Vec<f32>, lvl: &wad::Level,
 }
 
 
-fn ssector_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
+fn ssector_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line2f>,
                   ssector: &WadSubsector) {
     let segs = lvl.ssector_segs(ssector);
 
@@ -149,9 +109,9 @@ fn ssector_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
                 None => continue
             };
 
-            let line_dist = |l : &Line| l.signed_distance(&point);
+            let line_dist = |l : &Line2f| l.signed_distance(&point);
             let seg_dist = |s : &WadSeg|
-                Line::from_point_pair(lvl.seg_vertices(s))
+                Line2::from_point_pair(lvl.seg_vertices(s))
                     .signed_distance(&point);
 
             // The intersection point must lie both within the BSP volume and
@@ -255,11 +215,11 @@ fn ssector_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
 
 
 
-fn node_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
+fn node_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line2f>,
                node: &WadNode) {
     let (left, leaf_left) = parse_child_id(node.left);
     let (right, leaf_right) = parse_child_id(node.right);
-    let partition = Line::from_origin_and_displace(
+    let partition = Line2::from_origin_and_displace(
         from_wad_coords(node.line_x, node.line_y),
         from_wad_coords(node.step_x, node.step_y));
 
