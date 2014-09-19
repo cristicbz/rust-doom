@@ -81,7 +81,7 @@ struct Scene {
 impl Scene {
     fn new() -> Scene {
         let mut wad = wad::Archive::open(&Path::new("doom1.wad")).unwrap();
-        let level_name = *wad.get_level_name(wad.num_levels() - 1);
+        let level_name = *wad.get_level_name(0);
         let level = Level::new(&mut wad, &level_name);
 
         check_gl!(gl::ClearColor(0.0, 0.1, 0.4, 0.0));
@@ -101,7 +101,6 @@ impl Scene {
         self.level.render(
             &self.player.get_camera()
             .multiply_transform(&Mat4::new_identity()));
-
     }
 }
 
@@ -116,30 +115,38 @@ fn main() {
                  ctrl::KeyTrigger(scancode::EscapeScanCode)]);
 
         let mut cum_time = 0.0;
+        let mut cum_updates_time = 0.0;
         let mut num_frames = 0u32;
-        let mut last_reported = time::precise_time_s();
-        let mut actual_frame_time = last_reported;
+        let mut t0 = 0.0;
         loop {
             let t1 = time::precise_time_s();
-            let delta = (t1 - actual_frame_time) as f32;
-            actual_frame_time = t1;
-
+            let mut delta = t1 - t0;
+            if delta < 1e-10 { delta = 1.0 / 60.0; }
+            let delta = delta;
+            t0 = t1;
             check_gl!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
-            let t0 = time::precise_time_s();
+
+            let updates_t0 = time::precise_time_s();
+
             control.update();
             if control.poll_gesture(&quit_gesture) {
                 break;
             }
-            scene.update(delta, &control);
-            let t1 = time::precise_time_s();
-            cum_time += t1 - t0;
+            scene.update(delta as f32, &control);
+
+            let updates_t1 = time::precise_time_s();
+            cum_updates_time += updates_t1 - updates_t0;
+
+            cum_time += delta;
             num_frames += 1;
-            if t1 - last_reported > 2.0 {
+            if cum_time > 2.0 {
                 let fps = num_frames as f64 / cum_time;
-                info!("Frame time: {:.2}ms (FPS: {:.2})", 1000.0 / fps, fps);
+                let cpums = 1000.0 * cum_updates_time / num_frames as f64;
+                info!("Frame time: {:.2}ms ({:.2}ms cpu, FPS: {:.2})",
+                      1000.0 / fps, cpums, fps);
                 cum_time = 0.0;
+                cum_updates_time = 0.0;
                 num_frames = 0;
-                last_reported = t1;
             }
 
             window.gl_swap_window();

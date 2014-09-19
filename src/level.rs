@@ -15,8 +15,8 @@ use wad::types::*;
 static DRAW_WALLS : bool = true;
 static WIRE_FLOORS : bool = false;
 static SINGLE_SEGMENT : i16 = -1;
-static SSECTOR_BSP_TOLERANCE : f32 = 1e-4;
-static SSECTOR_SEG_TOLERANCE : f32 = 0.1;
+static BSP_TOLERANCE : f32 = 1e-3;
+static SEG_TOLERANCE : f32 = 0.1;
 
 
 pub struct Level {
@@ -78,7 +78,7 @@ impl Line {
         Line { origin: origin, displace: displace.normalized() }
     }
 
-    pub fn from_points(origin: Vec2f, towards: &Vec2f) -> Line {
+    pub fn from_point_pair((origin, towards): (Vec2f, Vec2f)) -> Line {
         Line { origin: origin, displace: (towards - origin).normalized() }
     }
 
@@ -98,6 +98,10 @@ impl Line {
             Some((other.origin - self.origin).cross(&other.displace) /
                  numerator)
         }
+    }
+
+    pub fn intersect_point(&self, other: &Line) -> Option<Vec2f> {
+        self.intersect_offset(other).map(|offset| self.at_offset(offset))
     }
 
     pub fn at_offset(&self, offset: f32) -> Vec2f {
@@ -124,72 +128,45 @@ fn ssector_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
                   ssector: &WadSubsector) {
     let segs = lvl.ssector_segs(ssector);
 
+    // Add all points that are part of this subsector. Duplicates are removed
+    // later.
     let mut points : Vec<Vec2f> = Vec::new();
-    for l1 in lines.iter() {
-        for l2 in lines.iter() {
-            let point = l1.at_offset(
-                match l1.intersect_offset(l2) {
-                    Some(offset) => offset,
-                    None => continue
-                });
 
-            let mut push = true;
-            for l3 in lines.iter() {
-                if l3.signed_distance(&point) < -SSECTOR_BSP_TOLERANCE {
-                    push = false;
-                    break;
-                }
-            }
-
-            if push {
-                for seg in segs.iter() {
-                    let (v1, v2) = lvl.seg_vertices(seg);
-                    if Line::from_points(v1, &v2)
-                            .signed_distance(&point) > SSECTOR_SEG_TOLERANCE {
-                        push = false;
-                        break;
-                    }
-                }
-                if push {
-                    points.push(point);
-                }
-            }
-        }
-    }
+    // The bounds of the segs form the 'explicit' points.
     for seg in segs.iter() {
         let (v1, v2) = lvl.seg_vertices(seg);
         points.push(v1);
         points.push(v2);
     }
-    points.sort_by(
-        |a, b| {
-            if a.x < b.x {
-                Less
-            } else if a.x > b.x {
-                Greater
-            } else if a.y < b.y {
-                Less
-            } else if a.y > b.y {
-                Greater
-            } else {
-                Equal
-            }
-        });
 
-    let mut k = 1;
-    for i in range(1, points.len()) {
-        let d = points[i] - points[i - 1];
-        if d.x.abs() > 1e-10 || d.y.abs() > 1e-10 {
-            *points.get_mut(k) = points[i];
-            k = k + 1;
+    // The convex polyon defined at the intersection of the partition lines,
+    // intersected with the half-volume of the segs form the 'implicit' points.
+    for i_line in range(0, lines.len() - 1) {
+        for j_line in range(i_line + 1, lines.len()) {
+            let (l1, l2) = (&(*lines)[i_line], &(*lines)[j_line]);
+            let point = match l1.intersect_point(l2) {
+                Some(p) => p,
+                None => continue
+            };
+
+            let line_dist = |l : &Line| l.signed_distance(&point);
+            let seg_dist = |s : &WadSeg|
+                Line::from_point_pair(lvl.seg_vertices(s))
+                    .signed_distance(&point);
+
+            // The intersection point must lie both within the BSP volume and
+            // the segs volume.
+            if lines.iter().map(line_dist).all(|d| d >= -BSP_TOLERANCE) &&
+               segs.iter().map(seg_dist).all(|d| d <= SEG_TOLERANCE) {
+                points.push(point);
+            }
         }
     }
-    points.truncate(k);
+
+    // Sort points in polygonal order around their center.
     let mut center = Vec2::zero();
-    for p in points.iter() {
-        center = center + *p;
-    }
-    center = center / (points.len() as f32);
+    for p in points.iter() { center = center + *p; }
+    let center = center / (points.len() as f32);
     points.sort_by(
         |a, b| {
             let ac = a - center;
@@ -215,6 +192,17 @@ fn ssector_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
             else { Less }
 
         });
+
+    // Remove duplicates.
+    let mut n_unique = 1;
+    for i_point in range(1, points.len()) {
+        let d = points[i_point] - points[i_point - 1];
+        if d.x.abs() > 1e-10 || d.y.abs() > 1e-10 {
+            *points.get_mut(n_unique) = points[i_point];
+            n_unique = n_unique + 1;
+        }
+    }
+    points.truncate(n_unique);
 
     let seg = &segs[0];
     let line = lvl.seg_linedef(seg);
