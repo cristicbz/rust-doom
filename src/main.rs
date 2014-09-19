@@ -1,30 +1,30 @@
 #![feature(macro_rules)]
 #![feature(phase)]
-#[phase(plugin, link)] extern crate log;
+#![feature(globs)]
 
+#[phase(plugin, link)]
+extern crate log;
 extern crate sdl2;
 extern crate serialize;
 extern crate gl;
 extern crate libc;
 extern crate native;
+extern crate time;
 extern crate zmq;
 
+
 use ctrl::GameController;
-use gl::types::GLuint;
 use level::Level;
 use libc::c_void;
 use mat4::Mat4;
 use player::Player;
 use sdl2::scancode;
-use shader::{Shader, Uniform};
 use std::default::Default;
-use wad::WadFile;
 use numvec::Vec3;
 
 
 #[macro_escape]
 pub mod check_gl;
-
 pub mod async_term;
 pub mod camera;
 pub mod ctrl;
@@ -80,9 +80,8 @@ struct Scene {
 
 impl Scene {
     fn new() -> Scene {
-        let mut wad = WadFile::open(&Path::new("doom1.wad")).unwrap();
-        let level_name: [u8, ..8] =
-            [b'E', b'1', b'M', b'1', b'\0', b'\0', b'\0', b'\0'];
+        let mut wad = wad::Archive::open(&Path::new("doom1.wad")).unwrap();
+        let level_name = *wad.get_level_name(wad.num_levels() - 1);
         let level = Level::new(&mut wad, &level_name);
 
         check_gl!(gl::ClearColor(0.0, 0.1, 0.4, 0.0));
@@ -91,17 +90,14 @@ impl Scene {
         let mut player = Player::new(Default::default());
         {
             let start = level.get_start_pos();
-            player.set_position(&Vec3::new(start.x, 1.0, start.y));
+            player.set_position(&Vec3::new(start.x, 0.3, start.y));
         }
 
         Scene { player: player, level: level }
     }
 
-    fn update(&mut self, ctrl : &GameController) {
-        check_gl!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
-
-        // Update player.
-        self.player.update(0.1, ctrl);
+    fn update(&mut self, delta_time: f32, ctrl: &GameController) {
+        self.player.update(delta_time, ctrl);
         self.level.render(
             &self.player.get_camera()
             .multiply_transform(&Mat4::new_identity()));
@@ -119,13 +115,34 @@ fn main() {
             vec![ctrl::QuitTrigger,
                  ctrl::KeyTrigger(scancode::EscapeScanCode)]);
 
+        let mut cum_time = 0.0;
+        let mut num_frames = 0u32;
+        let mut last_reported = time::precise_time_s();
+        let mut actual_frame_time = last_reported;
         loop {
+            let t1 = time::precise_time_s();
+            let delta = (t1 - actual_frame_time) as f32;
+            actual_frame_time = t1;
+
+            check_gl!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
+            let t0 = time::precise_time_s();
             control.update();
-            scene.update(&control);
-            window.gl_swap_window();
             if control.poll_gesture(&quit_gesture) {
                 break;
             }
+            scene.update(delta, &control);
+            let t1 = time::precise_time_s();
+            cum_time += t1 - t0;
+            num_frames += 1;
+            if t1 - last_reported > 2.0 {
+                let fps = num_frames as f64 / cum_time;
+                info!("Frame time: {:.2}ms (FPS: {:.2})", 1000.0 / fps, fps);
+                cum_time = 0.0;
+                num_frames = 0;
+                last_reported = t1;
+            }
+
+            window.gl_swap_window();
         }
     }
     println!("main: all tasks terminated, shutting down.");

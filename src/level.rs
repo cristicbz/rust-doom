@@ -1,13 +1,16 @@
 use check_gl;
 use gl;
-use numvec::{Vec2f, Vec3f, Vec2, Vec3, Numvec};
+use numvec::{Vec2f, Vec2, Numvec};
 use shader::{Shader, Uniform};
-use std::str;
 use mat4::Mat4;
 use std::vec::Vec;
 use std::ptr;
 use vbo::VertexBuffer;
-use wad::WadFile;
+use wad;
+use wad::util::{from_wad_height, from_wad_coords, no_lower_texture,
+                no_middle_texture, no_upper_texture, parse_child_id};
+use wad::types::*;
+
 
 static DRAW_WALLS : bool = true;
 static WIRE_FLOORS : bool = false;
@@ -15,7 +18,6 @@ static SINGLE_SEGMENT : i16 = -1;
 static SSECTOR_BSP_TOLERANCE : f32 = 1e-4;
 static SSECTOR_SEG_TOLERANCE : f32 = 0.1;
 
-pub type LevelName = [u8, ..8];
 
 pub struct Level {
     start_pos: Vec2f,
@@ -24,14 +26,15 @@ pub struct Level {
     vbo: VertexBuffer,
 }
 
+
 impl Level {
-    pub fn new(wad: &mut WadFile, name: &LevelName) -> Level {
-        let data = WadLevel::from_wad(wad, name);
+    pub fn new(wad: &mut wad::Archive, name: &LevelName) -> Level {
+        let data = wad::Level::from_archive(wad, name);
 
         let mut start_pos = Vec2::zero();
         for thing in data.things.iter() {
             if thing.thing_type == 1 {  // Player 1 start position.
-                start_pos = from_wad_coord2(thing.x, thing.y);
+                start_pos = from_wad_coords(thing.x, thing.y);
                 info!("Player start position: {}.", start_pos);
             }
         }
@@ -103,11 +106,11 @@ impl Line {
 }
 
 
-fn vbo_push_wall(vbo_data: &mut Vec<f32>, lvl: &WadLevel,
+fn vbo_push_wall(vbo_data: &mut Vec<f32>, lvl: &wad::Level,
                  seg: &WadSeg, (low, high): (WadCoord, WadCoord)) {
     if !DRAW_WALLS { return; }
     let (v1, v2) = (lvl.vertex(seg.start_vertex), lvl.vertex(seg.end_vertex));
-    let (low, high) = (from_wad_coord(low), from_wad_coord(high));
+    let (low, high) = (from_wad_height(low), from_wad_height(high));
     vbo_data.push(v1.x); vbo_data.push(low); vbo_data.push(v1.y);
     vbo_data.push(v2.x); vbo_data.push(low); vbo_data.push(v2.y);
     vbo_data.push(v1.x); vbo_data.push(high); vbo_data.push(v1.y);
@@ -116,26 +119,10 @@ fn vbo_push_wall(vbo_data: &mut Vec<f32>, lvl: &WadLevel,
     vbo_data.push(v1.x); vbo_data.push(high); vbo_data.push(v1.y);
 }
 
-fn parse_child_id(id: ChildId) -> (uint, bool) {
-    ((id & 0x7fff) as uint, id & 0x8000 != 0)
-}
 
-fn node_left_box(node: &WadNode) -> (Vec2f, Vec2f) {
-    (from_wad_coord2(node.left_x_min, node.left_y_min),
-     from_wad_coord2(node.left_x_max, node.left_y_max))
-}
-
-fn node_right_box(node: &WadNode) -> (Vec2f, Vec2f) {
-    (from_wad_coord2(node.right_x_min, node.right_y_min),
-     from_wad_coord2(node.right_x_max, node.right_y_max))
-}
-
-
-
-fn ssector_to_vbo(lvl: &WadLevel, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
+fn ssector_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
                   ssector: &WadSubsector) {
     let segs = lvl.ssector_segs(ssector);
-    let vert_indices : Vec<u16> = Vec::new();
 
     let mut points : Vec<Vec2f> = Vec::new();
     for l1 in lines.iter() {
@@ -237,8 +224,8 @@ fn ssector_to_vbo(lvl: &WadLevel, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
         } else {
            lvl.left_sidedef(line)
         });
-    let floor = from_wad_coord(sector.floor_height);
-    let ceil = from_wad_coord(sector.ceiling_height);
+    let floor = from_wad_height(sector.floor_height);
+    let ceil = from_wad_height(sector.ceiling_height);
 
     if WIRE_FLOORS {
         for p in [center].iter() {
@@ -275,41 +262,18 @@ fn ssector_to_vbo(lvl: &WadLevel, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
             vbo.push(v1.x); vbo.push(ceil); vbo.push(v1.y);
             vbo.push(v2.x); vbo.push(ceil); vbo.push(v2.y);
         }
-
-
-        //vbo.push(v1.x); vbo.push(floor); vbo.push(v1.y);
-        //vbo.push(v2.x); vbo.push(floor); vbo.push(v1.y);
-        //vbo.push(v1.x); vbo.push(floor); vbo.push(v2.y);
-        //vbo.push(v2.x); vbo.push(floor); vbo.push(v1.y);
-        //vbo.push(v2.x); vbo.push(floor); vbo.push(v2.y);
-        //vbo.push(v1.x); vbo.push(floor); vbo.push(v2.y);
-
     }
-
-    //vbo.push(v1.x); vbo.push(floor); vbo.push(v1.y);
-    //vbo.push(v2.x); vbo.push(floor); vbo.push(v1.y);
-    //vbo.push(v1.x); vbo.push(floor); vbo.push(v2.y);
-    //vbo.push(v2.x); vbo.push(floor); vbo.push(v1.y);
-    //vbo.push(v2.x); vbo.push(floor); vbo.push(v2.y);
-    //vbo.push(v1.x); vbo.push(floor); vbo.push(v2.y);
-
-    //vbo.push(v1.x); vbo.push(ceil); vbo.push(v1.y);
-    //vbo.push(v2.x); vbo.push(ceil); vbo.push(v1.y);
-    //vbo.push(v1.x); vbo.push(ceil); vbo.push(v2.y);
-    //vbo.push(v2.x); vbo.push(ceil); vbo.push(v1.y);
-    //vbo.push(v2.x); vbo.push(ceil); vbo.push(v2.y);
-    //vbo.push(v1.x); vbo.push(ceil); vbo.push(v2.y);
 }
 
 
 
-fn node_to_vbo(lvl: &WadLevel, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
+fn node_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
                node: &WadNode) {
     let (left, leaf_left) = parse_child_id(node.left);
     let (right, leaf_right) = parse_child_id(node.right);
     let partition = Line::from_origin_and_displace(
-        from_wad_coord2(node.line_x, node.line_y),
-        from_wad_coord2(node.step_x, node.step_y));
+        from_wad_coords(node.line_x, node.line_y),
+        from_wad_coords(node.step_x, node.step_y));
 
     lines.push(partition);
     if leaf_left {
@@ -334,7 +298,7 @@ fn node_to_vbo(lvl: &WadLevel, vbo: &mut Vec<f32>, lines: &mut Vec<Line>,
 }
 
 
-fn wad_to_vbo(lvl: &WadLevel) -> VertexBuffer {
+fn wad_to_vbo(lvl: &wad::Level) -> VertexBuffer {
     let mut vbo: Vec<f32> = Vec::with_capacity(lvl.linedefs.len() * 18);
     for seg in lvl.segs.iter() {
         let linedef = lvl.seg_linedef(seg);
@@ -394,204 +358,3 @@ fn wad_to_vbo(lvl: &WadLevel) -> VertexBuffer {
 }
 
 
-struct WadLevel {
-    things: Vec<WadThing>,
-    linedefs: Vec<WadLinedef>,
-    sidedefs: Vec<WadSidedef>,
-    vertices: Vec<WadVertex>,
-    segs: Vec<WadSeg>,
-    subsectors: Vec<WadSubsector>,
-    nodes: Vec<WadNode>,
-    sectors: Vec<WadSector>,
-}
-
-impl WadLevel {
-    pub fn from_wad(wad: &mut WadFile, name: &LevelName) -> WadLevel {
-        let start_index = wad.lump_index_by_name(name).unwrap();
-        let things = wad.lump_at::<WadThing>(start_index + 1);
-        let linedefs = wad.lump_at::<WadLinedef>(start_index + 2);
-        let sidedefs = wad.lump_at::<WadSidedef>(start_index + 3);
-        let vertices = wad.lump_at::<WadVertex>(start_index + 4);
-        let segs = wad.lump_at::<WadSeg>(start_index + 5);
-        let subsectors = wad.lump_at::<WadSubsector>(start_index + 6);
-        let nodes = wad.lump_at::<WadNode>(start_index + 7);
-        let sectors = wad.lump_at::<WadSector>(start_index + 8);
-
-        info!("Loaded level '{}':", str::from_utf8(name).unwrap());
-        info!("    {:4} things", things.len())
-        info!("    {:4} linedefs", linedefs.len())
-        info!("    {:4} sidedefs", sidedefs.len())
-        info!("    {:4} vertices", vertices.len())
-        info!("    {:4} segs", segs.len())
-        info!("    {:4} subsectors", subsectors.len())
-        info!("    {:4} nodes", nodes.len())
-        info!("    {:4} sectors", sectors.len())
-
-        WadLevel {
-            things: things,
-            linedefs: linedefs,
-            sidedefs: sidedefs,
-            vertices: vertices,
-            segs: segs,
-            subsectors: subsectors,
-            nodes: nodes,
-            sectors: sectors,
-        }
-    }
-
-    pub fn vertex(&self, id: VertexId) -> Vec2f {
-        from_wad_coord2(self.vertices[id as uint].x,
-                        self.vertices[id as uint].y)
-    }
-
-    pub fn seg_linedef<'a>(&'a self, seg: &WadSeg) -> &'a WadLinedef {
-        &self.linedefs[seg.linedef as uint]
-    }
-
-    pub fn seg_vertices(&self, seg: &WadSeg) -> (Vec2f, Vec2f) {
-        (self.vertex(seg.start_vertex), self.vertex(seg.end_vertex))
-    }
-
-    pub fn left_sidedef<'a>(&'a self, linedef: &WadLinedef)
-            -> &'a WadSidedef {
-        &self.sidedefs[linedef.left_side as uint]
-    }
-
-    pub fn right_sidedef<'a>(&'a self, linedef: &WadLinedef)
-            -> &'a WadSidedef {
-        &self.sidedefs[linedef.right_side as uint]
-    }
-
-    pub fn sidedef_sector<'a>(&'a self, sidedef: &WadSidedef) -> &'a WadSector {
-        &self.sectors[sidedef.sector as uint]
-    }
-
-    pub fn ssector_segs<'a>(&'a self, ssector: &WadSubsector) -> &'a [WadSeg] {
-        self.segs.slice(ssector.first_seg as uint,
-                        (ssector.first_seg as uint + ssector.num_segs as uint))
-    }
-}
-
-fn no_texture(name: &TextureName) -> bool { name[0] == b'-' }
-
-fn no_upper_texture(sidedef: &WadSidedef) -> bool {
-    no_texture(&sidedef.upper_texture)
-}
-fn no_middle_texture(sidedef: &WadSidedef) -> bool {
-    no_texture(&sidedef.middle_texture)
-}
-fn no_lower_texture(sidedef: &WadSidedef) -> bool {
-    no_texture(&sidedef.lower_texture)
-}
-
-fn from_wad_coord(x: WadCoord) -> f32 { (x as f32) / 32768.0 * 1000.0 }
-fn from_wad_coord2(x: WadCoord, y: WadCoord) -> Vec2f {
-    Vec2::new(-from_wad_coord(x), from_wad_coord(y))
-}
-
-fn sort_pair<T : PartialOrd>(a: T, b: T) -> (T, T) {
-    if a > b { (b, a) } else { (a, b) }
-}
-
-
-type LightLevel = i16;
-type LinedefFlags = u16;
-type LinedefType = u16;
-type SectorId = u16;
-type SectorTag = u16;
-type SectorType = u16;
-type SidedefId = i16;
-type SpecialType = u16;
-type TextureName = [u8, ..8];
-type ThingFlags = u16;
-type ThingType = u16;
-type VertexId = u16;
-type WadCoord = i16;
-type SegId = u16;
-type LinedefId = u16;
-type ChildId = u16;
-
-
-#[packed]
-#[repr(C)]
-struct WadVertex {
-    x: WadCoord,
-    y: WadCoord,
-}
-
-#[packed]
-#[repr(C)]
-struct WadLinedef {
-    start_vertex: VertexId,
-    end_vertex: VertexId,
-    flags: LinedefFlags,
-    special_type: SpecialType,
-    sector_tag: SectorTag,
-    right_side: SidedefId,
-    left_side: SidedefId,
-}
-
-#[packed]
-#[repr(C)]
-struct WadSidedef {
-    x_offset: WadCoord,
-    y_offset: WadCoord,
-    upper_texture: TextureName,
-    lower_texture: TextureName,
-    middle_texture: TextureName,
-    sector: SectorId,
-}
-
-#[packed]
-#[repr(C)]
-struct WadSector {
-    floor_height: WadCoord,
-    ceiling_height: WadCoord,
-    floor_texture: TextureName,
-    ceiling_texture: TextureName,
-    light: LightLevel,
-    sector_type: SectorType,
-    tag: SectorTag,
-}
-
-#[packed]
-#[repr(C)]
-struct WadSubsector {
-    num_segs: u16,
-    first_seg: SegId,
-}
-
-#[packed]
-#[repr(C)]
-struct WadSeg {
-    start_vertex: VertexId,
-    end_vertex: VertexId,
-    angle: u16,
-    linedef: LinedefId,
-    direction: u16,
-    offset: u16,
-}
-
-#[packed]
-#[repr(C)]
-struct WadNode {
-    line_x: WadCoord,
-    line_y: WadCoord,
-    step_x: WadCoord,
-    step_y: WadCoord,
-    right_y_max: WadCoord, right_y_min: WadCoord,
-    right_x_max: WadCoord, right_x_min: WadCoord,
-    left_y_max: WadCoord, left_y_min: WadCoord,
-    left_x_max: WadCoord, left_x_min: WadCoord,
-    right: ChildId, left: ChildId
-}
-
-#[packed]
-#[repr(C)]
-struct WadThing {
-    x: WadCoord,
-    y: WadCoord,
-    angle: WadCoord,
-    thing_type: ThingType,
-    flags: ThingFlags,
-}
