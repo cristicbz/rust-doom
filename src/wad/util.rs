@@ -1,7 +1,7 @@
 use std::mem;
 use std::slice::raw;
 use numvec::{Vec2, Vec2f};
-use super::types::{WadSidedef, WadCoord, WadInfo, TextureName, ChildId};
+use super::types::{WadCoord, WadInfo, WadName, ChildId};
 
 pub enum WadType { Initial, Patch }
 
@@ -44,7 +44,7 @@ pub fn name_from_str(name: &str) -> [u8, ..8] {
 }
 
 
-pub fn name_eq(name1: &[u8], name2: &[u8]) -> bool {
+pub fn name_eq(name1: &WadName, name2: &[u8]) -> bool {
     for i_byte in range(0, 8) {
         if i_byte == name1.len() { return i_byte == name2.len(); }
         if i_byte == name2.len() { return i_byte == name1.len(); }
@@ -56,28 +56,15 @@ pub fn name_eq(name1: &[u8], name2: &[u8]) -> bool {
 }
 
 
-pub fn name_eq_str(name: &[u8], str_name: &str) -> bool {
+pub fn name_eq_str(name: &WadName, str_name: &str) -> bool {
     name_eq(name, &name_from_str(str_name))
 }
 
 
-pub fn no_texture(name: &TextureName) -> bool { name[0] == b'-' }
-
-
-pub fn no_upper_texture(sidedef: &WadSidedef) -> bool {
-    no_texture(&sidedef.upper_texture)
+pub fn is_untextured(name: &WadName) -> bool { name[0] == b'-' && name[1] == 0 }
+pub fn is_sky_texture(_name: &WadName) -> bool {
+    false
 }
-
-
-pub fn no_middle_texture(sidedef: &WadSidedef) -> bool {
-    no_texture(&sidedef.middle_texture)
-}
-
-
-pub fn no_lower_texture(sidedef: &WadSidedef) -> bool {
-    no_texture(&sidedef.lower_texture)
-}
-
 
 pub fn from_wad_height(x: WadCoord) -> f32 { (x as f32) / 100.0 }
 

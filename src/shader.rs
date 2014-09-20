@@ -7,6 +7,7 @@ use std::vec::Vec;
 
 use check_gl;
 use mat4::Mat4;
+use numvec::Vec3f;
 
 pub struct Shader {
     program : Program,
@@ -50,6 +51,10 @@ impl Shader {
 
     pub fn set_uniform_f32(&self, uniform: Uniform, value: f32) {
         check_gl!(gl::Uniform1f(uniform.id, value));
+    }
+
+    pub fn set_uniform_vec3f(&self, uniform: Uniform, value: &Vec3f) {
+        check_gl_unsafe!(gl::Uniform3fv(uniform.id, 1, &value.x as *const f32));
     }
 
     pub fn set_uniform_mat4(&self, uniform: Uniform, value: &Mat4) {

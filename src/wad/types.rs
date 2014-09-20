@@ -6,7 +6,6 @@ pub type SectorTag = u16;
 pub type SectorType = u16;
 pub type SidedefId = i16;
 pub type SpecialType = u16;
-pub type TextureName = [u8, ..8];
 pub type ThingFlags = u16;
 pub type ThingType = u16;
 pub type VertexId = u16;
@@ -14,7 +13,7 @@ pub type WadCoord = i16;
 pub type SegId = u16;
 pub type LinedefId = u16;
 pub type ChildId = u16;
-pub type LevelName = [u8, ..8];
+pub type WadName = [u8, ..8];
 
 
 #[repr(C)]
@@ -72,9 +71,9 @@ pub struct WadLinedef {
 pub struct WadSidedef {
     pub x_offset: WadCoord,
     pub y_offset: WadCoord,
-    pub upper_texture: TextureName,
-    pub lower_texture: TextureName,
-    pub middle_texture: TextureName,
+    pub upper_texture: WadName,
+    pub lower_texture: WadName,
+    pub middle_texture: WadName,
     pub sector: SectorId,
 }
 
@@ -84,8 +83,8 @@ pub struct WadSidedef {
 pub struct WadSector {
     pub floor_height: WadCoord,
     pub ceiling_height: WadCoord,
-    pub floor_texture: TextureName,
-    pub ceiling_texture: TextureName,
+    pub floor_texture: WadName,
+    pub ceiling_texture: WadName,
     pub light: LightLevel,
     pub sector_type: SectorType,
     pub tag: SectorTag,
@@ -129,4 +128,27 @@ pub struct WadNode {
     pub left_x_min: WadCoord,
     pub right: ChildId,
     pub left: ChildId
+}
+
+
+#[packed]
+#[repr(C)]
+pub struct WadTextureHeader {
+    pub name: WadName,
+    pub masked: u32,
+    pub width: u16,
+    pub height: u16,
+    pub column_directory: u32,
+    pub num_patches: u16
+}
+
+
+#[packed]
+#[repr(C)]
+pub struct WadTexturePatchRef {
+    pub origin_x: u16,
+    pub origin_y: u16,
+    pub patch: u16,
+    pub stepdir: u16,
+    pub colormap: u16,
 }

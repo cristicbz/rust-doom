@@ -21,6 +21,7 @@ use player::Player;
 use sdl2::scancode;
 use std::default::Default;
 use numvec::Vec3;
+use wad::TextureDirectory;
 
 
 #[macro_escape]
@@ -85,6 +86,8 @@ impl Scene {
         let level_name = *wad.get_level_name(0);
         let level = Level::new(&mut wad, &level_name);
 
+        let textures = TextureDirectory::from_archive(&mut wad);
+
         check_gl!(gl::ClearColor(0.0, 0.1, 0.4, 0.0));
         check_gl!(gl::Enable(gl::DEPTH_TEST));
         check_gl!(gl::DepthFunc(gl::LESS));
@@ -101,13 +104,15 @@ impl Scene {
         self.player.update(delta_time, ctrl);
         self.level.render(
             &self.player.get_camera()
-            .multiply_transform(&Mat4::new_identity()));
+            .multiply_transform(&Mat4::new_identity()),
+            self.player.get_camera()
+            .get_position());
     }
 }
 
 fn main() {
     {
-        let window = create_opengl_window("thingy", 1920, 1080);
+        let window = create_opengl_window("thingy", 2560, 2560*9/16);
         let _gl_context = init_opengl(&window);
         let mut scene = Scene::new();
         let mut control = ctrl::GameController::new();

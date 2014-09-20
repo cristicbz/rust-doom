@@ -3,7 +3,7 @@ use std::str;
 use std::vec::Vec;
 use super::archive::Archive;
 use super::types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg,
-                   WadSubsector, WadNode, WadSector, VertexId, LevelName};
+                   WadSubsector, WadNode, WadSector, VertexId, WadName};
 use super::util::from_wad_coords;
 
 
@@ -30,7 +30,7 @@ pub struct Level {
 
 
 impl Level {
-    pub fn from_archive(wad: &mut Archive, name: &LevelName) -> Level {
+    pub fn from_archive(wad: &mut Archive, name: &WadName) -> Level {
         info!("Reading level data for '{}'...", str::from_utf8(name).unwrap());
         let start_index = wad.get_lump_index(name).expect("No such level.");
         let things = wad.read_lump(start_index + THINGS_OFFSET);

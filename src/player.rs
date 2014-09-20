@@ -46,7 +46,7 @@ pub struct Player {
 
 impl Player {
     pub fn new(bindings: PlayerBindings) -> Player {
-        let mut camera = Camera::new(60.0, 16.0 / 9.0, 0.1, 100.0);
+        let mut camera = Camera::new(65.0, 16.0 / 9.0, 0.1, 100.0);
         camera.set_yaw(3.1415926538);
 
         Player {

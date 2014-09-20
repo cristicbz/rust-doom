@@ -4,6 +4,7 @@ use std::io::{File, SeekSet};
 use std::slice::raw;
 use std::vec::Vec;
 use std::str;
+use std::ascii::ASCII_UPPER_MAP;
 
 use super::types::{WadLump, WadInfo};
 use super::util::{wad_type_from_info, read_binary, name_eq};
@@ -41,7 +42,11 @@ impl Archive {
 
         file.seek(header.info_table_offset as i64, SeekSet).unwrap();
         for i_lump in iter::range(0, header.num_lumps) {
-            let fileinfo = read_binary::<WadLump, _>(&mut file);
+            let mut fileinfo = read_binary::<WadLump, _>(&mut file);
+            for byte in fileinfo.name.mut_iter() {
+                (*byte) = ASCII_UPPER_MAP[*byte as uint];
+            }
+            let fileinfo = fileinfo;
             index_map.insert(Vec::from_slice(&fileinfo.name), lumps.len());
             lumps.push(LumpInfo { name: fileinfo.name,
                                   offset: fileinfo.file_pos as i64,
@@ -73,7 +78,11 @@ impl Archive {
     pub fn num_lumps(&self) -> uint { self.lumps.len() }
 
     pub fn get_lump_index(&self, name: &[u8, ..8]) -> Option<uint> {
-        self.index_map.find(&Vec::from_slice(name)).map(|x| *x)
+        let mut name = Vec::from_slice(name);
+        for byte in name.mut_iter() {
+            (*byte) = ASCII_UPPER_MAP[*byte as uint];
+        }
+        self.index_map.find(&name).map(|x| *x)
     }
 
     pub fn get_lump_name<'a>(&'a self, lump_index: uint) -> &'a [u8, ..8] {
@@ -82,7 +91,7 @@ impl Archive {
 
     pub fn read_lump_by_name<T: Copy>(&mut self, name: &[u8, ..8]) -> Vec<T> {
         let index = self.get_lump_index(name).unwrap_or_else(
-            || fail!("No such lump '{}'", str::from_utf8(name)));
+            || fail!("No such lump '{}'", str::from_utf8(name).unwrap()));
         self.read_lump(index)
     }
 

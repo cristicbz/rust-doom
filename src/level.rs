@@ -1,35 +1,43 @@
 use check_gl;
 use gl;
 use line::{Line2, Line2f};
-use numvec::{Vec2f, Vec2, Numvec};
+use numvec::{Vec2f, Vec2, Vec3f, Numvec};
 use shader::{Shader, Uniform};
 use mat4::Mat4;
 use std::vec::Vec;
 use std::ptr;
 use vbo::VertexBuffer;
 use wad;
-use wad::util::{from_wad_height, from_wad_coords, no_lower_texture,
-                no_middle_texture, no_upper_texture, parse_child_id};
+use wad::util::{from_wad_height, from_wad_coords, is_untextured, is_sky_texture,
+                parse_child_id};
 use wad::types::*;
+use libc::c_void;
 
 
 static DRAW_WALLS : bool = true;
 static WIRE_FLOORS : bool = false;
+static ZERO_FLOORS : bool = false;
 static SINGLE_SEGMENT : i16 = -1;
 static BSP_TOLERANCE : f32 = 1e-3;
 static SEG_TOLERANCE : f32 = 0.1;
+static RENDER_SKY : bool = true;
+
+fn should_render(name: &WadName) -> bool {
+    !is_untextured(name) && (RENDER_SKY | !is_sky_texture(name))
+}
 
 
 pub struct Level {
     start_pos: Vec2f,
     mvp_uniform: Uniform,
+    eye_uniform: Uniform,
     shader: Shader,
     vbo: VertexBuffer,
 }
 
 
 impl Level {
-    pub fn new(wad: &mut wad::Archive, name: &LevelName) -> Level {
+    pub fn new(wad: &mut wad::Archive, name: &WadName) -> Level {
         let data = wad::Level::from_archive(wad, name);
 
         let mut start_pos = Vec2::zero();
@@ -47,6 +55,7 @@ impl Level {
         Level {
             start_pos: start_pos,
             mvp_uniform: shader.get_uniform("mvp_transform").unwrap(),
+            eye_uniform: shader.get_uniform("eye_uniform").unwrap(),
             shader: shader,
             vbo: wad_to_vbo(&data)
         }
@@ -54,18 +63,23 @@ impl Level {
 
     pub fn get_start_pos<'a>(&'a self) -> &'a Vec2f { &self.start_pos }
 
-    pub fn render(&self, projection_view: &Mat4) {
-        //check_gl!(gl::Enable(gl::CULL_FACE));
+    pub fn render(&self, projection_view: &Mat4, eye: &Vec3f) {
+        check_gl!(gl::Enable(gl::CULL_FACE));
         self.shader.bind();
         self.shader.set_uniform_mat4(self.mvp_uniform, projection_view);
+        self.shader.set_uniform_vec3f(self.eye_uniform, eye);
         check_gl!(gl::EnableVertexAttribArray(0));
+        check_gl!(gl::EnableVertexAttribArray(1));
         self.vbo.bind();
         check_gl_unsafe!(gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE,
-                                                 0, ptr::null()));
+                                                 24, ptr::null()));
+        check_gl_unsafe!(gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE,
+                                                 24, 12 as *const c_void));
         check_gl!(gl::DrawArrays(gl::TRIANGLES, 0,
-                                 (self.vbo.len() / 3) as i32));
+                                 (self.vbo.len() / 6) as i32));
         self.vbo.unbind();
         check_gl!(gl::DisableVertexAttribArray(0));
+        check_gl!(gl::DisableVertexAttribArray(1));
     }
 }
 
@@ -74,13 +88,25 @@ fn vbo_push_wall(vbo_data: &mut Vec<f32>, lvl: &wad::Level,
                  seg: &WadSeg, (low, high): (WadCoord, WadCoord)) {
     if !DRAW_WALLS { return; }
     let (v1, v2) = (lvl.vertex(seg.start_vertex), lvl.vertex(seg.end_vertex));
+    let edge = (v2 - v1).normalized();
     let (low, high) = (from_wad_height(low), from_wad_height(high));
     vbo_data.push(v1.x); vbo_data.push(low); vbo_data.push(v1.y);
+    vbo_data.push(-edge.y); vbo_data.push(0.0); vbo_data.push(edge.x);
+
     vbo_data.push(v2.x); vbo_data.push(low); vbo_data.push(v2.y);
+    vbo_data.push(-edge.y); vbo_data.push(0.0); vbo_data.push(edge.x);
+
     vbo_data.push(v1.x); vbo_data.push(high); vbo_data.push(v1.y);
+    vbo_data.push(-edge.y); vbo_data.push(0.0); vbo_data.push(edge.x);
+
     vbo_data.push(v2.x); vbo_data.push(low); vbo_data.push(v2.y);
+    vbo_data.push(-edge.y); vbo_data.push(0.0); vbo_data.push(edge.x);
+
     vbo_data.push(v2.x); vbo_data.push(high); vbo_data.push(v2.y);
+    vbo_data.push(-edge.y); vbo_data.push(0.0); vbo_data.push(edge.x);
+
     vbo_data.push(v1.x); vbo_data.push(high); vbo_data.push(v1.y);
+    vbo_data.push(-edge.y); vbo_data.push(0.0); vbo_data.push(edge.x);
 }
 
 
@@ -167,19 +193,35 @@ fn ssector_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line2f>,
         } else {
            lvl.left_sidedef(line)
         });
-    let floor = from_wad_height(sector.floor_height);
+    let floor = if ZERO_FLOORS {
+        0.0
+    } else {
+        from_wad_height(sector.floor_height)
+    };
     let ceil = from_wad_height(sector.ceiling_height);
 
     if WIRE_FLOORS {
         for p in [center].iter() {
-            let v1 = p - Vec2::new(0.1, 0.1);
-            let v2 = p + Vec2::new(0.1, 0.1);
+            let v1 = p - Vec2::new(0.03, 0.03);
+            let v2 = p + Vec2::new(0.03, 0.03);
+
+            vbo.push(v1.x); vbo.push(floor); vbo.push(v2.y);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
+
+            vbo.push(v2.x); vbo.push(floor); vbo.push(v1.y);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
+
             vbo.push(v1.x); vbo.push(floor); vbo.push(v1.y);
-            vbo.push(v2.x); vbo.push(floor); vbo.push(v1.y);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
+
             vbo.push(v1.x); vbo.push(floor); vbo.push(v2.y);
-            vbo.push(v2.x); vbo.push(floor); vbo.push(v1.y);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
+
             vbo.push(v2.x); vbo.push(floor); vbo.push(v2.y);
-            vbo.push(v1.x); vbo.push(floor); vbo.push(v2.y);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
+
+            vbo.push(v2.x); vbo.push(floor); vbo.push(v1.y);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
         }
     }
 
@@ -187,23 +229,42 @@ fn ssector_to_vbo(lvl: &wad::Level, vbo: &mut Vec<f32>, lines: &mut Vec<Line2f>,
     for i in range(0, points.len()) {
         let (v1, v2) = (points[i % points.len()], points[(i + 1) % points.len()]);
         if WIRE_FLOORS {
-            let n = (v1 - v2).normal().normalized() * 0.03;
+            let t = 3.0;
+            let e = (v1 - v2).normalized() * 0.02;
+            let n = e.normal();
+            let (v1, v2) = (v1 - e, v2 + e);
+
+            vbo.push(v2.x + n.x*t); vbo.push(floor); vbo.push(v2.y + n.y*t);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
+            vbo.push(v1.x + n.x*t); vbo.push(floor); vbo.push(v1.y + n.y*t);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
+            vbo.push(v1.x + n.x); vbo.push(floor); vbo.push(v1.y + n.y);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
 
             vbo.push(v1.x + n.x); vbo.push(floor); vbo.push(v1.y + n.y);
-            vbo.push(v1.x + n.x*2.0); vbo.push(floor); vbo.push(v1.y + n.y*2.0);
-            vbo.push(v2.x + n.x*2.0); vbo.push(floor); vbo.push(v2.y + n.y*2.0);
-
-            vbo.push(v1.x + n.x); vbo.push(floor); vbo.push(v1.y + n.y);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
             vbo.push(v2.x + n.x); vbo.push(floor); vbo.push(v2.y + n.y);
-            vbo.push(v2.x + n.x*2.0); vbo.push(floor); vbo.push(v2.y + n.y*2.0);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
+            vbo.push(v2.x + n.x*t); vbo.push(floor); vbo.push(v2.y + n.y*t);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
         } else {
             vbo.push(v0.x); vbo.push(floor); vbo.push(v0.y);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
+
             vbo.push(v1.x); vbo.push(floor); vbo.push(v1.y);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
+
             vbo.push(v2.x); vbo.push(floor); vbo.push(v2.y);
+            vbo.push(0.0); vbo.push(1.0); vbo.push(0.0);
+
+            vbo.push(v2.x); vbo.push(ceil); vbo.push(v2.y);
+            vbo.push(0.0); vbo.push(-1.0); vbo.push(0.0);
+
+            vbo.push(v1.x); vbo.push(ceil); vbo.push(v1.y);
+            vbo.push(0.0); vbo.push(-1.0); vbo.push(0.0);
 
             vbo.push(v0.x); vbo.push(ceil); vbo.push(v0.y);
-            vbo.push(v1.x); vbo.push(ceil); vbo.push(v1.y);
-            vbo.push(v2.x); vbo.push(ceil); vbo.push(v2.y);
+            vbo.push(0.0); vbo.push(-1.0); vbo.push(0.0);
         }
     }
 }
@@ -248,14 +309,14 @@ fn wad_to_vbo(lvl: &wad::Level) -> VertexBuffer {
         if linedef.left_side == -1 {
             let side = lvl.right_sidedef(linedef);
             let sector = lvl.sidedef_sector(side);
-            if !no_middle_texture(side) {
+            if should_render(&side.middle_texture) {
                 vbo_push_wall(&mut vbo, lvl, seg,
                               (sector.floor_height, sector.ceiling_height));
             }
         } else if linedef.right_side == -1 {
             let side = lvl.left_sidedef(linedef);
             let sector = lvl.sidedef_sector(side);
-            if !no_middle_texture(side) {
+            if should_render(&side.middle_texture) {
                 vbo_push_wall(&mut vbo, lvl, seg,
                               (sector.floor_height, sector.ceiling_height));
             }
@@ -268,29 +329,29 @@ fn wad_to_vbo(lvl: &wad::Level) -> VertexBuffer {
             let (lceil, rceil) = (lsect.ceiling_height, rsect.ceiling_height);
 
             if lfloor < rfloor {
-                if !no_lower_texture(lside) {
+                if should_render(&lside.lower_texture) {
                     vbo_push_wall(&mut vbo, lvl, seg, (lfloor, rfloor))
                 }
             } else if lfloor > rfloor {
-                if !no_lower_texture(rside) {
+                if should_render(&rside.lower_texture) {
                     vbo_push_wall(&mut vbo, lvl, seg, (rfloor, lfloor))
                 }
             }
 
             if lceil < rceil {
-                if !no_upper_texture(rside) {
+                if should_render(&rside.upper_texture) {
                     vbo_push_wall(&mut vbo, lvl, seg, (lceil, rceil))
                 }
             } else if lceil > rceil {
-                if !no_upper_texture(lside) {
+                if should_render(&lside.upper_texture) {
                     vbo_push_wall(&mut vbo, lvl, seg, (rceil, lceil))
                 }
             }
 
-            if !no_middle_texture(lside) {
+            if should_render(&lside.middle_texture) {
                 vbo_push_wall(&mut vbo, lvl, seg, (lfloor, lceil));
             }
-            if !no_middle_texture(rside) {
+            if should_render(&rside.middle_texture) {
                 vbo_push_wall(&mut vbo, lvl, seg, (rfloor, rceil));
             }
         }
