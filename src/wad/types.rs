@@ -1,3 +1,7 @@
+use std::fmt;
+use std::fmt::Show;
+use std::str;
+
 pub type LightLevel = i16;
 pub type LinedefFlags = u16;
 pub type LinedefType = u16;
@@ -34,7 +38,7 @@ pub struct WadLump {
 }
 
 
-#[packed]
+#[repr(packed)]
 #[repr(C)]
 pub struct WadThing {
     pub x: WadCoord,
@@ -45,7 +49,7 @@ pub struct WadThing {
 }
 
 
-#[packed]
+#[repr(packed)]
 #[repr(C)]
 pub struct WadVertex {
     pub x: WadCoord,
@@ -53,7 +57,7 @@ pub struct WadVertex {
 }
 
 
-#[packed]
+#[repr(packed)]
 #[repr(C)]
 pub struct WadLinedef {
     pub start_vertex: VertexId,
@@ -66,7 +70,7 @@ pub struct WadLinedef {
 }
 
 
-#[packed]
+#[repr(packed)]
 #[repr(C)]
 pub struct WadSidedef {
     pub x_offset: WadCoord,
@@ -78,7 +82,7 @@ pub struct WadSidedef {
 }
 
 
-#[packed]
+#[repr(packed)]
 #[repr(C)]
 pub struct WadSector {
     pub floor_height: WadCoord,
@@ -91,7 +95,7 @@ pub struct WadSector {
 }
 
 
-#[packed]
+#[repr(packed)]
 #[repr(C)]
 pub struct WadSubsector {
     pub num_segs: u16,
@@ -99,7 +103,7 @@ pub struct WadSubsector {
 }
 
 
-#[packed]
+#[repr(packed)]
 #[repr(C)]
 pub struct WadSeg {
     pub start_vertex: VertexId,
@@ -111,7 +115,7 @@ pub struct WadSeg {
 }
 
 
-#[packed]
+#[repr(packed)]
 #[repr(C)]
 pub struct WadNode {
     pub line_x: WadCoord,
@@ -131,8 +135,8 @@ pub struct WadNode {
 }
 
 
-#[packed]
 #[repr(C)]
+#[repr(packed)]
 pub struct WadTextureHeader {
     pub name: WadName,
     pub masked: u32,
@@ -143,12 +147,22 @@ pub struct WadTextureHeader {
 }
 
 
-#[packed]
+#[deriving(Show)]
+#[repr(packed)]
 #[repr(C)]
 pub struct WadTexturePatchRef {
-    pub origin_x: u16,
-    pub origin_y: u16,
+    pub origin_x: i16,
+    pub origin_y: i16,
     pub patch: u16,
     pub stepdir: u16,
     pub colormap: u16,
+}
+
+impl Show for WadTextureHeader {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter,
+               "[name={}, width={}, height={}, patches={}]",
+               str::from_utf8(self.name).unwrap_or("~~~~~~~"),
+               self.width, self.height, self.num_patches)
+    }
 }

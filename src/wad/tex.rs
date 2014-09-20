@@ -136,7 +136,11 @@ impl TextureDirectory {
         for lump_name in TEXTURE_LUMP_NAMES.iter() {
             let lump_index = match wad.get_lump_index(lump_name) {
                 Some(i) => i,
-                None => continue
+                None => {
+                    info!("     0 textures in {}",
+                          str::from_utf8(lump_name).unwrap());
+                    continue
+                }
             };
 
             let lump_buffer = wad.read_lump(lump_index);
