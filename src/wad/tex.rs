@@ -52,6 +52,8 @@ impl TextureDirectory {
 
         let palettes = try!(read_palettes(wad));
         let colormaps = try!(read_colormaps(wad));
+        info!("  {:4} palettes", palettes.len());
+        info!("  {:4} colormaps", colormaps.len());
 
         Ok(TextureDirectory {
             patches: patches,
@@ -84,6 +86,12 @@ impl TextureDirectory {
 
 static PNAMES_LUMP_NAME: &'static [u8, ..8] =
     &[b'P', b'N', b'A', b'M', b'E', b'S', b'\0', b'\0'];
+
+static PLAYPAL_LUMP_NAME: &'static [u8, ..8] =
+    &[b'P', b'L', b'A', b'Y', b'P', b'A', b'L', b'\0'];
+
+static COLORMAP_LUMP_NAME: &'static [u8, ..8] =
+    &[b'C', b'O', b'L', b'O', b'R', b'M', b'A', b'P'];
 
 static TEXTURE_LUMP_NAMES: &'static [[u8, ..8]] =
     &[[b'T', b'E', b'X', b'T', b'U', b'R', b'E', b'1'],
@@ -157,10 +165,10 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
 
 
 fn read_palettes(wad: &mut Archive) -> Result<Vec<Palette>, String> {
-    Ok(Vec::new())
+    Ok(wad.read_lump_by_name(PLAYPAL_LUMP_NAME))
 }
 
 
 fn read_colormaps(wad: &mut Archive) -> Result<Vec<Colormap>, String> {
-    Ok(Vec::new())
+    Ok(wad.read_lump_by_name(COLORMAP_LUMP_NAME))
 }
