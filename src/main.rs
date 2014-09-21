@@ -1,3 +1,4 @@
+#![feature(tuple_indexing)]
 #![feature(macro_rules)]
 #![feature(phase)]
 #![feature(globs)]
