@@ -36,6 +36,10 @@ impl Shader {
         check_gl!(gl::UseProgram(self.program.id));
     }
 
+    pub fn unbind(&self) {
+        check_gl!(gl::UseProgram(0));
+    }
+
     pub fn get_uniform(&self, name: &str) -> Option<Uniform> {
         match name.with_c_str(|c_str| {
             check_gl_unsafe!(gl::GetUniformLocation(self.program.id, c_str))

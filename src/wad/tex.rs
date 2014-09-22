@@ -27,6 +27,12 @@ macro_rules! io_try(
 impl TextureDirectory {
     pub fn from_archive(wad: &mut Archive) -> Result<TextureDirectory, String> {
         info!("Reading texture directory...");
+        // Read palettes & colormaps.
+        let palettes = wad.read_lump_by_name(PLAYPAL_LUMP_NAME);
+        let colormaps = wad.read_lump_by_name(COLORMAP_LUMP_NAME);
+        info!("  {:4} palettes", palettes.len());
+        info!("  {:4} colormaps", colormaps.len());
+
         // Read patches.
         let patches = try!(read_patches(wad));
         info!("  {:4} patches", patches.len());
@@ -49,11 +55,6 @@ impl TextureDirectory {
                   num_textures, str::from_utf8(lump_name).unwrap());
         }
         let textures = textures;
-
-        let palettes = try!(read_palettes(wad));
-        let colormaps = try!(read_colormaps(wad));
-        info!("  {:4} palettes", palettes.len());
-        info!("  {:4} colormaps", colormaps.len());
 
         Ok(TextureDirectory {
             patches: patches,
@@ -161,14 +162,4 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
         textures.insert(Vec::from_slice(header.name), image);
     }
     Ok(num_textures)
-}
-
-
-fn read_palettes(wad: &mut Archive) -> Result<Vec<Palette>, String> {
-    Ok(wad.read_lump_by_name(PLAYPAL_LUMP_NAME))
-}
-
-
-fn read_colormaps(wad: &mut Archive) -> Result<Vec<Colormap>, String> {
-    Ok(wad.read_lump_by_name(COLORMAP_LUMP_NAME))
 }

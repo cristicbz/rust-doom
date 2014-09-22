@@ -77,6 +77,13 @@ impl Level {
         (self.vertex(seg.start_vertex), self.vertex(seg.end_vertex))
     }
 
+    pub fn seg_sector<'a>(&'a self, seg: &WadSeg) -> &'a WadSector {
+        let line = self.seg_linedef(seg);
+        let side = if seg.direction == 0 { self.right_sidedef(line) }
+                   else { self.left_sidedef(line) };
+        self.sidedef_sector(side)
+    }
+
     pub fn left_sidedef<'a>(&'a self, linedef: &WadLinedef)
             -> &'a WadSidedef {
         &self.sidedefs[linedef.left_side as uint]
