@@ -11,7 +11,6 @@ extern crate gl;
 extern crate libc;
 extern crate native;
 extern crate time;
-extern crate zmq;
 
 
 use ctrl::GameController;
@@ -27,14 +26,12 @@ use wad::TextureDirectory;
 
 #[macro_escape]
 pub mod check_gl;
-pub mod async_term;
 pub mod camera;
 pub mod ctrl;
 pub mod mat4;
 pub mod numvec;
 pub mod player;
 pub mod shader;
-pub mod shlex;
 pub mod wad;
 pub mod level;
 pub mod vbo;

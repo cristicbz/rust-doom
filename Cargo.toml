@@ -1,13 +1,11 @@
 [package]
-name = "rs-thingy"
-version = "0.0.1"
+name = "rs-doom"
+version = "0.0.2"
 authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 
 [dependencies.sdl2]
-git = "https://github.com/AngryLawyer/rust-sdl2"
+git = "https://github.com/cristicbz/rust-sdl2"
+branch = "private_in_exported_fix"
 
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"
-
-[dependencies.zmq]
-git = "https://github.com/cristicbz/rust-zmq"
