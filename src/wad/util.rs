@@ -2,6 +2,7 @@ use std::mem;
 use std::slice::raw;
 use numvec::{Vec2, Vec2f};
 use super::types::{WadCoord, WadInfo, WadName, ChildId};
+use std::ascii::ASCII_LOWER_MAP;
 
 pub enum WadType { Initial, Patch }
 
@@ -31,6 +32,14 @@ pub fn read_binary<T : Copy, R : Reader>(reader : &mut R) -> T {
     loaded
 }
 
+
+pub fn lower_name(name: &[u8]) -> Vec<u8> {
+    let mut name = Vec::from_slice(name);
+    for c in name.mut_iter() {
+        *c = ASCII_LOWER_MAP[*c as uint];
+    }
+    name
+}
 
 pub fn name_from_str(name: &str) -> [u8, ..8] {
     let bytes = name.as_bytes();

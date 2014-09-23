@@ -39,6 +39,7 @@ pub mod wad;
 pub mod level;
 pub mod vbo;
 pub mod line;
+pub mod texture;
 
 fn create_opengl_window(title : &str,
                         width : int,
@@ -84,10 +85,10 @@ struct Scene {
 impl Scene {
     fn new() -> Scene {
         let mut wad = wad::Archive::open(&Path::new("doom1.wad")).unwrap();
+        let textures = TextureDirectory::from_archive(&mut wad).unwrap();
         let level_name = *wad.get_level_name(0);
-        let level = Level::new(&mut wad, &level_name);
+        let level = Level::new(&mut wad, &textures, &level_name);
 
-        let textures = TextureDirectory::from_archive(&mut wad);
 
         check_gl!(gl::ClearColor(0.0, 0.1, 0.4, 0.0));
         check_gl!(gl::Enable(gl::DEPTH_TEST));
@@ -105,15 +106,13 @@ impl Scene {
         self.player.update(delta_time, ctrl);
         self.level.render(
             &self.player.get_camera()
-            .multiply_transform(&Mat4::new_identity()),
-            self.player.get_camera()
-            .get_position());
+            .multiply_transform(&Mat4::new_identity()));
     }
 }
 
 fn main() {
     {
-        let window = create_opengl_window("thingy", 2560, 2560*9/16);
+        let window = create_opengl_window("thingy", 1600, 900);
         let _gl_context = init_opengl(&window);
         let mut scene = Scene::new();
         let mut control = ctrl::GameController::new();

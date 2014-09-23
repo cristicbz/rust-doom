@@ -6,20 +6,22 @@ use shader::{Shader, Uniform};
 use mat4::Mat4;
 use std::vec::Vec;
 use std::str;
-use std::string::String;
-use std::ptr;
 use vbo::VertexBuffer;
 use wad;
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, is_sky_texture,
-                parse_child_id};
+                parse_child_id, lower_name};
+use wad::tex::TextureDirectory;
+use wad::tex::Bounds;
 use wad::types::*;
 use libc::c_void;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
+use std::hash::sip::SipHasher;
+use std::mem;
+use texture::Texture;
 
 
 static DRAW_WALLS : bool = true;
 static WIRE_FLOORS : bool = false;
-static ZERO_FLOORS : bool = false;
 static BSP_TOLERANCE : f32 = 1e-3;
 static SEG_TOLERANCE : f32 = 0.1;
 static RENDER_SKY : bool = true;
@@ -28,24 +30,36 @@ fn should_render(name: &WadName) -> bool {
     !is_untextured(name) && (RENDER_SKY | !is_sky_texture(name))
 }
 
-
 pub struct Level {
     start_pos: Vec2f,
 
     flat_shader: Shader,
-    flat_uniform_transform: Uniform,
-    flat_uniform_eye: Uniform,
+    flat_u_transform: Uniform,
+    flat_u_palette: Uniform,
+    flat_utexture: Uniform,
     flats_vbo: VertexBuffer,
 
     wall_shader: Shader,
-    wall_uniform_transform: Uniform,
-    wall_uniform_eye: Uniform,
+    wall_u_transform: Uniform,
+    wall_u_atlas_size: Uniform,
+    wall_u_atlas: Uniform,
+    wall_u_palette: Uniform,
     walls_vbo: VertexBuffer,
+
+    palette: Texture,
+    flat_atlas: Texture,
+    wall_texture_atlas: Texture,
 }
 
+macro_rules! offset_of(
+    ($T:ty, $m:ident) => ((&((*(0 as *const $T)).$m))
+                          as *const _ as *const c_void)
+)
 
 impl Level {
-    pub fn new(wad: &mut wad::Archive, name: &WadName) -> Level {
+    pub fn new(wad: &mut wad::Archive,
+               textures: &TextureDirectory,
+               name: &WadName) -> Level {
         let data = wad::Level::from_archive(wad, name);
         info!("Building level {}...", str::from_utf8(name));
 
@@ -57,16 +71,31 @@ impl Level {
             }
         }
 
-        let mut textures = HashSet::new();
-        for sidedef in data.sidedefs.iter() {
-            textures.insert(String::from_str(
-                    str::from_utf8(sidedef.upper_texture).unwrap()));
-            textures.insert(String::from_str(
-                    str::from_utf8(sidedef.lower_texture).unwrap()));
-            textures.insert(String::from_str(
-                    str::from_utf8(sidedef.middle_texture).unwrap()));
+        let mut flats = HashSet::with_hasher(SipHasher::new());
+        for sector in data.sectors.iter() {
+            flats.insert(Vec::from_slice(sector.floor_texture));
+            flats.insert(Vec::from_slice(sector.ceiling_texture));
         }
-        info!("  {} static textures.", textures.len());
+        let (flat_atlas, flat_lookup) =
+            textures.build_flat_atlas(flats.len(), flats.iter()
+                                                        .map(|x| x.as_slice()));
+        let mut walls = HashSet::with_hasher(SipHasher::new());
+        for sidedef in data.sidedefs.iter() {
+            if should_render(&sidedef.upper_texture) {
+                walls.insert(Vec::from_slice(sidedef.upper_texture));
+            }
+            if should_render(&sidedef.middle_texture) {
+                walls.insert(Vec::from_slice(sidedef.middle_texture));
+            }
+            if should_render(&sidedef.lower_texture) {
+                walls.insert(Vec::from_slice(sidedef.lower_texture));
+            }
+        }
+        let (wall_texture_atlas, wall_lookup) =
+            textures.build_wall_atlas(walls.iter().map(|x| x.as_slice()));
+
+        let builder = VboBuilder::from_wad(
+            &data, &flat_lookup, &wall_lookup);
 
         let flat_shader = Shader::new_from_files(
             &Path::new("src/shaders/flat.vertex.glsl"),
@@ -76,95 +105,156 @@ impl Level {
             &Path::new("src/shaders/wall.vertex.glsl"),
             &Path::new("src/shaders/wall.fragment.glsl")).unwrap();
 
-        let builder = VboBuilder::from_wad(&data);
-
         Level {
             start_pos: start_pos,
 
-            flat_uniform_transform: flat_shader.get_uniform("u_transform").unwrap(),
-            flat_uniform_eye: flat_shader.get_uniform("u_eye").unwrap(),
+            flat_u_palette: flat_shader.expect_uniform("u_palette"),
+            flat_utexture: flat_shader.expect_uniform("u_texture"),
+            flat_u_transform: flat_shader.expect_uniform("u_transform"),
             flat_shader: flat_shader,
             flats_vbo: builder.bake_flats(),
 
-            wall_uniform_transform: wall_shader.get_uniform("u_transform").unwrap(),
-            wall_uniform_eye: wall_shader.get_uniform("u_eye").unwrap(),
+            wall_u_transform: wall_shader.expect_uniform("u_transform"),
+            wall_u_atlas_size: wall_shader.expect_uniform("u_atlas_size"),
+            wall_u_atlas: wall_shader.expect_uniform("u_atlas"),
+            wall_u_palette: wall_shader.expect_uniform("u_palette"),
             wall_shader: wall_shader,
+            wall_texture_atlas: wall_texture_atlas,
             walls_vbo: builder.bake_walls(),
+
+            palette: textures.build_palette_texture(0, 0, 31),
+            flat_atlas: flat_atlas,
         }
     }
 
     pub fn get_start_pos<'a>(&'a self) -> &'a Vec2f { &self.start_pos }
 
-    pub fn render_flats(&self, projection_view: &Mat4, eye: &Vec3f) {
+    pub fn render_flats(&self, projection_view: &Mat4) {
+        self.palette.bind(gl::TEXTURE0);
+        self.flat_atlas.bind(gl::TEXTURE1);
+
         self.flat_shader.bind();
-        self.flat_shader.set_uniform_mat4(self.flat_uniform_transform,
+        self.flat_shader.set_uniform_i32(self.flat_u_palette, 0);
+        self.flat_shader.set_uniform_i32(self.flat_utexture, 1);
+        self.flat_shader.set_uniform_mat4(self.flat_u_transform,
                                           projection_view);
-        self.flat_shader.set_uniform_vec3f(self.flat_uniform_eye, eye);
         check_gl!(gl::EnableVertexAttribArray(0));
         check_gl!(gl::EnableVertexAttribArray(1));
+        check_gl!(gl::EnableVertexAttribArray(2));
         self.flats_vbo.bind();
-        check_gl_unsafe!(gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE,
-                                                 24, ptr::null()));
-        check_gl_unsafe!(gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE,
-                                                 24, 12 as *const c_void));
+
+        let stride = mem::size_of::<FlatVertex>() as i32;
+        let pos_offset = 0 as *const c_void;
+        let offsets_offset = 12 as *const c_void;
+        let brightness_offset = 20 as *const c_void;
+        check_gl_unsafe!(gl::VertexAttribPointer(
+                0, 3, gl::FLOAT, gl::FALSE, stride, pos_offset));
+        check_gl_unsafe!(gl::VertexAttribPointer(
+                1, 2, gl::FLOAT, gl::FALSE, stride, offsets_offset));
+        check_gl_unsafe!(gl::VertexAttribPointer(
+                2, 1, gl::FLOAT, gl::FALSE, stride, brightness_offset));
+
         check_gl!(gl::DrawArrays(gl::TRIANGLES, 0,
                                  self.flats_vbo.len() as i32));
         self.flats_vbo.unbind();
         check_gl!(gl::DisableVertexAttribArray(0));
         check_gl!(gl::DisableVertexAttribArray(1));
+        check_gl!(gl::DisableVertexAttribArray(2));
         self.flat_shader.unbind();
+
+        self.flat_atlas.unbind(gl::TEXTURE1);
+        self.palette.unbind(gl::TEXTURE0);
     }
 
-    pub fn render_walls(&self, projection_view: &Mat4, eye: &Vec3f) {
+    pub fn render_walls(&self, projection_view: &Mat4) {
+        self.palette.bind(gl::TEXTURE0);
+        self.wall_texture_atlas.bind(gl::TEXTURE1);
         self.wall_shader.bind();
-        self.wall_shader.set_uniform_mat4(self.flat_uniform_transform,
+        self.wall_shader.set_uniform_mat4(self.wall_u_transform,
                                           projection_view);
-        self.wall_shader.set_uniform_vec3f(self.flat_uniform_eye, eye);
+        self.wall_shader.set_uniform_i32(self.wall_u_palette, 0);
+        self.wall_shader.set_uniform_i32(self.wall_u_atlas, 1);
+        self.wall_shader.set_uniform_f32(
+            self.wall_u_atlas_size, self.wall_texture_atlas.get_width() as f32);
+
         check_gl!(gl::EnableVertexAttribArray(0));
         check_gl!(gl::EnableVertexAttribArray(1));
+        check_gl!(gl::EnableVertexAttribArray(2));
+        check_gl!(gl::EnableVertexAttribArray(3));
+        check_gl!(gl::EnableVertexAttribArray(4));
         self.walls_vbo.bind();
-        check_gl_unsafe!(gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE,
-                                                 24, ptr::null()));
-        check_gl_unsafe!(gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE,
-                                                 24, 12 as *const c_void));
+
+        let stride = mem::size_of::<WallVertex>() as i32;
+        check_gl_unsafe!(
+            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, stride,
+                                    offset_of!(WallVertex, pos)));
+        check_gl_unsafe!(
+            gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, stride,
+                                    offset_of!(WallVertex, tile_uv)));
+        check_gl_unsafe!(
+            gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, stride,
+                                    offset_of!(WallVertex, atlas_uv)));
+        check_gl_unsafe!(
+            gl::VertexAttribPointer(3, 1, gl::FLOAT, gl::FALSE, stride,
+                                    offset_of!(WallVertex, tile_width)));
+        check_gl_unsafe!(
+            gl::VertexAttribPointer(4, 1, gl::FLOAT, gl::FALSE, stride,
+                                    offset_of!(WallVertex, brightness)));
         check_gl!(gl::DrawArrays(gl::TRIANGLES, 0,
                                  self.walls_vbo.len() as i32));
         self.walls_vbo.unbind();
         check_gl!(gl::DisableVertexAttribArray(0));
         check_gl!(gl::DisableVertexAttribArray(1));
+        check_gl!(gl::DisableVertexAttribArray(2));
+        check_gl!(gl::DisableVertexAttribArray(3));
+        check_gl!(gl::DisableVertexAttribArray(4));
         self.wall_shader.unbind();
+
+        self.palette.unbind(gl::TEXTURE0);
+        self.wall_texture_atlas.unbind(gl::TEXTURE1);
     }
 
-    pub fn render(&self, projection_view: &Mat4, eye: &Vec3f) {
+    pub fn render(&self, projection_view: &Mat4) {
         //check_gl!(gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE));
         check_gl!(gl::Enable(gl::CULL_FACE));
-        self.render_flats(projection_view, eye);
-        self.render_walls(projection_view, eye);
+        self.render_flats(projection_view);
+        self.render_walls(projection_view);
     }
 }
 
 #[repr(packed)]
 struct FlatVertex {
     pub pos: Vec3f,
-    pub normal: Vec3f,
+    pub offsets: Vec2f,
+    pub brightness: f32,
 }
 
 #[repr(packed)]
 struct WallVertex {
     pub pos: Vec3f,
-    pub normal: Vec3f,
+    pub tile_uv: Vec2f,
+    pub atlas_uv: Vec2f,
+    pub tile_width: f32,
+    pub brightness: f32,
 }
 
 pub struct VboBuilder<'a> {
     wad: &'a wad::Level,
+    flat_lookup: &'a HashMap<Vec<u8>, Vec2f>,
+    wall_lookup: &'a HashMap<Vec<u8>, Bounds>,
     flat_data: Vec<FlatVertex>,
     wall_data: Vec<WallVertex>,
 }
 
 impl<'a> VboBuilder<'a> {
-    pub fn from_wad(lvl: &'a wad::Level) -> VboBuilder<'a> {
+    pub fn from_wad(lvl: &'a wad::Level,
+                    flat_lookup: &'a HashMap<Vec<u8>, Vec2f>,
+                    wall_lookup: &'a HashMap<Vec<u8>, Bounds>)
+            -> VboBuilder<'a> {
         let mut new = VboBuilder { wad: lvl,
                                    wall_data: Vec::new(),
+                                   flat_lookup: flat_lookup,
+                                   wall_lookup: wall_lookup,
                                    flat_data: Vec::new() };
         new.push_node(lvl.nodes.last().unwrap(), &mut Vec::new());
         new
@@ -181,134 +271,147 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn push_wall_seg(&mut self, seg: &WadSeg) {
-        let lvl = self.wad;
-        let linedef = lvl.seg_linedef(seg);
-        if linedef.left_side == -1 {
-            let side = lvl.right_sidedef(linedef);
-            if should_render(&side.middle_texture) {
-                let sector = lvl.sidedef_sector(side);
-                self.push_seg(seg,
-                              (sector.floor_height, sector.ceiling_height));
-            }
-        } else if linedef.right_side == -1 {
-            let side = lvl.left_sidedef(linedef);
-            if should_render(&side.middle_texture) {
-                let sector = lvl.sidedef_sector(side);
-                self.push_seg(seg,
-                              (sector.floor_height, sector.ceiling_height));
-            }
+        let wad = self.wad;
+        let side = wad.seg_sidedef(seg);
+        let sector = wad.seg_sector(seg);
+        let (floor, ceil) = (sector.floor_height, sector.ceiling_height);
+
+        let back_sector = match wad.seg_back_sector(seg) {
+            None => {
+                self.push_seg(
+                    seg, (floor, ceil), sector.light, &side.middle_texture);
+                return
+            },
+            Some(s) => s
+        };
+
+        let back_floor = back_sector.floor_height;
+        let back_ceil = back_sector.ceiling_height;
+
+        let floor = if back_floor > floor {
+            self.push_seg(seg, (floor, back_floor), sector.light,
+                          &side.lower_texture);
+            back_floor
         } else {
-            let lside = lvl.left_sidedef(linedef);
-            let rside = lvl.right_sidedef(linedef);
-            let lsect = lvl.sidedef_sector(lside);
-            let rsect = lvl.sidedef_sector(rside);
-            let (lfloor, rfloor) = (lsect.floor_height, rsect.floor_height);
-            let (lceil, rceil) = (lsect.ceiling_height, rsect.ceiling_height);
+            floor
+        };
+        let ceil = if back_ceil < ceil {
+            self.push_seg(seg, (back_ceil, ceil), sector.light,
+                          &side.upper_texture);
+            back_ceil
+        } else {
+            ceil
+        };
+        self.push_seg(seg, (floor, ceil), sector.light, &side.middle_texture);
 
-            if lfloor < rfloor {
-                if should_render(&lside.lower_texture) {
-                    self.push_seg(seg, (lfloor, rfloor));
-                }
-            } else if lfloor > rfloor {
-                if should_render(&rside.lower_texture) {
-                    self.push_seg(seg, (rfloor, lfloor));
-                }
-            }
-
-            if lceil < rceil {
-                if should_render(&rside.upper_texture) {
-                    self.push_seg(seg, (lceil, rceil))
-                }
-            } else if lceil > rceil {
-                if should_render(&lside.upper_texture) {
-                    self.push_seg(seg, (rceil, lceil))
-                }
-            }
-
-            if should_render(&lside.middle_texture) {
-                self.push_seg(seg, (lfloor, lceil));
-            }
-            if should_render(&rside.middle_texture) {
-                self.push_seg(seg, (rfloor, rceil));
-            }
-        }
     }
 
-    fn flat_vertex(&mut self, x: f32, y: f32, z: f32, normal_y: f32) {
+    fn flat_vertex(&mut self, x: f32, y: f32, z: f32,
+                   brightness: f32, offsets: &Vec2f) {
         self.flat_data.push(FlatVertex {
-            pos: Vec3::new(x, y, z), normal: Vec3::new(0.0, normal_y, 0.0) });
-    }
-
-    fn wall_vertex(&mut self, xz: &Vec2f, y: f32, normal: &Vec2f) {
-        self.wall_data.push(WallVertex {
-            pos: Vec3::new(xz.x, y, xz.y),
-            normal: Vec3::new(normal.x, 0.0, normal.y)
+            pos: Vec3::new(x, y, z),
+            brightness: brightness,
+            offsets: *offsets
         });
     }
 
-    fn wire_floor(&mut self, sector: &WadSector, points: &[Vec2f]) {
-        let center = polygon_center(points);
-        let v1 = center - Vec2::new(0.03, 0.03);
-        let v2 = center + Vec2::new(0.03, 0.03);
-        let y = if !ZERO_FLOORS { from_wad_height(sector.floor_height) }
-                else { 0.0 };
+    fn wall_vertex(&mut self, xz: &Vec2f, y: f32, tile_u: f32, tile_v: f32,
+                   brightness: f32, bounds: &Bounds) {
+        self.wall_data.push(WallVertex {
+            pos: Vec3::new(xz.x, y, xz.y),
+            tile_uv: Vec2::new(tile_u, tile_v),
+            atlas_uv: bounds.pos,
+            tile_width: bounds.size.x,
+            brightness: brightness,
+        });
+    }
 
-        self.flat_vertex(v1.x, y, v2.y, 1.0);
-        self.flat_vertex(v2.x, y, v1.y, 1.0);
-        self.flat_vertex(v1.x, y, v1.y, 1.0);
+    fn push_seg(&mut self, seg: &WadSeg,
+                (low, high): (WadCoord, WadCoord),
+                brightness: i16, texture_name: &[u8, ..8]) {
+        if !DRAW_WALLS { return; }
+        if !should_render(texture_name) { return; }
+        let bounds = self.wall_lookup.find(&lower_name(texture_name))
+            .or_else(|| {
+                fail!("push_seg: No such wall texture '{}'",
+                      str::from_utf8(texture_name));
+            }).unwrap();
 
-        self.flat_vertex(v1.x, y, v2.y, 1.0);
-        self.flat_vertex(v2.x, y, v2.y, 1.0);
-        self.flat_vertex(v2.x, y, v1.y, 1.0);
+        let brightness = brightness as f32 / 256.0;
+        let (v1, v2) = (self.wad.vertex(seg.start_vertex),
+                        self.wad.vertex(seg.end_vertex));
+        let (low, high) = (from_wad_height(low), from_wad_height(high));
 
-        for i in range(0, points.len()) {
-            let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-            let t = 3.0;
-            let e = (v1 - v2).normalized() * 0.02;
-            let n = e.normal();
-            let (v1, v2) = (v1 - e, v2 + e);
+        let side = self.wad.seg_sidedef(seg);
+        let s1 = seg.offset as f32 + side.x_offset as f32;
+        let s2 = s1 + (v2 - v1).norm() * 100.0;
+        let t2 = 0.0;
+        let t1 = (high - low) * 100.0;
 
-            self.flat_vertex(v2.x + n.x*t, y, v2.y + n.y*t, 1.0);
-            self.flat_vertex(v1.x + n.x*t, y, v1.y + n.y*t, 1.0);
-            self.flat_vertex(v1.x + n.x, y, v1.y + n.y, 1.0);
+        self.wall_vertex(&v1, low,  s1, t1, brightness, bounds);
+        self.wall_vertex(&v2, low,  s2, t1, brightness, bounds);
+        self.wall_vertex(&v1, high, s1, t2, brightness, bounds);
 
-            self.flat_vertex(v1.x + n.x, y, v1.y + n.y, 1.0);
-            self.flat_vertex(v2.x + n.x, y, v2.y + n.y, 1.0);
-            self.flat_vertex(v2.x + n.x*t, y, v2.y + n.y*t, 1.0);
-        }
+        self.wall_vertex(&v2, low,  s2, t1, brightness, bounds);
+        self.wall_vertex(&v2, high, s2, t2, brightness, bounds);
+        self.wall_vertex(&v1, high, s1, t2, brightness, bounds);
+    }
+
+    fn wire_floor(&mut self, _sector: &WadSector, _points: &[Vec2f]) {
+        //let center = polygon_center(points);
+        //let v1 = center - Vec2::new(0.03, 0.03);
+        //let v2 = center + Vec2::new(0.03, 0.03);
+        //let y = if !ZERO_FLOORS { from_wad_height(sector.floor_height) }
+        //        else { 0.0 };
+
+        //self.flat_vertex(v1.x, y, v2.y, 1.0);
+        //self.flat_vertex(v2.x, y, v1.y, 1.0);
+        //self.flat_vertex(v1.x, y, v1.y, 1.0);
+
+        //self.flat_vertex(v1.x, y, v2.y, 1.0);
+        //self.flat_vertex(v2.x, y, v2.y, 1.0);
+        //self.flat_vertex(v2.x, y, v1.y, 1.0);
+
+        //for i in range(0, points.len()) {
+        //    let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
+        //    let t = 3.0;
+        //    let e = (v1 - v2).normalized() * 0.02;
+        //    let n = e.normal();
+        //    let (v1, v2) = (v1 - e, v2 + e);
+
+        //    self.flat_vertex(v2.x + n.x*t, y, v2.y + n.y*t, 1.0);
+        //    self.flat_vertex(v1.x + n.x*t, y, v1.y + n.y*t, 1.0);
+        //    self.flat_vertex(v1.x + n.x, y, v1.y + n.y, 1.0);
+
+        //    self.flat_vertex(v1.x + n.x, y, v1.y + n.y, 1.0);
+        //    self.flat_vertex(v2.x + n.x, y, v2.y + n.y, 1.0);
+        //    self.flat_vertex(v2.x + n.x*t, y, v2.y + n.y*t, 1.0);
+        //}
     }
 
     fn convex_flat(&mut self, sector: &WadSector, points: &[Vec2f]) {
         let floor = from_wad_height(sector.floor_height);
         let ceiling = from_wad_height(sector.ceiling_height);
         let v0 = points[0];
+        let floor_offsets = self.flat_lookup.find(
+                &lower_name(sector.floor_texture))
+            .expect("convex_flat: No such floor texture.");
+        let ceiling_offsets = self.flat_lookup.find(
+                &lower_name(sector.ceiling_texture))
+            .expect("convex_flat: No such ceiling texture.");
+        let bright = sector.light as f32 / 256.0 ;
         for i in range(1, points.len()) {
             let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-            self.flat_vertex(v0.x, floor, v0.y, 1.0);
-            self.flat_vertex(v1.x, floor, v1.y, 1.0);
-            self.flat_vertex(v2.x, floor, v2.y, 1.0);
+            self.flat_vertex(v0.x, floor, v0.y, bright, floor_offsets);
+            self.flat_vertex(v1.x, floor, v1.y, bright, floor_offsets);
+            self.flat_vertex(v2.x, floor, v2.y, bright, floor_offsets);
 
-            self.flat_vertex(v2.x, ceiling, v2.y, -1.0);
-            self.flat_vertex(v1.x, ceiling, v1.y, -1.0);
-            self.flat_vertex(v0.x, ceiling, v0.y, -1.0);
+            self.flat_vertex(v2.x, ceiling, v2.y, bright, ceiling_offsets);
+            self.flat_vertex(v1.x, ceiling, v1.y, bright, ceiling_offsets);
+            self.flat_vertex(v0.x, ceiling, v0.y, bright, ceiling_offsets);
         }
     }
 
-    fn push_seg(&mut self, seg: &WadSeg, (low, high): (WadCoord, WadCoord)) {
-        if !DRAW_WALLS { return; }
-        let (v1, v2) = (self.wad.vertex(seg.start_vertex),
-                        self.wad.vertex(seg.end_vertex));
-        let normal = (v2 - v1).normalized().normal();
-        let (low, high) = (from_wad_height(low), from_wad_height(high));
-
-        self.wall_vertex(&v1, low,  &normal);
-        self.wall_vertex(&v2, low,  &normal);
-        self.wall_vertex(&v1, high, &normal);
-
-        self.wall_vertex(&v2, low,  &normal);
-        self.wall_vertex(&v2, high, &normal);
-        self.wall_vertex(&v1, high, &normal);
-    }
 
     fn push_subsector(&mut self, subsector: &WadSubsector, lines: &[Line2f]) {
         let segs = self.wad.ssector_segs(subsector);

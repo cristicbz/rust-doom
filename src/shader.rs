@@ -49,6 +49,11 @@ impl Shader {
         }
     }
 
+    pub fn expect_uniform(&self, name: &str) -> Uniform {
+        self.get_uniform(name).expect(
+            format!("Expected uniform '{}'", name).as_slice())
+    }
+
     pub fn set_uniform_i32(&self, uniform: Uniform, value: i32) {
         check_gl!(gl::Uniform1i(uniform.id, value));
     }

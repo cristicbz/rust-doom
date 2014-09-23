@@ -77,21 +77,42 @@ impl Level {
         (self.vertex(seg.start_vertex), self.vertex(seg.end_vertex))
     }
 
-    pub fn seg_sector<'a>(&'a self, seg: &WadSeg) -> &'a WadSector {
+    pub fn seg_sidedef<'a>(&'a self, seg: &WadSeg) -> &'a WadSidedef {
         let line = self.seg_linedef(seg);
-        let side = if seg.direction == 0 { self.right_sidedef(line) }
-                   else { self.left_sidedef(line) };
-        self.sidedef_sector(side)
+        if seg.direction == 0 { self.right_sidedef(line).unwrap() }
+        else { self.left_sidedef(line).unwrap() }
+    }
+
+    pub fn seg_back_sidedef<'a>(&'a self, seg: &WadSeg)
+            -> Option<&'a WadSidedef> {
+        let line = self.seg_linedef(seg);
+        if seg.direction == 1 { self.right_sidedef(line) }
+        else { self.left_sidedef(line) }
+    }
+
+    pub fn seg_sector<'a>(&'a self, seg: &WadSeg) -> &'a WadSector {
+        self.sidedef_sector(self.seg_sidedef(seg))
+    }
+
+    pub fn seg_back_sector<'a>(&'a self, seg: &WadSeg)
+            -> Option<&'a WadSector> {
+        self.seg_back_sidedef(seg).map(|s| self.sidedef_sector(s))
     }
 
     pub fn left_sidedef<'a>(&'a self, linedef: &WadLinedef)
-            -> &'a WadSidedef {
-        &self.sidedefs[linedef.left_side as uint]
+            -> Option<&'a WadSidedef> {
+        match linedef.left_side {
+            -1 => None,
+            index => Some(&self.sidedefs[index as uint])
+        }
     }
 
     pub fn right_sidedef<'a>(&'a self, linedef: &WadLinedef)
-            -> &'a WadSidedef {
-        &self.sidedefs[linedef.right_side as uint]
+            -> Option<&'a WadSidedef> {
+        match linedef.right_side {
+            -1 => None,
+            index => Some(&self.sidedefs[index as uint])
+        }
     }
 
     pub fn sidedef_sector<'a>(&'a self, sidedef: &WadSidedef) -> &'a WadSector {

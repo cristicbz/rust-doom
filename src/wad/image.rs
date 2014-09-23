@@ -8,7 +8,7 @@ pub struct Image {
     height: uint,
     x_offset: int,
     y_offset: int,
-    pixels: Vec<i16>,
+    pixels: Vec<u16>,
 }
 
 
@@ -23,7 +23,7 @@ impl Image {
                 height: height,
                 x_offset: 0,
                 y_offset: 0,
-                pixels: Vec::from_elem(width * height, 0) }
+                pixels: Vec::from_elem(width * height, 0xff00) }
     }
 
     pub fn new_from_header(header: &WadTextureHeader) -> Image {
@@ -55,7 +55,7 @@ impl Image {
                 reader.read_u8().unwrap();  // Ignore first byte.
                 for i_run in range(0, run_length) {
                     let index = (i_run + row_start) * width + i_column;
-                    let pixel = reader.read_u8().unwrap() as i16;
+                    let pixel = reader.read_u8().unwrap() as u16;
                     *pixels.get_mut(index) = pixel;
                 }
                 reader.read_u8().unwrap();  // Ignore last byte.
@@ -86,7 +86,7 @@ impl Image {
 
                 let self_pixel = self.pixels.get_mut(self_index);
                 let source_pixel = source.pixels[source_index];
-                if source_pixel >= 0 || overwrite {
+                if source_pixel & 0xff00 == 0 || overwrite {
                     *self_pixel = source_pixel;
                 }
             }
@@ -95,5 +95,18 @@ impl Image {
 
     pub fn get_x_offset(&self) -> int { self.x_offset }
     pub fn get_y_offset(&self) -> int { self.y_offset }
+
+    pub fn get_width(&self) -> uint { self.width }
+    pub fn get_height(&self) -> uint { self.height }
+
+    pub fn get_pixels<'a>(&'a self) -> &'a [u16] { self.pixels.as_slice() }
+    //pub fn with_u8_pixels<T>(&self, fun: |&[u8]| -> T) -> T {
+    //    unsafe {
+    //        raw::buf_as_slice(
+    //            self.pixels.as_ptr() as *const u8,
+    //            self.pixels.len() * 2,
+    //            fun)
+    //    }
+    //}
 }
 

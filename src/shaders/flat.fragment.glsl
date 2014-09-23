@@ -1,17 +1,19 @@
 #version 330 core
 out vec3 color;
 
-uniform vec3 u_eye;
+uniform sampler2D u_palette;
+uniform sampler2D u_texture;
 
-varying vec3 v_normal;
-varying vec3 v_pos;
+in vec3 v_pos;
+flat in vec2 v_offset;
+flat in float v_brightness;
+in float v_dist;
 
 void main() {
-  vec3 view = u_eye - v_pos;
-  float d2 = dot(view, view);
-  float d = sqrt(d2);
-  view /= d;
-  float w = min(2 / d2 + 0.7 / d, 1) *
-            max(0.0, dot(v_normal, view)) * 0.95 + 0.05;
-  color = vec3(w*0.3, w, w*0.3);
+  vec2 uv = mod(v_pos.xz * vec2(.5, 1.0) / (.64 * 4),
+            vec2(64.0 / 512.0, 64.0 / 256.0));
+  float pal = texture2D(u_texture, uv + v_offset).r;
+  float brightness = clamp(v_brightness - clamp((v_dist-1)/16, 0.0, 1.0),
+                           0.0001, 1.0);
+  color = texture2D(u_palette, vec2(pal, 1.0 - brightness)).rgb;
 }

@@ -89,6 +89,10 @@ impl Archive {
         &self.lumps[lump_index].name
     }
 
+    pub fn is_virtual_lump(&self, lump_index: uint) -> bool {
+        self.lumps[lump_index].size == 0
+    }
+
     pub fn read_lump_by_name<T: Copy>(&mut self, name: &[u8, ..8]) -> Vec<T> {
         let index = self.get_lump_index(name).unwrap_or_else(
             || fail!("No such lump '{}'", str::from_utf8(name).unwrap()));
@@ -97,6 +101,7 @@ impl Archive {
 
     pub fn read_lump<T: Copy>(&mut self, index: uint) -> Vec<T> {
         let info = self.lumps[index];
+        assert!(info.size > 0);
         assert!(info.size % mem::size_of::<T>() == 0);
         let num_elems = info.size / mem::size_of::<T>();
         let mut buf = Vec::with_capacity(num_elems);
@@ -108,6 +113,13 @@ impl Archive {
                 |slice| self.file.read_at_least(info.size, slice).unwrap());
         }
         buf
+    }
+
+    pub fn read_lump_single<T: Copy>(&mut self, index: uint) -> T {
+        let info = self.lumps[index];
+        assert!(info.size == mem::size_of::<T>());
+        self.file.seek(info.offset, SeekSet).unwrap();
+        read_binary(&mut self.file)
     }
 }
 
