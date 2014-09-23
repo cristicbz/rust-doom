@@ -1,7 +1,3 @@
-use std::fmt;
-use std::fmt::Show;
-use std::str;
-
 pub type LightLevel = i16;
 pub type LinedefFlags = u16;
 pub type LinedefType = u16;
@@ -147,7 +143,6 @@ pub struct WadTextureHeader {
 }
 
 
-#[deriving(Show)]
 #[repr(packed)]
 #[repr(C)]
 pub struct WadTexturePatchRef {
@@ -158,11 +153,14 @@ pub struct WadTexturePatchRef {
     pub colormap: u16,
 }
 
-impl Show for WadTextureHeader {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter,
-               "[name={}, width={}, height={}, patches={}]",
-               str::from_utf8(self.name).unwrap_or("~~~~~~~"),
-               self.width, self.height, self.num_patches)
-    }
+impl WadLinedef {
+    pub fn impassable(&self) -> bool { self.flags & 0x0001 != 0 }
+    pub fn blocks_monsters(&self) -> bool { self.flags & 0x0002 != 0 }
+    pub fn is_two_sided(&self) -> bool { self.flags & 0x0004 != 0 }
+    pub fn upper_unpegged(&self) -> bool { self.flags & 0x0008 != 0 }
+    pub fn lower_unpegged(&self) -> bool { self.flags & 0x0010 != 0 }
+    pub fn secret(&self) -> bool { self.flags & 0x0020 != 0 }
+    pub fn blocks_sound(&self) -> bool { self.flags & 0x0040 != 0 }
+    pub fn always_shown_on_map(&self) -> bool { self.flags & 0x0080 != 0 }
+    pub fn never_shown_on_map(&self) -> bool { self.flags & 0x0100 != 0 }
 }

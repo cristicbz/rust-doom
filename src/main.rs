@@ -81,9 +81,9 @@ struct Scene {
 
 impl Scene {
     fn new() -> Scene {
-        let mut wad = wad::Archive::open(&Path::new("doom1.wad")).unwrap();
+        let mut wad = wad::Archive::open(&Path::new("doom2.wad")).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
-        let level_name = *wad.get_level_name(0);
+        let level_name = *wad.get_level_name(29);
         let level = Level::new(&mut wad, &textures, &level_name);
 
 

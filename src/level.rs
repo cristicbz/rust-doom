@@ -9,7 +9,7 @@ use std::str;
 use vbo::VertexBuffer;
 use wad;
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, is_sky_texture,
-                parse_child_id, lower_name};
+                parse_child_id, name_toupper};
 use wad::tex::TextureDirectory;
 use wad::tex::Bounds;
 use wad::types::*;
@@ -73,8 +73,8 @@ impl Level {
 
         let mut flats = HashSet::with_hasher(SipHasher::new());
         for sector in data.sectors.iter() {
-            flats.insert(Vec::from_slice(sector.floor_texture));
-            flats.insert(Vec::from_slice(sector.ceiling_texture));
+            flats.insert(name_toupper(sector.floor_texture));
+            flats.insert(name_toupper(sector.ceiling_texture));
         }
         let (flat_atlas, flat_lookup) =
             textures.build_flat_atlas(flats.len(), flats.iter()
@@ -82,13 +82,13 @@ impl Level {
         let mut walls = HashSet::with_hasher(SipHasher::new());
         for sidedef in data.sidedefs.iter() {
             if should_render(&sidedef.upper_texture) {
-                walls.insert(Vec::from_slice(sidedef.upper_texture));
+                walls.insert(name_toupper(sidedef.upper_texture));
             }
             if should_render(&sidedef.middle_texture) {
-                walls.insert(Vec::from_slice(sidedef.middle_texture));
+                walls.insert(name_toupper(sidedef.middle_texture));
             }
             if should_render(&sidedef.lower_texture) {
-                walls.insert(Vec::from_slice(sidedef.lower_texture));
+                walls.insert(name_toupper(sidedef.lower_texture));
             }
         }
         let (wall_texture_atlas, wall_lookup) =
@@ -246,6 +246,12 @@ pub struct VboBuilder<'a> {
     wall_data: Vec<WallVertex>,
 }
 
+enum PegType {
+    PegTop,
+    PegBottom,
+    PegBottomLower,
+}
+
 impl<'a> VboBuilder<'a> {
     pub fn from_wad(lvl: &'a wad::Level,
                     flat_lookup: &'a HashMap<Vec<u8>, Vec2f>,
@@ -270,16 +276,20 @@ impl<'a> VboBuilder<'a> {
                                     gl::STATIC_DRAW, self.wall_data.as_slice())
     }
 
-    fn push_wall_seg(&mut self, seg: &WadSeg) {
+    fn push_seg(&mut self, seg: &WadSeg) {
         let wad = self.wad;
+        let line = wad.seg_linedef(seg);
         let side = wad.seg_sidedef(seg);
         let sector = wad.seg_sector(seg);
         let (floor, ceil) = (sector.floor_height, sector.ceiling_height);
+        let (unpeg_lower, unpeg_upper) = (line.lower_unpegged(),
+                                          line.upper_unpegged());
 
         let back_sector = match wad.seg_back_sector(seg) {
             None => {
-                self.push_seg(
-                    seg, (floor, ceil), sector.light, &side.middle_texture);
+                self.push_seg_quad(
+                    seg, (floor, ceil), sector.light, &side.middle_texture,
+                    if unpeg_lower { PegBottom } else { PegTop });
                 return
             },
             Some(s) => s
@@ -289,20 +299,23 @@ impl<'a> VboBuilder<'a> {
         let back_ceil = back_sector.ceiling_height;
 
         let floor = if back_floor > floor {
-            self.push_seg(seg, (floor, back_floor), sector.light,
-                          &side.lower_texture);
+            self.push_seg_quad(seg, (floor, back_floor), sector.light,
+                          &side.lower_texture,
+                          if unpeg_lower { PegBottomLower } else { PegTop });
             back_floor
         } else {
             floor
         };
         let ceil = if back_ceil < ceil {
-            self.push_seg(seg, (back_ceil, ceil), sector.light,
-                          &side.upper_texture);
+            self.push_seg_quad(seg, (back_ceil, ceil), sector.light,
+                          &side.upper_texture,
+                          if unpeg_upper { PegTop } else { PegBottom });
             back_ceil
         } else {
             ceil
         };
-        self.push_seg(seg, (floor, ceil), sector.light, &side.middle_texture);
+        self.push_seg_quad(seg, (floor, ceil), sector.light, &side.middle_texture,
+                      if unpeg_lower { PegBottom } else { PegTop });
 
     }
 
@@ -326,14 +339,15 @@ impl<'a> VboBuilder<'a> {
         });
     }
 
-    fn push_seg(&mut self, seg: &WadSeg,
+    fn push_seg_quad(&mut self, seg: &WadSeg,
                 (low, high): (WadCoord, WadCoord),
-                brightness: i16, texture_name: &[u8, ..8]) {
+                brightness: i16, texture_name: &[u8, ..8],
+                peg: PegType) {
         if !DRAW_WALLS { return; }
         if !should_render(texture_name) { return; }
-        let bounds = self.wall_lookup.find(&lower_name(texture_name))
+        let bounds = self.wall_lookup.find(&name_toupper(texture_name))
             .or_else(|| {
-                fail!("push_seg: No such wall texture '{}'",
+                fail!("push_seg_quad: No such wall texture '{}'",
                       str::from_utf8(texture_name));
             }).unwrap();
 
@@ -343,10 +357,23 @@ impl<'a> VboBuilder<'a> {
         let (low, high) = (from_wad_height(low), from_wad_height(high));
 
         let side = self.wad.seg_sidedef(seg);
+        let height = (high - low) * 100.0;
         let s1 = seg.offset as f32 + side.x_offset as f32;
         let s2 = s1 + (v2 - v1).norm() * 100.0;
-        let t2 = 0.0;
-        let t1 = (high - low) * 100.0;
+        let (t1, t2) = match peg {
+            PegTop => (height, 0.0),
+            PegBottom => (bounds.size.y, bounds.size.y - height),
+            PegBottomLower => {
+                // As far as I can tell, this is a special case.
+                let sector = self.wad.sidedef_sector(side);
+                let sector_height = (sector.ceiling_height -
+                                     sector.floor_height) as f32;
+                (bounds.size.y + sector_height,
+                 bounds.size.y - height + sector_height)
+            }
+
+        };
+        let (t1, t2) = (t1 + side.y_offset as f32, t2 + side.y_offset as f32);
 
         self.wall_vertex(&v1, low,  s1, t1, brightness, bounds);
         self.wall_vertex(&v2, low,  s2, t1, brightness, bounds);
@@ -394,10 +421,10 @@ impl<'a> VboBuilder<'a> {
         let ceiling = from_wad_height(sector.ceiling_height);
         let v0 = points[0];
         let floor_offsets = self.flat_lookup.find(
-                &lower_name(sector.floor_texture))
+                &name_toupper(sector.floor_texture))
             .expect("convex_flat: No such floor texture.");
         let ceiling_offsets = self.flat_lookup.find(
-                &lower_name(sector.ceiling_texture))
+                &name_toupper(sector.ceiling_texture))
             .expect("convex_flat: No such ceiling texture.");
         let bright = sector.light as f32 / 256.0 ;
         for i in range(1, points.len()) {
@@ -427,7 +454,7 @@ impl<'a> VboBuilder<'a> {
             points.push(v2);
 
             // Also push the wall segments.
-            self.push_wall_seg(seg);
+            self.push_seg(seg);
         }
 
         // The convex polyon defined at the intersection of the partition lines,

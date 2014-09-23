@@ -5,7 +5,7 @@ use std::{str, mem};
 use super::Archive;
 use super::image::Image;
 use super::types::*;
-use super::util::{read_binary, lower_name};
+use super::util::{read_binary, name_toupper};
 
 use texture::Texture;
 
@@ -81,10 +81,10 @@ impl TextureDirectory {
     }
 
     pub fn get_texture<'a>(&'a self, name: &[u8]) -> Option<&'a Image> {
-        self.textures.find(&lower_name(name))
+        self.textures.find(&name_toupper(name))
     }
     pub fn get_flat<'a>(&'a self, name: &[u8]) -> Option<&'a Flat> {
-        self.flats.find(&lower_name(name))
+        self.flats.find(&name_toupper(name))
     }
 
     pub fn num_patches(&self) -> uint { self.patches.len() }
@@ -165,7 +165,7 @@ impl TextureDirectory {
             let mut y_offset = 0;
             let mut failed = false;
             let mut max_height = 0;
-            for &(n, image) in images.iter() {
+            for &(_, image) in images.iter() {
                 let (width, height) = (image.get_width(), image.get_height());
                 if height > max_height { max_height = height; }
                 if x_offset + width > size {
@@ -197,7 +197,7 @@ impl TextureDirectory {
         assert!(bounds.len() == images.len());
         let mut bound_map = HashMap::with_capacity(images.len());
         for i in range(0, images.len()) {
-            bound_map.insert(lower_name(images[i].0), bounds[i]);
+            bound_map.insert(name_toupper(images[i].0), bounds[i]);
         }
         drop(bounds);
 
@@ -217,18 +217,11 @@ impl TextureDirectory {
                                                        mut names_iter: T)
             -> (Texture, HashMap<Vec<u8>, Vec2f>) {
 
-        let flats_per_row = (num_names as f64).sqrt().ceil() as uint;
-        let width = flats_per_row * 64;
-        let mut pow2 = 1;
-        while pow2 < width { pow2 *= 2; }
-        let width = pow2;
+        let width = next_pow2((num_names as f64).sqrt().ceil() as uint * 64);
         let flats_per_row = width / 64;
 
         let num_rows = (num_names as f64 / flats_per_row as f64).ceil() as uint;
-        let height = num_rows * 64;
-        let mut pow2 = 1;
-        while pow2 < height { pow2 *= 2; }
-        let height = pow2;
+        let height = next_pow2(num_rows * 64);
 
         let mut offsets = HashMap::with_capacity(num_names);
         let mut data = Vec::from_elem(width * height, 255u8);
@@ -240,7 +233,7 @@ impl TextureDirectory {
             let flat = self.get_flat(name).expect("Unknown flat.");
             let x_offset = column * 64;
             let y_offset = row * 64;
-            offsets.insert(lower_name(name),
+            offsets.insert(name_toupper(name),
                            Vec2::new(x_offset as f32 / width as f32,
                                      y_offset as f32 / height as f32));
 
@@ -307,7 +300,7 @@ fn read_patches(wad: &mut Archive)
 
     patches.reserve_additional(num_patches);
     let mut missing_patches = 0u;
-    for i_patch in range(0, num_patches) {
+    for _ in range(0, num_patches) {
         let name = read_binary::<WadName, _>(&mut lump);
         let patch = wad.get_lump_index(&name).map(|index| {
             let patch_buffer = wad.read_lump(index);
@@ -335,18 +328,18 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
         lump_buffer.slice(begin, begin + size)
     });
 
-    for i_texture in range(0, num_textures) {
+    for _ in range(0, num_textures) {
         io_try!(lump.seek(io_try!(offsets.read_le_u32()) as i64, SeekSet));
         let header = read_binary::<WadTextureHeader, _>(&mut lump);
         let mut image = Image::new_from_header(&header);
 
         for i_patch in range(0, header.num_patches) {
             let pref = read_binary::<WadTexturePatchRef, _>(&mut lump);
+            let (off_x, off_y) = (pref.origin_x as int, pref.origin_y as int);
             match patches[pref.patch as uint] {
                 (_, Some(ref patch)) => {
                     image.blit(patch,
-                               pref.origin_x as int,
-                               pref.origin_y as int,
+                               off_x, if off_y < 0 { 0 } else { off_y },
                                i_patch == 0);
                 },
                 (ref patch_name, None) => {
@@ -357,7 +350,7 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
             }
         }
 
-        textures.insert(lower_name(header.name), image);
+        textures.insert(name_toupper(header.name), image);
     }
     Ok(num_textures)
 }
@@ -377,7 +370,7 @@ fn read_flats(wad: &mut Archive) -> Result<HashMap<Vec<u8>, Flat>, String> {
     for i_lump in range(start, end) {
         if wad.is_virtual_lump(i_lump) { continue; }
         let lump = wad.read_lump(i_lump);
-        flats.insert(lower_name(wad.get_lump_name(i_lump)), lump);
+        flats.insert(name_toupper(wad.get_lump_name(i_lump)), lump);
     }
 
     Ok(flats)

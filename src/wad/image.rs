@@ -40,7 +40,7 @@ impl Image {
 
         // This allocation isn't strictly necessary.
         let mut column_offsets = Vec::with_capacity(width);
-        for i_column in range(0, width) {
+        for _ in range(0, width) {
             column_offsets.push(reader.read_le_u32().unwrap() as i64);
         }
         let column_offsets = column_offsets;
@@ -100,13 +100,5 @@ impl Image {
     pub fn get_height(&self) -> uint { self.height }
 
     pub fn get_pixels<'a>(&'a self) -> &'a [u16] { self.pixels.as_slice() }
-    //pub fn with_u8_pixels<T>(&self, fun: |&[u8]| -> T) -> T {
-    //    unsafe {
-    //        raw::buf_as_slice(
-    //            self.pixels.as_ptr() as *const u8,
-    //            self.pixels.len() * 2,
-    //            fun)
-    //    }
-    //}
 }
 
