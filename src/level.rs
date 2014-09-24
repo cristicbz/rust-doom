@@ -44,11 +44,14 @@ pub struct Level {
     wall_u_atlas_size: Uniform,
     wall_u_atlas: Uniform,
     wall_u_palette: Uniform,
+    wall_u_time: Uniform,
     walls_vbo: VertexBuffer,
 
     palette: Texture,
     flat_atlas: Texture,
     wall_texture_atlas: Texture,
+
+    time: f32,
 }
 
 macro_rules! offset_of(
@@ -118,12 +121,15 @@ impl Level {
             wall_u_atlas_size: wall_shader.expect_uniform("u_atlas_size"),
             wall_u_atlas: wall_shader.expect_uniform("u_atlas"),
             wall_u_palette: wall_shader.expect_uniform("u_palette"),
+            wall_u_time: wall_shader.expect_uniform("u_time"),
             wall_shader: wall_shader,
             wall_texture_atlas: wall_texture_atlas,
             walls_vbo: builder.bake_walls(),
 
             palette: textures.build_palette_texture(0, 0, 31),
             flat_atlas: flat_atlas,
+
+            time: 0.0,
         }
     }
 
@@ -176,12 +182,14 @@ impl Level {
         self.wall_shader.set_uniform_i32(self.wall_u_atlas, 1);
         self.wall_shader.set_uniform_f32(
             self.wall_u_atlas_size, self.wall_texture_atlas.get_width() as f32);
+        self.wall_shader.set_uniform_f32(self.wall_u_time, self.time);
 
         check_gl!(gl::EnableVertexAttribArray(0));
         check_gl!(gl::EnableVertexAttribArray(1));
         check_gl!(gl::EnableVertexAttribArray(2));
         check_gl!(gl::EnableVertexAttribArray(3));
         check_gl!(gl::EnableVertexAttribArray(4));
+        check_gl!(gl::EnableVertexAttribArray(5));
         self.walls_vbo.bind();
 
         let stride = mem::size_of::<WallVertex>() as i32;
@@ -200,6 +208,9 @@ impl Level {
         check_gl_unsafe!(
             gl::VertexAttribPointer(4, 1, gl::FLOAT, gl::FALSE, stride,
                                     offset_of!(WallVertex, brightness)));
+        check_gl_unsafe!(
+            gl::VertexAttribPointer(5, 1, gl::FLOAT, gl::FALSE, stride,
+                                    offset_of!(WallVertex, scroll_rate)));
         check_gl!(gl::DrawArrays(gl::TRIANGLES, 0,
                                  self.walls_vbo.len() as i32));
         self.walls_vbo.unbind();
@@ -208,14 +219,16 @@ impl Level {
         check_gl!(gl::DisableVertexAttribArray(2));
         check_gl!(gl::DisableVertexAttribArray(3));
         check_gl!(gl::DisableVertexAttribArray(4));
+        check_gl!(gl::DisableVertexAttribArray(5));
         self.wall_shader.unbind();
 
         self.palette.unbind(gl::TEXTURE0);
         self.wall_texture_atlas.unbind(gl::TEXTURE1);
     }
 
-    pub fn render(&self, projection_view: &Mat4) {
-        //check_gl!(gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE));
+    pub fn render(&mut self, delta_time: f32, projection_view: &Mat4) {
+        self.time += delta_time;
+        if self.time >= 2048.0 { self.time -= 2048.0; }
         check_gl!(gl::Enable(gl::CULL_FACE));
         self.render_flats(projection_view);
         self.render_walls(projection_view);
@@ -236,6 +249,7 @@ struct WallVertex {
     pub atlas_uv: Vec2f,
     pub tile_width: f32,
     pub brightness: f32,
+    pub scroll_rate: f32,
 }
 
 pub struct VboBuilder<'a> {
@@ -329,13 +343,14 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn wall_vertex(&mut self, xz: &Vec2f, y: f32, tile_u: f32, tile_v: f32,
-                   brightness: f32, bounds: &Bounds) {
+                   brightness: f32, scroll_rate: f32, bounds: &Bounds) {
         self.wall_data.push(WallVertex {
             pos: Vec3::new(xz.x, y, xz.y),
             tile_uv: Vec2::new(tile_u, tile_v),
             atlas_uv: bounds.pos,
             tile_width: bounds.size.x,
             brightness: brightness,
+            scroll_rate: scroll_rate,
         });
     }
 
@@ -356,6 +371,7 @@ impl<'a> VboBuilder<'a> {
                         self.wad.vertex(seg.end_vertex));
         let (low, high) = (from_wad_height(low), from_wad_height(high));
 
+        let line = self.wad.seg_linedef(seg);
         let side = self.wad.seg_sidedef(seg);
         let height = (high - low) * 100.0;
         let s1 = seg.offset as f32 + side.x_offset as f32;
@@ -375,13 +391,19 @@ impl<'a> VboBuilder<'a> {
         };
         let (t1, t2) = (t1 + side.y_offset as f32, t2 + side.y_offset as f32);
 
-        self.wall_vertex(&v1, low,  s1, t1, brightness, bounds);
-        self.wall_vertex(&v2, low,  s2, t1, brightness, bounds);
-        self.wall_vertex(&v1, high, s1, t2, brightness, bounds);
+        let scroll = if line.special_type == 0x30 {
+            35.0
+        } else {
+            0.0
+        };
 
-        self.wall_vertex(&v2, low,  s2, t1, brightness, bounds);
-        self.wall_vertex(&v2, high, s2, t2, brightness, bounds);
-        self.wall_vertex(&v1, high, s1, t2, brightness, bounds);
+        self.wall_vertex(&v1, low,  s1, t1, brightness, scroll, bounds);
+        self.wall_vertex(&v2, low,  s2, t1, brightness, scroll, bounds);
+        self.wall_vertex(&v1, high, s1, t2, brightness, scroll, bounds);
+
+        self.wall_vertex(&v2, low,  s2, t1, brightness, scroll, bounds);
+        self.wall_vertex(&v2, high, s2, t2, brightness, scroll, bounds);
+        self.wall_vertex(&v1, high, s1, t2, brightness, scroll, bounds);
     }
 
     fn wire_floor(&mut self, _sector: &WadSector, _points: &[Vec2f]) {

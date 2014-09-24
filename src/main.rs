@@ -81,9 +81,9 @@ struct Scene {
 
 impl Scene {
     fn new() -> Scene {
-        let mut wad = wad::Archive::open(&Path::new("doom2.wad")).unwrap();
+        let mut wad = wad::Archive::open(&Path::new("doom1.wad")).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
-        let level_name = *wad.get_level_name(29);
+        let level_name = *wad.get_level_name(35);
         let level = Level::new(&mut wad, &textures, &level_name);
 
 
@@ -102,6 +102,7 @@ impl Scene {
     fn update(&mut self, delta_time: f32, ctrl: &GameController) {
         self.player.update(delta_time, ctrl);
         self.level.render(
+            delta_time,
             &self.player.get_camera()
             .multiply_transform(&Mat4::new_identity()));
     }
@@ -109,7 +110,7 @@ impl Scene {
 
 fn main() {
     {
-        let window = create_opengl_window("thingy", 1600, 900);
+        let window = create_opengl_window("Rusty Doom v0.0.2", 1600, 900);
         let _gl_context = init_opengl(&window);
         let mut scene = Scene::new();
         let mut control = ctrl::GameController::new();
