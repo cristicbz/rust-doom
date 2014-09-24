@@ -11,6 +11,7 @@ extern crate gl;
 extern crate libc;
 extern crate native;
 extern crate time;
+extern crate getopts;
 
 
 use ctrl::GameController;
@@ -22,6 +23,8 @@ use sdl2::scancode;
 use std::default::Default;
 use numvec::Vec3;
 use wad::TextureDirectory;
+use getopts::{optopt,optflag,getopts, usage};
+use std::os;
 
 
 #[macro_escape]
@@ -80,12 +83,11 @@ struct Scene {
 }
 
 impl Scene {
-    fn new() -> Scene {
-        let mut wad = wad::Archive::open(&Path::new("doom1.wad")).unwrap();
+    fn new(wad_filename: &str, level_index: uint) -> Scene {
+        let mut wad = wad::Archive::open(&Path::new(wad_filename)).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
-        let level_name = *wad.get_level_name(35);
+        let level_name = *wad.get_level_name(level_index);
         let level = Level::new(&mut wad, &textures, &level_name);
-
 
         check_gl!(gl::ClearColor(0.0, 0.1, 0.4, 0.0));
         check_gl!(gl::Enable(gl::DEPTH_TEST));
@@ -109,10 +111,35 @@ impl Scene {
 }
 
 fn main() {
+    let args: Vec<String> = os::args();
+    let opts = [
+        optopt("i", "iwad", "set initial wad file to use (eg doom1.wad)", "FILE"),
+        optopt("l", "level", "the number of the level to render (0 indexed)", "N"),
+        optflag("h", "help", "print this help message and exit"),
+    ];
+
+    let matches = match getopts(args.tail(), opts) {
+        Ok(m) => m,
+        Err(f) => fail!(f.to_string()),
+    };
+
+    if matches.opt_present("h") {
+        println!("{}", usage("A rust doom renderer.", &opts));
+        return;
+    }
+
+    let wad_filename = matches.opt_str("i").unwrap_or("doom1.wad".to_string());
+    let level = matches.opt_str("i")
+                       .and_then(|l| from_str::<uint>(l.as_slice()))
+                       .unwrap_or(0);
+
+
     {
         let window = create_opengl_window("Rusty Doom v0.0.2", 1600, 900);
         let _gl_context = init_opengl(&window);
-        let mut scene = Scene::new();
+
+
+        let mut scene = Scene::new(wad_filename.as_slice(), level);
         let mut control = ctrl::GameController::new();
         let quit_gesture = ctrl::AnyGesture(
             vec![ctrl::QuitTrigger,
