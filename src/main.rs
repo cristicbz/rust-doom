@@ -129,7 +129,7 @@ fn main() {
     }
 
     let wad_filename = matches.opt_str("i").unwrap_or("doom1.wad".to_string());
-    let level = matches.opt_str("i")
+    let level = matches.opt_str("l")
                        .and_then(|l| from_str::<uint>(l.as_slice()))
                        .unwrap_or(0);
 
