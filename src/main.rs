@@ -90,7 +90,7 @@ impl Scene {
         let level_name = *wad.get_level_name(level_index);
         let level = Level::new(&mut wad, &textures, &level_name);
 
-        check_gl!(gl::ClearColor(0.0, 0.1, 0.4, 0.0));
+        check_gl!(gl::ClearColor(0.64, 0.72, 0.8, 0.0));
         check_gl!(gl::Enable(gl::DEPTH_TEST));
         check_gl!(gl::DepthFunc(gl::LESS));
         let mut player = Player::new(Default::default());

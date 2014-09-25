@@ -15,7 +15,7 @@ use wad;
 use wad::tex::{Bounds, TextureDirectory};
 use wad::types::*;
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id,
-                name_toupper};
+                name_toupper, name_eq};
 
 
 pub struct Level {
@@ -265,10 +265,12 @@ impl<'a> VboBuilder<'a> {
             floor
         };
         let ceil = if back_ceil < ceil {
-            self.push_wall_quad(seg, (back_ceil, ceil), sector.light,
-                                &side.upper_texture,
-                                if unpeg_upper { PegTop }
-                                else { PegBottom });
+            if !name_eq(&back_sector.ceiling_texture, b"F_SKY1\0\0\0") {
+                self.push_wall_quad(seg, (back_ceil, ceil), sector.light,
+                                    &side.upper_texture,
+                                    if unpeg_upper { PegTop }
+                                    else { PegBottom });
+            }
             back_ceil
         } else {
             ceil
@@ -289,7 +291,7 @@ impl<'a> VboBuilder<'a> {
                       str::from_utf8(texture_name));
             }).unwrap();
 
-        let brightness = brightness as f32 / 256.0;
+        let brightness = brightness as f32 / 255.0;
         let (v1, v2) = (self.wad.vertex(seg.start_vertex),
                         self.wad.vertex(seg.end_vertex));
         let (low, high) = (from_wad_height(low), from_wad_height(high));
@@ -310,15 +312,11 @@ impl<'a> VboBuilder<'a> {
                 (bounds.size.y + sector_height,
                  bounds.size.y - height + sector_height)
             }
-
         };
         let (t1, t2) = (t1 + side.y_offset as f32, t2 + side.y_offset as f32);
 
-        let scroll = if line.special_type == 0x30 {
-            35.0
-        } else {
-            0.0
-        };
+        let scroll = if line.special_type == 0x30 { 35.0 }
+                     else { 0.0 };
 
         self.wall_vertex(&v1, low,  s1, t1, brightness, scroll, bounds);
         self.wall_vertex(&v2, low,  s2, t1, brightness, scroll, bounds);
@@ -332,20 +330,25 @@ impl<'a> VboBuilder<'a> {
     fn push_flat_poly(&mut self, sector: &WadSector, points: &[Vec2f]) {
         let floor = from_wad_height(sector.floor_height);
         let ceiling = from_wad_height(sector.ceiling_height);
-        let v0 = points[0];
         let floor_offsets = self.flat_lookup.find(
                 &name_toupper(sector.floor_texture))
             .expect("push_flat_poly: No such floor texture.");
         let ceiling_offsets = self.flat_lookup.find(
                 &name_toupper(sector.ceiling_texture))
             .expect("push_flat_poly: No such ceiling texture.");
-        let bright = sector.light as f32 / 256.0 ;
+        let bright = sector.light as f32 / 255.0;
+        let v0 = points[0];
         for i in range(1, points.len()) {
             let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
             self.flat_vertex(v0.x, floor, v0.y, bright, floor_offsets);
             self.flat_vertex(v1.x, floor, v1.y, bright, floor_offsets);
             self.flat_vertex(v2.x, floor, v2.y, bright, floor_offsets);
 
+        }
+
+        if name_eq(&sector.ceiling_texture, b"F_SKY1\0\0\0") { return; }
+        for i in range(1, points.len()) {
+            let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
             self.flat_vertex(v2.x, ceiling, v2.y, bright, ceiling_offsets);
             self.flat_vertex(v1.x, ceiling, v1.y, bright, ceiling_offsets);
             self.flat_vertex(v0.x, ceiling, v0.y, bright, ceiling_offsets);
