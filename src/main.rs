@@ -40,6 +40,7 @@ pub mod level;
 pub mod vbo;
 pub mod line;
 pub mod texture;
+pub mod render;
 
 fn create_opengl_window(title : &str,
                         width : int,
@@ -89,7 +90,7 @@ impl Scene {
         let level_name = *wad.get_level_name(level_index);
         let level = Level::new(&mut wad, &textures, &level_name);
 
-        check_gl!(gl::ClearColor(0.0, 0.1, 0.4, 0.0));
+        check_gl!(gl::ClearColor(0.64, 0.72, 0.8, 0.0));
         check_gl!(gl::Enable(gl::DEPTH_TEST));
         check_gl!(gl::DepthFunc(gl::LESS));
         let mut player = Player::new(Default::default());
@@ -135,7 +136,7 @@ fn main() {
 
 
     {
-        let window = create_opengl_window("Rusty Doom v0.0.2", 1600, 900);
+        let window = create_opengl_window("Rusty Doom v0.0.3", 1600, 900);
         let _gl_context = init_opengl(&window);
 
 

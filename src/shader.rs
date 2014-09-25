@@ -32,12 +32,19 @@ impl Shader {
         Ok(Shader { program: program })
     }
 
-    pub fn bind(&self) {
+    pub fn bind(&self) -> &Shader {
         check_gl!(gl::UseProgram(self.program.id));
+        self
     }
 
-    pub fn unbind(&self) {
+    pub fn bind_mut(&mut self) -> &mut Shader {
+        self.bind();
+        self
+    }
+
+    pub fn unbind(&self) -> &Shader {
         check_gl!(gl::UseProgram(0));
+        self
     }
 
     pub fn get_uniform(&self, name: &str) -> Option<Uniform> {
@@ -54,21 +61,27 @@ impl Shader {
             format!("Expected uniform '{}'", name).as_slice())
     }
 
-    pub fn set_uniform_i32(&self, uniform: Uniform, value: i32) {
+    pub fn set_uniform_i32(&self, uniform: Uniform, value: i32) -> &Shader {
         check_gl!(gl::Uniform1i(uniform.id, value));
+        self
     }
 
-    pub fn set_uniform_f32(&self, uniform: Uniform, value: f32) {
+    pub fn set_uniform_f32(&self, uniform: Uniform, value: f32) -> &Shader {
         check_gl!(gl::Uniform1f(uniform.id, value));
+        self
     }
 
-    pub fn set_uniform_vec3f(&self, uniform: Uniform, value: &Vec3f) {
+    pub fn set_uniform_vec3f(&self, uniform: Uniform, value: &Vec3f)
+            -> &Shader {
         check_gl_unsafe!(gl::Uniform3fv(uniform.id, 1, &value.x as *const f32));
+        self
     }
 
-    pub fn set_uniform_mat4(&self, uniform: Uniform, value: &Mat4) {
+    pub fn set_uniform_mat4(&self, uniform: Uniform, value: &Mat4)
+            -> &Shader {
         check_gl_unsafe!(gl::UniformMatrix4fv(
             uniform.id, 1, 0u8, value.as_scalar_ptr()));
+        self
     }
 }
 
