@@ -14,32 +14,14 @@ use vbo::{BufferBuilder, VertexBuffer};
 use wad;
 use wad::tex::{Bounds, TextureDirectory};
 use wad::types::*;
-use wad::util::{from_wad_height, from_wad_coords, is_untextured, is_sky_texture,
-                parse_child_id, name_toupper};
-
-
-static DRAW_WALLS : bool = true;
-static WIRE_FLOORS : bool = false;
-static BSP_TOLERANCE : f32 = 1e-3;
-static SEG_TOLERANCE : f32 = 0.1;
-static RENDER_SKY : bool = true;
-
-fn should_render(name: &WadName) -> bool {
-    !is_untextured(name) && (RENDER_SKY | !is_sky_texture(name))
-}
-
-
-macro_rules! offset_of(
-    ($T:ty, $m:ident) => (unsafe { (&((*(0 as *const $T)).$m))
-                          as *const _ as *const c_void })
-)
+use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id,
+                name_toupper};
 
 
 pub struct Level {
     start_pos: Vec2f,
     renderer: Renderer,
 }
-
 impl Level {
     pub fn new(wad: &mut wad::Archive,
                textures: &TextureDirectory,
@@ -122,22 +104,16 @@ impl Level {
     }
 }
 
-#[repr(packed)]
-pub struct FlatVertex {
-    pub pos: Vec3f,
-    pub offsets: Vec2f,
-    pub brightness: f32,
-}
 
-#[repr(packed)]
-pub struct WallVertex {
-    pub pos: Vec3f,
-    pub tile_uv: Vec2f,
-    pub atlas_uv: Vec2f,
-    pub tile_width: f32,
-    pub brightness: f32,
-    pub scroll_rate: f32,
-}
+static BSP_TOLERANCE : f32 = 1e-3;
+static SEG_TOLERANCE : f32 = 0.1;
+
+
+macro_rules! offset_of(
+    ($T:ty, $m:ident) =>
+        (unsafe { (&((*(0 as *const $T)).$m)) as *const _ as *const c_void })
+)
+
 
 pub struct VboBuilder<'a> {
     wad: &'a wad::Level,
@@ -146,13 +122,6 @@ pub struct VboBuilder<'a> {
     flat_data: Vec<FlatVertex>,
     wall_data: Vec<WallVertex>,
 }
-
-enum PegType {
-    PegTop,
-    PegBottom,
-    PegBottomLower,
-}
-
 impl<'a> VboBuilder<'a> {
     pub fn from_wad(lvl: &'a wad::Level,
                     flat_lookup: &'a HashMap<Vec<u8>, Vec2f>,
@@ -169,9 +138,9 @@ impl<'a> VboBuilder<'a> {
 
     pub fn bake_flats(&self) -> VertexBuffer {
         let mut buffer = BufferBuilder::<FlatVertex>::new(3)
-            .attribute_vec3f(0, offset_of!(FlatVertex, pos))
-            .attribute_vec2f(1, offset_of!(FlatVertex, offsets))
-            .attribute_f32(2, offset_of!(FlatVertex, brightness))
+            .attribute_vec3f(0, offset_of!(FlatVertex, _pos))
+            .attribute_vec2f(1, offset_of!(FlatVertex, _offsets))
+            .attribute_f32(2, offset_of!(FlatVertex, _brightness))
             .build();
         buffer.set_data(gl::STATIC_DRAW, self.flat_data.as_slice());
         buffer
@@ -179,16 +148,89 @@ impl<'a> VboBuilder<'a> {
 
     pub fn bake_walls(&self) -> VertexBuffer {
         let mut buffer = BufferBuilder::<WallVertex>::new(6)
-            .attribute_vec3f(0, offset_of!(WallVertex, pos))
-            .attribute_vec2f(1, offset_of!(WallVertex, tile_uv))
-            .attribute_vec2f(2, offset_of!(WallVertex, atlas_uv))
-            .attribute_f32(3, offset_of!(WallVertex, tile_width))
-            .attribute_f32(4, offset_of!(WallVertex, brightness))
-            .attribute_f32(5, offset_of!(WallVertex, scroll_rate))
+            .attribute_vec3f(0, offset_of!(WallVertex, _pos))
+            .attribute_vec2f(1, offset_of!(WallVertex, _tile_uv))
+            .attribute_vec2f(2, offset_of!(WallVertex, _atlas_uv))
+            .attribute_f32(3, offset_of!(WallVertex, _tile_width))
+            .attribute_f32(4, offset_of!(WallVertex, _brightness))
+            .attribute_f32(5, offset_of!(WallVertex, _scroll_rate))
             .build();
         buffer.set_data(gl::STATIC_DRAW, self.wall_data.as_slice());
         buffer
     }
+
+    fn push_node(&mut self, node: &WadNode, lines: &mut Vec<Line2f>) {
+        let (left, leaf_left) = parse_child_id(node.left);
+        let (right, leaf_right) = parse_child_id(node.right);
+        let partition = Line2::from_origin_and_displace(
+            from_wad_coords(node.line_x, node.line_y),
+            from_wad_coords(node.step_x, node.step_y));
+
+        lines.push(partition);
+        if leaf_left {
+            self.push_subsector(&self.wad.subsectors[left], lines.as_slice());
+        } else {
+            self.push_node(&self.wad.nodes[left], lines);
+        }
+        lines.pop();
+
+
+        lines.push(partition.inverted_halfspaces());
+        if leaf_right {
+            self.push_subsector(&self.wad.subsectors[right], lines.as_slice());
+        } else {
+            self.push_node(&self.wad.nodes[right], lines);
+        }
+        lines.pop();
+    }
+
+    fn push_subsector(&mut self, subsector: &WadSubsector, lines: &[Line2f]) {
+        let segs = self.wad.ssector_segs(subsector);
+
+        // The vector contains all (2D) points which are part of the subsector:
+        // implicit (intersection of BSP lines) and explicit (seg vertices).
+        let mut points : Vec<Vec2f> = Vec::new();
+
+        // First add the explicit points.
+        for seg in segs.iter() {
+            let (v1, v2) = self.wad.seg_vertices(seg);
+            points.push(v1);
+            points.push(v2);
+
+            // Also push the wall segments.
+            self.push_seg(seg);
+        }
+
+        // The convex polyon defined at the intersection of the partition lines,
+        // intersected with the half-volume of the segs form the 'implicit'
+        // points.
+        for i_line in range(0, lines.len() - 1) {
+            for j_line in range(i_line + 1, lines.len()) {
+                let (l1, l2) = (&(*lines)[i_line], &(*lines)[j_line]);
+                let point = match l1.intersect_point(l2) {
+                    Some(p) => p,
+                    None => continue
+                };
+
+                let line_dist = |l : &Line2f| l.signed_distance(&point);
+                let seg_dist = |s : &WadSeg|
+                    Line2::from_point_pair(self.wad.seg_vertices(s))
+                        .signed_distance(&point);
+
+                // The intersection point must lie both within the BSP volume
+                // and the segs volume.
+                if lines.iter().map(line_dist).all(|d| d >= -BSP_TOLERANCE) &&
+                   segs.iter().map(seg_dist).all(|d| d <= SEG_TOLERANCE) {
+                    points.push(point);
+                }
+            }
+        }
+
+        points_to_polygon(&mut points);  // Sort and remove duplicates.
+        let sector = self.wad.seg_sector(&segs[0]);
+        self.push_flat_poly(sector, points.as_slice());
+    }
+
 
     fn push_seg(&mut self, seg: &WadSeg) {
         let wad = self.wad;
@@ -201,9 +243,10 @@ impl<'a> VboBuilder<'a> {
 
         let back_sector = match wad.seg_back_sector(seg) {
             None => {
-                self.push_seg_quad(
-                    seg, (floor, ceil), sector.light, &side.middle_texture,
-                    if unpeg_lower { PegBottom } else { PegTop });
+                self.push_wall_quad(seg, (floor, ceil), sector.light,
+                                    &side.middle_texture,
+                                    if unpeg_lower { PegBottom }
+                                    else { PegTop });
                 return
             },
             Some(s) => s
@@ -213,52 +256,32 @@ impl<'a> VboBuilder<'a> {
         let back_ceil = back_sector.ceiling_height;
 
         let floor = if back_floor > floor {
-            self.push_seg_quad(seg, (floor, back_floor), sector.light,
-                          &side.lower_texture,
-                          if unpeg_lower { PegBottomLower } else { PegTop });
+            self.push_wall_quad(seg, (floor, back_floor), sector.light,
+                                &side.lower_texture,
+                                if unpeg_lower { PegBottomLower }
+                                else { PegTop });
             back_floor
         } else {
             floor
         };
         let ceil = if back_ceil < ceil {
-            self.push_seg_quad(seg, (back_ceil, ceil), sector.light,
-                          &side.upper_texture,
-                          if unpeg_upper { PegTop } else { PegBottom });
+            self.push_wall_quad(seg, (back_ceil, ceil), sector.light,
+                                &side.upper_texture,
+                                if unpeg_upper { PegTop }
+                                else { PegBottom });
             back_ceil
         } else {
             ceil
         };
-        self.push_seg_quad(seg, (floor, ceil), sector.light, &side.middle_texture,
-                      if unpeg_lower { PegBottom } else { PegTop });
+        self.push_wall_quad(seg, (floor, ceil), sector.light, &side.middle_texture,
+                            if unpeg_lower { PegBottom } else { PegTop });
 
     }
 
-    fn flat_vertex(&mut self, x: f32, y: f32, z: f32,
-                   brightness: f32, offsets: &Vec2f) {
-        self.flat_data.push(FlatVertex {
-            pos: Vec3::new(x, y, z),
-            brightness: brightness,
-            offsets: *offsets
-        });
-    }
-
-    fn wall_vertex(&mut self, xz: &Vec2f, y: f32, tile_u: f32, tile_v: f32,
-                   brightness: f32, scroll_rate: f32, bounds: &Bounds) {
-        self.wall_data.push(WallVertex {
-            pos: Vec3::new(xz.x, y, xz.y),
-            tile_uv: Vec2::new(tile_u, tile_v),
-            atlas_uv: bounds.pos,
-            tile_width: bounds.size.x,
-            brightness: brightness,
-            scroll_rate: scroll_rate,
-        });
-    }
-
-    fn push_seg_quad(&mut self, seg: &WadSeg,
-                (low, high): (WadCoord, WadCoord),
-                brightness: i16, texture_name: &[u8, ..8],
-                peg: PegType) {
-        if !DRAW_WALLS { return; }
+    fn push_wall_quad(&mut self, seg: &WadSeg,
+                      (low, high): (WadCoord, WadCoord),
+                      brightness: i16, texture_name: &[u8, ..8],
+                      peg: PegType) {
         if !should_render(texture_name) { return; }
         let bounds = self.wall_lookup.find(&name_toupper(texture_name))
             .or_else(|| {
@@ -306,48 +329,16 @@ impl<'a> VboBuilder<'a> {
         self.wall_vertex(&v1, high, s1, t2, brightness, scroll, bounds);
     }
 
-    fn wire_floor(&mut self, _sector: &WadSector, _points: &[Vec2f]) {
-        //let center = polygon_center(points);
-        //let v1 = center - Vec2::new(0.03, 0.03);
-        //let v2 = center + Vec2::new(0.03, 0.03);
-        //let y = if !ZERO_FLOORS { from_wad_height(sector.floor_height) }
-        //        else { 0.0 };
-
-        //self.flat_vertex(v1.x, y, v2.y, 1.0);
-        //self.flat_vertex(v2.x, y, v1.y, 1.0);
-        //self.flat_vertex(v1.x, y, v1.y, 1.0);
-
-        //self.flat_vertex(v1.x, y, v2.y, 1.0);
-        //self.flat_vertex(v2.x, y, v2.y, 1.0);
-        //self.flat_vertex(v2.x, y, v1.y, 1.0);
-
-        //for i in range(0, points.len()) {
-        //    let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-        //    let t = 3.0;
-        //    let e = (v1 - v2).normalized() * 0.02;
-        //    let n = e.normal();
-        //    let (v1, v2) = (v1 - e, v2 + e);
-
-        //    self.flat_vertex(v2.x + n.x*t, y, v2.y + n.y*t, 1.0);
-        //    self.flat_vertex(v1.x + n.x*t, y, v1.y + n.y*t, 1.0);
-        //    self.flat_vertex(v1.x + n.x, y, v1.y + n.y, 1.0);
-
-        //    self.flat_vertex(v1.x + n.x, y, v1.y + n.y, 1.0);
-        //    self.flat_vertex(v2.x + n.x, y, v2.y + n.y, 1.0);
-        //    self.flat_vertex(v2.x + n.x*t, y, v2.y + n.y*t, 1.0);
-        //}
-    }
-
-    fn convex_flat(&mut self, sector: &WadSector, points: &[Vec2f]) {
+    fn push_flat_poly(&mut self, sector: &WadSector, points: &[Vec2f]) {
         let floor = from_wad_height(sector.floor_height);
         let ceiling = from_wad_height(sector.ceiling_height);
         let v0 = points[0];
         let floor_offsets = self.flat_lookup.find(
                 &name_toupper(sector.floor_texture))
-            .expect("convex_flat: No such floor texture.");
+            .expect("push_flat_poly: No such floor texture.");
         let ceiling_offsets = self.flat_lookup.find(
                 &name_toupper(sector.ceiling_texture))
-            .expect("convex_flat: No such ceiling texture.");
+            .expect("push_flat_poly: No such ceiling texture.");
         let bright = sector.light as f32 / 256.0 ;
         for i in range(1, points.len()) {
             let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
@@ -361,89 +352,65 @@ impl<'a> VboBuilder<'a> {
         }
     }
 
-
-    fn push_subsector(&mut self, subsector: &WadSubsector, lines: &[Line2f]) {
-        let segs = self.wad.ssector_segs(subsector);
-
-        // The vector contains all (2D) points which are part of the subsector:
-        // implicit (intersection of BSP lines) and explicit (seg vertices).
-        let mut points : Vec<Vec2f> = Vec::new();
-
-        // First add the explicit points.
-        for seg in segs.iter() {
-            let (v1, v2) = self.wad.seg_vertices(seg);
-            points.push(v1);
-            points.push(v2);
-
-            // Also push the wall segments.
-            self.push_seg(seg);
-        }
-
-        // The convex polyon defined at the intersection of the partition lines,
-        // intersected with the half-volume of the segs form the 'implicit'
-        // points.
-        for i_line in range(0, lines.len() - 1) {
-            for j_line in range(i_line + 1, lines.len()) {
-                let (l1, l2) = (&(*lines)[i_line], &(*lines)[j_line]);
-                let point = match l1.intersect_point(l2) {
-                    Some(p) => p,
-                    None => continue
-                };
-
-                let line_dist = |l : &Line2f| l.signed_distance(&point);
-                let seg_dist = |s : &WadSeg|
-                    Line2::from_point_pair(self.wad.seg_vertices(s))
-                        .signed_distance(&point);
-
-                // The intersection point must lie both within the BSP volume
-                // and the segs volume.
-                if lines.iter().map(line_dist).all(|d| d >= -BSP_TOLERANCE) &&
-                   segs.iter().map(seg_dist).all(|d| d <= SEG_TOLERANCE) {
-                    points.push(point);
-                }
-            }
-        }
-
-        points_to_polygon(&mut points);  // Sort and remove duplicates.
-        let sector = self.wad.seg_sector(&segs[0]);
-        if WIRE_FLOORS {
-            self.wire_floor(sector, points.as_slice());
-        } else {
-            self.convex_flat(sector, points.as_slice());
-        }
+    fn flat_vertex(&mut self, x: f32, y: f32, z: f32,
+                   brightness: f32, offsets: &Vec2f) {
+        self.flat_data.push(FlatVertex {
+            _pos: Vec3::new(x, y, z),
+            _brightness: brightness,
+            _offsets: *offsets
+        });
     }
 
-    fn push_node(&mut self, node: &WadNode, lines: &mut Vec<Line2f>) {
-        let (left, leaf_left) = parse_child_id(node.left);
-        let (right, leaf_right) = parse_child_id(node.right);
-        let partition = Line2::from_origin_and_displace(
-            from_wad_coords(node.line_x, node.line_y),
-            from_wad_coords(node.step_x, node.step_y));
-
-        lines.push(partition);
-        if leaf_left {
-            self.push_subsector(&self.wad.subsectors[left], lines.as_slice());
-        } else {
-            self.push_node(&self.wad.nodes[left], lines);
-        }
-        lines.pop();
-
-
-        lines.push(partition.inverted_halfspaces());
-        if leaf_right {
-            self.push_subsector(&self.wad.subsectors[right], lines.as_slice());
-        } else {
-            self.push_node(&self.wad.nodes[right], lines);
-        }
-        lines.pop();
+    fn wall_vertex(&mut self, xz: &Vec2f, y: f32, tile_u: f32, tile_v: f32,
+                   brightness: f32, scroll_rate: f32, bounds: &Bounds) {
+        self.wall_data.push(WallVertex {
+            _pos: Vec3::new(xz.x, y, xz.y),
+            _tile_uv: Vec2::new(tile_u, tile_v),
+            _atlas_uv: bounds.pos,
+            _tile_width: bounds.size.x,
+            _brightness: brightness,
+            _scroll_rate: scroll_rate,
+        });
     }
 }
+
+
+enum PegType {
+    PegTop,
+    PegBottom,
+    PegBottomLower,
+}
+
+
+
+#[repr(packed)]
+struct FlatVertex {
+    _pos: Vec3f,
+    _offsets: Vec2f,
+    _brightness: f32,
+}
+
+
+#[repr(packed)]
+struct WallVertex {
+    _pos: Vec3f,
+    _tile_uv: Vec2f,
+    _atlas_uv: Vec2f,
+    _tile_width: f32,
+    _brightness: f32,
+    _scroll_rate: f32,
+}
+
+
+fn should_render(name: &WadName) -> bool { !is_untextured(name) }
+
 
 fn polygon_center(points: &[Vec2f]) -> Vec2f {
     let mut center = Vec2::zero();
     for p in points.iter() { center = center + *p; }
     center / (points.len() as f32)
 }
+
 
 fn points_to_polygon(points: &mut Vec<Vec2f>) {
     // Sort points in polygonal CCW order around their center.
