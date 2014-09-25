@@ -16,7 +16,6 @@ use wad::types::*;
 use libc::c_void;
 use std::collections::{HashSet, HashMap};
 use std::hash::sip::SipHasher;
-use std::mem;
 use texture::Texture;
 
 
@@ -37,7 +36,7 @@ pub struct Level {
     flat_u_transform: Uniform,
     flat_u_palette: Uniform,
     flat_utexture: Uniform,
-    flats_vbo: VertexBuffer<FlatVertex>,
+    flats_vbo: VertexBuffer,
 
     wall_shader: Shader,
     wall_u_transform: Uniform,
@@ -45,7 +44,7 @@ pub struct Level {
     wall_u_atlas: Uniform,
     wall_u_palette: Uniform,
     wall_u_time: Uniform,
-    walls_vbo: VertexBuffer<WallVertex>,
+    walls_vbo: VertexBuffer,
 
     palette: Texture,
     flat_atlas: Texture,
@@ -139,11 +138,11 @@ impl Level {
         self.palette.bind(gl::TEXTURE0);
         self.flat_atlas.bind(gl::TEXTURE1);
 
-        self.flat_shader.bind();
-        self.flat_shader.set_uniform_i32(self.flat_u_palette, 0);
-        self.flat_shader.set_uniform_i32(self.flat_utexture, 1);
-        self.flat_shader.set_uniform_mat4(self.flat_u_transform,
-                                          projection_view);
+        self.flat_shader
+            .bind()
+            .set_uniform_i32(self.flat_u_palette, 0)
+            .set_uniform_i32(self.flat_utexture, 1)
+            .set_uniform_mat4(self.flat_u_transform, projection_view);
         self.flats_vbo.draw_triangles();
         self.flat_shader.unbind();
 
@@ -154,15 +153,15 @@ impl Level {
     pub fn render_walls(&self, projection_view: &Mat4) {
         self.palette.bind(gl::TEXTURE0);
         self.wall_texture_atlas.bind(gl::TEXTURE1);
-        self.wall_shader.bind();
-        self.wall_shader.set_uniform_mat4(self.wall_u_transform,
-                                          projection_view);
-        self.wall_shader.set_uniform_i32(self.wall_u_palette, 0);
-        self.wall_shader.set_uniform_i32(self.wall_u_atlas, 1);
-        self.wall_shader.set_uniform_f32(
-            self.wall_u_atlas_size, self.wall_texture_atlas.get_width() as f32);
-        self.wall_shader.set_uniform_f32(self.wall_u_time, self.time);
 
+        self.wall_shader
+            .bind()
+            .set_uniform_mat4(self.wall_u_transform, projection_view)
+            .set_uniform_i32(self.wall_u_palette, 0)
+            .set_uniform_i32(self.wall_u_atlas, 1)
+            .set_uniform_f32(self.wall_u_atlas_size,
+                             self.wall_texture_atlas.get_width() as f32)
+            .set_uniform_f32(self.wall_u_time, self.time);
         self.walls_vbo.draw_triangles();
         self.wall_shader.unbind();
 
@@ -224,8 +223,8 @@ impl<'a> VboBuilder<'a> {
         new
     }
 
-    pub fn bake_flats(&self) -> VertexBuffer<FlatVertex> {
-        let mut buffer = BufferBuilder::new(3)
+    pub fn bake_flats(&self) -> VertexBuffer {
+        let mut buffer = BufferBuilder::<FlatVertex>::new(3)
             .attribute_vec3f(0, offset_of!(FlatVertex, pos))
             .attribute_vec2f(1, offset_of!(FlatVertex, offsets))
             .attribute_f32(2, offset_of!(FlatVertex, brightness))
@@ -234,8 +233,8 @@ impl<'a> VboBuilder<'a> {
         buffer
     }
 
-    pub fn bake_walls(&self) -> VertexBuffer<WallVertex> {
-        let mut buffer = BufferBuilder::new(6)
+    pub fn bake_walls(&self) -> VertexBuffer {
+        let mut buffer = BufferBuilder::<WallVertex>::new(6)
             .attribute_vec3f(0, offset_of!(WallVertex, pos))
             .attribute_vec2f(1, offset_of!(WallVertex, tile_uv))
             .attribute_vec2f(2, offset_of!(WallVertex, atlas_uv))
