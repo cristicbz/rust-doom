@@ -6,7 +6,7 @@ use shader::{Shader, Uniform};
 use mat4::Mat4;
 use std::vec::Vec;
 use std::str;
-use vbo::VertexBuffer;
+use vbo::{BufferBuilder, VertexBuffer};
 use wad;
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, is_sky_texture,
                 parse_child_id, name_toupper};
@@ -16,7 +16,6 @@ use wad::types::*;
 use libc::c_void;
 use std::collections::{HashSet, HashMap};
 use std::hash::sip::SipHasher;
-use std::mem;
 use texture::Texture;
 
 
@@ -55,8 +54,8 @@ pub struct Level {
 }
 
 macro_rules! offset_of(
-    ($T:ty, $m:ident) => ((&((*(0 as *const $T)).$m))
-                          as *const _ as *const c_void)
+    ($T:ty, $m:ident) => (unsafe { (&((*(0 as *const $T)).$m))
+                          as *const _ as *const c_void })
 )
 
 impl Level {
@@ -139,33 +138,12 @@ impl Level {
         self.palette.bind(gl::TEXTURE0);
         self.flat_atlas.bind(gl::TEXTURE1);
 
-        self.flat_shader.bind();
-        self.flat_shader.set_uniform_i32(self.flat_u_palette, 0);
-        self.flat_shader.set_uniform_i32(self.flat_utexture, 1);
-        self.flat_shader.set_uniform_mat4(self.flat_u_transform,
-                                          projection_view);
-        check_gl!(gl::EnableVertexAttribArray(0));
-        check_gl!(gl::EnableVertexAttribArray(1));
-        check_gl!(gl::EnableVertexAttribArray(2));
-        self.flats_vbo.bind();
-
-        let stride = mem::size_of::<FlatVertex>() as i32;
-        let pos_offset = 0 as *const c_void;
-        let offsets_offset = 12 as *const c_void;
-        let brightness_offset = 20 as *const c_void;
-        check_gl_unsafe!(gl::VertexAttribPointer(
-                0, 3, gl::FLOAT, gl::FALSE, stride, pos_offset));
-        check_gl_unsafe!(gl::VertexAttribPointer(
-                1, 2, gl::FLOAT, gl::FALSE, stride, offsets_offset));
-        check_gl_unsafe!(gl::VertexAttribPointer(
-                2, 1, gl::FLOAT, gl::FALSE, stride, brightness_offset));
-
-        check_gl!(gl::DrawArrays(gl::TRIANGLES, 0,
-                                 self.flats_vbo.len() as i32));
-        self.flats_vbo.unbind();
-        check_gl!(gl::DisableVertexAttribArray(0));
-        check_gl!(gl::DisableVertexAttribArray(1));
-        check_gl!(gl::DisableVertexAttribArray(2));
+        self.flat_shader
+            .bind()
+            .set_uniform_i32(self.flat_u_palette, 0)
+            .set_uniform_i32(self.flat_utexture, 1)
+            .set_uniform_mat4(self.flat_u_transform, projection_view);
+        self.flats_vbo.draw_triangles();
         self.flat_shader.unbind();
 
         self.flat_atlas.unbind(gl::TEXTURE1);
@@ -175,51 +153,16 @@ impl Level {
     pub fn render_walls(&self, projection_view: &Mat4) {
         self.palette.bind(gl::TEXTURE0);
         self.wall_texture_atlas.bind(gl::TEXTURE1);
-        self.wall_shader.bind();
-        self.wall_shader.set_uniform_mat4(self.wall_u_transform,
-                                          projection_view);
-        self.wall_shader.set_uniform_i32(self.wall_u_palette, 0);
-        self.wall_shader.set_uniform_i32(self.wall_u_atlas, 1);
-        self.wall_shader.set_uniform_f32(
-            self.wall_u_atlas_size, self.wall_texture_atlas.get_width() as f32);
-        self.wall_shader.set_uniform_f32(self.wall_u_time, self.time);
 
-        check_gl!(gl::EnableVertexAttribArray(0));
-        check_gl!(gl::EnableVertexAttribArray(1));
-        check_gl!(gl::EnableVertexAttribArray(2));
-        check_gl!(gl::EnableVertexAttribArray(3));
-        check_gl!(gl::EnableVertexAttribArray(4));
-        check_gl!(gl::EnableVertexAttribArray(5));
-        self.walls_vbo.bind();
-
-        let stride = mem::size_of::<WallVertex>() as i32;
-        check_gl_unsafe!(
-            gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, stride,
-                                    offset_of!(WallVertex, pos)));
-        check_gl_unsafe!(
-            gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, stride,
-                                    offset_of!(WallVertex, tile_uv)));
-        check_gl_unsafe!(
-            gl::VertexAttribPointer(2, 2, gl::FLOAT, gl::FALSE, stride,
-                                    offset_of!(WallVertex, atlas_uv)));
-        check_gl_unsafe!(
-            gl::VertexAttribPointer(3, 1, gl::FLOAT, gl::FALSE, stride,
-                                    offset_of!(WallVertex, tile_width)));
-        check_gl_unsafe!(
-            gl::VertexAttribPointer(4, 1, gl::FLOAT, gl::FALSE, stride,
-                                    offset_of!(WallVertex, brightness)));
-        check_gl_unsafe!(
-            gl::VertexAttribPointer(5, 1, gl::FLOAT, gl::FALSE, stride,
-                                    offset_of!(WallVertex, scroll_rate)));
-        check_gl!(gl::DrawArrays(gl::TRIANGLES, 0,
-                                 self.walls_vbo.len() as i32));
-        self.walls_vbo.unbind();
-        check_gl!(gl::DisableVertexAttribArray(0));
-        check_gl!(gl::DisableVertexAttribArray(1));
-        check_gl!(gl::DisableVertexAttribArray(2));
-        check_gl!(gl::DisableVertexAttribArray(3));
-        check_gl!(gl::DisableVertexAttribArray(4));
-        check_gl!(gl::DisableVertexAttribArray(5));
+        self.wall_shader
+            .bind()
+            .set_uniform_mat4(self.wall_u_transform, projection_view)
+            .set_uniform_i32(self.wall_u_palette, 0)
+            .set_uniform_i32(self.wall_u_atlas, 1)
+            .set_uniform_f32(self.wall_u_atlas_size,
+                             self.wall_texture_atlas.get_width() as f32)
+            .set_uniform_f32(self.wall_u_time, self.time);
+        self.walls_vbo.draw_triangles();
         self.wall_shader.unbind();
 
         self.palette.unbind(gl::TEXTURE0);
@@ -236,14 +179,14 @@ impl Level {
 }
 
 #[repr(packed)]
-struct FlatVertex {
+pub struct FlatVertex {
     pub pos: Vec3f,
     pub offsets: Vec2f,
     pub brightness: f32,
 }
 
 #[repr(packed)]
-struct WallVertex {
+pub struct WallVertex {
     pub pos: Vec3f,
     pub tile_uv: Vec2f,
     pub atlas_uv: Vec2f,
@@ -281,13 +224,26 @@ impl<'a> VboBuilder<'a> {
     }
 
     pub fn bake_flats(&self) -> VertexBuffer {
-        VertexBuffer::new_with_data(gl::ARRAY_BUFFER,
-                                    gl::STATIC_DRAW, self.flat_data.as_slice())
+        let mut buffer = BufferBuilder::<FlatVertex>::new(3)
+            .attribute_vec3f(0, offset_of!(FlatVertex, pos))
+            .attribute_vec2f(1, offset_of!(FlatVertex, offsets))
+            .attribute_f32(2, offset_of!(FlatVertex, brightness))
+            .build();
+        buffer.set_data(gl::STATIC_DRAW, self.flat_data.as_slice());
+        buffer
     }
 
     pub fn bake_walls(&self) -> VertexBuffer {
-        VertexBuffer::new_with_data(gl::ARRAY_BUFFER,
-                                    gl::STATIC_DRAW, self.wall_data.as_slice())
+        let mut buffer = BufferBuilder::<WallVertex>::new(6)
+            .attribute_vec3f(0, offset_of!(WallVertex, pos))
+            .attribute_vec2f(1, offset_of!(WallVertex, tile_uv))
+            .attribute_vec2f(2, offset_of!(WallVertex, atlas_uv))
+            .attribute_f32(3, offset_of!(WallVertex, tile_width))
+            .attribute_f32(4, offset_of!(WallVertex, brightness))
+            .attribute_f32(5, offset_of!(WallVertex, scroll_rate))
+            .build();
+        buffer.set_data(gl::STATIC_DRAW, self.wall_data.as_slice());
+        buffer
     }
 
     fn push_seg(&mut self, seg: &WadSeg) {
