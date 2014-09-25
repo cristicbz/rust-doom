@@ -40,6 +40,7 @@ pub mod level;
 pub mod vbo;
 pub mod line;
 pub mod texture;
+pub mod render;
 
 fn create_opengl_window(title : &str,
                         width : int,

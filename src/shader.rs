@@ -37,6 +37,11 @@ impl Shader {
         self
     }
 
+    pub fn bind_mut(&mut self) -> &mut Shader {
+        self.bind();
+        self
+    }
+
     pub fn unbind(&self) -> &Shader {
         check_gl!(gl::UseProgram(0));
         self

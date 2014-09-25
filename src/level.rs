@@ -1,22 +1,21 @@
-use check_gl;
 use gl;
-use line::{Line2, Line2f};
-use numvec::{Vec2f, Vec2, Vec3f, Vec3, Numvec};
-use shader::{Shader, Uniform};
-use mat4::Mat4;
-use std::vec::Vec;
-use std::str;
-use vbo::{BufferBuilder, VertexBuffer};
-use wad;
-use wad::util::{from_wad_height, from_wad_coords, is_untextured, is_sky_texture,
-                parse_child_id, name_toupper};
-use wad::tex::TextureDirectory;
-use wad::tex::Bounds;
-use wad::types::*;
 use libc::c_void;
+use line::{Line2, Line2f};
+use mat4::Mat4;
+use numvec::{Vec2f, Vec2, Vec3f, Vec3, Numvec};
+use render::{Renderer, RenderStep};
+use shader::Shader;
 use std::collections::{HashSet, HashMap};
 use std::hash::sip::SipHasher;
-use texture::Texture;
+use std::rc::Rc;
+use std::str;
+use std::vec::Vec;
+use vbo::{BufferBuilder, VertexBuffer};
+use wad;
+use wad::tex::{Bounds, TextureDirectory};
+use wad::types::*;
+use wad::util::{from_wad_height, from_wad_coords, is_untextured, is_sky_texture,
+                parse_child_id, name_toupper};
 
 
 static DRAW_WALLS : bool = true;
@@ -29,34 +28,17 @@ fn should_render(name: &WadName) -> bool {
     !is_untextured(name) && (RENDER_SKY | !is_sky_texture(name))
 }
 
-pub struct Level {
-    start_pos: Vec2f,
-
-    flat_shader: Shader,
-    flat_u_transform: Uniform,
-    flat_u_palette: Uniform,
-    flat_utexture: Uniform,
-    flats_vbo: VertexBuffer,
-
-    wall_shader: Shader,
-    wall_u_transform: Uniform,
-    wall_u_atlas_size: Uniform,
-    wall_u_atlas: Uniform,
-    wall_u_palette: Uniform,
-    wall_u_time: Uniform,
-    walls_vbo: VertexBuffer,
-
-    palette: Texture,
-    flat_atlas: Texture,
-    wall_texture_atlas: Texture,
-
-    time: f32,
-}
 
 macro_rules! offset_of(
     ($T:ty, $m:ident) => (unsafe { (&((*(0 as *const $T)).$m))
                           as *const _ as *const c_void })
 )
+
+
+pub struct Level {
+    start_pos: Vec2f,
+    renderer: Renderer,
+}
 
 impl Level {
     pub fn new(wad: &mut wad::Archive,
@@ -93,7 +75,7 @@ impl Level {
                 walls.insert(name_toupper(sidedef.lower_texture));
             }
         }
-        let (wall_texture_atlas, wall_lookup) =
+        let (wall_atlas, wall_lookup) =
             textures.build_wall_atlas(walls.iter().map(|x| x.as_slice()));
 
         let builder = VboBuilder::from_wad(
@@ -107,74 +89,36 @@ impl Level {
             &Path::new("src/shaders/wall.vertex.glsl"),
             &Path::new("src/shaders/wall.fragment.glsl")).unwrap();
 
+        let palette_texture = Rc::new(textures.build_palette_texture(0, 0, 31));
+
+        let mut flats_step = RenderStep::new(flat_shader);
+        flats_step
+            .add_shared_texture("u_palette", palette_texture.clone(), 0)
+            .add_unique_texture("u_texture", flat_atlas, 1)
+            .add_static_vbo(builder.bake_flats());
+
+        let mut walls_step = RenderStep::new(wall_shader);
+        walls_step
+            .add_shared_texture("u_palette", palette_texture, 0)
+            .add_constant_f32("u_atlas_size", wall_atlas.get_width() as f32)
+            .add_unique_texture("u_atlas", wall_atlas, 1)
+            .add_static_vbo(builder.bake_walls());
+
+
+        let mut renderer = Renderer::new();
+        renderer.add_step(flats_step);
+        renderer.add_step(walls_step);
+
         Level {
             start_pos: start_pos,
-
-            flat_u_palette: flat_shader.expect_uniform("u_palette"),
-            flat_utexture: flat_shader.expect_uniform("u_texture"),
-            flat_u_transform: flat_shader.expect_uniform("u_transform"),
-            flat_shader: flat_shader,
-            flats_vbo: builder.bake_flats(),
-
-            wall_u_transform: wall_shader.expect_uniform("u_transform"),
-            wall_u_atlas_size: wall_shader.expect_uniform("u_atlas_size"),
-            wall_u_atlas: wall_shader.expect_uniform("u_atlas"),
-            wall_u_palette: wall_shader.expect_uniform("u_palette"),
-            wall_u_time: wall_shader.expect_uniform("u_time"),
-            wall_shader: wall_shader,
-            wall_texture_atlas: wall_texture_atlas,
-            walls_vbo: builder.bake_walls(),
-
-            palette: textures.build_palette_texture(0, 0, 31),
-            flat_atlas: flat_atlas,
-
-            time: 0.0,
+            renderer: renderer,
         }
     }
 
     pub fn get_start_pos<'a>(&'a self) -> &'a Vec2f { &self.start_pos }
 
-    pub fn render_flats(&self, projection_view: &Mat4) {
-        self.palette.bind(gl::TEXTURE0);
-        self.flat_atlas.bind(gl::TEXTURE1);
-
-        self.flat_shader
-            .bind()
-            .set_uniform_i32(self.flat_u_palette, 0)
-            .set_uniform_i32(self.flat_utexture, 1)
-            .set_uniform_mat4(self.flat_u_transform, projection_view);
-        self.flats_vbo.draw_triangles();
-        self.flat_shader.unbind();
-
-        self.flat_atlas.unbind(gl::TEXTURE1);
-        self.palette.unbind(gl::TEXTURE0);
-    }
-
-    pub fn render_walls(&self, projection_view: &Mat4) {
-        self.palette.bind(gl::TEXTURE0);
-        self.wall_texture_atlas.bind(gl::TEXTURE1);
-
-        self.wall_shader
-            .bind()
-            .set_uniform_mat4(self.wall_u_transform, projection_view)
-            .set_uniform_i32(self.wall_u_palette, 0)
-            .set_uniform_i32(self.wall_u_atlas, 1)
-            .set_uniform_f32(self.wall_u_atlas_size,
-                             self.wall_texture_atlas.get_width() as f32)
-            .set_uniform_f32(self.wall_u_time, self.time);
-        self.walls_vbo.draw_triangles();
-        self.wall_shader.unbind();
-
-        self.palette.unbind(gl::TEXTURE0);
-        self.wall_texture_atlas.unbind(gl::TEXTURE1);
-    }
-
     pub fn render(&mut self, delta_time: f32, projection_view: &Mat4) {
-        self.time += delta_time;
-        if self.time >= 2048.0 { self.time -= 2048.0; }
-        check_gl!(gl::Enable(gl::CULL_FACE));
-        self.render_flats(projection_view);
-        self.render_walls(projection_view);
+        self.renderer.render(delta_time, projection_view);
     }
 }
 
