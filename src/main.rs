@@ -136,7 +136,7 @@ fn main() {
 
 
     {
-        let window = create_opengl_window("Rusty Doom v0.0.2", 1600, 900);
+        let window = create_opengl_window("Rusty Doom v0.0.3", 1600, 900);
         let _gl_context = init_opengl(&window);
 
 
