@@ -2,7 +2,10 @@
 
 uniform mat4 u_transform;
 uniform float u_time;
+<<<<<<< HEAD
 uniform vec2 u_atlas_size;
+=======
+>>>>>>> ac48e418d63845623908696733b64029e1b6584c
 
 layout(location = 0) in vec3 a_pos;
 layout(location = 1) in vec2 a_tile_uv;
