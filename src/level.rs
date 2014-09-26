@@ -81,6 +81,8 @@ struct WallVertex {
     _tile_width: f32,
     _brightness: f32,
     _scroll_rate: f32,
+    _num_frames: u8,
+    _frame_offset: u8,
 }
 
 
@@ -229,13 +231,15 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn create_walls_buffer() -> VertexBuffer {
-        let buffer = BufferBuilder::<WallVertex>::new(6)
+        let buffer = BufferBuilder::<WallVertex>::new(8)
             .attribute_vec3f(0, offset_of!(WallVertex, _pos))
             .attribute_vec2f(1, offset_of!(WallVertex, _tile_uv))
             .attribute_vec2f(2, offset_of!(WallVertex, _atlas_uv))
             .attribute_f32(3, offset_of!(WallVertex, _tile_width))
             .attribute_f32(4, offset_of!(WallVertex, _brightness))
             .attribute_f32(5, offset_of!(WallVertex, _scroll_rate))
+            .attribute_u8(6, offset_of!(WallVertex, _num_frames))
+            .attribute_u8(7, offset_of!(WallVertex, _frame_offset))
             .build();
         buffer
     }
@@ -439,6 +443,8 @@ impl<'a> VboBuilder<'a> {
             _tile_width: bounds.size.x,
             _brightness: brightness,
             _scroll_rate: scroll_rate,
+            _num_frames: bounds.num_frames as u8,
+            _frame_offset: bounds.frame_offset as u8,
         });
     }
 }

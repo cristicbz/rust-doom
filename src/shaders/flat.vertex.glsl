@@ -25,10 +25,9 @@ void main() {
   } else {
       float frame_index = mod(floor(u_time / TICK_RATE) + a_frame_offset,
                               a_num_frames);
-      float offset_x = a_offset.x + frame_index * TILE_SIZE;
-      float offset_y = a_offset.y +
-                       floor(offset_x / u_atlas_size.x) * TILE_SIZE;
-      v_offset = vec2(offset_x, offset_y);
+      float atlas_u = a_offset.x + frame_index * TILE_SIZE;
+      float atlas_v = a_offset.y + floor(atlas_u / u_atlas_size.x) * TILE_SIZE;
+      v_offset = vec2(atlas_u, atlas_v);
   }
   v_brightness = a_brightness;
   vec4 projected_pos = u_transform * vec4(a_pos, 1);
