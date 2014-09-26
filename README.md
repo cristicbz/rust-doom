@@ -21,7 +21,7 @@ Note that you'll need a WAD file (which contains the game's levels and art asset
 
 Copy the WAD file to the repo root (where Cargo.toml is). Then, to run:
 ```
-$ targets/release/rs-doom --iwad your_wad_file.wad
+$ target/release/rs-doom --iwad your_wad_file.wad
 ```
 
 Without any flags it will try to load the first level of 'doom1.wad'. You can
