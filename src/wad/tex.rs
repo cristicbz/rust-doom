@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::io::{BufReader, Reader, SeekSet};
 use std::{str, mem};
-use std::rand::{task_rng, Rng};
 
 use super::Archive;
 use super::image::Image;
@@ -147,7 +146,7 @@ impl TextureDirectory {
 
     pub fn build_picture_atlas<'a, T: Iterator<&'a [u8]>>(&self, names_iter: T)
             -> (Texture, HashMap<Vec<u8>, Bounds>) {
-        let mut images = names_iter
+        let images = names_iter
             .map(|n| (n, self.get_texture(n)
                              .expect(format!("Wall texture '{}' missing.",
                                              &str::from_utf8(n)).as_slice())
@@ -157,15 +156,13 @@ impl TextureDirectory {
         fn img_bound((x_offset, y_offset): (int, int), img: &Image) -> Bounds {
             Bounds { pos: Vec2::new(x_offset as f32, y_offset as f32),
                      size: Vec2::new(img.width() as f32, img.height() as f32),
-                     num_frames: 1,
-                     frame_offset: 0 }
+                     num_frames: 1, frame_offset: 0 }
         }
 
-        let max_shuffle_attempts = 20u;
         let num_pixels = images
             .iter().map(|t| t.1.num_pixels()).fold(0, |x, y| x + y);
-        let min_atlas_width = images.iter() .map(|t| t.1.width())
-                                    .max().unwrap();
+        let min_atlas_width = images
+            .iter().map(|t| t.1.width()).max().unwrap();
         let min_atlas_height = 128;
         let max_size = 4096;
 
@@ -185,8 +182,6 @@ impl TextureDirectory {
         next_size(&mut atlas_width, &mut atlas_height);
 
         let mut transposed = false;
-        let mut attempt = 0;
-        let mut rng = task_rng();
         let mut offsets = Vec::with_capacity(images.len());
         loop {
             let mut x_offset = 0;
@@ -211,11 +206,6 @@ impl TextureDirectory {
 
             if failed {
                 offsets.clear();
-                rng.shuffle(images.as_mut_slice());
-
-                // Attempt simply a different permutation.
-                if attempt < max_shuffle_attempts { attempt += 1; continue; }
-                else { attempt = 0; }
 
                 // Try transposing width<->height.
                 let aux = atlas_width;
@@ -288,9 +278,6 @@ impl TextureDirectory {
             let flat = self.get_flat(name.as_slice()).expect("Unknown flat.");
             let x_offset = column * 64;
             let y_offset = row * 64;
-            println!("{} {} {}",
-                     frame_offset, num_frames,
-                     str::from_utf8(name.as_slice()));
 
             if frame_offset == 0 {
                anim_start_pos = Vec2::new(x_offset as f32, y_offset as f32);
