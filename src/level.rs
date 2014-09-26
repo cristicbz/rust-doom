@@ -155,7 +155,8 @@ fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
     }
     let (atlas, lookup) = textures.build_flat_atlas(
         flats.len(), flats.iter().map(|x| x.as_slice()));
-    step.add_unique_texture("u_texture", atlas, ATLAS_UNIT);
+    step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
+        .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
     lookup
 }
 
