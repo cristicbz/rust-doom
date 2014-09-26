@@ -183,7 +183,7 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
     }
     let (atlas, lookup) = textures.build_wall_atlas(
         walls.iter().map(|x| x.as_slice()));
-    step.add_constant_f32("u_atlas_size", atlas.get_width() as f32)
+    step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
         .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
 
     lookup

@@ -1,6 +1,6 @@
 #version 330 core
 
-uniform float u_atlas_size;
+uniform vec2 u_atlas_size;
 uniform sampler2D u_atlas;
 uniform sampler2D u_palette;
 uniform float u_time;

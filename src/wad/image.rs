@@ -150,11 +150,13 @@ impl Image {
         }
     }
 
-    pub fn get_x_offset(&self) -> int { self.x_offset }
-    pub fn get_y_offset(&self) -> int { self.y_offset }
+    pub fn x_offset(&self) -> int { self.x_offset }
+    pub fn y_offset(&self) -> int { self.y_offset }
 
-    pub fn get_width(&self) -> uint { self.width }
-    pub fn get_height(&self) -> uint { self.height }
+    pub fn width(&self) -> uint { self.width }
+    pub fn height(&self) -> uint { self.height }
+
+    pub fn num_pixels(&self) -> uint { self.pixels.len() }
 
     pub fn get_pixels<'a>(&'a self) -> &'a [u16] { self.pixels.as_slice() }
 }
