@@ -2,20 +2,24 @@
 out vec3 color;
 
 uniform sampler2D u_palette;
-uniform sampler2D u_texture;
+uniform sampler2D u_atlas;
+uniform vec2 u_atlas_size;
 
 in vec3 v_pos;
 flat in vec2 v_offset;
 flat in float v_brightness;
 in float v_dist;
 
+const float WORLD_TO_PIXEL = 100.0;
+const float TILE_SIZE = 64.0;
+const float BRIGHT_BIAS = 1e-4;
+const float DISTANCE_FALOFF = 30.0;
+
 void main() {
-  vec2 atlas_size = vec2(textureSize(u_texture, 0));
-  vec2 atlas_tiling = min(atlas_size.x, atlas_size.y) / atlas_size;
-  vec2 tile_size = 64.0 / atlas_size;
-  vec2 uv = mod(v_pos.xz * atlas_tiling / (.64 * 4), tile_size);
-  float pal = texture2D(u_texture, uv + v_offset).r;
-  float brightness = clamp(v_brightness - clamp((v_dist - 1.0)/30, 0.0, 1.0),
-                           0.0001, 1.0);
-  color = texture2D(u_palette, vec2(pal, 1.0 - brightness)).rgb;
+    vec2 uv = mod(v_pos.xz * WORLD_TO_PIXEL, TILE_SIZE) / u_atlas_size;
+    float palette_index = texture2D(u_atlas, uv + v_offset).r;
+    float colormap_index = 1.0 - clamp(
+            v_brightness - clamp((v_dist - 1.0) / DISTANCE_FALOFF, 0.0, 1.0),
+            BRIGHT_BIAS, 1.0 - BRIGHT_BIAS);
+    color = texture2D(u_palette, vec2(palette_index, colormap_index)).rgb;
 }

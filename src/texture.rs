@@ -2,6 +2,7 @@ use check_gl;
 use gl;
 use gl::types::*;
 use libc;
+use numvec::{Vec2f, Vec2};
 use std::mem;
 
 pub struct Texture {
@@ -89,8 +90,10 @@ impl Texture {
         check_gl!(gl::BindTexture(self.target, 0));
     }
 
-    pub fn get_width(&self) -> uint { self.width }
-    pub fn get_height(&self) -> uint { self.height }
+    pub fn width(&self) -> uint { self.width }
+    pub fn height(&self) -> uint { self.height }
+    pub fn size_as_vec(&self) -> Vec2f { Vec2::new(self.width as f32,
+                                                   self.height as f32) }
 }
 impl Drop for Texture {
     fn drop(&mut self) {

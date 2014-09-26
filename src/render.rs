@@ -2,6 +2,7 @@ use check_gl;
 use gl;
 use gl::types::GLenum;
 use mat4::Mat4;
+use numvec::Vec2f;
 use shader::{Shader, Uniform};
 use std::rc::Rc;
 use std::vec::Vec;
@@ -54,10 +55,21 @@ impl RenderStep {
         }
     }
 
+    pub fn shader<'a>(&'a mut self) -> &'a mut Shader {
+        &mut self.shader
+    }
+
     pub fn add_constant_f32(&mut self, name: &str, value: f32)
             -> &mut RenderStep {
         let uniform = self.shader.expect_uniform(name);
         self.shader.bind_mut().set_uniform_f32(uniform, value).unbind();
+        self
+    }
+
+    pub fn add_constant_vec2f(&mut self, name: &str, value: &Vec2f)
+            -> &mut RenderStep {
+        let uniform = self.shader.expect_uniform(name);
+        self.shader.bind_mut().set_uniform_vec2f(uniform, value).unbind();
         self
     }
 

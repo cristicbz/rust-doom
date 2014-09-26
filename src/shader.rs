@@ -1,13 +1,12 @@
+use check_gl;
 use gl;
 use gl::types::{GLint, GLuint, GLchar};
+use mat4::Mat4;
+use numvec::{Vec2f, Vec3f };
 use std::io::fs::File;
 use std::ptr;
 use std::string::String;
 use std::vec::Vec;
-
-use check_gl;
-use mat4::Mat4;
-use numvec::Vec3f;
 
 pub struct Shader {
     program : Program,
@@ -68,6 +67,12 @@ impl Shader {
 
     pub fn set_uniform_f32(&self, uniform: Uniform, value: f32) -> &Shader {
         check_gl!(gl::Uniform1f(uniform.id, value));
+        self
+    }
+
+    pub fn set_uniform_vec2f(&self, uniform: Uniform, value: &Vec2f)
+            -> &Shader {
+        check_gl_unsafe!(gl::Uniform2fv(uniform.id, 1, &value.x as *const f32));
         self
     }
 

@@ -16,7 +16,7 @@ impl<T: Float + FloatMath> Line2<T> {
         Line2 { origin: origin, displace: displace.normalized() }
     }
 
-    pub fn from_point_pair((origin, towards): (Vec2<T>, Vec2<T>)) -> Line2<T> {
+    pub fn from_two_points(origin: Vec2<T>, towards: Vec2<T>) -> Line2<T> {
         Line2 { origin: origin, displace: (towards - origin).normalized() }
     }
 
