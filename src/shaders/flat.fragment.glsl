@@ -19,7 +19,7 @@ void main() {
     vec2 uv = mod(v_pos.xz * WORLD_TO_PIXEL, TILE_SIZE) / u_atlas_size;
     float palette_index = texture2D(u_atlas, uv + v_offset).r;
     float colormap_index = 1.0 - clamp(
-            v_brightness + clamp((1.0 - v_dist) / DISTANCE_FALOFF, 0.0, 1.0),
+            v_brightness - clamp((v_dist - 1.0) / DISTANCE_FALOFF, 0.0, 1.0),
             BRIGHT_BIAS, 1.0 - BRIGHT_BIAS);
     color = texture2D(u_palette, vec2(palette_index, colormap_index)).rgb;
 }

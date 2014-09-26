@@ -28,7 +28,7 @@ void main() {
         discard;
     } else {
         float colormap_index = 1.0 -
-            clamp(v_brightness + clamp((1.0 - v_dist) / DISTANCE_FALOFF,
+            clamp(v_brightness - clamp((v_dist - 1.0) / DISTANCE_FALOFF,
                                        0.0, 1.0),
                   BRIGHT_BIAS, 1.0 - BRIGHT_BIAS);
         color = texture(u_palette, vec2(palette_index.r, colormap_index)).rgb;
