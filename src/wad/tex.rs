@@ -11,6 +11,7 @@ use texture::Texture;
 
 use gl;
 use numvec::{Vec2, Vec2f};
+use time;
 
 
 pub type Palette = [[u8, ..3], ..256];
@@ -48,6 +49,8 @@ impl TextureDirectory {
         info!("  {:4} patches", patches.len());
 
         // Read textures.
+        let t0 = time::precise_time_s();
+        info!("Reading & assembling textures...");
         let mut textures = HashMap::new();
         for lump_name in TEXTURE_LUMP_NAMES.iter() {
             let lump_index = match wad.get_lump_index(lump_name) {
@@ -65,6 +68,7 @@ impl TextureDirectory {
                   num_textures, str::from_utf8(lump_name));
         }
         let textures = textures;
+        info!("Done in {:.4}s.", time::precise_time_s() - t0);
 
         // Read flats.
         let flats = try!(read_flats(wad));
@@ -301,6 +305,7 @@ fn read_patches(wad: &mut Archive)
     patches.reserve_additional(num_patches);
     let mut missing_patches = 0u;
     info!("Reading {} patches....", num_patches);
+    let t0 = time::precise_time_s();
     for _ in range(0, num_patches) {
         let name = read_binary::<WadName, _>(&mut lump);
         let patch = wad.get_lump_index(&name).map(|index| {
@@ -310,7 +315,8 @@ fn read_patches(wad: &mut Archive)
         if patch.is_none() { missing_patches += 1; }
         patches.push((name, patch));
     }
-    warn!("{} missing patches.", missing_patches);
+    let time = time::precise_time_s() - t0;
+    warn!("Done in {:.4f}s; {} missing patches.", time, missing_patches);
     Ok(patches)
 }
 

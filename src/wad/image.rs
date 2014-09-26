@@ -38,29 +38,26 @@ impl Image {
         let x_offset = reader.read_le_i16().unwrap() as int;
         let y_offset = reader.read_le_i16().unwrap() as int;
 
-        // This allocation isn't strictly necessary.
-        let mut column_offsets = Vec::with_capacity(width);
-        for _ in range(0, width) {
-            column_offsets.push(reader.read_le_u32().unwrap() as i64);
-        }
-        let column_offsets = column_offsets;
-
         let mut pixels = Vec::from_elem(width * height, -1);
-        for i_column in range(0, width) {
-            reader.seek(column_offsets[i_column], SeekSet).unwrap();
+        for i_column in range(0, width as int) { unsafe {
+            let offset = reader.read_le_u32().unwrap() as int;
+            let mut s_ptr = buffer.as_ptr().offset(offset);
             loop {
-                let row_start = reader.read_u8().unwrap() as uint;
+                let row_start = *s_ptr as int; s_ptr = s_ptr.offset(1);
                 if row_start == 255 { break }
-                let run_length = reader.read_u8().unwrap() as uint;
-                reader.read_u8().unwrap();  // Ignore first byte.
-                for i_run in range(0, run_length) {
-                    let index = (i_run + row_start) * width + i_column;
-                    let pixel = reader.read_u8().unwrap() as u16;
-                    *pixels.get_mut(index) = pixel;
+                let run_length = *s_ptr as int; s_ptr = s_ptr.offset(2);
+                let s_end = s_ptr.offset(run_length);
+                let mut d_ptr = pixels.as_mut_ptr()
+                                      .offset(row_start * width as int
+                                              + i_column);
+                while s_ptr < s_end {
+                    *d_ptr = *s_ptr as u16;
+                    d_ptr = d_ptr.offset(width as int);
+                    s_ptr = s_ptr.offset(1);
                 }
-                reader.read_u8().unwrap();  // Ignore last byte.
+                s_ptr = s_ptr.offset(1);
             }
-        }
+        }}
         let pixels = pixels;
 
         Image { width: width,
@@ -72,22 +69,57 @@ impl Image {
 
     pub fn blit(&mut self, source: &Image, x_offset: int, y_offset: int,
                 overwrite: bool) {
-        for source_y in range(0, source.height) {
-            let self_y = source_y as int + y_offset;
-            if self_y < 0 || self_y >= self.height as int { continue; }
+        let y_start = if y_offset < 0 { -y_offset as uint } else { 0 };
+        let x_start = if x_offset < 0 { -x_offset as uint } else { 0 };
+        let y_end = if self.height as int > source.height as int + y_offset {
+            source.height
+        } else {
+            self.height - y_offset as uint
+        };
+        let x_end = if self.width as int > source.width as int + x_offset {
+            source.width
+        } else {
+            self.width - x_offset as uint
+        };
 
-            for source_x in range(0, source.width) {
-                let self_x = source_x as int + x_offset;
-                if self_x < 0 || self_x >= self.width as int { continue; }
+        if overwrite {
+            for source_y in range(y_start, y_end) {
+                let self_y = source_y as int + y_offset;
+                for source_x in range(x_start, x_end) {
+                    let self_x = source_x as int + x_offset;
 
-                let (self_x, self_y) = (self_x as uint, self_y as uint);
-                let source_index = source_x + source_y * source.width;
-                let self_index = self_x + self_y * self.width;
+                    let (self_x, self_y) = (self_x as uint, self_y as uint);
+                    let self_index = (self_x + self_y * self.width) as int;
+                    let source_index = (source_x + source_y * source.width)
+                        as int;
 
-                let self_pixel = self.pixels.get_mut(self_index);
-                let source_pixel = source.pixels[source_index];
-                if source_pixel & 0xff00 == 0 || overwrite {
-                    *self_pixel = source_pixel;
+                    unsafe {
+                        let source_pixel = *source.pixels.as_ptr()
+                                                         .offset(source_index);
+                        *self.pixels.as_mut_ptr().offset(self_index) =
+                            source_pixel;
+                    }
+                }
+            }
+        } else {
+            for source_y in range(y_start, y_end) {
+                let self_y = source_y as int + y_offset;
+                for source_x in range(x_start, x_end) {
+                    let self_x = source_x as int + x_offset;
+
+                    let (self_x, self_y) = (self_x as uint, self_y as uint);
+                    let self_index = (self_x + self_y * self.width) as int;
+                    let source_index = (source_x + source_y * source.width)
+                        as int;
+
+                    unsafe {
+                        let source_pixel = *source.pixels.as_ptr()
+                                                         .offset(source_index);
+                        if source_pixel & 0xff00 == 0 {
+                            *self.pixels.as_mut_ptr().offset(self_index) =
+                                source_pixel;
+                        }
+                    }
                 }
             }
         }
