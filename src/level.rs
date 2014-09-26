@@ -182,14 +182,13 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
             walls.insert(name_toupper(sidedef.lower_texture));
         }
     }
-    let (atlas, lookup) = textures.build_wall_atlas(
+    let (atlas, lookup) = textures.build_picture_atlas(
         walls.iter().map(|x| x.as_slice()));
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
         .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
 
     lookup
 }
-
 
 struct VboBuilder<'a> {
     level: &'a wad::Level,

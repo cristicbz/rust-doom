@@ -143,7 +143,7 @@ impl TextureDirectory {
         colormap_tex
     }
 
-    pub fn build_wall_atlas<'a, T: Iterator<&'a [u8]>>(&self, names_iter: T)
+    pub fn build_picture_atlas<'a, T: Iterator<&'a [u8]>>(&self, names_iter: T)
             -> (Texture, HashMap<Vec<u8>, Bounds>) {
         let mut images = names_iter
             .map(|n| (n, self.get_texture(n)
