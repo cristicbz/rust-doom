@@ -41,12 +41,11 @@ impl Level {
 }
 
 
-type OffsetLookup = HashMap<Vec<u8>, Vec2f>;
 type BoundsLookup = HashMap<Vec<u8>, Bounds>;
 
 
 struct TextureMaps {
-    flats: OffsetLookup,
+    flats: BoundsLookup,
     walls: BoundsLookup,
 }
 
@@ -69,6 +68,8 @@ struct FlatVertex {
     _pos: Vec3f,
     _offsets: Vec2f,
     _brightness: f32,
+    _num_frames: u8,
+    _frame_offset: u8,
 }
 
 
@@ -146,14 +147,14 @@ fn init_flats_step() -> RenderStep {
 
 
 fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
-                     step: &mut RenderStep) -> OffsetLookup {
+                     step: &mut RenderStep) -> BoundsLookup {
     let mut flats = HashSet::with_hasher(SipHasher::new());
     for sector in level.sectors.iter() {
         flats.insert(name_toupper(sector.floor_texture));
         flats.insert(name_toupper(sector.ceiling_texture));
     }
     let (atlas, lookup) = textures.build_flat_atlas(
-        flats.len(), flats.iter().map(|x| x.as_slice()));
+        flats.iter().map(|x| x.as_slice()));
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
         .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
     lookup
@@ -217,10 +218,12 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn create_flats_buffer() -> VertexBuffer {
-        let buffer = BufferBuilder::<FlatVertex>::new(3)
+        let buffer = BufferBuilder::<FlatVertex>::new(4)
             .attribute_vec3f(0, offset_of!(FlatVertex, _pos))
             .attribute_vec2f(1, offset_of!(FlatVertex, _offsets))
             .attribute_f32(2, offset_of!(FlatVertex, _brightness))
+            .attribute_u8(3, offset_of!(FlatVertex, _num_frames))
+            .attribute_u8(4, offset_of!(FlatVertex, _frame_offset))
             .build();
         buffer
     }
@@ -390,36 +393,40 @@ impl<'a> VboBuilder<'a> {
     fn flat_poly(&mut self, sector: &WadSector, points: &[Vec2f]) {
         let floor = from_wad_height(sector.floor_height);
         let ceiling = from_wad_height(sector.ceiling_height);
-        let floor_offsets = self.bounds.flats.find(
-                &name_toupper(sector.floor_texture))
+        let floor_flat = name_toupper(sector.floor_texture);
+        let ceiling_flat = name_toupper(sector.ceiling_texture);
+        let floor_bounds = self.bounds.flats
+            .find(&floor_flat)
             .expect("push_flat_poly: No such floor texture.");
-        let ceiling_offsets = self.bounds.flats.find(
-                &name_toupper(sector.ceiling_texture))
+        let ceiling_bounds = self.bounds.flats
+            .find(&ceiling_flat)
             .expect("push_flat_poly: No such ceiling texture.");
         let bright = sector.light as f32 / 255.0;
         let v0 = points[0];
         for i in range(1, points.len()) {
             let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-            self.flat_vertex(v0.x, floor, v0.y, bright, floor_offsets);
-            self.flat_vertex(v1.x, floor, v1.y, bright, floor_offsets);
-            self.flat_vertex(v2.x, floor, v2.y, bright, floor_offsets);
+            self.flat_vertex(&v0, floor, bright, floor_bounds);
+            self.flat_vertex(&v1, floor, bright, floor_bounds);
+            self.flat_vertex(&v2, floor, bright, floor_bounds);
         }
 
         if is_sky_flat(&sector.ceiling_texture) { return; }
         for i in range(1, points.len()) {
             let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-            self.flat_vertex(v2.x, ceiling, v2.y, bright, ceiling_offsets);
-            self.flat_vertex(v1.x, ceiling, v1.y, bright, ceiling_offsets);
-            self.flat_vertex(v0.x, ceiling, v0.y, bright, ceiling_offsets);
+            self.flat_vertex(&v2, ceiling, bright, ceiling_bounds);
+            self.flat_vertex(&v1, ceiling, bright, ceiling_bounds);
+            self.flat_vertex(&v0, ceiling, bright, ceiling_bounds);
         }
     }
 
-    fn flat_vertex(&mut self, x: f32, y: f32, z: f32, brightness: f32,
-                   offsets: &Vec2f) {
+    fn flat_vertex(&mut self, xz: &Vec2f, y: f32, brightness: f32,
+                   bounds: &Bounds) {
         self.flats.push(FlatVertex {
-            _pos: Vec3::new(x, y, z),
+            _pos: Vec3::new(xz.x, y, xz.y),
             _brightness: brightness,
-            _offsets: *offsets
+            _offsets: bounds.pos,
+            _num_frames: bounds.num_frames as u8,
+            _frame_offset: bounds.frame_offset as u8,
         });
     }
 
