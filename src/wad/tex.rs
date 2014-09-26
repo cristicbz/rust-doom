@@ -300,6 +300,7 @@ fn read_patches(wad: &mut Archive)
 
     patches.reserve_additional(num_patches);
     let mut missing_patches = 0u;
+    info!("Reading {} patches....", num_patches);
     for _ in range(0, num_patches) {
         let name = read_binary::<WadName, _>(&mut lump);
         let patch = wad.get_lump_index(&name).map(|index| {

@@ -72,9 +72,7 @@ pub fn name_eq_str(name: &WadName, str_name: &str) -> bool {
 
 
 pub fn is_untextured(name: &WadName) -> bool { name[0] == b'-' && name[1] == 0 }
-pub fn is_sky_texture(_name: &WadName) -> bool {
-    false
-}
+pub fn is_sky_flat(name: &WadName) -> bool { name_eq(name, b"F_SKY1\0\0\0") }
 
 pub fn from_wad_height(x: WadCoord) -> f32 { (x as f32) / 100.0 }
 
