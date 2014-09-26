@@ -15,16 +15,17 @@ extern crate getopts;
 
 
 use ctrl::GameController;
+use getopts::{optopt,optflag,getopts, usage};
 use level::Level;
 use libc::c_void;
 use mat4::Mat4;
+use numvec::Vec3;
 use player::Player;
 use sdl2::scancode;
 use std::default::Default;
-use numvec::Vec3;
-use wad::TextureDirectory;
-use getopts::{optopt,optflag,getopts, usage};
 use std::os;
+use std::str;
+use wad::TextureDirectory;
 
 
 #[macro_escape]
@@ -42,117 +43,111 @@ pub mod line;
 pub mod texture;
 pub mod render;
 
-fn create_opengl_window(title : &str,
-                        width : int,
-                        height : int) -> sdl2::video::Window {
-    if !sdl2::init(sdl2::InitVideo) { fail!("main: sdl video init failed."); }
-    sdl2::video::gl_set_attribute(sdl2::video::GLContextMajorVersion, 3);
-    sdl2::video::gl_set_attribute(sdl2::video::GLContextMinorVersion, 3);
-    sdl2::video::gl_set_attribute(sdl2::video::GLDepthSize, 24);
-    sdl2::video::gl_set_attribute(sdl2::video::GLDoubleBuffer, 1);
-    match sdl2::video::Window::new(
-            title, sdl2::video::PosCentered, sdl2::video::PosCentered,
-            width, height, sdl2::video::OpenGL | sdl2::video::Shown) {
-        Ok(w) => w, Err(err) => fail!("failed to create window: {}", err)
-    }
-}
 
-fn init_opengl(window : &sdl2::video::Window) -> sdl2::video::GLContext {
-    let context = window.gl_create_context().unwrap();
-    sdl2::clear_error();
-    gl::load_with(|name| {
-        match sdl2::video::gl_get_proc_address(name) {
-            Some(glproc) => glproc as *const libc::c_void,
-            None => {
-                warn!("missing GL function: {}", name);
-                std::ptr::null()
+static WINDOW_TITLE: &'static str = "Rusty Doom v0.0.4";
+static OPENGL_MAJOR_VERISON: int = 3;
+static OPENGL_MINOR_VERISON: int = 3;
+static OPENGL_DEPTH_SIZE: int = 24;
+
+
+pub struct MainWindow {
+    window: sdl2::video::Window,
+    _context: sdl2::video::GLContext,
+}
+impl MainWindow {
+    pub fn new(width: uint, height: uint) -> MainWindow {
+        sdl2::video::gl_set_attribute(sdl2::video::GLContextMajorVersion,
+                                      OPENGL_MAJOR_VERISON);
+        sdl2::video::gl_set_attribute(sdl2::video::GLContextMinorVersion,
+                                      OPENGL_MINOR_VERISON);
+        sdl2::video::gl_set_attribute(sdl2::video::GLDepthSize,
+                                      OPENGL_DEPTH_SIZE);
+        sdl2::video::gl_set_attribute(sdl2::video::GLDoubleBuffer, 1);
+
+        let window = sdl2::video::Window::new(
+            WINDOW_TITLE, sdl2::video::PosCentered, sdl2::video::PosCentered,
+            width as int, height as int,
+            sdl2::video::OpenGL | sdl2::video::Shown).unwrap();
+
+        let context = window.gl_create_context().unwrap();
+        sdl2::clear_error();
+        gl::load_with(|name| {
+            match sdl2::video::gl_get_proc_address(name) {
+                Some(glproc) => glproc as *const libc::c_void,
+                None => {
+                    warn!("missing GL function: {}", name);
+                    std::ptr::null()
+                }
             }
+        });
+        unsafe {
+            let mut vao_id = 0;
+            check_gl!(gl::GenVertexArrays(1, &mut vao_id));
+            check_gl!(gl::BindVertexArray(vao_id));
         }
-    });
-    unsafe {
-        let mut vao_id = 0;
-        check_gl!(gl::GenVertexArrays(1, &mut vao_id));
-        check_gl!(gl::BindVertexArray(vao_id));
+        MainWindow {
+           window: window,
+            _context: context,
+        }
     }
 
-    context
+    pub fn aspect_ratio(&self) -> f32 {
+        let (w, h) = self.window.get_size();
+        w as f32 / h as f32
+    }
+
+    pub fn swap_buffers(&self) {
+        self.window.gl_swap_window();
+    }
 }
 
-struct Scene {
+struct GameConfig<'a> {
+    wad: &'a str,
+    level_index: uint,
+    fov: f32,
+}
+
+struct Game {
+    window: MainWindow,
     player: Player,
     level: Level,
 }
-
-impl Scene {
-    fn new(wad_filename: &str, level_index: uint) -> Scene {
-        let mut wad = wad::Archive::open(&Path::new(wad_filename)).unwrap();
+impl Game {
+    fn new<'a>(window: MainWindow, config: GameConfig<'a>) -> Game {
+        let mut wad = wad::Archive::open(&Path::new(config.wad)).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
-        let level_name = *wad.get_level_name(level_index);
+        let level_name = *wad.get_level_name(config.level_index);
         let level = Level::new(&mut wad, &textures, &level_name);
 
         check_gl!(gl::ClearColor(0.64, 0.72, 0.8, 0.0));
         check_gl!(gl::Enable(gl::DEPTH_TEST));
         check_gl!(gl::DepthFunc(gl::LESS));
-        let mut player = Player::new(Default::default());
-        {
-            let start = level.get_start_pos();
-            player.set_position(&Vec3::new(start.x, 0.3, start.y));
+
+        let start = *level.get_start_pos();
+        let mut player = Player::new(config.fov, window.aspect_ratio(),
+                                     Default::default());
+        player.set_position(&Vec3::new(start.x, 0.3, start.y));
+
+        Game {
+            window: window,
+            player: player,
+            level: level
         }
-
-        Scene { player: player, level: level }
     }
 
-    fn update(&mut self, delta_time: f32, ctrl: &GameController) {
-        self.player.update(delta_time, ctrl);
-        self.level.render(
-            delta_time,
-            &self.player.get_camera()
-            .multiply_transform(&Mat4::new_identity()));
-    }
-}
-
-fn main() {
-    let args: Vec<String> = os::args();
-    let opts = [
-        optopt("i", "iwad", "set initial wad file to use (eg doom1.wad)", "FILE"),
-        optopt("l", "level", "the number of the level to render (0 indexed)", "N"),
-        optflag("h", "help", "print this help message and exit"),
-    ];
-
-    let matches = match getopts(args.tail(), opts) {
-        Ok(m) => m,
-        Err(f) => fail!(f.to_string()),
-    };
-
-    if matches.opt_present("h") {
-        println!("{}", usage("A rust doom renderer.", &opts));
-        return;
-    }
-
-    let wad_filename = matches.opt_str("i").unwrap_or("doom1.wad".to_string());
-    let level = matches.opt_str("l")
-                       .and_then(|l| from_str::<uint>(l.as_slice()))
-                       .unwrap_or(0);
-
-
-    {
-        let window = create_opengl_window("Rusty Doom v0.0.3", 2560, 2560*9/16);
-        let _gl_context = init_opengl(&window);
-
-
-        let mut scene = Scene::new(wad_filename.as_slice(), level);
-        let mut control = ctrl::GameController::new();
+    fn run(&mut self) {
         let quit_gesture = ctrl::AnyGesture(
             vec![ctrl::QuitTrigger,
                  ctrl::KeyTrigger(scancode::EscapeScanCode)]);
 
         let mut cum_time = 0.0;
         let mut cum_updates_time = 0.0;
-        let mut num_frames = 0u32;
+        let mut num_frames = 0.0;
         let mut t0 = 0.0;
+        let mut control = GameController::new();
         loop {
             let t1 = time::precise_time_s();
-            let mut delta = t1 - t0;
+            let mut delta = (t1 - t0) as f32;
             if delta < 1e-10 { delta = 1.0 / 60.0; }
             let delta = delta;
             t0 = t1;
@@ -164,27 +159,106 @@ fn main() {
             if control.poll_gesture(&quit_gesture) {
                 break;
             }
-            scene.update(delta as f32, &control);
+            self.player.update(delta, &control);
+            self.level.render(
+                delta,
+                &self.player.get_camera()
+                .multiply_transform(&Mat4::new_identity()));
 
             let updates_t1 = time::precise_time_s();
             cum_updates_time += updates_t1 - updates_t0;
 
-            cum_time += delta;
-            num_frames += 1;
+            cum_time += delta as f64;
+            num_frames += 1.0 as f64;
             if cum_time > 2.0 {
-                let fps = num_frames as f64 / cum_time;
+                let fps = num_frames / cum_time;
                 let cpums = 1000.0 * cum_updates_time / num_frames as f64;
                 info!("Frame time: {:.2}ms ({:.2}ms cpu, FPS: {:.2})",
                       1000.0 / fps, cpums, fps);
                 cum_time = 0.0;
                 cum_updates_time = 0.0;
-                num_frames = 0;
+                num_frames = 0.0;
             }
 
-            window.gl_swap_window();
+            self.window.swap_buffers();
         }
     }
-    println!("main: all tasks terminated, shutting down.");
+}
+
+fn main() {
+    let args: Vec<String> = os::args();
+    let opts = [
+        optopt("i", "iwad",
+               "set initial wad file to use wad [default='doom1.wad']", "FILE"),
+        optopt("l", "level",
+               "the index of the level to render [default=0]", "N"),
+        optopt("f", "fov",
+               "horizontal field of view to please TotalHalibut [default=65]",
+               "FLOAT"),
+        optopt("r", "resolution",
+               "the resolution at which to render the game [default=1280x720]",
+               "WIDTHxHEIGHT"),
+        optflag("d", "dump-levels", "list all levels and exit."),
+        optflag("h", "help", "print this help message and exit"),
+    ];
+
+    let matches = match getopts(args.tail(), opts) {
+        Ok(m) => m,
+        Err(f) => fail!(f.to_string()),
+    };
+
+    let wad_filename = matches
+        .opt_str("i")
+        .unwrap_or("doom1.wad".to_string());
+    let (width, height) = matches
+        .opt_str("r")
+        .map(|r| {
+            let v = r.as_slice().splitn(1, 'x').collect::<Vec<&str>>();
+            if v.len() != 2 { None } else { Some(v) }
+            .and_then(|v| from_str::<uint>(v[0]).map(|v0| (v0, v[1])))
+            .and_then(|(v0, s)| from_str::<uint>(s).map(|v1| (v0, v1)))
+            .expect("Invalid format for resolution, please use WIDTHxHEIGHT.")
+        })
+        .unwrap_or((1280, 720));
+    let level_index = matches
+        .opt_str("l")
+        .map(|l| from_str::<uint>(l.as_slice())
+            .expect("Invalid value for --level. Expected integer."))
+        .unwrap_or(0);
+    let fov = matches
+        .opt_str("f")
+        .map(|f| from_str::<f32>(f.as_slice())
+             .expect("Invalid value for --fov. Expected float."))
+        .unwrap_or(65.0);
+
+    if matches.opt_present("h") {
+        println!("{}", usage("A rust doom renderer.", &opts));
+        return;
+    }
+
+    if matches.opt_present("d") {
+        let wad = wad::Archive::open(&Path::new(wad_filename)).unwrap();
+        for i_level in range(0, wad.num_levels()) {
+            println!("{:3} {:8}", i_level,
+                     str::from_utf8(wad.get_level_name(i_level))
+                            .unwrap_or("~~~~~~~~"));
+        }
+        return;
+    }
+
+    if !sdl2::init(sdl2::InitVideo) { fail!("main: sdl video init failed."); }
+
+    let mut game = Game::new(
+        MainWindow::new(width, height),
+        GameConfig {
+            wad: wad_filename.as_slice(),
+            level_index: level_index,
+            fov: fov,
+        });
+    game.run();
+
+    info!("Shutting down.");
+    drop(game);
     sdl2::quit();
 }
 
