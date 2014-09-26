@@ -41,6 +41,41 @@ pub fn name_toupper(name: &[u8]) -> Vec<u8> {
     name
 }
 
+static NUKAGE_FRAMES: &'static [&'static [u8]] =
+    &[b"NUKAGE1\0", b"NUKAGE2\0", b"NUKAGE3\0"];
+static FWATER_FRAMES: &'static [&'static [u8]] =
+    &[b"FWATER1\0", b"FWATER2\0", b"FWATER3\0", b"FWATER4\0"];
+static SWATER_FRAMES: &'static [&'static [u8]] =
+    &[b"SWATER1\0", b"SWATER2\0", b"SWATER3\0", b"SWATER4\0"];
+static LAVA_FRAMES: &'static [&'static [u8]] =
+    &[b"LAVA1\0\0\0", b"LAVA2\0\0\0", b"LAVA3\0\0\0", b"LAVA4\0\0\0"];
+static BLOOD_FRAMES: &'static [&'static [u8]] =
+    &[b"BLOOD1\0\0", b"BLOOD2\0\0", b"BLOOD3\0\0"];
+static RROCK05_FRAMES: &'static [&'static [u8]] =
+    &[b"RROCK05\0", b"RROCK06\0", b"RROCK07\0", b"RROCK08\0"];
+static SLIME01_FRAMES: &'static [&'static [u8]] =
+    &[b"SLIME01\0", b"SLIME02\0", b"SLIME03\0", b"SLIME04\0"];
+static SLIME05_FRAMES: &'static [&'static [u8]] =
+    &[b"SLIME05\0", b"SLIME06\0", b"SLIME07\0", b"SLIME08\0"];
+static SLIME09_FRAMES: &'static [&'static [u8]] =
+    &[b"SLIME09\0", b"SLIME10\0", b"SLIME11\0", b"SLIME12\0"];
+static ANIMATED_FLATS: &'static [&'static [&'static [u8]]] = [
+    NUKAGE_FRAMES, FWATER_FRAMES, SWATER_FRAMES, LAVA_FRAMES, BLOOD_FRAMES,
+    RROCK05_FRAMES, SLIME01_FRAMES, SLIME05_FRAMES, SLIME09_FRAMES,
+];
+
+pub fn flat_frame_names(name: &[u8])
+        -> Option<(uint, &'static [&'static [u8]])> {
+    for animation in ANIMATED_FLATS.iter() {
+        for (i_frame, frame_name) in animation.iter().enumerate() {
+            if *frame_name == name {
+                return Some((i_frame, *animation))
+            }
+        }
+    }
+    None
+}
+
 
 pub fn name_from_str(name: &str) -> [u8, ..8] {
     let bytes = name.as_bytes();
