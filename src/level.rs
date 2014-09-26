@@ -26,20 +26,10 @@ impl Level {
     pub fn new(wad: &mut wad::Archive,
                textures: &TextureDirectory,
                name: &WadName) -> Level {
-        let data = wad::Level::from_archive(wad, name);
-        info!("Building level {}...", str::from_utf8(name));
-
-        let mut start_pos = Vec2::zero();
-        for thing in data.things.iter() {
-            if thing.thing_type == 1 {  // Player 1 start position.
-                start_pos = from_wad_coords(thing.x, thing.y);
-                info!("Player start position: {}.", start_pos);
-            }
-        }
-
+        let (renderer, start_pos) = build_level(wad, textures, name);
         Level {
+            renderer: renderer,
             start_pos: start_pos,
-            renderer: build_level(wad, textures, name),
         }
     }
 
@@ -109,7 +99,8 @@ macro_rules! offset_of(
 pub fn build_level(wad: &mut wad::Archive,
                    textures: &wad::TextureDirectory,
                    level_name: &WadName)
-        -> Renderer {
+        -> (Renderer, Vec2f) {
+    info!("Building level {}...", str::from_utf8(level_name));
     let level = wad::Level::from_archive(wad, level_name);
 
     let mut steps = RenderSteps {
@@ -127,7 +118,15 @@ pub fn build_level(wad: &mut wad::Archive,
 
     let mut renderer = Renderer::new();
     renderer.add_step(steps.flats).add_step(steps.walls);
-    renderer
+
+    let mut start_pos = Vec2::zero();
+    for thing in level.things.iter() {
+        if thing.thing_type == 1 {  // Player 1 start position.
+            start_pos = from_wad_coords(thing.x, thing.y);
+            info!("Player start position: {}.", start_pos);
+        }
+    }
+    (renderer, start_pos)
 }
 
 
