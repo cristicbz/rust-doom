@@ -5,7 +5,8 @@ use std::{str, mem};
 use super::Archive;
 use super::image::Image;
 use super::types::*;
-use super::util::{read_binary, name_toupper, flat_frame_names};
+use super::util::{read_binary, name_toupper, flat_frame_names,
+                  wall_frame_names};
 
 use texture::Texture;
 
@@ -144,25 +145,36 @@ impl TextureDirectory {
         colormap_tex
     }
 
-    pub fn build_picture_atlas<'a, T: Iterator<&'a [u8]>>(&self, names_iter: T)
-            -> (Texture, HashMap<Vec<u8>, Bounds>) {
-        let images = names_iter
-            .map(|n| (n, self.get_texture(n)
-                             .expect(format!("Wall texture '{}' missing.",
-                                             &str::from_utf8(n)).as_slice())
-            )).collect::<Vec<(&'a [u8], &Image)>>();
+    pub fn build_picture_atlas<'a, T: Iterator<&'a [u8]>>(
+            &self, mut names_iter: T) -> (Texture, HashMap<Vec<u8>, Bounds>) {
+        let mut images = Vec::new();
+        for name in names_iter {
+            let name = name_toupper(name);
+            match wall_frame_names(name.as_slice()) {
+                None => images.push((self.get_texture(name.as_slice()).unwrap(),
+                                     name, 0, 1)),
+                Some(frames) => {
+                    for (offset, name) in frames.iter().enumerate() {
+                        images.push((self.get_texture(name.as_slice()).unwrap(),
+                                     name.to_vec(), offset, frames.len()));
+                    }
+                }
+            }
+        }
+        let images = images;
         assert!(images.len() > 0, "No images in wall atlas.");
 
-        fn img_bound((x_offset, y_offset): (int, int), img: &Image) -> Bounds {
+        fn img_bound((x_offset, y_offset): (int, int), img: &Image,
+                     frame_offset: uint, num_frames: uint) -> Bounds {
             Bounds { pos: Vec2::new(x_offset as f32, y_offset as f32),
                      size: Vec2::new(img.width() as f32, img.height() as f32),
-                     num_frames: 1, frame_offset: 0 }
+                     num_frames: num_frames, frame_offset: frame_offset }
         }
 
         let num_pixels = images
-            .iter().map(|t| t.1.num_pixels()).fold(0, |x, y| x + y);
+            .iter().map(|t| t.0.num_pixels()).fold(0, |x, y| x + y);
         let min_atlas_width = images
-            .iter().map(|t| t.1.width()).max().unwrap();
+            .iter().map(|t| t.0.width()).max().unwrap();
         let min_atlas_height = 128;
         let max_size = 4096;
 
@@ -188,7 +200,7 @@ impl TextureDirectory {
             let mut y_offset = 0;
             let mut failed = false;
             let mut max_height = 0;
-            for &(_, image) in images.iter() {
+            for &(image, _, _, _) in images.iter() {
                 let (width, height) = (image.width(), image.height());
                 if height > max_height { max_height = height; }
                 if x_offset + width > atlas_width {
@@ -228,11 +240,11 @@ impl TextureDirectory {
         assert!(offsets.len() == images.len());
         let mut atlas = Image::new(atlas_width, atlas_height);
         let mut bound_map = HashMap::with_capacity(images.len());
-        for i in range(0, images.len()) {
-            atlas.blit(images[i].1, offsets[i].0, offsets[i].1 as int,
-                       true);
-            bound_map.insert(name_toupper(images[i].0),
-                             img_bound(offsets[i], images[i].1));
+        for (i, (image, name, frame_offset, num_frames)) in
+                images.into_iter().enumerate() {
+            atlas.blit(image, offsets[i].0, offsets[i].1 as int, true);
+            bound_map.insert(name, img_bound(offsets[i - frame_offset],
+                                             image, frame_offset, num_frames));
         }
         drop(offsets);
 
@@ -253,13 +265,14 @@ impl TextureDirectory {
             let name = name_toupper(name);
             match flat_frame_names(name.as_slice()) {
                 None => names.push((0, 1, name)),
-                Some((_, frames)) => {
+                Some(frames) => {
                     for (offset, frame) in frames.iter().enumerate() {
                         names.push((offset, frames.len(), frame.to_vec()));
                     }
                 }
             }
         }
+        let names = names;
         let num_names = names.len();
 
         let width = next_pow2((num_names as f64).sqrt().ceil() as uint * 64);

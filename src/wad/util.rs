@@ -64,12 +64,56 @@ static ANIMATED_FLATS: &'static [&'static [&'static [u8]]] = [
     RROCK05_FRAMES, SLIME01_FRAMES, SLIME05_FRAMES, SLIME09_FRAMES,
 ];
 
-pub fn flat_frame_names(name: &[u8])
-        -> Option<(uint, &'static [&'static [u8]])> {
+pub fn flat_frame_names(name: &[u8]) -> Option<&'static [&'static [u8]]> {
     for animation in ANIMATED_FLATS.iter() {
-        for (i_frame, frame_name) in animation.iter().enumerate() {
+        for frame_name in animation.iter() {
             if *frame_name == name {
-                return Some((i_frame, *animation))
+                return Some(*animation);
+            }
+        }
+    }
+    None
+}
+
+
+static BLODGR1_FRAMES: &'static [&'static [u8]] =
+    &[b"BLODGR1\0", b"BLODGR2\0", b"BLODGR3\0", b"BLODGR4\0"];
+static BLODRIP1_FRAMES: &'static [&'static [u8]] =
+    &[b"BLODRIP1", b"BLODRIP2", b"BLODRIP3", b"BLODRIP4"];
+static FIREBLU1_FRAMES: &'static [&'static [u8]] =
+    &[b"FIREBLU1", b"FIREBLU2"];
+static FIRLAV3_FRAMES: &'static [&'static [u8]] =
+    &[b"FIRLAV3\0", b"FIRELAVA\0"];
+static FIREMAG1_FRAMES: &'static [&'static [u8]] =
+    &[b"FIREMAG1", b"FIREMAG2", b"FIREMAG3"];
+static FIREWALA_FRAMES: &'static [&'static [u8]] =
+    &[b"FIREWALA", b"FIREWALB", b"FIREWALL"];
+static GSTFONT1_FRAMES: &'static [&'static [u8]] =
+    &[b"GSTFONT1", b"GSTFONT2", b"GSTFONT3"];
+static ROCKRED1_FRAMES: &'static [&'static [u8]] =
+    &[b"ROCKRED1", b"ROCKRED2", b"ROCKRED3"];
+static SLADRIP1_FRAMES: &'static [&'static [u8]] =
+    &[b"SLADRIP1", b"SLADRIP2", b"SLADRIP3"];
+static BFALL1_FRAMES: &'static [&'static [u8]] =
+    &[b"BFALL1\0\0", b"BFALL2\0\0", b"BFALL3\0\0", b"BFALL4\0\0"];
+static SFALL1_FRAMES: &'static [&'static [u8]] =
+    &[b"SFALL1\0\0", b"SFALL2\0\0", b"SFALL3\0\0", b"SFALL4\0\0"];
+static WFALL1_FRAMES: &'static [&'static [u8]] =
+    &[b"WFALL1\0\0", b"WFALL2\0\0", b"WFALL3\0\0", b"WFALL4\0\0"];
+static DBRAIN1_FRAMES: &'static [&'static [u8]] =
+    &[b"DBRAIN1\0", b"DBRAIN2\0", b"DBRAIN3\0",  b"DBRAIN4\0"];
+static ANIMATED_WALLS: &'static [&'static [&'static [u8]]] = [
+    BLODGR1_FRAMES, BLODRIP1_FRAMES, FIREBLU1_FRAMES, FIRLAV3_FRAMES,
+    FIREMAG1_FRAMES, FIREWALA_FRAMES, GSTFONT1_FRAMES, ROCKRED1_FRAMES,
+    SLADRIP1_FRAMES, BFALL1_FRAMES, SFALL1_FRAMES, WFALL1_FRAMES,
+    DBRAIN1_FRAMES];
+
+
+pub fn wall_frame_names(name: &[u8]) -> Option<&'static [&'static [u8]]> {
+    for animation in ANIMATED_WALLS.iter() {
+        for frame_name in animation.iter() {
+            if *frame_name == name {
+                return Some(*animation);
             }
         }
     }
