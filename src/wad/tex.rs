@@ -6,7 +6,7 @@ use std::rand::{task_rng, Rng};
 use super::Archive;
 use super::image::Image;
 use super::types::*;
-use super::util::{read_binary, name_toupper};
+use super::util::{read_binary, name_toupper, flat_frame_names};
 
 use texture::Texture;
 
@@ -22,6 +22,8 @@ pub type Flat = Vec<u8>;
 pub struct Bounds {
     pub pos: Vec2f,
     pub size: Vec2f,
+    pub num_frames: uint,
+    pub frame_offset: uint,
 }
 
 pub struct TextureDirectory {
@@ -154,7 +156,9 @@ impl TextureDirectory {
 
         fn img_bound((x_offset, y_offset): (int, int), img: &Image) -> Bounds {
             Bounds { pos: Vec2::new(x_offset as f32, y_offset as f32),
-                     size: Vec2::new(img.width() as f32, img.height() as f32) }
+                     size: Vec2::new(img.width() as f32, img.height() as f32),
+                     num_frames: 1,
+                     frame_offset: 0 }
         }
 
         let max_shuffle_attempts = 20u;
@@ -250,13 +254,23 @@ impl TextureDirectory {
 
         info!("Wall texture atlas size: {}x{}", atlas_width, atlas_height);
         (tex, bound_map)
-
     }
 
-    pub fn build_flat_atlas<'a, T: Iterator<&'a [u8]>>(&self,
-                                                       num_names: uint,
-                                                       mut names_iter: T)
-            -> (Texture, HashMap<Vec<u8>, Vec2f>) {
+    pub fn build_flat_atlas<'a, T: Iterator<&'a [u8]>>(&self, mut names_iter: T)
+            -> (Texture, HashMap<Vec<u8>, Bounds>) {
+        let mut names = Vec::new();
+        for name in names_iter {
+            let name = name_toupper(name);
+            match flat_frame_names(name.as_slice()) {
+                None => names.push((0, 1, name)),
+                Some((_, frames)) => {
+                    for (offset, frame) in frames.iter().enumerate() {
+                        names.push((offset, frames.len(), frame.to_vec()));
+                    }
+                }
+            }
+        }
+        let num_names = names.len();
 
         let width = next_pow2((num_names as f64).sqrt().ceil() as uint * 64);
         let flats_per_row = width / 64;
@@ -269,14 +283,24 @@ impl TextureDirectory {
         let (mut row, mut column) = (0, 0);
         info!("Flat atlas size: {}x{} ({}, {})", width, height, flats_per_row,
                                                  num_rows);
-        for _ in range(0, num_names) {
-            let name = names_iter.next().expect("Not enough flats.");
-            let flat = self.get_flat(name).expect("Unknown flat.");
+        let mut anim_start_pos = Vec2::zero();
+        for (frame_offset, num_frames, name) in names.into_iter() {
+            let flat = self.get_flat(name.as_slice()).expect("Unknown flat.");
             let x_offset = column * 64;
             let y_offset = row * 64;
-            offsets.insert(name_toupper(name),
-                           Vec2::new(x_offset as f32 / width as f32,
-                                     y_offset as f32 / height as f32));
+            println!("{} {} {}",
+                     frame_offset, num_frames,
+                     str::from_utf8(name.as_slice()));
+
+            if frame_offset == 0 {
+               anim_start_pos = Vec2::new(x_offset as f32, y_offset as f32);
+            }
+            offsets.insert(name, Bounds {
+                pos: anim_start_pos,
+                size: Vec2::new(64.0, 64.0),
+                num_frames: num_frames,
+                frame_offset: frame_offset
+            });
 
             for y in range(0, 64) {
                 for x in range(0, 64) {

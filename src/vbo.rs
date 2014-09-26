@@ -37,6 +37,11 @@ impl<VertexType: Copy>  BufferBuilder<VertexType> {
         final_size - self.vertex_size
     }
 
+    pub fn attribute_u8(&mut self, layout: uint, offset: *const c_void)
+            -> &mut BufferBuilder<VertexType> {
+        self.new_attribute(layout, gl::UNSIGNED_BYTE, 1, false, offset)
+    }
+
     pub fn attribute_f32(&mut self, layout: uint, offset: *const c_void)
             -> &mut BufferBuilder<VertexType> {
         self.new_attribute(layout, gl::FLOAT, 1, false, offset)
@@ -57,6 +62,7 @@ impl<VertexType: Copy>  BufferBuilder<VertexType> {
             -> &mut BufferBuilder<VertexType> {
         let attr_size = size * match gl_type {
             gl::FLOAT => mem::size_of::<f32>(),
+            gl::UNSIGNED_BYTE => mem::size_of::<u8>(),
             _ => fail!("Unsupported attribute type.")
         };
         assert!(self.max_attribute_size_left() >= attr_size);
@@ -90,9 +96,14 @@ fn bind_attributes(stride: uint, attributes: &[VertexAttribute]) {
     let stride = stride as i32;
     for attr in attributes.iter() {
         check_gl!(gl::EnableVertexAttribArray(attr.layout));
-        check_gl_unsafe!(gl::VertexAttribPointer(attr.layout, attr.size,
-                                                 attr.gl_type, attr.normalized,
-                                                 stride, attr.offset));
+        match attr.gl_type {
+            gl::FLOAT => check_gl_unsafe!(gl::VertexAttribPointer(
+                attr.layout, attr.size, attr.gl_type, attr.normalized,
+                stride, attr.offset)),
+            gl::UNSIGNED_BYTE => check_gl_unsafe!(gl::VertexAttribIPointer(
+                attr.layout, attr.size, attr.gl_type, stride, attr.offset)),
+            _ => fail!("Missing attribute type from attrib ptr.")
+        }
     }
 }
 
