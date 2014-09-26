@@ -1,6 +1,7 @@
 use std::vec::Vec;
-use std::io::{BufReader, SeekSet};
+use std::io::BufReader;
 use super::types::*;
+use std::ptr::copy_nonoverlapping_memory;
 
 
 pub struct Image {
@@ -39,23 +40,40 @@ impl Image {
         let y_offset = reader.read_le_i16().unwrap() as int;
 
         let mut pixels = Vec::from_elem(width * height, -1);
+        // Sorry for the messy/unsafe code, but the array bounds checks in this
+        // tight loop make it 6x slower.
         for i_column in range(0, width as int) { unsafe {
+            // Each column is defined as a number of vertical `runs' which are
+            // defined starting at `offset' in the buffer.
             let offset = reader.read_le_u32().unwrap() as int;
-            let mut s_ptr = buffer.as_ptr().offset(offset);
-            loop {
-                let row_start = *s_ptr as int; s_ptr = s_ptr.offset(1);
-                if row_start == 255 { break }
-                let run_length = *s_ptr as int; s_ptr = s_ptr.offset(2);
-                let s_end = s_ptr.offset(run_length);
-                let mut d_ptr = pixels.as_mut_ptr()
-                                      .offset(row_start * width as int
-                                              + i_column);
-                while s_ptr < s_end {
-                    *d_ptr = *s_ptr as u16;
-                    d_ptr = d_ptr.offset(width as int);
-                    s_ptr = s_ptr.offset(1);
+            let mut src_ptr = buffer.as_ptr().offset(offset);
+            'this_column: loop {
+                // The first byte contains the vertical coordinate of the run's
+                // start.
+                let row_start = *src_ptr as int; src_ptr = src_ptr.offset(1);
+
+                // Pointer to the beginning of the run in `pixels'.
+                let mut dest_ptr = pixels
+                    .as_mut_ptr().offset(row_start * width as int + i_column);
+
+                // The special value of 255 means this is the last run in the
+                // column, so move on to the next one.
+                if row_start == 255 { break 'this_column; }
+
+                // The second byte is the length of this run. Skip an additional
+                // byte which is ignored for some reason.
+                let run_length = *src_ptr as int; src_ptr = src_ptr.offset(2);
+
+                let src_end = src_ptr.offset(run_length);  // Ptr to end of run.
+                while src_ptr < src_end {
+                    // Copy one byte converting it into an opaque pixels (high
+                    // bits are zero) and advance the pointers.
+                    *dest_ptr = *src_ptr as u16;
+                    dest_ptr = dest_ptr.offset(width as int);
+                    src_ptr = src_ptr.offset(1);
                 }
-                s_ptr = s_ptr.offset(1);
+                // And another ignored byte after the run.
+                src_ptr = src_ptr.offset(1);
             }
         }}
         let pixels = pixels;
@@ -67,8 +85,11 @@ impl Image {
                 pixels: pixels }
     }
 
+    #[allow(unsigned_negate)]
     pub fn blit(&mut self, source: &Image, x_offset: int, y_offset: int,
-                overwrite: bool) {
+                ignore_transparency: bool) {
+        // Figure out the region in source which is not out of bounds when
+        // copied into self.
         let y_start = if y_offset < 0 { -y_offset as uint } else { 0 };
         let x_start = if x_offset < 0 { -x_offset as uint } else { 0 };
         let y_end = if self.height as int > source.height as int + y_offset {
@@ -82,43 +103,47 @@ impl Image {
             self.width - x_offset as uint
         };
 
-        if overwrite {
-            for source_y in range(y_start, y_end) {
-                let self_y = source_y as int + y_offset;
-                for source_x in range(x_start, x_end) {
-                    let self_x = source_x as int + x_offset;
+        if ignore_transparency {
+            // If we don't care about transparency we can memcpy row by row.
+            let src_pitch = source.width as int;
+            let dest_pitch = self.width as int;
+            let copy_width = x_end - x_start;
+            let copy_height = (y_end - y_start) as int;
+            let (x_start, y_start) = (x_start as int, y_start as int);
+            unsafe {
+                let mut src_ptr = source.pixels.as_ptr().offset(
+                    x_start + y_start * src_pitch);
+                let mut dest_ptr = self.pixels.as_mut_ptr().offset(
+                    x_start + x_offset + (y_start + y_offset) * dest_pitch);
 
-                    let (self_x, self_y) = (self_x as uint, self_y as uint);
-                    let self_index = (self_x + self_y * self.width) as int;
-                    let source_index = (source_x + source_y * source.width)
-                        as int;
-
-                    unsafe {
-                        let source_pixel = *source.pixels.as_ptr()
-                                                         .offset(source_index);
-                        *self.pixels.as_mut_ptr().offset(self_index) =
-                            source_pixel;
-                    }
+                let src_end = src_ptr.offset(copy_height * src_pitch);
+                while src_ptr < src_end {
+                    copy_nonoverlapping_memory(dest_ptr, src_ptr, copy_width);
+                    src_ptr = src_ptr.offset(src_pitch);
+                    dest_ptr = dest_ptr.offset(dest_pitch);
                 }
             }
         } else {
-            for source_y in range(y_start, y_end) {
-                let self_y = source_y as int + y_offset;
-                for source_x in range(x_start, x_end) {
-                    let self_x = source_x as int + x_offset;
+            // Only copy pixels whose high bits are not set.
+            let dest_ptr = self.pixels.as_mut_ptr();
+            let src_ptr = source.pixels.as_ptr();
+            for src_y in range(y_start, y_end) {
+                let dest_y = (src_y as int + y_offset) as uint;
+                for src_x in range(x_start, x_end) {
+                    let dest_x = (src_x as int + x_offset) as uint;
 
-                    let (self_x, self_y) = (self_x as uint, self_y as uint);
-                    let self_index = (self_x + self_y * self.width) as int;
-                    let source_index = (source_x + source_y * source.width)
-                        as int;
+                    let (dest_x, dest_y) = (dest_x as uint, dest_y as uint);
+                    let dest_index = (dest_x + dest_y * self.width) as int;
+                    let src_index = (src_x + src_y * source.width) as int;
 
                     unsafe {
-                        let source_pixel = *source.pixels.as_ptr()
-                                                         .offset(source_index);
-                        if source_pixel & 0xff00 == 0 {
-                            *self.pixels.as_mut_ptr().offset(self_index) =
-                                source_pixel;
-                        }
+                        // `Blending' is a simple copy/no copy, but using bit
+                        // ops we can avoid branching.
+                        let src_pixel = *src_ptr.offset(src_index);
+                        let dest_pixel = dest_ptr.offset(dest_index);
+                        let blend = (-(src_pixel >> 15)) as u16;
+                        *dest_pixel = (src_pixel & !blend) |
+                                      (*dest_pixel & blend);
                     }
                 }
             }
