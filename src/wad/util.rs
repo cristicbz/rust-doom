@@ -64,7 +64,6 @@ static ANIMATED_FLATS: &'static [&'static [&'static [u8]]] = [
     RROCK05_FRAMES, SLIME01_FRAMES, SLIME05_FRAMES, SLIME09_FRAMES,
 ];
 
-<<<<<<< HEAD
 pub fn flat_frame_names(name: &[u8]) -> Option<&'static [&'static [u8]]> {
     for animation in ANIMATED_FLATS.iter() {
         for frame_name in animation.iter() {

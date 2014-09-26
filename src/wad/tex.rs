@@ -168,12 +168,7 @@ impl TextureDirectory {
                      frame_offset: uint, num_frames: uint) -> Bounds {
             Bounds { pos: Vec2::new(x_offset as f32, y_offset as f32),
                      size: Vec2::new(img.width() as f32, img.height() as f32),
-<<<<<<< HEAD
                      num_frames: num_frames, frame_offset: frame_offset }
-=======
-                     num_frames: 1,
-                     frame_offset: 0 }
->>>>>>> ac48e418d63845623908696733b64029e1b6584c
         }
 
         let num_pixels = images
@@ -270,21 +265,14 @@ impl TextureDirectory {
             let name = name_toupper(name);
             match flat_frame_names(name.as_slice()) {
                 None => names.push((0, 1, name)),
-<<<<<<< HEAD
                 Some(frames) => {
-=======
-                Some((_, frames)) => {
->>>>>>> ac48e418d63845623908696733b64029e1b6584c
                     for (offset, frame) in frames.iter().enumerate() {
                         names.push((offset, frames.len(), frame.to_vec()));
                     }
                 }
             }
         }
-<<<<<<< HEAD
         let names = names;
-=======
->>>>>>> ac48e418d63845623908696733b64029e1b6584c
         let num_names = names.len();
 
         let width = next_pow2((num_names as f64).sqrt().ceil() as uint * 64);
@@ -303,12 +291,6 @@ impl TextureDirectory {
             let flat = self.get_flat(name.as_slice()).expect("Unknown flat.");
             let x_offset = column * 64;
             let y_offset = row * 64;
-<<<<<<< HEAD
-=======
-            println!("{} {} {}",
-                     frame_offset, num_frames,
-                     str::from_utf8(name.as_slice()));
->>>>>>> ac48e418d63845623908696733b64029e1b6584c
 
             if frame_offset == 0 {
                anim_start_pos = Vec2::new(x_offset as f32, y_offset as f32);
