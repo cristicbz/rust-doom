@@ -14,7 +14,7 @@ $ cargo build --release
 $ targets/release/rs-doom --iwad doom1.wad --level 0
 ```
 
-Notice you'll need a WAD file (the Doom assets). If you own the game (or are willing to buy it for a few quid/bucks), you'll find it in your game files. If not, you can use probably find the shareware ones floating around on the interwebs. Alternatively you can use the [Freedoom](freedoom.github.io) wads, or, though I would not know of such things, you may be able to obtain them for free in less.... savoury parts of the internet.
+Notice you'll need a WAD file (the Doom assets). If you own the game (or are willing to buy it for a few quid/bucks), you'll find it in your game files. If not, you can use probably find the shareware ones floating around on the interwebs. Alternatively you can use the [Freedoom](http://freedoom.github.io/download.html) wads, or, though I would not know of such things, you may be able to obtain them for free in less.... savoury parts of the internet.
 
 
 ## Goals
