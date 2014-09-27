@@ -23,8 +23,8 @@ void main() {
   if (a_num_frames == 1) {
       v_offset = a_offset;
   } else {
-      float frame_index = mod(floor(u_time / TICK_RATE) + a_frame_offset,
-                              a_num_frames);
+      float frame_index = floor(mod(
+              u_time / TICK_RATE + a_frame_offset, a_num_frames));
       float atlas_u = a_offset.x + frame_index * TILE_SIZE;
       float atlas_v = a_offset.y + floor(atlas_u / u_atlas_size.x) * TILE_SIZE;
       v_offset = vec2(atlas_u, atlas_v);

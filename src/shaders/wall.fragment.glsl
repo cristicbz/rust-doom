@@ -16,11 +16,8 @@ const float DISTANCE_FALOFF = 30.0;
 const float TILE_HEIGHT = 128.0;
 
 void main() {
-    float u = clamp(mod(v_tile_uv.x, v_tile_width), 0.0, v_tile_width - 1.0);
-    float v = clamp(mod(v_tile_uv.y, TILE_HEIGHT), 0.0, TILE_HEIGHT - 1.0);
-
-    vec2 palette_index =
-        texture(u_atlas, (vec2(u, v) + v_atlas_uv) / u_atlas_size).rg;
+    vec2 uv = mod(v_tile_uv, vec2(v_tile_width, TILE_HEIGHT)) + v_atlas_uv;
+    vec2 palette_index = texture(u_atlas, uv / u_atlas_size).rg;
     if (palette_index.g > .5) {  // Transparent pixel.
         discard;
     } else {
