@@ -41,8 +41,8 @@ _(subject to change)_
 * [x] Wall texture mapping.
 * [x] Wall texture alignment.
 * [x] Scrolling walls.
-* [ ] Animated flats.
-* [ ] Animated walls.
+* [x] Animated flats.
+* [x] Animated walls.
 * [ ] Sky rendering.
 * [ ] Sprite rendering.
 * [ ] Camera-world collisions.

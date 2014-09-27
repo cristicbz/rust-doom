@@ -4,11 +4,9 @@ out vec3 color;
 uniform vec2 u_atlas_size;
 uniform sampler2D u_atlas;
 uniform sampler2D u_palette;
-uniform float u_time;
 
 in float v_dist;
 in vec2 v_tile_uv;
-flat in float v_scroll_rate;
 flat in vec2 v_atlas_uv;
 flat in float v_tile_width;
 flat in float v_brightness;
@@ -18,9 +16,8 @@ const float DISTANCE_FALOFF = 30.0;
 const float TILE_HEIGHT = 128.0;
 
 void main() {
-    float u = clamp(mod(v_tile_uv.x + u_time * v_scroll_rate, v_tile_width),
-                    0.5, v_tile_width - 0.5);
-    float v = clamp(mod(v_tile_uv.y, TILE_HEIGHT), 0.5, TILE_HEIGHT - 0.5);
+    float u = clamp(mod(v_tile_uv.x, v_tile_width), 0.0, v_tile_width - 1.0);
+    float v = clamp(mod(v_tile_uv.y, TILE_HEIGHT), 0.0, TILE_HEIGHT - 1.0);
 
     vec2 palette_index =
         texture(u_atlas, (vec2(u, v) + v_atlas_uv) / u_atlas_size).rg;

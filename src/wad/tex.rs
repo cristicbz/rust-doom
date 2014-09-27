@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::io::{BufReader, Reader, SeekSet};
 use std::{str, mem};
-use std::rand::{task_rng, Rng};
 
 use super::Archive;
 use super::image::Image;
 use super::types::*;
-use super::util::{read_binary, name_toupper};
+use super::util::{read_binary, name_toupper, flat_frame_names,
+                  wall_frame_names};
 
 use texture::Texture;
 
@@ -22,6 +22,8 @@ pub type Flat = Vec<u8>;
 pub struct Bounds {
     pub pos: Vec2f,
     pub size: Vec2f,
+    pub num_frames: uint,
+    pub frame_offset: uint,
 }
 
 pub struct TextureDirectory {
@@ -143,25 +145,36 @@ impl TextureDirectory {
         colormap_tex
     }
 
-    pub fn build_picture_atlas<'a, T: Iterator<&'a [u8]>>(&self, names_iter: T)
-            -> (Texture, HashMap<Vec<u8>, Bounds>) {
-        let mut images = names_iter
-            .map(|n| (n, self.get_texture(n)
-                             .expect(format!("Wall texture '{}' missing.",
-                                             &str::from_utf8(n)).as_slice())
-            )).collect::<Vec<(&'a [u8], &Image)>>();
+    pub fn build_picture_atlas<'a, T: Iterator<&'a [u8]>>(
+            &self, mut names_iter: T) -> (Texture, HashMap<Vec<u8>, Bounds>) {
+        let mut images = Vec::new();
+        for name in names_iter {
+            let name = name_toupper(name);
+            match wall_frame_names(name.as_slice()) {
+                None => images.push((self.get_texture(name.as_slice()).unwrap(),
+                                     name, 0, 1)),
+                Some(frames) => {
+                    for (offset, name) in frames.iter().enumerate() {
+                        images.push((self.get_texture(name.as_slice()).unwrap(),
+                                     name.to_vec(), offset, frames.len()));
+                    }
+                }
+            }
+        }
+        let images = images;
         assert!(images.len() > 0, "No images in wall atlas.");
 
-        fn img_bound((x_offset, y_offset): (int, int), img: &Image) -> Bounds {
+        fn img_bound((x_offset, y_offset): (int, int), img: &Image,
+                     frame_offset: uint, num_frames: uint) -> Bounds {
             Bounds { pos: Vec2::new(x_offset as f32, y_offset as f32),
-                     size: Vec2::new(img.width() as f32, img.height() as f32) }
+                     size: Vec2::new(img.width() as f32, img.height() as f32),
+                     num_frames: num_frames, frame_offset: frame_offset }
         }
 
-        let max_shuffle_attempts = 20u;
         let num_pixels = images
-            .iter().map(|t| t.1.num_pixels()).fold(0, |x, y| x + y);
-        let min_atlas_width = images.iter() .map(|t| t.1.width())
-                                    .max().unwrap();
+            .iter().map(|t| t.0.num_pixels()).fold(0, |x, y| x + y);
+        let min_atlas_width = images
+            .iter().map(|t| t.0.width()).max().unwrap();
         let min_atlas_height = 128;
         let max_size = 4096;
 
@@ -181,15 +194,13 @@ impl TextureDirectory {
         next_size(&mut atlas_width, &mut atlas_height);
 
         let mut transposed = false;
-        let mut attempt = 0;
-        let mut rng = task_rng();
         let mut offsets = Vec::with_capacity(images.len());
         loop {
             let mut x_offset = 0;
             let mut y_offset = 0;
             let mut failed = false;
             let mut max_height = 0;
-            for &(_, image) in images.iter() {
+            for &(image, _, _, _) in images.iter() {
                 let (width, height) = (image.width(), image.height());
                 if height > max_height { max_height = height; }
                 if x_offset + width > atlas_width {
@@ -207,11 +218,6 @@ impl TextureDirectory {
 
             if failed {
                 offsets.clear();
-                rng.shuffle(images.as_mut_slice());
-
-                // Attempt simply a different permutation.
-                if attempt < max_shuffle_attempts { attempt += 1; continue; }
-                else { attempt = 0; }
 
                 // Try transposing width<->height.
                 let aux = atlas_width;
@@ -234,11 +240,11 @@ impl TextureDirectory {
         assert!(offsets.len() == images.len());
         let mut atlas = Image::new(atlas_width, atlas_height);
         let mut bound_map = HashMap::with_capacity(images.len());
-        for i in range(0, images.len()) {
-            atlas.blit(images[i].1, offsets[i].0, offsets[i].1 as int,
-                       true);
-            bound_map.insert(name_toupper(images[i].0),
-                             img_bound(offsets[i], images[i].1));
+        for (i, (image, name, frame_offset, num_frames)) in
+                images.into_iter().enumerate() {
+            atlas.blit(image, offsets[i].0, offsets[i].1 as int, true);
+            bound_map.insert(name, img_bound(offsets[i - frame_offset],
+                                             image, frame_offset, num_frames));
         }
         drop(offsets);
 
@@ -250,13 +256,24 @@ impl TextureDirectory {
 
         info!("Wall texture atlas size: {}x{}", atlas_width, atlas_height);
         (tex, bound_map)
-
     }
 
-    pub fn build_flat_atlas<'a, T: Iterator<&'a [u8]>>(&self,
-                                                       num_names: uint,
-                                                       mut names_iter: T)
-            -> (Texture, HashMap<Vec<u8>, Vec2f>) {
+    pub fn build_flat_atlas<'a, T: Iterator<&'a [u8]>>(&self, mut names_iter: T)
+            -> (Texture, HashMap<Vec<u8>, Bounds>) {
+        let mut names = Vec::new();
+        for name in names_iter {
+            let name = name_toupper(name);
+            match flat_frame_names(name.as_slice()) {
+                None => names.push((0, 1, name)),
+                Some(frames) => {
+                    for (offset, frame) in frames.iter().enumerate() {
+                        names.push((offset, frames.len(), frame.to_vec()));
+                    }
+                }
+            }
+        }
+        let names = names;
+        let num_names = names.len();
 
         let width = next_pow2((num_names as f64).sqrt().ceil() as uint * 64);
         let flats_per_row = width / 64;
@@ -269,14 +286,21 @@ impl TextureDirectory {
         let (mut row, mut column) = (0, 0);
         info!("Flat atlas size: {}x{} ({}, {})", width, height, flats_per_row,
                                                  num_rows);
-        for _ in range(0, num_names) {
-            let name = names_iter.next().expect("Not enough flats.");
-            let flat = self.get_flat(name).expect("Unknown flat.");
+        let mut anim_start_pos = Vec2::zero();
+        for (frame_offset, num_frames, name) in names.into_iter() {
+            let flat = self.get_flat(name.as_slice()).expect("Unknown flat.");
             let x_offset = column * 64;
             let y_offset = row * 64;
-            offsets.insert(name_toupper(name),
-                           Vec2::new(x_offset as f32 / width as f32,
-                                     y_offset as f32 / height as f32));
+
+            if frame_offset == 0 {
+               anim_start_pos = Vec2::new(x_offset as f32, y_offset as f32);
+            }
+            offsets.insert(name, Bounds {
+                pos: anim_start_pos,
+                size: Vec2::new(64.0, 64.0),
+                num_frames: num_frames,
+                frame_offset: frame_offset
+            });
 
             for y in range(0, 64) {
                 for x in range(0, 64) {

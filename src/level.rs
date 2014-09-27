@@ -41,12 +41,11 @@ impl Level {
 }
 
 
-type OffsetLookup = HashMap<Vec<u8>, Vec2f>;
 type BoundsLookup = HashMap<Vec<u8>, Bounds>;
 
 
 struct TextureMaps {
-    flats: OffsetLookup,
+    flats: BoundsLookup,
     walls: BoundsLookup,
 }
 
@@ -69,6 +68,8 @@ struct FlatVertex {
     _pos: Vec3f,
     _offsets: Vec2f,
     _brightness: f32,
+    _num_frames: u8,
+    _frame_offset: u8,
 }
 
 
@@ -80,11 +81,17 @@ struct WallVertex {
     _tile_width: f32,
     _brightness: f32,
     _scroll_rate: f32,
+    _num_frames: u8,
+    _frame_offset: u8,
 }
 
 
+// Distance on the wrong side of a BSP and seg line allowed.
 static BSP_TOLERANCE : f32 = 1e-3;
 static SEG_TOLERANCE : f32 = 0.1;
+
+// All polygons are `fattened' by this amount to fill in thin gaps between them.
+static POLY_BIAS : f32 = 0.64 * 3e-4;
 
 static PALETTE_UNIT: uint = 0;
 static ATLAS_UNIT: uint = 1;
@@ -146,14 +153,14 @@ fn init_flats_step() -> RenderStep {
 
 
 fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
-                     step: &mut RenderStep) -> OffsetLookup {
+                     step: &mut RenderStep) -> BoundsLookup {
     let mut flats = HashSet::with_hasher(SipHasher::new());
     for sector in level.sectors.iter() {
         flats.insert(name_toupper(sector.floor_texture));
         flats.insert(name_toupper(sector.ceiling_texture));
     }
     let (atlas, lookup) = textures.build_flat_atlas(
-        flats.len(), flats.iter().map(|x| x.as_slice()));
+        flats.iter().map(|x| x.as_slice()));
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
         .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
     lookup
@@ -217,22 +224,26 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn create_flats_buffer() -> VertexBuffer {
-        let buffer = BufferBuilder::<FlatVertex>::new(3)
+        let buffer = BufferBuilder::<FlatVertex>::new(4)
             .attribute_vec3f(0, offset_of!(FlatVertex, _pos))
             .attribute_vec2f(1, offset_of!(FlatVertex, _offsets))
             .attribute_f32(2, offset_of!(FlatVertex, _brightness))
+            .attribute_u8(3, offset_of!(FlatVertex, _num_frames))
+            .attribute_u8(4, offset_of!(FlatVertex, _frame_offset))
             .build();
         buffer
     }
 
     fn create_walls_buffer() -> VertexBuffer {
-        let buffer = BufferBuilder::<WallVertex>::new(6)
+        let buffer = BufferBuilder::<WallVertex>::new(8)
             .attribute_vec3f(0, offset_of!(WallVertex, _pos))
             .attribute_vec2f(1, offset_of!(WallVertex, _tile_uv))
             .attribute_vec2f(2, offset_of!(WallVertex, _atlas_uv))
             .attribute_f32(3, offset_of!(WallVertex, _tile_width))
             .attribute_f32(4, offset_of!(WallVertex, _brightness))
             .attribute_f32(5, offset_of!(WallVertex, _scroll_rate))
+            .attribute_u8(6, offset_of!(WallVertex, _num_frames))
+            .attribute_u8(7, offset_of!(WallVertex, _frame_offset))
             .build();
         buffer
     }
@@ -346,7 +357,7 @@ impl<'a> VboBuilder<'a> {
         if is_untextured(texture_name) { return; }
         let bounds = match self.bounds.walls.find(&name_toupper(texture_name)) {
             None => {
-                fail!("push_seg_quad: No such wall texture '{}'",
+                fail!("wall_quad: No such wall texture '{}'",
                       str::from_utf8(texture_name));
             },
             Some(bounds) => bounds,
@@ -356,7 +367,10 @@ impl<'a> VboBuilder<'a> {
         let side = self.level.seg_sidedef(seg);
         let sector = self.level.sidedef_sector(side);
         let (v1, v2) = self.level.seg_vertices(seg);
-        let (low, high) = (from_wad_height(low), from_wad_height(high));
+        let bias = (v2 - v1).normalized() * POLY_BIAS;
+        let (v1, v2) = (v1 - bias, v2 + bias);
+        let (low, high) = (from_wad_height(low) - POLY_BIAS,
+                           from_wad_height(high) + POLY_BIAS);
 
         let brightness = sector.light as f32 / 255.0;
         let height = (high - low) * 100.0;
@@ -390,36 +404,40 @@ impl<'a> VboBuilder<'a> {
     fn flat_poly(&mut self, sector: &WadSector, points: &[Vec2f]) {
         let floor = from_wad_height(sector.floor_height);
         let ceiling = from_wad_height(sector.ceiling_height);
-        let floor_offsets = self.bounds.flats.find(
-                &name_toupper(sector.floor_texture))
-            .expect("push_flat_poly: No such floor texture.");
-        let ceiling_offsets = self.bounds.flats.find(
-                &name_toupper(sector.ceiling_texture))
-            .expect("push_flat_poly: No such ceiling texture.");
+        let floor_flat = name_toupper(sector.floor_texture);
+        let ceiling_flat = name_toupper(sector.ceiling_texture);
+        let floor_bounds = self.bounds.flats
+            .find(&floor_flat)
+            .expect("flat_poly: No such floor texture.");
+        let ceiling_bounds = self.bounds.flats
+            .find(&ceiling_flat)
+            .expect("flat_poly: No such ceiling texture.");
         let bright = sector.light as f32 / 255.0;
         let v0 = points[0];
         for i in range(1, points.len()) {
             let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-            self.flat_vertex(v0.x, floor, v0.y, bright, floor_offsets);
-            self.flat_vertex(v1.x, floor, v1.y, bright, floor_offsets);
-            self.flat_vertex(v2.x, floor, v2.y, bright, floor_offsets);
+            self.flat_vertex(&v0, floor, bright, floor_bounds);
+            self.flat_vertex(&v1, floor, bright, floor_bounds);
+            self.flat_vertex(&v2, floor, bright, floor_bounds);
         }
 
         if is_sky_flat(&sector.ceiling_texture) { return; }
         for i in range(1, points.len()) {
             let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-            self.flat_vertex(v2.x, ceiling, v2.y, bright, ceiling_offsets);
-            self.flat_vertex(v1.x, ceiling, v1.y, bright, ceiling_offsets);
-            self.flat_vertex(v0.x, ceiling, v0.y, bright, ceiling_offsets);
+            self.flat_vertex(&v2, ceiling, bright, ceiling_bounds);
+            self.flat_vertex(&v1, ceiling, bright, ceiling_bounds);
+            self.flat_vertex(&v0, ceiling, bright, ceiling_bounds);
         }
     }
 
-    fn flat_vertex(&mut self, x: f32, y: f32, z: f32, brightness: f32,
-                   offsets: &Vec2f) {
+    fn flat_vertex(&mut self, xz: &Vec2f, y: f32, brightness: f32,
+                   bounds: &Bounds) {
         self.flats.push(FlatVertex {
-            _pos: Vec3::new(x, y, z),
+            _pos: Vec3::new(xz.x, y, xz.y),
             _brightness: brightness,
-            _offsets: *offsets
+            _offsets: bounds.pos,
+            _num_frames: bounds.num_frames as u8,
+            _frame_offset: bounds.frame_offset as u8,
         });
     }
 
@@ -432,6 +450,8 @@ impl<'a> VboBuilder<'a> {
             _tile_width: bounds.size.x,
             _brightness: brightness,
             _scroll_rate: scroll_rate,
+            _num_frames: bounds.num_frames as u8,
+            _frame_offset: bounds.frame_offset as u8,
         });
     }
 }
@@ -468,13 +488,31 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
         });
 
     // Remove duplicates.
-    let mut n_unique = 1;
-    for i_point in range(1, points.len()) {
-        let d = (*points)[i_point] - (*points)[i_point - 1];
-        if d.x.abs() > 1e-10 || d.y.abs() > 1e-10 {
-            *points.get_mut(n_unique) = (*points)[i_point];
-            n_unique = n_unique + 1;
+    let mut simplified = Vec::new();
+    simplified.push((*points)[0]);
+    let mut current_point = (*points)[1];
+    let mut area = 0.0;
+    for i_point in range(2, points.len()) {
+        let next_point = (*points)[i_point % points.len()];
+        let prev_point = simplified[simplified.len() - 1];
+        let new_area = (next_point - current_point)
+            .cross(&(current_point - prev_point)) * 0.5;
+        if new_area >= 0.0 && area + new_area > 1.024e-05 {
+            area = 0.0;
+            simplified.push(current_point);
+        } else {
+            area += new_area;
         }
+        current_point = next_point;
     }
-    points.truncate(n_unique);
+    simplified.push((*points)[points.len() - 1]);
+    while (simplified[0] - simplified[simplified.len() - 1]).norm() < 0.0032 {
+        simplified.pop();
+    }
+
+    let center = polygon_center(simplified.as_slice());
+    for point in simplified.iter_mut() {
+        *point = *point + (*point - center).normalized() * POLY_BIAS;
+    }
+    *points = simplified;
 }
