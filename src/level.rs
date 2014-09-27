@@ -68,10 +68,10 @@ enum PegType {
 #[repr(packed)]
 struct FlatVertex {
     _pos: Vec3f,
-    _offsets: Vec2f,
-    _brightness: f32,
+    _atlas_uv: Vec2f,
     _num_frames: u8,
     _frame_offset: u8,
+    _light: u16,
 }
 
 
@@ -81,10 +81,10 @@ struct WallVertex {
     _tile_uv: Vec2f,
     _atlas_uv: Vec2f,
     _tile_width: f32,
-    _brightness: f32,
     _scroll_rate: f32,
     _num_frames: u8,
     _frame_offset: u8,
+    _light: u16,
 }
 
 
@@ -140,7 +140,7 @@ pub fn build_level(wad: &mut wad::Archive,
 
 
 fn build_palette(textures: &TextureDirectory, steps: &mut [&mut RenderStep]) {
-    let palette = Rc::new(textures.build_palette_texture(0, 0, 31));
+    let palette = Rc::new(textures.build_palette_texture(0, 0, 32));
     for step in steps.iter_mut() {
         step.add_shared_texture("u_palette", palette.clone(), PALETTE_UNIT);
     }
@@ -149,8 +149,8 @@ fn build_palette(textures: &TextureDirectory, steps: &mut [&mut RenderStep]) {
 
 fn init_flats_step() -> RenderStep {
     RenderStep::new(Shader::new_from_files(
-            &Path::new("src/shaders/flat.vertex.glsl"),
-            &Path::new("src/shaders/flat.fragment.glsl")).unwrap())
+            &Path::new("src/shaders/flat.vert"),
+            &Path::new("src/shaders/flat.frag")).unwrap())
 }
 
 
@@ -171,8 +171,8 @@ fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
 
 fn init_walls_step() -> RenderStep {
     RenderStep::new(Shader::new_from_files(
-        &Path::new("src/shaders/wall.vertex.glsl"),
-        &Path::new("src/shaders/wall.fragment.glsl")).unwrap())
+        &Path::new("src/shaders/wall.vert"),
+        &Path::new("src/shaders/wall.frag")).unwrap())
 }
 
 
@@ -228,10 +228,10 @@ impl<'a> VboBuilder<'a> {
     fn create_flats_buffer() -> VertexBuffer {
         let buffer = BufferBuilder::<FlatVertex>::new(4)
             .attribute_vec3f(0, offset_of!(FlatVertex, _pos))
-            .attribute_vec2f(1, offset_of!(FlatVertex, _offsets))
-            .attribute_f32(2, offset_of!(FlatVertex, _brightness))
-            .attribute_u8(3, offset_of!(FlatVertex, _num_frames))
-            .attribute_u8(4, offset_of!(FlatVertex, _frame_offset))
+            .attribute_vec2f(1, offset_of!(FlatVertex, _atlas_uv))
+            .attribute_u8(2, offset_of!(FlatVertex, _num_frames))
+            .attribute_u8(3, offset_of!(FlatVertex, _frame_offset))
+            .attribute_u16(4, offset_of!(FlatVertex, _light))
             .build();
         buffer
     }
@@ -242,10 +242,10 @@ impl<'a> VboBuilder<'a> {
             .attribute_vec2f(1, offset_of!(WallVertex, _tile_uv))
             .attribute_vec2f(2, offset_of!(WallVertex, _atlas_uv))
             .attribute_f32(3, offset_of!(WallVertex, _tile_width))
-            .attribute_f32(4, offset_of!(WallVertex, _brightness))
-            .attribute_f32(5, offset_of!(WallVertex, _scroll_rate))
-            .attribute_u8(6, offset_of!(WallVertex, _num_frames))
-            .attribute_u8(7, offset_of!(WallVertex, _frame_offset))
+            .attribute_f32(4, offset_of!(WallVertex, _scroll_rate))
+            .attribute_u8(5, offset_of!(WallVertex, _num_frames))
+            .attribute_u8(6, offset_of!(WallVertex, _frame_offset))
+            .attribute_u16(7, offset_of!(WallVertex, _light))
             .build();
         buffer
     }
@@ -310,9 +310,17 @@ impl<'a> VboBuilder<'a> {
                 }
             }
         }
-
+        if points.len() < 3 {
+            warn!("Degenerate source polygon {} ({} vertices).",
+                  id, points.len());
+        }
         points_to_polygon(&mut points);  // Sort and remove duplicates.
-        self.flat_poly(self.level.seg_sector(&segs[0]), points.as_slice());
+        if points.len() < 3 {
+            warn!("Degenerate cannonicalised polygon {} ({} vertices).",
+                  id, points.len());
+        } else {
+            self.flat_poly(self.level.seg_sector(&segs[0]), points.as_slice());
+        }
     }
 
     fn seg(&mut self, seg: &WadSeg) {
@@ -381,7 +389,7 @@ impl<'a> VboBuilder<'a> {
             _ => (from_wad_height(low), from_wad_height(high))
         };
 
-        let brightness = sector.light as f32 / 255.0;
+        let light_info = self.light_info(sector);
         let height = (high - low) * 100.0;
         let s1 = seg.offset as f32 + side.x_offset as f32;
         let s2 = s1 + (v2 - v1).norm() * 100.0;
@@ -405,13 +413,13 @@ impl<'a> VboBuilder<'a> {
                      else { 0.0 };
 
         let (low, high) = (low - POLY_BIAS, high + POLY_BIAS);
-        self.wall_vertex(&v1, low,  s1, t1, brightness, scroll, bounds);
-        self.wall_vertex(&v2, low,  s2, t1, brightness, scroll, bounds);
-        self.wall_vertex(&v1, high, s1, t2, brightness, scroll, bounds);
+        self.wall_vertex(&v1, low,  s1, t1, light_info, scroll, bounds);
+        self.wall_vertex(&v2, low,  s2, t1, light_info, scroll, bounds);
+        self.wall_vertex(&v1, high, s1, t2, light_info, scroll, bounds);
 
-        self.wall_vertex(&v2, low,  s2, t1, brightness, scroll, bounds);
-        self.wall_vertex(&v2, high, s2, t2, brightness, scroll, bounds);
-        self.wall_vertex(&v1, high, s1, t2, brightness, scroll, bounds);
+        self.wall_vertex(&v2, low,  s2, t1, light_info, scroll, bounds);
+        self.wall_vertex(&v2, high, s2, t2, light_info, scroll, bounds);
+        self.wall_vertex(&v1, high, s1, t2, light_info, scroll, bounds);
     }
 
     fn flat_poly(&mut self, sector: &WadSector, points: &[Vec2f]) {
@@ -425,50 +433,74 @@ impl<'a> VboBuilder<'a> {
         let ceiling_bounds = self.bounds.flats
             .find(&ceiling_flat)
             .expect("flat_poly: No such ceiling texture.");
-        let bright = sector.light as f32 / 255.0;
         let v0 = points[0];
+        let light_info = self.light_info(sector);
 
         if !is_sky_flat(&sector.floor_texture) {
             for i in range(1, points.len()) {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-                self.flat_vertex(&v0, floor, bright, floor_bounds);
-                self.flat_vertex(&v1, floor, bright, floor_bounds);
-                self.flat_vertex(&v2, floor, bright, floor_bounds);
+                self.flat_vertex(&v0, floor, light_info, floor_bounds);
+                self.flat_vertex(&v1, floor, light_info, floor_bounds);
+                self.flat_vertex(&v2, floor, light_info, floor_bounds);
             }
         }
 
         if !is_sky_flat(&sector.ceiling_texture) {
             for i in range(1, points.len()) {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-                self.flat_vertex(&v2, ceiling, bright, ceiling_bounds);
-                self.flat_vertex(&v1, ceiling, bright, ceiling_bounds);
-                self.flat_vertex(&v0, ceiling, bright, ceiling_bounds);
+                self.flat_vertex(&v2, ceiling, light_info, ceiling_bounds);
+                self.flat_vertex(&v1, ceiling, light_info, ceiling_bounds);
+                self.flat_vertex(&v0, ceiling, light_info, ceiling_bounds);
             }
         }
     }
 
-    fn flat_vertex(&mut self, xz: &Vec2f, y: f32, brightness: f32,
+    fn light_info(&self, sector: &WadSector) -> u16 {
+        let light = sector.light;
+        let sector_id = self.level.sector_id(sector);
+        let sync : u16 = (sector_id as uint * 1664525 + 1013904223) as u16;
+        let min_light_or = |if_same| {
+            let min = self.level.sector_min_light(sector);
+            if min == light { if_same } else { min }
+        };
+        let (alt_light, light_type, sync) = match sector.sector_type {
+            1   => (min_light_or(0),     0, sync), // FLASH
+            2   => (min_light_or(0),     1, sync), // SLOW STROBE
+            3|4 => (min_light_or(0),     3, sync), // FAST STROBE
+            8   => (min_light_or(light), 4, 0),    // GLOW
+            12  => (min_light_or(0),     1, 0),    // SLOW STROBE SYNC
+            13  => (min_light_or(0),     3, 0),    // FAST STROBE SYNC
+            17  => (min_light_or(0),     2, sync), // FLICKER
+            _   => (light, 0, 0),
+        };
+        (((light as u16 >> 3) & 31) << 11) +
+        (((alt_light as u16 >> 3) & 31) << 6) +
+        (light_type << 3) +
+        (sync & 7)
+    }
+
+    fn flat_vertex(&mut self, xz: &Vec2f, y: f32, light_info: u16,
                    bounds: &Bounds) {
         self.flats.push(FlatVertex {
             _pos: Vec3::new(xz.x, y, xz.y),
-            _brightness: brightness,
-            _offsets: bounds.pos,
+            _atlas_uv: bounds.pos,
             _num_frames: bounds.num_frames as u8,
             _frame_offset: bounds.frame_offset as u8,
+            _light: light_info,
         });
     }
 
     fn wall_vertex(&mut self, xz: &Vec2f, y: f32, tile_u: f32, tile_v: f32,
-                   brightness: f32, scroll_rate: f32, bounds: &Bounds) {
+                   light_info: u16, scroll_rate: f32, bounds: &Bounds) {
         self.walls.push(WallVertex {
             _pos: Vec3::new(xz.x, y, xz.y),
             _tile_uv: Vec2::new(tile_u, tile_v),
             _atlas_uv: bounds.pos,
             _tile_width: bounds.size.x,
-            _brightness: brightness,
             _scroll_rate: scroll_rate,
             _num_frames: bounds.num_frames as u8,
             _frame_offset: bounds.frame_offset as u8,
+            _light: light_info,
         });
     }
 }
@@ -510,7 +542,7 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
     let mut current_point = (*points)[1];
     let mut area = 0.0;
     for i_point in range(2, points.len()) {
-        let next_point = (*points)[i_point % points.len()];
+        let next_point = (*points)[i_point];
         let prev_point = simplified[simplified.len() - 1];
         let new_area = (next_point - current_point)
             .cross(&(current_point - prev_point)) * 0.5;
@@ -523,6 +555,7 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
         current_point = next_point;
     }
     simplified.push((*points)[points.len() - 1]);
+    if simplified.len() < 3 { points.clear(); return; }
     while (simplified[0] - simplified[simplified.len() - 1]).norm() < 0.0032 {
         simplified.pop();
     }

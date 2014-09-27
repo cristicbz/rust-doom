@@ -146,12 +146,12 @@ impl Game {
         let mut t0 = 0.0;
         let mut control = GameController::new();
         loop {
+            check_gl!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
             let t1 = time::precise_time_s();
             let mut delta = (t1 - t0) as f32;
             if delta < 1e-10 { delta = 1.0 / 60.0; }
             let delta = delta;
             t0 = t1;
-            check_gl!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
 
             let updates_t0 = time::precise_time_s();
 

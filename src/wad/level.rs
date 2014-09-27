@@ -1,9 +1,11 @@
 use numvec::Vec2f;
+use std::mem;
 use std::str;
 use std::vec::Vec;
 use super::archive::Archive;
 use super::types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg,
-                   WadSubsector, WadNode, WadSector, VertexId, WadName};
+                   WadSubsector, WadNode, WadSector, VertexId, WadName,
+                   LightLevel, SectorId};
 use super::util::from_wad_coords;
 
 
@@ -122,5 +124,35 @@ impl Level {
     pub fn ssector_segs<'a>(&'a self, ssector: &WadSubsector) -> &'a [WadSeg] {
         self.segs.slice(ssector.first_seg as uint,
                         (ssector.first_seg as uint + ssector.num_segs as uint))
+    }
+
+    pub fn sector_id(&self, sector: &WadSector) -> SectorId {
+        let sector_id =
+            (sector as *const _ as uint - self.sectors.as_ptr() as uint) /
+            mem::size_of::<WadSector>();
+        assert!(sector_id < self.sectors.len());
+        return sector_id as SectorId;
+    }
+
+    pub fn sector_min_light(&self, sector: &WadSector) -> LightLevel {
+        let mut min_light = sector.light;
+        let sector_id = self.sector_id(sector);
+        for line in self.linedefs.iter() {
+            let (left, right) =
+                (match self.left_sidedef(line) {
+                    Some(l) => l.sector, None => continue,
+                 }, match self.right_sidedef(line) {
+                    Some(r) => r.sector, None => continue,
+                 });
+            let adjacent_light = if left == sector_id {
+                self.sectors[right as uint].light
+            } else if right == sector_id {
+                self.sectors[left as uint].light
+            } else {
+                continue;
+            };
+            if adjacent_light < min_light { min_light = adjacent_light; }
+        }
+        min_light
     }
 }
