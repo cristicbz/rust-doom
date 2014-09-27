@@ -29,7 +29,7 @@ void main() {
       float atlas_v = a_offset.y + floor(atlas_u / u_atlas_size.x) * TILE_SIZE;
       v_offset = vec2(atlas_u, atlas_v);
   }
-  v_brightness = a_brightness;
+  v_brightness = a_brightness * 2.0;
   vec4 projected_pos = u_transform * vec4(a_pos, 1);
   v_dist = projected_pos.w;
   gl_Position = projected_pos;

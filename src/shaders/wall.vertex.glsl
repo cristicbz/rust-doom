@@ -35,7 +35,7 @@ void main() {
         v_atlas_uv = vec2(atlas_u, atlas_v);
     }
     v_tile_width = a_tile_width;
-    v_brightness = a_brightness;
+    v_brightness = a_brightness * 2.0;
     vec4 projected_pos = u_transform * vec4(a_pos, 1);
     v_dist = projected_pos.w;
     gl_Position = projected_pos;

@@ -21,10 +21,10 @@ void main() {
     if (palette_index.g > .5) {  // Transparent pixel.
         discard;
     } else {
-        float colormap_index = 1.0 -
-            clamp(v_brightness - clamp((v_dist - 1.0) / DISTANCE_FALOFF,
-                                       0.0, 1.0),
-                  BRIGHT_BIAS, 1.0 - BRIGHT_BIAS);
+        float dist_term = min(1.0, 1.0 - 1.2 / (v_dist + 1.2));
+        float colormap_index = min(v_brightness, v_brightness - dist_term);
+        colormap_index = clamp(1.0 - colormap_index,
+                               BRIGHT_BIAS, 1.0 - BRIGHT_BIAS);
         color = texture(u_palette, vec2(palette_index.r, colormap_index)).rgb;
     }
 }
