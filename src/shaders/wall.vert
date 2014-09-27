@@ -44,9 +44,9 @@ float light_level() {
     } else {
         float subtype = type >> 1;
         if ((type & 1) == 0) {
-            float time = floor(u_time * 35.0) / 1000.0;
-            float noise = noise(time + sync, sync);
-            bool pick = noise <= (subtype * 0.45 + 0.05);
+            float time = floor(u_time * (8.0 + 12.0 * (1.0 - subtype)));
+            float noise = noise(time / 1000.0 + sync, sync);
+            bool pick = noise <= (subtype * 0.44 + 0.06);
             return pick ? level1 : level0;
         } else {
             float time = u_time / (15.0/35.0 + subtype * 20.0 / 35.0);
