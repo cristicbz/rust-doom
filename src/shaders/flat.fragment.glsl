@@ -16,12 +16,8 @@ const float BRIGHT_BIAS = 1e-4;
 const float DISTANCE_FALOFF = 30.0;
 
 void main() {
-    vec2 uv = mod(v_pos.xz * WORLD_TO_PIXEL, TILE_SIZE);
-    uv = vec2(clamp(uv.x, 0.0, TILE_SIZE - 1.0),
-              clamp(uv.y, 0.0, TILE_SIZE - 1.0));
-    uv += v_offset;
-    uv /= u_atlas_size;
-    float palette_index = texture2D(u_atlas, uv).r;
+    vec2 uv = mod(v_pos.xz * WORLD_TO_PIXEL, TILE_SIZE) + v_offset;
+    float palette_index = texture2D(u_atlas, uv / u_atlas_size).r;
     float colormap_index = 1.0 - clamp(
             v_brightness - clamp((v_dist - 1.0) / DISTANCE_FALOFF, 0.0, 1.0),
             BRIGHT_BIAS, 1.0 - BRIGHT_BIAS);

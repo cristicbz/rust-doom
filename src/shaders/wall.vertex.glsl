@@ -27,8 +27,8 @@ void main() {
     if (a_num_frames == 1) {
       v_atlas_uv = a_atlas_uv;
     } else {
-        float frame_index = mod(floor(u_time / TICK_RATE) + a_frame_offset,
-                                a_num_frames);
+        float frame_index = floor(mod(
+              u_time / TICK_RATE + a_frame_offset, a_num_frames));
         float atlas_u = a_atlas_uv.x + frame_index * a_tile_width;
         float atlas_v =
             a_atlas_uv.y + floor(atlas_u / u_atlas_size.x) * TILE_HEIGHT;
