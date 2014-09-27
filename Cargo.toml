@@ -1,6 +1,6 @@
 [package]
 name = "rs-doom"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 
 [dependencies.sdl2]

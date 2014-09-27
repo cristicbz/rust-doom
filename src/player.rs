@@ -53,7 +53,7 @@ impl Player {
         Player {
             bindings: bindings,
             camera: camera,
-            move_speed: 4.0,
+            move_speed: 8.0,
         }
     }
 

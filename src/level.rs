@@ -86,8 +86,12 @@ struct WallVertex {
 }
 
 
+// Distance on the wrong side of a BSP and seg line allowed.
 static BSP_TOLERANCE : f32 = 1e-3;
 static SEG_TOLERANCE : f32 = 0.1;
+
+// All polygons are `fattened' by this amount to fill in thin gaps between them.
+static POLY_BIAS : f32 = 0.64 * 3e-4;
 
 static PALETTE_UNIT: uint = 0;
 static ATLAS_UNIT: uint = 1;
@@ -353,7 +357,7 @@ impl<'a> VboBuilder<'a> {
         if is_untextured(texture_name) { return; }
         let bounds = match self.bounds.walls.find(&name_toupper(texture_name)) {
             None => {
-                fail!("push_seg_quad: No such wall texture '{}'",
+                fail!("wall_quad: No such wall texture '{}'",
                       str::from_utf8(texture_name));
             },
             Some(bounds) => bounds,
@@ -363,7 +367,10 @@ impl<'a> VboBuilder<'a> {
         let side = self.level.seg_sidedef(seg);
         let sector = self.level.sidedef_sector(side);
         let (v1, v2) = self.level.seg_vertices(seg);
-        let (low, high) = (from_wad_height(low), from_wad_height(high));
+        let bias = (v2 - v1).normalized() * POLY_BIAS;
+        let (v1, v2) = (v1 - bias, v2 + bias);
+        let (low, high) = (from_wad_height(low) - POLY_BIAS,
+                           from_wad_height(high) + POLY_BIAS);
 
         let brightness = sector.light as f32 / 255.0;
         let height = (high - low) * 100.0;
@@ -401,10 +408,10 @@ impl<'a> VboBuilder<'a> {
         let ceiling_flat = name_toupper(sector.ceiling_texture);
         let floor_bounds = self.bounds.flats
             .find(&floor_flat)
-            .expect("push_flat_poly: No such floor texture.");
+            .expect("flat_poly: No such floor texture.");
         let ceiling_bounds = self.bounds.flats
             .find(&ceiling_flat)
-            .expect("push_flat_poly: No such ceiling texture.");
+            .expect("flat_poly: No such ceiling texture.");
         let bright = sector.light as f32 / 255.0;
         let v0 = points[0];
         for i in range(1, points.len()) {
@@ -481,13 +488,31 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
         });
 
     // Remove duplicates.
-    let mut n_unique = 1;
-    for i_point in range(1, points.len()) {
-        let d = (*points)[i_point] - (*points)[i_point - 1];
-        if d.x.abs() > 1e-10 || d.y.abs() > 1e-10 {
-            *points.get_mut(n_unique) = (*points)[i_point];
-            n_unique = n_unique + 1;
+    let mut simplified = Vec::new();
+    simplified.push((*points)[0]);
+    let mut current_point = (*points)[1];
+    let mut area = 0.0;
+    for i_point in range(2, points.len()) {
+        let next_point = (*points)[i_point % points.len()];
+        let prev_point = simplified[simplified.len() - 1];
+        let new_area = (next_point - current_point)
+            .cross(&(current_point - prev_point)) * 0.5;
+        if new_area >= 0.0 && area + new_area > 1.024e-05 {
+            area = 0.0;
+            simplified.push(current_point);
+        } else {
+            area += new_area;
         }
+        current_point = next_point;
     }
-    points.truncate(n_unique);
+    simplified.push((*points)[points.len() - 1]);
+    while (simplified[0] - simplified[simplified.len() - 1]).norm() < 0.0032 {
+        simplified.pop();
+    }
+
+    let center = polygon_center(simplified.as_slice());
+    for point in simplified.iter_mut() {
+        *point = *point + (*point - center).normalized() * POLY_BIAS;
+    }
+    *points = simplified;
 }
