@@ -414,19 +414,23 @@ impl<'a> VboBuilder<'a> {
             .expect("flat_poly: No such ceiling texture.");
         let bright = sector.light as f32 / 255.0;
         let v0 = points[0];
-        for i in range(1, points.len()) {
-            let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-            self.flat_vertex(&v0, floor, bright, floor_bounds);
-            self.flat_vertex(&v1, floor, bright, floor_bounds);
-            self.flat_vertex(&v2, floor, bright, floor_bounds);
+
+        if !is_sky_flat(&sector.floor_texture) {
+            for i in range(1, points.len()) {
+                let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
+                self.flat_vertex(&v0, floor, bright, floor_bounds);
+                self.flat_vertex(&v1, floor, bright, floor_bounds);
+                self.flat_vertex(&v2, floor, bright, floor_bounds);
+            }
         }
 
-        if is_sky_flat(&sector.ceiling_texture) { return; }
-        for i in range(1, points.len()) {
-            let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-            self.flat_vertex(&v2, ceiling, bright, ceiling_bounds);
-            self.flat_vertex(&v1, ceiling, bright, ceiling_bounds);
-            self.flat_vertex(&v0, ceiling, bright, ceiling_bounds);
+        if !is_sky_flat(&sector.ceiling_texture) {
+            for i in range(1, points.len()) {
+                let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
+                self.flat_vertex(&v2, ceiling, bright, ceiling_bounds);
+                self.flat_vertex(&v1, ceiling, bright, ceiling_bounds);
+                self.flat_vertex(&v0, ceiling, bright, ceiling_bounds);
+            }
         }
     }
 
