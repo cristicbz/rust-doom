@@ -60,6 +60,8 @@ enum PegType {
     PegTop,
     PegBottom,
     PegBottomLower,
+    PegTopFloat,
+    PegBottomFloat
 }
 
 
@@ -348,7 +350,7 @@ impl<'a> VboBuilder<'a> {
             ceil
         };
         self.wall_quad(seg, (floor, ceil), &side.middle_texture,
-                       if unpeg_lower { PegBottom } else { PegTop });
+                       if unpeg_lower { PegTopFloat } else { PegBottomFloat });
 
     }
 
@@ -369,7 +371,15 @@ impl<'a> VboBuilder<'a> {
         let (v1, v2) = self.level.seg_vertices(seg);
         let bias = (v2 - v1).normalized() * POLY_BIAS;
         let (v1, v2) = (v1 - bias, v2 + bias);
-        let (low, high) = (from_wad_height(low), from_wad_height(high));
+        let (low, high) = match peg {
+            PegTopFloat => (from_wad_height(low + side.y_offset),
+                            from_wad_height(low + bounds.size.y as i16 +
+                                            side.y_offset)),
+            PegBottomFloat => (from_wad_height(high + side.y_offset -
+                                               bounds.size.y as i16),
+                               from_wad_height(high + side.y_offset)),
+            _ => (from_wad_height(low), from_wad_height(high))
+        };
 
         let brightness = sector.light as f32 / 255.0;
         let height = (high - low) * 100.0;
@@ -384,6 +394,9 @@ impl<'a> VboBuilder<'a> {
                                      sector.floor_height) as f32;
                 (bounds.size.y + sector_height,
                  bounds.size.y - height + sector_height)
+            }
+            PegTopFloat | PegBottomFloat => {
+                (bounds.size.y, 0.0)
             }
         };
         let (t1, t2) = (t1 + side.y_offset as f32, t2 + side.y_offset as f32);
