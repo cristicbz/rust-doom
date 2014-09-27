@@ -369,8 +369,7 @@ impl<'a> VboBuilder<'a> {
         let (v1, v2) = self.level.seg_vertices(seg);
         let bias = (v2 - v1).normalized() * POLY_BIAS;
         let (v1, v2) = (v1 - bias, v2 + bias);
-        let (low, high) = (from_wad_height(low) - POLY_BIAS,
-                           from_wad_height(high) + POLY_BIAS);
+        let (low, high) = (from_wad_height(low), from_wad_height(high));
 
         let brightness = sector.light as f32 / 255.0;
         let height = (high - low) * 100.0;
@@ -392,6 +391,7 @@ impl<'a> VboBuilder<'a> {
         let scroll = if line.special_type == 0x30 { 35.0 }
                      else { 0.0 };
 
+        let (low, high) = (low - POLY_BIAS, high + POLY_BIAS);
         self.wall_vertex(&v1, low,  s1, t1, brightness, scroll, bounds);
         self.wall_vertex(&v2, low,  s2, t1, brightness, scroll, bounds);
         self.wall_vertex(&v1, high, s1, t2, brightness, scroll, bounds);
