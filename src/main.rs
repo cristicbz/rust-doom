@@ -119,7 +119,7 @@ impl Game {
         let level_name = *wad.get_level_name(config.level_index);
         let level = Level::new(&mut wad, &textures, &level_name);
 
-        check_gl!(gl::ClearColor(0.64, 0.72, 0.8, 0.0));
+        check_gl!(gl::ClearColor(0.06, 0.07, 0.09, 0.0));
         check_gl!(gl::Enable(gl::DEPTH_TEST));
         check_gl!(gl::DepthFunc(gl::LESS));
 

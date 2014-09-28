@@ -51,6 +51,7 @@ struct TextureMaps {
 
 
 struct RenderSteps {
+    sky: RenderStep,
     flats: RenderStep,
     walls: RenderStep,
 }
@@ -63,7 +64,6 @@ enum PegType {
     PegTopFloat,
     PegBottomFloat
 }
-
 
 #[repr(packed)]
 struct FlatVertex {
@@ -86,6 +86,13 @@ struct WallVertex {
     _frame_offset: u8,
     _light: u16,
 }
+
+
+#[repr(packed)]
+struct SkyVertex {
+    _pos: Vec3f,
+}
+
 
 
 // Distance on the wrong side of a BSP and seg line allowed.
@@ -113,10 +120,13 @@ pub fn build_level(wad: &mut wad::Archive,
     let level = wad::Level::from_archive(wad, level_name);
 
     let mut steps = RenderSteps {
+        sky: init_sky_step(textures),
         flats: init_flats_step(),
         walls: init_walls_step(),
     };
-    build_palette(textures, &mut [&mut steps.flats, &mut steps.walls]);
+    build_palette(textures, &mut [&mut steps.flats,
+                                  &mut steps.sky,
+                                  &mut steps.walls]);
 
     let texture_maps = TextureMaps {
         flats: build_flats_atlas(&level, textures, &mut steps.flats),
@@ -126,7 +136,10 @@ pub fn build_level(wad: &mut wad::Archive,
     VboBuilder::build(&level, &texture_maps, &mut steps);
 
     let mut renderer = Renderer::new();
-    renderer.add_step(steps.flats).add_step(steps.walls);
+    renderer
+        .add_step(steps.sky)
+        .add_step(steps.flats)
+        .add_step(steps.walls);
 
     let mut start_pos = Vec2::zero();
     for thing in level.things.iter() {
@@ -144,6 +157,19 @@ fn build_palette(textures: &TextureDirectory, steps: &mut [&mut RenderStep]) {
     for step in steps.iter_mut() {
         step.add_shared_texture("u_palette", palette.clone(), PALETTE_UNIT);
     }
+}
+
+fn init_sky_step(textures: &wad::TextureDirectory) -> RenderStep {
+    let mut step = RenderStep::new(Shader::new_from_files(
+            &Path::new("src/shaders/sky.vert"),
+            &Path::new("src/shaders/sky.frag")).unwrap());
+    step.add_unique_texture("u_texture",
+                            textures
+                                .get_texture(b"SKY1\0\0\0\0")
+                                .expect("init_sky_step: Missing sky texture.")
+                                .to_texture(),
+                            ATLAS_UNIT);
+    step
 }
 
 
@@ -201,31 +227,56 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
 struct VboBuilder<'a> {
     level: &'a wad::Level,
     bounds: &'a TextureMaps,
+    sky: Vec<SkyVertex>,
     flats: Vec<FlatVertex>,
     walls: Vec<WallVertex>,
+    min_height: i16,
+    max_height: i16,
 }
 impl<'a> VboBuilder<'a> {
     fn build(level: &'a wad::Level, bounds: &'a TextureMaps,
              steps: &mut RenderSteps) {
+        let (min_height, max_height) = level.sectors
+            .iter()
+            .map(|s| (s.floor_height, s.ceiling_height))
+            .fold((32767, -32768),
+                  |(min, max), (f, c)| (if f < min { f } else { min },
+                                        if c > max { c } else { max }));
+
         let mut builder = VboBuilder {
             level: level,
             bounds: bounds,
             flats: Vec::with_capacity(level.subsectors.len() * 4),
             walls: Vec::with_capacity(level.segs.len() * 2 * 4),
+            sky: Vec::with_capacity(32),
+            min_height: min_height,
+            max_height: max_height,
         };
         let root_id = (level.nodes.len() - 1) as ChildId;
         builder.node(&mut Vec::with_capacity(32), root_id);
 
-        let mut vbo = VboBuilder::create_flats_buffer();
+        let mut vbo = VboBuilder::init_sky_buffer();
+        vbo.set_data(gl::STATIC_DRAW, builder.sky.as_slice());
+        steps.sky.add_static_vbo(vbo);
+
+        let mut vbo = VboBuilder::init_flats_buffer();
         vbo.set_data(gl::STATIC_DRAW, builder.flats.as_slice());
         steps.flats.add_static_vbo(vbo);
 
-        let mut vbo = VboBuilder::create_walls_buffer();
+        let mut vbo = VboBuilder::init_walls_buffer();
         vbo.set_data(gl::STATIC_DRAW, builder.walls.as_slice());
         steps.walls.add_static_vbo(vbo);
+
     }
 
-    fn create_flats_buffer() -> VertexBuffer {
+    fn init_sky_buffer() -> VertexBuffer {
+        let buffer = BufferBuilder::<SkyVertex>::new(2)
+            .attribute_vec3f(0, offset_of!(SkyVertex, _pos))
+            .build();
+        buffer
+    }
+
+    fn init_flats_buffer() -> VertexBuffer {
         let buffer = BufferBuilder::<FlatVertex>::new(4)
             .attribute_vec3f(0, offset_of!(FlatVertex, _pos))
             .attribute_vec2f(1, offset_of!(FlatVertex, _atlas_uv))
@@ -236,7 +287,7 @@ impl<'a> VboBuilder<'a> {
         buffer
     }
 
-    fn create_walls_buffer() -> VertexBuffer {
+    fn init_walls_buffer() -> VertexBuffer {
         let buffer = BufferBuilder::<WallVertex>::new(8)
             .attribute_vec3f(0, offset_of!(WallVertex, _pos))
             .attribute_vec2f(1, offset_of!(WallVertex, _tile_uv))
@@ -327,16 +378,34 @@ impl<'a> VboBuilder<'a> {
         let line = self.level.seg_linedef(seg);
         let side = self.level.seg_sidedef(seg);
         let sector = self.level.sidedef_sector(side);
+        let (min, max) = (self.min_height, self.max_height);
         let (floor, ceil) = (sector.floor_height, sector.ceiling_height);
         let unpeg_lower = line.lower_unpegged();
         let back_sector = match self.level.seg_back_sector(seg) {
             None => {
                 self.wall_quad(seg, (floor, ceil), &side.middle_texture,
                                if unpeg_lower { PegBottom } else { PegTop });
+                if is_sky_flat(&sector.ceiling_texture) {
+                    self.sky_quad(seg, (ceil, max));
+                    self.sky_quad(seg, (min, floor));
+                }
                 return
             },
             Some(s) => s
         };
+
+        if is_sky_flat(&sector.ceiling_texture) &&
+           !is_sky_flat(&back_sector.ceiling_texture) {
+            let has_upper = !is_untextured(&side.upper_texture);
+            let has_lower = !is_untextured(&side.lower_texture);
+
+            if has_upper {
+                self.sky_quad(seg, (ceil, max));
+            }
+            if has_lower {
+                self.sky_quad(seg, (min, floor));
+            }
+        }
 
         let unpeg_upper = line.upper_unpegged();
         let back_floor = back_sector.floor_height;
@@ -364,6 +433,7 @@ impl<'a> VboBuilder<'a> {
 
     fn wall_quad(&mut self, seg: &WadSeg, (low, high): (WadCoord, WadCoord),
                  texture_name: &[u8, ..8], peg: PegType) {
+        if low >= high { return; }
         if is_untextured(texture_name) { return; }
         let bounds = match self.bounds.walls.find(&name_toupper(texture_name)) {
             None => {
@@ -443,6 +513,15 @@ impl<'a> VboBuilder<'a> {
                 self.flat_vertex(&v1, floor, light_info, floor_bounds);
                 self.flat_vertex(&v2, floor, light_info, floor_bounds);
             }
+        } else {
+            let min = from_wad_height(self.min_height);
+            for i in range(1, points.len()) {
+                let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
+
+                self.sky_vertex(&v0, min);
+                self.sky_vertex(&v1, min);
+                self.sky_vertex(&v2, min);
+            }
         }
 
         if !is_sky_flat(&sector.ceiling_texture) {
@@ -452,8 +531,34 @@ impl<'a> VboBuilder<'a> {
                 self.flat_vertex(&v1, ceiling, light_info, ceiling_bounds);
                 self.flat_vertex(&v0, ceiling, light_info, ceiling_bounds);
             }
+        } else {
+            let max = from_wad_height(self.max_height);
+            for i in range(1, points.len()) {
+                let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
+
+                self.sky_vertex(&v2, max);
+                self.sky_vertex(&v1, max);
+                self.sky_vertex(&v0, max);
+            }
         }
     }
+
+    fn sky_quad(&mut self, seg: &WadSeg, (low, high): (WadCoord, WadCoord)) {
+        if low >= high { return; }
+        let (v1, v2) = self.level.seg_vertices(seg);
+        let bias = (v2 - v1).normalized() * POLY_BIAS;
+        let (v1, v2) = (v1 - bias, v2 + bias);
+        let (low, high) = (from_wad_height(low), from_wad_height(high));
+
+        self.sky_vertex(&v1, low);
+        self.sky_vertex(&v2, low);
+        self.sky_vertex(&v1, high);
+
+        self.sky_vertex(&v2, low);
+        self.sky_vertex(&v2, high);
+        self.sky_vertex(&v1, high);
+    }
+
 
     fn light_info(&self, sector: &WadSector) -> u16 {
         let light = sector.light;
@@ -477,6 +582,12 @@ impl<'a> VboBuilder<'a> {
         (((alt_light as u16 >> 3) & 31) << 6) +
         (light_type << 3) +
         (sync & 7)
+    }
+
+    fn sky_vertex(&mut self, xz: &Vec2f, y: f32) {
+        self.sky.push(SkyVertex {
+            _pos: Vec3::new(xz.x, y, xz.y),
+        });
     }
 
     fn flat_vertex(&mut self, xz: &Vec2f, y: f32, light_info: u16,

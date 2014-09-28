@@ -2,6 +2,8 @@ use std::vec::Vec;
 use std::io::BufReader;
 use super::types::*;
 use std::ptr::copy_nonoverlapping_memory;
+use texture::Texture;
+use gl;
 
 
 pub struct Image {
@@ -19,7 +21,7 @@ macro_rules! io_try(
 
 
 impl Image {
-    pub fn new(width: uint, height: uint) -> Image{
+    pub fn new(width: uint, height: uint) -> Image {
         Image { width: width,
                 height: height,
                 x_offset: 0,
@@ -150,6 +152,15 @@ impl Image {
         }
     }
 
+    pub fn to_texture(&self) -> Texture {
+        let mut tex = Texture::new(gl::TEXTURE_2D);
+        tex.bind(gl::TEXTURE0);
+        tex.set_filters_nearest()
+           .data_rg_u8(0, self.width, self.height, self.pixels.as_slice())
+           .unbind(gl::TEXTURE0);
+        tex
+    }
+
     pub fn x_offset(&self) -> int { self.x_offset }
     pub fn y_offset(&self) -> int { self.y_offset }
 
@@ -159,5 +170,6 @@ impl Image {
     pub fn num_pixels(&self) -> uint { self.pixels.len() }
 
     pub fn get_pixels<'a>(&'a self) -> &'a [u16] { self.pixels.as_slice() }
+
 }
 
