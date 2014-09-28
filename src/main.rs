@@ -44,7 +44,7 @@ pub mod texture;
 pub mod render;
 
 
-static WINDOW_TITLE: &'static str = "Rusty Doom v0.0.5";
+static WINDOW_TITLE: &'static str = "Rusty Doom v0.0.6";
 static OPENGL_MAJOR_VERISON: int = 3;
 static OPENGL_MINOR_VERISON: int = 3;
 static OPENGL_DEPTH_SIZE: int = 24;
