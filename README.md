@@ -31,7 +31,7 @@ with '-h' for a list of options.
 ## Goals
 _(subject to change)_
 
-* **Modern OpenGL >3 renderer.** No immediate mode shenanigans: it's all VBO-s and shaders. Unlike some GL ports, the floors are actually rendered as convex polygons computed from the BSP. The downside is some visual glitches (like [slime trails](http://doom.wikia.com/wiki/Slime_trail)) don't show up, or show up differently.
+* **Modern OpenGL 3 renderer.** No immediate mode shenanigans: it's all VBO-s and shaders. Unlike some GL ports, the floors are actually rendered as convex polygons computed from the BSP. The downside of this (or upside depending on your perspective) is that some visual glitches (like [slime trails](http://doom.wikia.com/wiki/Slime_trail)) don't show up.
 * **Correct 256 color palette.** Uses the original palette and colormaps to replicate the original lighting effects (mostly you'll notice things get darker in visible steps and they also get greyer as they get darker). Doing 256 color palette lookups in a fragment shader is wonderfully anachronistic.
 * **Free flying camera.** Mouse & keyboard control for full 6 degrees of freedom.
 
@@ -43,7 +43,9 @@ _(subject to change)_
 * [x] Scrolling walls.
 * [x] Animated flats.
 * [x] Animated walls.
-* [ ] Sky rendering.
+* [x] Lighting effects (flickering, flashing, glow etc.)
+* [x] Sky rendering.
+* [ ] BSP frustum culling.
 * [ ] Sprite rendering.
 * [ ] Camera-world collisions.
 * [ ] Correct player movement (falling etc.)
