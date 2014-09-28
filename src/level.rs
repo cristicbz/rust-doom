@@ -387,6 +387,8 @@ impl<'a> VboBuilder<'a> {
                                if unpeg_lower { PegBottom } else { PegTop });
                 if is_sky_flat(&sector.ceiling_texture) {
                     self.sky_quad(seg, (ceil, max));
+                }
+                if is_sky_flat(&sector.floor_texture) {
                     self.sky_quad(seg, (min, floor));
                 }
                 return
@@ -394,17 +396,15 @@ impl<'a> VboBuilder<'a> {
             Some(s) => s
         };
 
-        if is_sky_flat(&sector.ceiling_texture) &&
-           !is_sky_flat(&back_sector.ceiling_texture) {
-            let has_upper = !is_untextured(&side.upper_texture);
-            let has_lower = !is_untextured(&side.lower_texture);
-
-            if has_upper {
-                self.sky_quad(seg, (ceil, max));
-            }
-            if has_lower {
-                self.sky_quad(seg, (min, floor));
-            }
+        if is_sky_flat(&sector.ceiling_texture)
+                && !is_sky_flat(&back_sector.ceiling_texture)
+                && !is_untextured(&side.upper_texture) {
+            self.sky_quad(seg, (ceil, max));
+        }
+        if is_sky_flat(&sector.floor_texture)
+                && !is_sky_flat(&back_sector.floor_texture)
+                && !is_untextured(&side.lower_texture) {
+            self.sky_quad(seg, (min, floor));
         }
 
         let unpeg_upper = line.upper_unpegged();
