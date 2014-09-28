@@ -8,14 +8,13 @@ use shader::Shader;
 use std::collections::{HashSet, HashMap};
 use std::hash::sip::SipHasher;
 use std::rc::Rc;
-use std::str;
 use std::vec::Vec;
 use vbo::{BufferBuilder, VertexBuffer};
 use wad;
 use wad::tex::{Bounds, TextureDirectory};
 use wad::types::*;
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id,
-                name_toupper, is_sky_flat};
+                is_sky_flat};
 
 
 pub struct Level {
@@ -41,7 +40,7 @@ impl Level {
 }
 
 
-type BoundsLookup = HashMap<Vec<u8>, Bounds>;
+type BoundsLookup = HashMap<WadName, Bounds>;
 
 
 struct TextureMaps {
@@ -116,7 +115,7 @@ pub fn build_level(wad: &mut wad::Archive,
                    textures: &wad::TextureDirectory,
                    level_name: &WadName)
         -> (Renderer, Vec2f) {
-    info!("Building level {}...", str::from_utf8(level_name));
+    info!("Building level {}...", level_name);
     let level = wad::Level::from_archive(wad, level_name);
 
     let mut steps = RenderSteps {
@@ -165,7 +164,7 @@ fn init_sky_step(textures: &wad::TextureDirectory) -> RenderStep {
             &Path::new("src/shaders/sky.frag")).unwrap());
     step.add_unique_texture("u_texture",
                             textures
-                                .get_texture(b"SKY1\0\0\0\0")
+                                .get_texture(&b"SKY1".to_wad_name())
                                 .expect("init_sky_step: Missing sky texture.")
                                 .to_texture(),
                             ATLAS_UNIT);
@@ -184,11 +183,10 @@ fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
     let mut flats = HashSet::with_hasher(SipHasher::new());
     for sector in level.sectors.iter() {
-        flats.insert(name_toupper(sector.floor_texture));
-        flats.insert(name_toupper(sector.ceiling_texture));
+        flats.insert(sector.floor_texture);
+        flats.insert(sector.ceiling_texture);
     }
-    let (atlas, lookup) = textures.build_flat_atlas(
-        flats.iter().map(|x| x.as_slice()));
+    let (atlas, lookup) = textures.build_flat_atlas(flats.iter());
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
         .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
     lookup
@@ -207,17 +205,16 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
     let mut walls = HashSet::with_hasher(SipHasher::new());
     for sidedef in level.sidedefs.iter() {
         if !is_untextured(&sidedef.upper_texture) {
-            walls.insert(name_toupper(sidedef.upper_texture));
+            walls.insert(sidedef.upper_texture);
         }
         if !is_untextured(&sidedef.middle_texture) {
-            walls.insert(name_toupper(sidedef.middle_texture));
+            walls.insert(sidedef.middle_texture);
         }
         if !is_untextured(&sidedef.lower_texture) {
-            walls.insert(name_toupper(sidedef.lower_texture));
+            walls.insert(sidedef.lower_texture);
         }
     }
-    let (atlas, lookup) = textures.build_picture_atlas(
-        walls.iter().map(|x| x.as_slice()));
+    let (atlas, lookup) = textures.build_picture_atlas(walls.iter());
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
         .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
 
@@ -432,13 +429,12 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn wall_quad(&mut self, seg: &WadSeg, (low, high): (WadCoord, WadCoord),
-                 texture_name: &[u8, ..8], peg: PegType) {
+                 texture_name: &WadName, peg: PegType) {
         if low >= high { return; }
         if is_untextured(texture_name) { return; }
-        let bounds = match self.bounds.walls.find(&name_toupper(texture_name)) {
+        let bounds = match self.bounds.walls.find(texture_name) {
             None => {
-                fail!("wall_quad: No such wall texture '{}'",
-                      str::from_utf8(texture_name));
+                fail!("wall_quad: No such wall texture '{}'", texture_name);
             },
             Some(bounds) => bounds,
         };
@@ -495,13 +491,11 @@ impl<'a> VboBuilder<'a> {
     fn flat_poly(&mut self, sector: &WadSector, points: &[Vec2f]) {
         let floor = from_wad_height(sector.floor_height);
         let ceiling = from_wad_height(sector.ceiling_height);
-        let floor_flat = name_toupper(sector.floor_texture);
-        let ceiling_flat = name_toupper(sector.ceiling_texture);
         let floor_bounds = self.bounds.flats
-            .find(&floor_flat)
+            .find(&sector.floor_texture)
             .expect("flat_poly: No such floor texture.");
         let ceiling_bounds = self.bounds.flats
-            .find(&ceiling_flat)
+            .find(&sector.ceiling_texture)
             .expect("flat_poly: No such ceiling texture.");
         let v0 = points[0];
         let light_info = self.light_info(sector);

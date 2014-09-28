@@ -1,17 +1,15 @@
 use std::collections::HashMap;
-use std::{mem, iter};
 use std::io::{File, SeekSet};
+use std::{mem, iter};
 use std::slice::raw;
 use std::vec::Vec;
-use std::str;
-use std::ascii::ASCII_UPPER_MAP;
 
-use super::types::{WadLump, WadInfo};
-use super::util::{wad_type_from_info, read_binary, name_eq, name_toupper};
+use super::types::{WadLump, WadInfo, WadName, WadNameCast};
+use super::util::{wad_type_from_info, read_binary};
 
 pub struct Archive {
     file: File,
-    index_map: HashMap<Vec<u8>, uint>,
+    index_map: HashMap<WadName, uint>,
     lumps: Vec<LumpInfo>,
     levels: Vec<uint>,
 }
@@ -43,16 +41,14 @@ impl Archive {
         file.seek(header.info_table_offset as i64, SeekSet).unwrap();
         for i_lump in iter::range(0, header.num_lumps) {
             let mut fileinfo = read_binary::<WadLump, _>(&mut file);
-            for byte in fileinfo.name.iter_mut() {
-                (*byte) = ASCII_UPPER_MAP[*byte as uint];
-            }
+            fileinfo.name.canonicalise();
             let fileinfo = fileinfo;
-            index_map.insert(fileinfo.name.to_vec(), lumps.len());
+            index_map.insert(fileinfo.name, lumps.len());
             lumps.push(LumpInfo { name: fileinfo.name,
                                   offset: fileinfo.file_pos as i64,
                                   size: fileinfo.size as uint });
 
-            if name_eq(&fileinfo.name, b"THINGS\0\0") {
+            if fileinfo.name == b"THINGS\0\0".to_wad_name() {
                 assert!(i_lump > 0);
                 levels.push((i_lump - 1) as uint);
             }
@@ -71,17 +67,17 @@ impl Archive {
         self.levels[level_index]
     }
 
-    pub fn get_level_name<'a>(&'a self, level_index: uint) -> &'a [u8, ..8] {
+    pub fn get_level_name<'a>(&'a self, level_index: uint) -> &'a WadName {
         self.get_lump_name(self.levels[level_index])
     }
 
     pub fn num_lumps(&self) -> uint { self.lumps.len() }
 
-    pub fn get_lump_index(&self, name: &[u8, ..8]) -> Option<uint> {
-        self.index_map.find(&name_toupper(name)).map(|x| *x)
+    pub fn get_lump_index(&self, name: &WadName) -> Option<uint> {
+        self.index_map.find(name).map(|x| *x)
     }
 
-    pub fn get_lump_name<'a>(&'a self, lump_index: uint) -> &'a [u8, ..8] {
+    pub fn get_lump_name<'a>(&'a self, lump_index: uint) -> &'a WadName {
         &self.lumps[lump_index].name
     }
 
@@ -89,9 +85,9 @@ impl Archive {
         self.lumps[lump_index].size == 0
     }
 
-    pub fn read_lump_by_name<T: Copy>(&mut self, name: &[u8, ..8]) -> Vec<T> {
+    pub fn read_lump_by_name<T: Copy>(&mut self, name: &WadName) -> Vec<T> {
         let index = self.get_lump_index(name).unwrap_or_else(
-            || fail!("No such lump '{}'", str::from_utf8(name).unwrap()));
+            || fail!("No such lump '{}'", name));
         self.read_lump(index)
     }
 
@@ -121,7 +117,7 @@ impl Archive {
 
 
 struct LumpInfo {
-    name   : [u8, ..8],
+    name   : WadName,
     offset : i64,
     size   : uint,
 }

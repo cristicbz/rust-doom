@@ -24,7 +24,6 @@ use player::Player;
 use sdl2::scancode;
 use std::default::Default;
 use std::os;
-use std::str;
 use wad::TextureDirectory;
 
 
@@ -185,6 +184,7 @@ impl Game {
     }
 }
 
+
 fn main() {
     let args: Vec<String> = os::args();
     let opts = [
@@ -199,6 +199,7 @@ fn main() {
                "the resolution at which to render the game [default=1280x720]",
                "WIDTHxHEIGHT"),
         optflag("d", "dump-levels", "list all levels and exit."),
+        optflag("", "load-all", "loads all levels and exit; for debugging"),
         optflag("h", "help", "print this help message and exit"),
     ];
 
@@ -239,10 +240,27 @@ fn main() {
     if matches.opt_present("d") {
         let wad = wad::Archive::open(&Path::new(wad_filename)).unwrap();
         for i_level in range(0, wad.num_levels()) {
-            println!("{:3} {:8}", i_level,
-                     str::from_utf8(wad.get_level_name(i_level))
-                            .unwrap_or("~~~~~~~~"));
+            println!("{:3} {:8}", i_level, wad.get_level_name(i_level));
         }
+        return;
+    }
+
+    if matches.opt_present("load-all") {
+        if !sdl2::init(sdl2::InitVideo) {
+            fail!("main: sdl video init failed.");
+        }
+        let _win = MainWindow::new(width, height);
+        let t0 = time::precise_time_s();
+        let mut wad = wad::Archive::open(
+            &Path::new(wad_filename.as_slice())).unwrap();
+        let textures = TextureDirectory::from_archive(&mut wad).unwrap();
+        for level_index in range(0, wad.num_levels()) {
+            let level_name = *wad.get_level_name(level_index);
+            let level = Level::new(&mut wad, &textures, &level_name);
+        }
+        println!("Done, loaded all levels in {:.4}s. Shutting down...",
+                 time::precise_time_s() - t0);
+        sdl2::quit();
         return;
     }
 

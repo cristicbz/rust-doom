@@ -1,6 +1,5 @@
 use numvec::Vec2f;
 use std::mem;
-use std::str;
 use std::vec::Vec;
 use super::archive::Archive;
 use super::types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg,
@@ -33,18 +32,33 @@ pub struct Level {
 
 impl Level {
     pub fn from_archive(wad: &mut Archive, name: &WadName) -> Level {
-        info!("Reading level data for '{}'...", str::from_utf8(name).unwrap());
+        info!("Reading level data for '{}'...", name);
         let start_index = wad.get_lump_index(name).expect("No such level.");
         let things = wad.read_lump(start_index + THINGS_OFFSET);
         let linedefs = wad.read_lump(start_index + LINEDEFS_OFFSET);
-        let sidedefs = wad.read_lump(start_index + SIDEDEFS_OFFSET);
         let vertices = wad.read_lump(start_index + VERTICES_OFFSET);
         let segs = wad.read_lump(start_index + SEGS_OFFSET);
         let subsectors = wad.read_lump(start_index + SSECTORS_OFFSET);
         let nodes = wad.read_lump(start_index + NODES_OFFSET);
-        let sectors = wad.read_lump(start_index + SECTORS_OFFSET);
 
-        info!("Loaded level '{}':", str::from_utf8(name).unwrap());
+        let mut sidedefs = wad.read_lump::<WadSidedef>(
+                start_index + SIDEDEFS_OFFSET);
+        for side in sidedefs.iter_mut() {
+            side.upper_texture.canonicalise();
+            side.lower_texture.canonicalise();
+            side.middle_texture.canonicalise();
+        }
+        let sidedefs = sidedefs;
+
+        let mut sectors = wad.read_lump::<WadSector>(
+                start_index + SECTORS_OFFSET);
+        for sector in sectors.iter_mut() {
+            sector.floor_texture.canonicalise();
+            sector.ceiling_texture.canonicalise();
+        }
+        let sectors = sectors;
+
+        info!("Loaded level '{}':", name);
         info!("    {:4} things", things.len())
         info!("    {:4} linedefs", linedefs.len())
         info!("    {:4} sidedefs", sidedefs.len())

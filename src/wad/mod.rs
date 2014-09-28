@@ -3,6 +3,7 @@ pub use self::level::Level;
 pub use self::tex::TextureDirectory;
 pub use self::image::Image;
 
+mod name;
 mod archive;
 mod level;
 mod image;
