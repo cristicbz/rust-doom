@@ -44,7 +44,7 @@ pub mod texture;
 pub mod render;
 
 
-static WINDOW_TITLE: &'static str = "Rusty Doom v0.0.5";
+static WINDOW_TITLE: &'static str = "Rusty Doom v0.0.6";
 static OPENGL_MAJOR_VERISON: int = 3;
 static OPENGL_MINOR_VERISON: int = 3;
 static OPENGL_DEPTH_SIZE: int = 24;
@@ -119,7 +119,7 @@ impl Game {
         let level_name = *wad.get_level_name(config.level_index);
         let level = Level::new(&mut wad, &textures, &level_name);
 
-        check_gl!(gl::ClearColor(0.64, 0.72, 0.8, 0.0));
+        check_gl!(gl::ClearColor(0.06, 0.07, 0.09, 0.0));
         check_gl!(gl::Enable(gl::DEPTH_TEST));
         check_gl!(gl::DepthFunc(gl::LESS));
 
@@ -146,12 +146,12 @@ impl Game {
         let mut t0 = 0.0;
         let mut control = GameController::new();
         loop {
+            check_gl!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
             let t1 = time::precise_time_s();
             let mut delta = (t1 - t0) as f32;
             if delta < 1e-10 { delta = 1.0 / 60.0; }
             let delta = delta;
             t0 = t1;
-            check_gl!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
 
             let updates_t0 = time::precise_time_s();
 
