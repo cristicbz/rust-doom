@@ -1,7 +1,7 @@
 use std::{fmt, mem, str};
 use std::fmt::Show;
 use std::string::String;
-use serialize::{Encoder, Encodable};
+use serialize::{Encoder, Encodable, Decoder, Decodable};
 
 #[deriving(Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct WadName { packed: u64 }
@@ -60,6 +60,18 @@ impl<S: Encoder<E>, E> Encodable<S, E> for WadName {
     }
 }
 
+impl<S: Decoder<E>, E> Decodable<S, E> for WadName {
+    fn decode(decoder: &mut S) -> Result<WadName, E> {
+        decoder.read_str()
+            .and_then(|s| {
+                match s.to_wad_name_opt() {
+                    Some(name) => Ok(name),
+                    None => Err(decoder.error("Could not decode WadName."))
+                }
+            })
+    }
+}
+
 pub trait WadNameCast : Show {
     fn to_wad_name_opt(&self) -> Option<WadName>;
     fn to_wad_name(&self) -> WadName {
@@ -109,35 +121,29 @@ impl WadNameCast for String {
     }
 }
 
+
+#[cfg(test)]
 mod test {
+    use super::WadNameCast;
+
     #[test]
     fn test_wad_name() {
-        assert_eq!("".to_wad_name().as_str().unwrap(),
-                   "\0\0\0\0\0\0\0\0");
-        assert_eq!("\0".to_wad_name().as_str().unwrap(),
-                   "\0\0\0\0\0\0\0\0");
-        assert_eq!("\01234567".to_wad_name().as_str().unwrap(),
-                   "\0\0\0\0\0\0\0\0");
-        assert_eq!("A".to_wad_name().as_str().unwrap(),
-                   "A\0\0\0\0\0\0\0");
-        assert_eq!("1234567".to_wad_name().as_str().unwrap(),
-                   "1234567\0");
-        assert_eq!("12345678".to_wad_name().as_str().unwrap(),
-                   "12345678");
-        assert_eq!("123\05678".to_wad_name().as_str().unwrap(),
-                   "123\0\0\0\0\0");
-        assert_eq!("SKY1".to_wad_name().as_str().unwrap(),
-                   "SKY1\0\0\0\0");
-        assert_eq!("-".to_wad_name().as_str().unwrap(),
-                   "-\0\0\0\0\0\0\0");
-        assert_eq!("_".to_wad_name().as_str().unwrap(),
-                   "_\0\0\0\0\0\0\0");
+        assert_eq!("".to_wad_name().as_str(), "\0\0\0\0\0\0\0\0");
+        assert_eq!("\0".to_wad_name().as_str(), "\0\0\0\0\0\0\0\0");
+        assert_eq!("\01234567".to_wad_name().as_str(), "\0\0\0\0\0\0\0\0");
+        assert_eq!("A".to_wad_name().as_str(), "A\0\0\0\0\0\0\0");
+        assert_eq!("1234567".to_wad_name().as_str(), "1234567\0");
+        assert_eq!("12345678".to_wad_name().as_str(), "12345678");
+        assert_eq!("123\05678".to_wad_name().as_str(), "123\0\0\0\0\0");
+        assert_eq!("SKY1".to_wad_name().as_str(), "SKY1\0\0\0\0");
+        assert_eq!("-".to_wad_name().as_str(), "-\0\0\0\0\0\0\0");
+        assert_eq!("_".to_wad_name().as_str(), "_\0\0\0\0\0\0\0");
 
-        assert!("123456789".to_wad_name().is_none());
-        assert!("1234\xfb".to_wad_name().is_none());
-        assert!("\xff123".to_wad_name().is_none());
-        assert!("$$ASDF_".to_wad_name().is_none());
-        assert!("123456789\0".to_wad_name().is_none());
+        assert!("123456789".to_wad_name_opt().is_none());
+        assert!("1234\xfb".to_wad_name_opt().is_none());
+        assert!("\xff123".to_wad_name_opt().is_none());
+        assert!("$$ASDF_".to_wad_name_opt().is_none());
+        assert!("123456789\0".to_wad_name_opt().is_none());
     }
 }
 
