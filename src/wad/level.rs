@@ -29,11 +29,11 @@ pub struct Level {
     pub sectors: Vec<WadSector>,
 }
 
-
 impl Level {
-    pub fn from_archive(wad: &mut Archive, name: &WadName) -> Level {
+    pub fn from_archive(wad: &mut Archive, index: uint) -> Level {
+        let name = *wad.get_level_name(index);
         info!("Reading level data for '{}'...", name);
-        let start_index = wad.get_lump_index(name).expect("No such level.");
+        let start_index = wad.get_level_lump_index(index);
         let things = wad.read_lump(start_index + THINGS_OFFSET);
         let linedefs = wad.read_lump(start_index + LINEDEFS_OFFSET);
         let vertices = wad.read_lump(start_index + VERTICES_OFFSET);

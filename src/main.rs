@@ -9,9 +9,11 @@ extern crate getopts;
 extern crate gl;
 extern crate libc;
 extern crate native;
+extern crate regex;
 extern crate sdl2;
 extern crate serialize;
 extern crate time;
+extern crate toml;
 
 use ctrl::GameController;
 use getopts::{optopt,optflag,getopts, usage};
@@ -102,6 +104,7 @@ impl MainWindow {
 
 pub struct GameConfig<'a> {
     wad: &'a str,
+    metadata: &'a str,
     level_index: uint,
     fov: f32,
 }
@@ -113,10 +116,10 @@ pub struct Game {
 }
 impl Game {
     pub fn new<'a>(window: MainWindow, config: GameConfig<'a>) -> Game {
-        let mut wad = wad::Archive::open(&Path::new(config.wad)).unwrap();
+        let mut wad = wad::Archive::open(&Path::new(config.wad),
+                                         &Path::new(config.metadata)).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
-        let level_name = *wad.get_level_name(config.level_index);
-        let level = Level::new(&mut wad, &textures, &level_name);
+        let level = Level::new(&mut wad, &textures, config.level_index);
 
         check_gl!(gl::ClearColor(0.06, 0.07, 0.09, 0.0));
         check_gl!(gl::Enable(gl::DEPTH_TEST));
@@ -191,6 +194,8 @@ fn main() {
     let opts = [
         optopt("i", "iwad",
                "set initial wad file to use wad [default='doom1.wad']", "FILE"),
+        optopt("m", "metadata",
+               "path to toml toml metadata file [default='doom.toml']", "FILE"),
         optopt("l", "level",
                "the index of the level to render [default=0]", "N"),
         optopt("f", "fov",
@@ -212,6 +217,9 @@ fn main() {
     let wad_filename = matches
         .opt_str("i")
         .unwrap_or("doom1.wad".to_string());
+    let meta_filename = matches
+        .opt_str("m")
+        .unwrap_or("doom.toml".to_string());
     let (width, height) = matches
         .opt_str("r")
         .map(|r| {
@@ -239,7 +247,9 @@ fn main() {
     }
 
     if matches.opt_present("d") {
-        let wad = wad::Archive::open(&Path::new(wad_filename)).unwrap();
+        let wad = wad::Archive::open(
+            &Path::new(wad_filename.as_slice()),
+            &Path::new(meta_filename.as_slice())).unwrap();
         for i_level in range(0, wad.num_levels()) {
             println!("{:3} {:8}", i_level, wad.get_level_name(i_level));
         }
@@ -253,11 +263,11 @@ fn main() {
         let _win = MainWindow::new(width, height);
         let t0 = time::precise_time_s();
         let mut wad = wad::Archive::open(
-            &Path::new(wad_filename.as_slice())).unwrap();
+            &Path::new(wad_filename.as_slice()),
+            &Path::new(meta_filename.as_slice())).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
         for level_index in range(0, wad.num_levels()) {
-            let level_name = *wad.get_level_name(level_index);
-            let level = Level::new(&mut wad, &textures, &level_name);
+            let level = Level::new(&mut wad, &textures, level_index);
         }
         println!("Done, loaded all levels in {:.4}s. Shutting down...",
                  time::precise_time_s() - t0);
@@ -271,6 +281,7 @@ fn main() {
         MainWindow::new(width, height),
         GameConfig {
             wad: wad_filename.as_slice(),
+            metadata: meta_filename.as_slice(),
             level_index: level_index,
             fov: fov,
         });

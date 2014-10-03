@@ -1,0 +1,40 @@
+# TOML metadata files describe things which were either hardcoded into 
+# the original games (such as what sky to display in which level), or things
+# that were not applicable (how to display the sky when looking up or down).
+
+
+# Sky metadata: the range of levels which use a sky, its texture name and the
+# width of the band (relative to the size of the whole image) at the top of the
+# sky which gets mirrored and repeated when looking up.
+
+# DOOM 1
+[[sky]]
+    level_pattern = "E1M."
+    texture_name = "SKY1"
+    tiled_band_size = 0.186
+
+[[sky]]
+    level_pattern = "E2M."
+    texture_name = "SKY2"
+    tiled_band_size = 0.086
+
+[[sky]]
+    level_pattern = "E3M."
+    texture_name = "SKY3"
+    tiled_band_size = 0.162
+
+# DOOM 2
+[[sky]]
+    level_pattern = "MAP(0[1-9]|10|11)"
+    texture_name = "SKY1"
+    tiled_band_size = 1.0
+
+[[sky]]
+    level_pattern = "MAP(1[2-9]|20)"
+    texture_name = "SKY2"
+    tiled_band_size = 0.25
+
+[[sky]]
+    level_pattern = "MAP(2[1-9]|32)"
+    texture_name = "SKY3"
+    tiled_band_size = 0.45

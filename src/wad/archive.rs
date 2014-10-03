@@ -4,6 +4,7 @@ use std::{mem, iter};
 use std::slice::raw;
 use std::vec::Vec;
 
+use super::meta::WadMetadata;
 use super::types::{WadLump, WadInfo, WadName, WadNameCast};
 use super::util::{wad_type_from_info, read_binary};
 
@@ -12,17 +13,18 @@ pub struct Archive {
     index_map: HashMap<WadName, uint>,
     lumps: Vec<LumpInfo>,
     levels: Vec<uint>,
+    meta: WadMetadata,
 }
 
 
 impl Archive {
-    pub fn open(path : &Path) -> Result<Archive, String> {
-        let path_str = path.display();
+    pub fn open(wad_path: &Path, meta_path: &Path) -> Result<Archive, String> {
+        let path_str = wad_path.display();
         info!("Loading wad file '{}'...", path_str);
 
 
         // Open file, read and check header.
-        let mut file = try!(File::open(path).map_err(|err| {
+        let mut file = try!(File::open(wad_path).map_err(|err| {
             format!("Could not open WAD file '{}': {}", path_str, err)
         }));
         let header = read_binary::<WadInfo, _>(&mut file);
@@ -54,7 +56,12 @@ impl Archive {
             }
         }
 
+
+        // Read metadata.
+        let meta = try!(WadMetadata::from_file(meta_path));
+
         Ok(Archive {
+            meta: meta,
             file: file,
             lumps: lumps,
             index_map: index_map,
@@ -113,6 +120,8 @@ impl Archive {
         self.file.seek(info.offset, SeekSet).unwrap();
         read_binary(&mut self.file)
     }
+
+    pub fn get_metadata<'a>(&'a self) -> &'a WadMetadata { &self.meta }
 }
 
 
