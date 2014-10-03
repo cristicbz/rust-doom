@@ -5,14 +5,12 @@
 
 #[phase(plugin, link)]
 extern crate log;
-extern crate sdl2;
-extern crate serialize;
+extern crate getopts;
 extern crate gl;
 extern crate libc;
 extern crate native;
+extern crate sdl2;
 extern crate time;
-extern crate getopts;
-
 
 use ctrl::GameController;
 use getopts::{optopt,optflag,getopts, usage};
@@ -30,6 +28,7 @@ use wad::TextureDirectory;
 #[macro_escape]
 pub mod check_gl;
 pub mod camera;
+pub mod common;
 pub mod ctrl;
 pub mod mat4;
 pub mod numvec;
@@ -100,19 +99,19 @@ impl MainWindow {
     }
 }
 
-struct GameConfig<'a> {
+pub struct GameConfig<'a> {
     wad: &'a str,
     level_index: uint,
     fov: f32,
 }
 
-struct Game {
+pub struct Game {
     window: MainWindow,
     player: Player,
     level: Level,
 }
 impl Game {
-    fn new<'a>(window: MainWindow, config: GameConfig<'a>) -> Game {
+    pub fn new<'a>(window: MainWindow, config: GameConfig<'a>) -> Game {
         let mut wad = wad::Archive::open(&Path::new(config.wad)).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
         let level_name = *wad.get_level_name(config.level_index);
@@ -134,7 +133,7 @@ impl Game {
         }
     }
 
-    fn run(&mut self) {
+    pub fn run(&mut self) {
         let quit_gesture = ctrl::AnyGesture(
             vec![ctrl::QuitTrigger,
                  ctrl::KeyTrigger(scancode::EscapeScanCode)]);
@@ -185,6 +184,7 @@ impl Game {
 }
 
 
+#[cfg(not(test))]
 fn main() {
     let args: Vec<String> = os::args();
     let opts = [
