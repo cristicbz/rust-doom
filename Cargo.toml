@@ -4,8 +4,10 @@ version = "0.0.6"
 authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 
 [dependencies.sdl2]
-git = "https://github.com/cristicbz/rust-sdl2"
-branch = "private_in_exported_fix"
+git = "https://github.com/AngryLawyer/rust-sdl2"
 
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"
+
+[dependencies.toml]
+git = "https://github.com/alexcrichton/toml-rs"
