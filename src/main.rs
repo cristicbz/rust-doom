@@ -10,6 +10,7 @@ extern crate gl;
 extern crate libc;
 extern crate native;
 extern crate sdl2;
+extern crate serialize;
 extern crate time;
 
 use ctrl::GameController;
