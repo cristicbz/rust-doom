@@ -5,7 +5,7 @@ use std::mem;
 use super::Archive;
 use super::image::Image;
 use super::types::*;
-use super::util::{read_binary, flat_frame_names, wall_frame_names};
+use super::util::read_binary;
 
 use texture::Texture;
 
@@ -31,11 +31,23 @@ pub struct TextureDirectory {
     palettes: Vec<Palette>,
     colormaps: Vec<Colormap>,
     flats: HashMap<WadName, Flat>,
+    animated_walls: Vec<Vec<WadName>>,
+    animated_flats: Vec<Vec<WadName>>,
 }
 
 macro_rules! io_try(
     ($e:expr) => (try!($e.map_err(|e| String::from_str(e.desc))))
 )
+
+fn search_for_frame<'a>(search_for: &WadName, animations: &'a Vec<Vec<WadName>>)
+        -> Option<&'a [WadName]> {
+    for animation in animations.iter() {
+        for frame in animation.iter() {
+            if search_for == frame { return Some(animation.as_slice()); }
+        }
+    }
+    None
+}
 
 impl TextureDirectory {
     pub fn from_archive(wad: &mut Archive) -> Result<TextureDirectory, String> {
@@ -81,6 +93,8 @@ impl TextureDirectory {
             palettes: palettes,
             colormaps: colormaps,
             flats: flats,
+            animated_walls: wad.get_metadata().animations.walls.clone(),
+            animated_flats: wad.get_metadata().animations.flats.clone(),
         })
     }
 
@@ -154,30 +168,23 @@ impl TextureDirectory {
         colormap_tex
     }
 
+
     pub fn build_picture_atlas<'a, T: Iterator<&'a WadName>>(
             &self, mut names_iter: T) -> (Texture, HashMap<WadName, Bounds>) {
         let mut images = Vec::new();
         for name in names_iter {
-            match wall_frame_names(name) {
-                None => images.push((self.expect_texture(name), *name, 0, 1)),
+            match search_for_frame(name, &self.animated_walls) {
+                None => images.push((self.expect_texture(name), name, 0, 1)),
                 Some(frames) => {
                     for (offset, name) in frames.iter().enumerate() {
-                        let wad_name = name.to_wad_name();
-                        images.push((self.expect_texture(&wad_name),
-                                     wad_name, offset, frames.len()));
+                        images.push((self.expect_texture(name),
+                                     name, offset, frames.len()));
                     }
                 }
             }
         }
         let images = images;
         assert!(images.len() > 0, "No images in wall atlas.");
-
-        fn img_bound((x_offset, y_offset): (int, int), img: &Image,
-                     frame_offset: uint, num_frames: uint) -> Bounds {
-            Bounds { pos: Vec2::new(x_offset as f32, y_offset as f32),
-                     size: Vec2::new(img.width() as f32, img.height() as f32),
-                     num_frames: num_frames, frame_offset: frame_offset }
-        }
 
         let num_pixels = images
             .iter().map(|t| t.0.num_pixels()).fold(0, |x, y| x + y);
@@ -196,6 +203,14 @@ impl TextureDirectory {
                 if *w * *h >= num_pixels { break; }
             }
         };
+
+        fn img_bound((x_offset, y_offset): (int, int), img: &Image,
+                     frame_offset: uint, num_frames: uint) -> Bounds {
+            Bounds { pos: Vec2::new(x_offset as f32, y_offset as f32),
+                     size: Vec2::new(img.width() as f32, img.height() as f32),
+                     num_frames: num_frames, frame_offset: frame_offset }
+        }
+
 
         let (mut atlas_width, mut atlas_height) = (min_atlas_width,
                                                    min_atlas_height);
@@ -251,8 +266,8 @@ impl TextureDirectory {
         for (i, (image, name, frame_offset, num_frames)) in
                 images.into_iter().enumerate() {
             atlas.blit(image, offsets[i].0, offsets[i].1 as int, true);
-            bound_map.insert(name, img_bound(offsets[i - frame_offset],
-                                             image, frame_offset, num_frames));
+            bound_map.insert(*name, img_bound(offsets[i - frame_offset],
+                                              image, frame_offset, num_frames));
         }
         drop(offsets);
 
@@ -271,11 +286,11 @@ impl TextureDirectory {
             -> (Texture, HashMap<WadName, Bounds>) {
         let mut names = Vec::new();
         for name in names_iter {
-            match flat_frame_names(name) {
-                None => names.push((0, 1, *name)),
+            match search_for_frame(name, &self.animated_flats) {
+                None => names.push((0, 1, name)),
                 Some(frames) => {
                     for (offset, frame) in frames.iter().enumerate() {
-                        names.push((offset, frames.len(), frame.to_wad_name()));
+                        names.push((offset, frames.len(), frame));
                     }
                 }
             }
@@ -296,14 +311,14 @@ impl TextureDirectory {
                                                  num_rows);
         let mut anim_start_pos = Vec2::zero();
         for (frame_offset, num_frames, name) in names.into_iter() {
-            let flat = self.expect_flat(&name);
+            let flat = self.expect_flat(name);
             let x_offset = column * 64;
             let y_offset = row * 64;
 
             if frame_offset == 0 {
                anim_start_pos = Vec2::new(x_offset as f32, y_offset as f32);
             }
-            offsets.insert(name, Bounds {
+            offsets.insert(*name, Bounds {
                 pos: anim_start_pos,
                 size: Vec2::new(64.0, 64.0),
                 num_frames: num_frames,

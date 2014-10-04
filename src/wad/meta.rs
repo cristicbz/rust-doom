@@ -1,7 +1,7 @@
 use common;
 use regex::Regex;
 use serialize;
-use super::name::{WadName, WadNameCast};
+use super::name::WadName;
 use super::types::ThingType;
 use toml;
 use toml::{DecodeError, ApplicationError, ExpectedField, ExpectedType,
