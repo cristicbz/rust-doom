@@ -2,11 +2,13 @@ use common;
 use regex::Regex;
 use serialize;
 use super::name::{WadName, WadNameCast};
+use super::types::ThingType;
 use toml;
 use toml::{DecodeError, ApplicationError, ExpectedField, ExpectedType,
            ExpectedMapElement, ExpectedMapKey, NoEnumVariants, NilTooLong};
 
-#[deriving(Decodable, Encodable, Show)]
+
+#[deriving(Decodable, Encodable)]
 pub struct SkyMetadata {
     pub texture_name: WadName,
     pub level_pattern: String,
@@ -14,9 +16,32 @@ pub struct SkyMetadata {
 }
 
 
-#[deriving(Decodable, Encodable, Show)]
+#[deriving(Decodable, Encodable)]
+pub struct AnimationMetadata {
+    pub flats: Vec<Vec<WadName>>,
+    pub walls: Vec<Vec<WadName>>,
+}
+
+
+#[deriving(Decodable, Encodable)]
+pub struct ThingMetadata {
+    pub thing_type: ThingType,
+    pub sprite: WadName,
+    pub sequence: String,
+}
+
+
+#[deriving(Decodable, Encodable)]
+pub struct ThingDirectoryMetadata {
+    pub decoration: Vec<ThingMetadata>
+}
+
+
+#[deriving(Decodable, Encodable)]
 pub struct WadMetadata {
-    sky: Vec<SkyMetadata>,
+    pub sky: Vec<SkyMetadata>,
+    pub animations: AnimationMetadata,
+    pub things: ThingDirectoryMetadata,
 }
 impl WadMetadata {
     pub fn from_file(path: &Path) -> Result<WadMetadata, String> {
