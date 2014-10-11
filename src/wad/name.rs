@@ -88,7 +88,7 @@ impl<'a> WadNameCast for &'a [u8] {
         for (dest, src) in name.iter_mut().zip(self.iter()) {
             let new_byte = match src.to_ascii_opt() {
                 Some(ascii) => match ascii.to_uppercase().to_byte() {
-                    b@b'A'..b'Z' | b@b'0'..b'9' | b@b'_' | b@b'-' |
+                    b@b'A'...b'Z' | b@b'0'...b'9' | b@b'_' | b@b'-' |
                     b@b'[' | b@b']' | b@b'\\' => b,
                     b'\0' => { nulled = true; break },
                     b => {

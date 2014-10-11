@@ -4,7 +4,8 @@ version = "0.0.6"
 authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 
 [dependencies.sdl2]
-git = "https://github.com/AngryLawyer/rust-sdl2"
+git = "https://github.com/cristicbz/rust-sdl2"
+branch = "static_to_const"
 
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"

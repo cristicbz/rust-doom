@@ -96,14 +96,14 @@ struct SkyVertex {
 
 
 // Distance on the wrong side of a BSP and seg line allowed.
-static BSP_TOLERANCE : f32 = 1e-3;
-static SEG_TOLERANCE : f32 = 0.1;
+const BSP_TOLERANCE : f32 = 1e-3;
+const SEG_TOLERANCE : f32 = 0.1;
 
 // All polygons are `fattened' by this amount to fill in thin gaps between them.
-static POLY_BIAS : f32 = 0.64 * 3e-4;
+const POLY_BIAS : f32 = 0.64 * 3e-4;
 
-static PALETTE_UNIT: uint = 0;
-static ATLAS_UNIT: uint = 1;
+const PALETTE_UNIT: uint = 0;
+const ATLAS_UNIT: uint = 1;
 
 
 macro_rules! offset_of(

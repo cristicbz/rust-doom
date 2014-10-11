@@ -45,10 +45,10 @@ pub mod texture;
 pub mod render;
 
 
-static WINDOW_TITLE: &'static str = "Rusty Doom v0.0.6";
-static OPENGL_MAJOR_VERISON: int = 3;
-static OPENGL_MINOR_VERISON: int = 3;
-static OPENGL_DEPTH_SIZE: int = 24;
+const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.6";
+const OPENGL_MAJOR_VERISON: int = 3;
+const OPENGL_MINOR_VERISON: int = 3;
+const OPENGL_DEPTH_SIZE: int = 24;
 
 
 pub struct MainWindow {
@@ -68,7 +68,7 @@ impl MainWindow {
         let window = sdl2::video::Window::new(
             WINDOW_TITLE, sdl2::video::PosCentered, sdl2::video::PosCentered,
             width as int, height as int,
-            sdl2::video::OpenGL | sdl2::video::Shown).unwrap();
+            sdl2::video::OPENGL | sdl2::video::SHOWN).unwrap();
 
         let context = window.gl_create_context().unwrap();
         sdl2::clear_error();
@@ -257,7 +257,7 @@ fn main() {
     }
 
     if matches.opt_present("load-all") {
-        if !sdl2::init(sdl2::InitVideo) {
+        if !sdl2::init(sdl2::INIT_VIDEO) {
             fail!("main: sdl video init failed.");
         }
         let _win = MainWindow::new(width, height);
@@ -275,7 +275,7 @@ fn main() {
         return;
     }
 
-    if !sdl2::init(sdl2::InitVideo) { fail!("main: sdl video init failed."); }
+    if !sdl2::init(sdl2::INIT_VIDEO) { fail!("main: sdl video init failed."); }
 
     let mut game = Game::new(
         MainWindow::new(width, height),

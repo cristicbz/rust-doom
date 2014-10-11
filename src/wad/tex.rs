@@ -358,7 +358,7 @@ fn next_pow2(x: uint) -> uint {
 }
 
 
-static TEXTURE_LUMP_NAMES: &'static [[u8, ..8]] =
+const TEXTURE_LUMP_NAMES: &'static [[u8, ..8]] =
     &[[b'T', b'E', b'X', b'T', b'U', b'R', b'E', b'1'],
       [b'T', b'E', b'X', b'T', b'U', b'R', b'E', b'2']];
 

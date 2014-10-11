@@ -6,8 +6,8 @@ use super::types::{WadCoord, WadInfo, WadName, ChildId, WadNameCast};
 pub enum WadType { Initial, Patch }
 
 
-static IWAD_HEADER: &'static [u8] = b"IWAD";
-static PWAD_HEADER: &'static [u8] = b"PWAD";
+const IWAD_HEADER: &'static [u8] = b"IWAD";
+const PWAD_HEADER: &'static [u8] = b"PWAD";
 
 
 pub fn wad_type_from_info(wad_info : &WadInfo) -> Option<WadType> {

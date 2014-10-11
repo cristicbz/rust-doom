@@ -8,14 +8,14 @@ use super::types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg,
 use super::util::from_wad_coords;
 
 
-static THINGS_OFFSET: uint = 1;
-static LINEDEFS_OFFSET: uint = 2;
-static SIDEDEFS_OFFSET: uint = 3;
-static VERTICES_OFFSET: uint = 4;
-static SEGS_OFFSET: uint = 5;
-static SSECTORS_OFFSET: uint = 6;
-static NODES_OFFSET: uint = 7;
-static SECTORS_OFFSET: uint = 8;
+const THINGS_OFFSET: uint = 1;
+const LINEDEFS_OFFSET: uint = 2;
+const SIDEDEFS_OFFSET: uint = 3;
+const VERTICES_OFFSET: uint = 4;
+const SEGS_OFFSET: uint = 5;
+const SSECTORS_OFFSET: uint = 6;
+const NODES_OFFSET: uint = 7;
+const SECTORS_OFFSET: uint = 8;
 
 
 pub struct Level {

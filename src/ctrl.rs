@@ -124,7 +124,7 @@ impl GameController {
     }
 }
 
-static NUM_SCAN_CODES : uint = 512;
+const NUM_SCAN_CODES : uint = 512;
 
 type UpdateIndex = u32;
 
