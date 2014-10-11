@@ -176,9 +176,9 @@ impl VertexBuffer {
 
     pub fn draw_triangles(&self) -> &VertexBuffer {
         check_gl!(gl::BindBuffer(gl::ARRAY_BUFFER, self.id.id()));
-        bind_attributes(self.vertex_size, self.attributes.as_slice());
+        bind_attributes(self.vertex_size, self.attributes[]);
         check_gl!(gl::DrawArrays(gl::TRIANGLES, 0, self.length as i32));
-        unbind_attributes(self.attributes.as_slice());
+        unbind_attributes(self.attributes[]);
         check_gl!(gl::BindBuffer(gl::ARRAY_BUFFER, 0));
         self
     }

@@ -1,7 +1,8 @@
-#![feature(tuple_indexing)]
+#![feature(globs)]
 #![feature(macro_rules)]
 #![feature(phase)]
-#![feature(globs)]
+#![feature(slicing_syntax)]
+#![feature(tuple_indexing)]
 
 #[phase(plugin, link)]
 extern crate log;
@@ -223,7 +224,7 @@ fn main() {
     let (width, height) = matches
         .opt_str("r")
         .map(|r| {
-            let v = r.as_slice().splitn(1, 'x').collect::<Vec<&str>>();
+            let v = r[].splitn(1, 'x').collect::<Vec<&str>>();
             if v.len() != 2 { None } else { Some(v) }
             .and_then(|v| from_str::<uint>(v[0]).map(|v0| (v0, v[1])))
             .and_then(|(v0, s)| from_str::<uint>(s).map(|v1| (v0, v1)))
@@ -232,12 +233,12 @@ fn main() {
         .unwrap_or((1280, 720));
     let level_index = matches
         .opt_str("l")
-        .map(|l| from_str::<uint>(l.as_slice())
+        .map(|l| from_str::<uint>(l[])
             .expect("Invalid value for --level. Expected integer."))
         .unwrap_or(0);
     let fov = matches
         .opt_str("f")
-        .map(|f| from_str::<f32>(f.as_slice())
+        .map(|f| from_str::<f32>(f[])
              .expect("Invalid value for --fov. Expected float."))
         .unwrap_or(65.0);
 
@@ -248,8 +249,7 @@ fn main() {
 
     if matches.opt_present("d") {
         let wad = wad::Archive::open(
-            &Path::new(wad_filename.as_slice()),
-            &Path::new(meta_filename.as_slice())).unwrap();
+            &Path::new(wad_filename[]), &Path::new(meta_filename[])).unwrap();
         for i_level in range(0, wad.num_levels()) {
             println!("{:3} {:8}", i_level, wad.get_level_name(i_level));
         }
@@ -263,8 +263,7 @@ fn main() {
         let _win = MainWindow::new(width, height);
         let t0 = time::precise_time_s();
         let mut wad = wad::Archive::open(
-            &Path::new(wad_filename.as_slice()),
-            &Path::new(meta_filename.as_slice())).unwrap();
+            &Path::new(wad_filename[]), &Path::new(meta_filename[])).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
         for level_index in range(0, wad.num_levels()) {
             let level = Level::new(&mut wad, &textures, level_index);
@@ -280,8 +279,8 @@ fn main() {
     let mut game = Game::new(
         MainWindow::new(width, height),
         GameConfig {
-            wad: wad_filename.as_slice(),
-            metadata: meta_filename.as_slice(),
+            wad: wad_filename[],
+            metadata: meta_filename[],
             level_index: level_index,
             fov: fov,
         });

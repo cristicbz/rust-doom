@@ -19,8 +19,8 @@ pub struct Uniform {
 impl Shader {
     pub fn new_from_files(vertex_path: &Path, fragment_path: &Path)
             -> Result<Shader, String> {
-        Shader::new_from_source(try!(read_utf8_file(vertex_path)).as_slice(),
-                                try!(read_utf8_file(fragment_path)).as_slice())
+        Shader::new_from_source(try!(read_utf8_file(vertex_path))[],
+                                try!(read_utf8_file(fragment_path))[])
     }
 
     pub fn new_from_source(vertex_source: &str, fragment_source: &str)
@@ -57,7 +57,7 @@ impl Shader {
 
     pub fn expect_uniform(&self, name: &str) -> Uniform {
         self.get_uniform(name).expect(
-            format!("Expected uniform '{}'", name).as_slice())
+            format!("Expected uniform '{}'", name)[])
     }
 
     pub fn set_uniform_i32(&self, uniform: Uniform, value: i32) -> &Shader {

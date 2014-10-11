@@ -156,7 +156,7 @@ impl Image {
         let mut tex = Texture::new(gl::TEXTURE_2D);
         tex.bind(gl::TEXTURE0);
         tex.set_filters_nearest()
-           .data_rg_u8(0, self.width, self.height, self.pixels.as_slice())
+           .data_rg_u8(0, self.width, self.height, self.pixels[])
            .unbind(gl::TEXTURE0);
         tex
     }
@@ -169,7 +169,7 @@ impl Image {
 
     pub fn num_pixels(&self) -> uint { self.pixels.len() }
 
-    pub fn get_pixels<'a>(&'a self) -> &'a [u16] { self.pixels.as_slice() }
+    pub fn get_pixels<'a>(&'a self) -> &'a [u16] { self.pixels[] }
 
 }
 

@@ -257,15 +257,15 @@ impl<'a> VboBuilder<'a> {
         builder.node(&mut Vec::with_capacity(32), root_id);
 
         let mut vbo = VboBuilder::init_sky_buffer();
-        vbo.set_data(gl::STATIC_DRAW, builder.sky.as_slice());
+        vbo.set_data(gl::STATIC_DRAW, builder.sky[]);
         steps.sky.add_static_vbo(vbo);
 
         let mut vbo = VboBuilder::init_flats_buffer();
-        vbo.set_data(gl::STATIC_DRAW, builder.flats.as_slice());
+        vbo.set_data(gl::STATIC_DRAW, builder.flats[]);
         steps.flats.add_static_vbo(vbo);
 
         let mut vbo = VboBuilder::init_walls_buffer();
-        vbo.set_data(gl::STATIC_DRAW, builder.walls.as_slice());
+        vbo.set_data(gl::STATIC_DRAW, builder.walls[]);
         steps.walls.add_static_vbo(vbo);
 
     }
@@ -305,7 +305,7 @@ impl<'a> VboBuilder<'a> {
     fn node(&mut self, lines: &mut Vec<Line2f>, id: ChildId) {
         let (id, is_leaf) = parse_child_id(id);
         if is_leaf {
-            self.subsector(lines.as_slice(), id);
+            self.subsector(lines[mut], id);
             return;
         }
 
@@ -371,7 +371,7 @@ impl<'a> VboBuilder<'a> {
             warn!("Degenerate cannonicalised polygon {} ({} vertices).",
                   id, points.len());
         } else {
-            self.flat_poly(self.level.seg_sector(&segs[0]), points.as_slice());
+            self.flat_poly(self.level.seg_sector(&segs[0]), points[]);
         }
     }
 
@@ -623,7 +623,7 @@ fn polygon_center(points: &[Vec2f]) -> Vec2f {
 
 fn points_to_polygon(points: &mut Vec<Vec2f>) {
     // Sort points in polygonal CCW order around their center.
-    let center = polygon_center(points.as_slice());
+    let center = polygon_center(points[mut]);
     points.sort_by(
         |a, b| {
             let ac = a - center;
@@ -669,7 +669,7 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
         simplified.pop();
     }
 
-    let center = polygon_center(simplified.as_slice());
+    let center = polygon_center(simplified[]);
     for point in simplified.iter_mut() {
         *point = *point + (*point - center).normalized() * POLY_BIAS;
     }

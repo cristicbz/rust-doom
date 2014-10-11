@@ -43,7 +43,7 @@ fn search_for_frame<'a>(search_for: &WadName, animations: &'a Vec<Vec<WadName>>)
         -> Option<&'a [WadName]> {
     for animation in animations.iter() {
         for frame in animation.iter() {
-            if search_for == frame { return Some(animation.as_slice()); }
+            if search_for == frame { return Some(animation[]); }
         }
     }
     None
@@ -74,9 +74,8 @@ impl TextureDirectory {
                     continue
                 }
             };
-            let num_textures = try!(
-                read_textures(wad.read_lump(lump_index).as_slice(),
-                              patches.as_slice(), &mut textures));
+            let num_textures = try!(read_textures(wad.read_lump(lump_index)[],
+                                                  patches[], &mut textures));
             info!("  {:4} textures in {}", num_textures, lump_name);
         }
         let textures = textures;
@@ -152,7 +151,7 @@ impl TextureDirectory {
         palette_tex.bind(gl::TEXTURE0);
         palette_tex
             .set_filters_nearest()
-            .data_rgb_u8(0, 256, num_colormaps, data.as_slice())
+            .data_rgb_u8(0, 256, num_colormaps, data[])
             .unbind(gl::TEXTURE0);
         palette_tex
     }
@@ -162,8 +161,7 @@ impl TextureDirectory {
         colormap_tex.bind(gl::TEXTURE0);
         colormap_tex
             .set_filters_nearest()
-            .data_red_u8(0, 256, self.colormaps.len(),
-                         self.colormaps.as_slice())
+            .data_red_u8(0, 256, self.colormaps.len(), self.colormaps[])
             .unbind(gl::TEXTURE0);
         colormap_tex
     }
@@ -342,7 +340,7 @@ impl TextureDirectory {
         let mut tex = Texture::new(gl::TEXTURE_2D);
         tex.bind(gl::TEXTURE0);
         tex.set_filters_nearest()
-           .data_red_u8(0, width, height, data.as_slice())
+           .data_red_u8(0, width, height, data[])
            .unbind(gl::TEXTURE0);
 
         (tex, offsets)
@@ -366,7 +364,7 @@ const TEXTURE_LUMP_NAMES: &'static [[u8, ..8]] =
 fn read_patches(wad: &mut Archive)
         -> Result<Vec<(WadName, Option<Image>)>, String> {
     let pnames_buffer = wad.read_lump_by_name(&b"PNAMES".to_wad_name());
-    let mut lump = BufReader::new(pnames_buffer.as_slice());
+    let mut lump = BufReader::new(pnames_buffer[]);
 
     let num_patches = io_try!(lump.read_le_u32()) as uint;
     let mut patches = Vec::with_capacity(num_patches);
@@ -379,7 +377,7 @@ fn read_patches(wad: &mut Archive)
         let name = read_binary::<WadName, _>(&mut lump).into_canonical();
         let patch = wad.get_lump_index(&name).map(|index| {
             let patch_buffer = wad.read_lump(index);
-            Image::from_buffer(patch_buffer.as_slice())
+            Image::from_buffer(patch_buffer[])
         });
         if patch.is_none() { missing_patches += 1; }
         patches.push((name, patch));
@@ -393,7 +391,7 @@ fn read_patches(wad: &mut Archive)
 fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
                  textures: &mut HashMap<WadName, Image>)
         -> Result<uint, String> {
-    let mut lump = BufReader::new(lump_buffer.as_slice());
+    let mut lump = BufReader::new(lump_buffer[]);
     let num_textures = io_try!(lump.read_le_u32()) as uint;
     let current_num_textures = textures.len();
     textures.reserve(current_num_textures + num_textures);
@@ -401,7 +399,7 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
     let mut offsets = BufReader::new({
         let begin = io_try!(lump.tell()) as uint;
         let size = num_textures * mem::size_of::<u32>();
-        lump_buffer.slice(begin, begin + size)
+        lump_buffer[begin .. begin + size]
     });
 
     for _ in range(0, num_textures) {

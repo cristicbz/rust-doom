@@ -136,8 +136,9 @@ impl Level {
     }
 
     pub fn ssector_segs<'a>(&'a self, ssector: &WadSubsector) -> &'a [WadSeg] {
-        self.segs.slice(ssector.first_seg as uint,
-                        (ssector.first_seg as uint + ssector.num_segs as uint))
+        let start = ssector.first_seg as uint;
+        let end = start + ssector.num_segs as uint;
+        self.segs[start .. end]
     }
 
     pub fn sector_id(&self, sector: &WadSector) -> SectorId {
