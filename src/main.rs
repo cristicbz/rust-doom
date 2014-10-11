@@ -116,7 +116,7 @@ pub struct Game {
     level: Level,
 }
 impl Game {
-    pub fn new<'a>(window: MainWindow, config: GameConfig<'a>) -> Game {
+    pub fn new(window: MainWindow, config: GameConfig) -> Game {
         let mut wad = wad::Archive::open(&Path::new(config.wad),
                                          &Path::new(config.metadata)).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();

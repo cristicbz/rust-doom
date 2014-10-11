@@ -168,7 +168,7 @@ impl Image {
 
     pub fn num_pixels(&self) -> uint { self.pixels.len() }
 
-    pub fn get_pixels<'a>(&'a self) -> &'a [u16] { self.pixels[] }
+    pub fn get_pixels(&self) -> &[u16] { self.pixels[] }
 
 }
 

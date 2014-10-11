@@ -88,11 +88,11 @@ impl Player {
         }
     }
 
-    pub fn get_camera<'a>(&'a self) -> &'a Camera {
+    pub fn get_camera(&self) -> &Camera {
         &self.camera
     }
 
-    pub fn get_camera_mut<'a>(&'a mut self) -> &'a mut Camera {
+    pub fn get_camera_mut(&mut self) -> &mut Camera {
         &mut self.camera
     }
 }

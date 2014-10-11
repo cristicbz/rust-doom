@@ -74,7 +74,7 @@ impl Archive {
         self.levels[level_index]
     }
 
-    pub fn get_level_name<'a>(&'a self, level_index: uint) -> &'a WadName {
+    pub fn get_level_name(&self, level_index: uint) -> &WadName {
         self.get_lump_name(self.levels[level_index])
     }
 
@@ -84,7 +84,7 @@ impl Archive {
         self.index_map.find(name).map(|x| *x)
     }
 
-    pub fn get_lump_name<'a>(&'a self, lump_index: uint) -> &'a WadName {
+    pub fn get_lump_name(&self, lump_index: uint) -> &WadName {
         &self.lumps[lump_index].name
     }
 
@@ -121,7 +121,7 @@ impl Archive {
         read_binary(&mut self.file)
     }
 
-    pub fn get_metadata<'a>(&'a self) -> &'a WadMetadata { &self.meta }
+    pub fn get_metadata(&self) -> &WadMetadata { &self.meta }
 }
 
 

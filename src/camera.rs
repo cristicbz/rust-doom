@@ -43,7 +43,7 @@ impl Camera {
         camera
     }
 
-    pub unsafe fn get_transform_ref<'a>(&'a self) -> &'a Mat4 {
+    pub unsafe fn get_transform_ref(&self) -> &Mat4 {
         (*self.cache.get()).refresh(|| {
            self.projection
                //* Mat4::new_euler_rotation(self.yaw, self.pitch, self.roll)
@@ -57,7 +57,7 @@ impl Camera {
         unsafe { *self.get_transform_ref() * *rhs }
     }
 
-    pub fn get_position<'a>(&'a self) -> &'a Vec3f { &self.position }
+    pub fn get_position(&self) -> &Vec3f { &self.position }
     pub fn get_yaw(&self) -> f32 { self.yaw }
     pub fn get_pitch(&self) -> f32 { self.pitch }
     pub fn get_roll(&self) -> f32 { self.roll }
@@ -122,7 +122,7 @@ struct CachedTransform {
 }
 
 impl CachedTransform {
-    fn refresh<'a>(&'a mut self, compute_fresh: || -> Mat4) -> &'a Mat4 {
+    fn refresh(&mut self, compute_fresh: || -> Mat4) -> &Mat4 {
         if self.dirty {
             self.matrix = compute_fresh();
             self.dirty = false;

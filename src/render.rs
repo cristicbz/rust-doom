@@ -55,9 +55,7 @@ impl RenderStep {
         }
     }
 
-    pub fn shader<'a>(&'a mut self) -> &'a mut Shader {
-        &mut self.shader
-    }
+    pub fn shader(&mut self) -> &mut Shader { &mut self.shader }
 
     pub fn add_constant_f32(&mut self, name: &str, value: f32)
             -> &mut RenderStep {

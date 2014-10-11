@@ -97,19 +97,19 @@ impl TextureDirectory {
         })
     }
 
-    pub fn get_texture<'a>(&'a self, name: &WadName) -> Option<&'a Image> {
+    pub fn get_texture(&self, name: &WadName) -> Option<&Image> {
         self.textures.find(name)
     }
-    pub fn expect_texture<'a>(&'a self, name: &WadName) -> &'a Image {
+    pub fn expect_texture(&self, name: &WadName) -> &Image {
         match self.get_texture(name) {
             Some(t) => t,
             None => fail!("Texture {} missing.", name),
         }
     }
-    pub fn get_flat<'a>(&'a self, name: &WadName) -> Option<&'a Flat> {
+    pub fn get_flat(&self, name: &WadName) -> Option<&Flat> {
         self.flats.find(name)
     }
-    pub fn expect_flat<'a>(&'a self, name: &WadName) -> &'a Flat {
+    pub fn expect_flat(&self, name: &WadName) -> &Flat {
         match self.get_flat(name) {
             Some(t) => t,
             None => fail!("Flat {} missing.", name),
@@ -117,17 +117,17 @@ impl TextureDirectory {
     }
 
     pub fn num_patches(&self) -> uint { self.patches.len() }
-    pub fn get_patch<'a>(&'a self, index: uint) -> Option<&'a Image> {
+    pub fn get_patch(&self, index: uint) -> Option<&Image> {
         self.patches[index].1.as_ref()
     }
 
     pub fn num_palettes(&self) -> uint { self.palettes.len() }
-    pub fn get_palette<'a>(&'a self, index: uint) -> &'a Palette {
+    pub fn get_palette(&self, index: uint) -> &Palette {
         &self.palettes[index]
     }
 
     pub fn num_colormaps(&self) -> uint { self.colormaps.len() }
-    pub fn get_colormap<'a>(&'a self, index: uint) -> &'a Colormap {
+    pub fn get_colormap(&self, index: uint) -> &Colormap {
         &self.colormaps[index]
     }
 

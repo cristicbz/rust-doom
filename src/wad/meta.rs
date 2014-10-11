@@ -60,7 +60,7 @@ impl WadMetadata {
         }
     }
 
-    pub fn sky_for<'a>(&'a self, name: &WadName) -> &'a SkyMetadata {
+    pub fn sky_for(&self, name: &WadName) -> &SkyMetadata {
         for sky in self.sky.iter() {
             let regex = Regex::new(sky.level_pattern[]).unwrap();
             if regex.is_match(name.as_str()) {

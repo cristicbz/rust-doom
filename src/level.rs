@@ -33,7 +33,7 @@ impl Level {
         }
     }
 
-    pub fn get_start_pos<'a>(&'a self) -> &'a Vec2f { &self.start_pos }
+    pub fn get_start_pos(&self) -> &Vec2f { &self.start_pos }
 
     pub fn render(&mut self, delta_time: f32, projection_view: &Mat4) {
         self.renderer.render(delta_time, projection_view);
@@ -235,7 +235,7 @@ struct VboBuilder<'a> {
     max_height: i16,
 }
 impl<'a> VboBuilder<'a> {
-    fn build(level: &'a wad::Level, bounds: &'a TextureMaps,
+    fn build(level: &wad::Level, bounds: &TextureMaps,
              steps: &mut RenderSteps) {
         let (min_height, max_height) = level.sectors
             .iter()

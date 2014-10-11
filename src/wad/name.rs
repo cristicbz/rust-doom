@@ -6,23 +6,23 @@ use serialize::{Encoder, Encodable, Decoder, Decodable};
 #[deriving(Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct WadName { packed: u64 }
 impl WadName {
-    pub fn as_str_opt<'a>(&'a self) -> Option<&'a str> {
+    pub fn as_str_opt(&self) -> Option<&str> {
         str::from_utf8(self.as_bytes())
     }
 
-    pub fn as_str<'a>(&'a self) -> &'a str {
+    pub fn as_str(&self) -> &str {
         match self.as_str_opt() {
             Some(s) => s,
             None => fail!("Failed WadName.as_str(): {}", self)
         }
     }
 
-    pub fn as_bytes<'a>(&'a self) -> &'a [u8, ..8] {
-        unsafe { mem::transmute::<_, &'a [u8, ..8]>(&self.packed) }
+    pub fn as_bytes(&self) -> &[u8, ..8] {
+        unsafe { mem::transmute::<_, &[u8, ..8]>(&self.packed) }
     }
 
-    pub fn as_mut_bytes<'a>(&'a mut self) -> &'a mut [u8, ..8] {
-        unsafe { mem::transmute::<_, &'a mut [u8, ..8]>(&mut self.packed) }
+    pub fn as_mut_bytes(&mut self) -> &mut [u8, ..8] {
+        unsafe { mem::transmute::<_, &mut [u8, ..8]>(&mut self.packed) }
     }
 
     pub fn into_canonical(mut self) -> WadName {

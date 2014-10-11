@@ -85,7 +85,7 @@ impl Level {
                         self.vertices[id as uint].y)
     }
 
-    pub fn seg_linedef<'a>(&'a self, seg: &WadSeg) -> &'a WadLinedef {
+    pub fn seg_linedef(&self, seg: &WadSeg) -> &WadLinedef {
         &self.linedefs[seg.linedef as uint]
     }
 
@@ -93,49 +93,45 @@ impl Level {
         (self.vertex(seg.start_vertex), self.vertex(seg.end_vertex))
     }
 
-    pub fn seg_sidedef<'a>(&'a self, seg: &WadSeg) -> &'a WadSidedef {
+    pub fn seg_sidedef(&self, seg: &WadSeg) -> &WadSidedef {
         let line = self.seg_linedef(seg);
         if seg.direction == 0 { self.right_sidedef(line).unwrap() }
         else { self.left_sidedef(line).unwrap() }
     }
 
-    pub fn seg_back_sidedef<'a>(&'a self, seg: &WadSeg)
-            -> Option<&'a WadSidedef> {
+    pub fn seg_back_sidedef(&self, seg: &WadSeg) -> Option<&WadSidedef> {
         let line = self.seg_linedef(seg);
         if seg.direction == 1 { self.right_sidedef(line) }
         else { self.left_sidedef(line) }
     }
 
-    pub fn seg_sector<'a>(&'a self, seg: &WadSeg) -> &'a WadSector {
+    pub fn seg_sector(&self, seg: &WadSeg) -> &WadSector {
         self.sidedef_sector(self.seg_sidedef(seg))
     }
 
-    pub fn seg_back_sector<'a>(&'a self, seg: &WadSeg)
-            -> Option<&'a WadSector> {
+    pub fn seg_back_sector(&self, seg: &WadSeg) -> Option<&WadSector> {
         self.seg_back_sidedef(seg).map(|s| self.sidedef_sector(s))
     }
 
-    pub fn left_sidedef<'a>(&'a self, linedef: &WadLinedef)
-            -> Option<&'a WadSidedef> {
+    pub fn left_sidedef(&self, linedef: &WadLinedef) -> Option<&WadSidedef> {
         match linedef.left_side {
             -1 => None,
             index => Some(&self.sidedefs[index as uint])
         }
     }
 
-    pub fn right_sidedef<'a>(&'a self, linedef: &WadLinedef)
-            -> Option<&'a WadSidedef> {
+    pub fn right_sidedef(&self, linedef: &WadLinedef) -> Option<&WadSidedef> {
         match linedef.right_side {
             -1 => None,
             index => Some(&self.sidedefs[index as uint])
         }
     }
 
-    pub fn sidedef_sector<'a>(&'a self, sidedef: &WadSidedef) -> &'a WadSector {
+    pub fn sidedef_sector(&self, sidedef: &WadSidedef) -> &WadSector {
         &self.sectors[sidedef.sector as uint]
     }
 
-    pub fn ssector_segs<'a>(&'a self, ssector: &WadSubsector) -> &'a [WadSeg] {
+    pub fn ssector_segs(&self, ssector: &WadSubsector) -> &[WadSeg] {
         let start = ssector.first_seg as uint;
         let end = start + ssector.num_segs as uint;
         self.segs[start .. end]
