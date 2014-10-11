@@ -46,7 +46,7 @@ pub mod texture;
 pub mod render;
 
 
-const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.6 - Toggle mouse with \
+const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.7 - Toggle mouse with \
                                     backtick key (`))";
 const OPENGL_MAJOR_VERISON: int = 3;
 const OPENGL_MINOR_VERISON: int = 3;
