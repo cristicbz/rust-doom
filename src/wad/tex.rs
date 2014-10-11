@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 use std::io::{BufReader, Reader, SeekSet};
-use std::{str, mem};
+use std::mem;
 
 use super::Archive;
 use super::image::Image;
 use super::types::*;
-use super::util::{read_binary, name_toupper, flat_frame_names,
-                  wall_frame_names};
+use super::util::read_binary;
 
 use texture::Texture;
 
@@ -27,23 +26,35 @@ pub struct Bounds {
 }
 
 pub struct TextureDirectory {
-    textures: HashMap<Vec<u8>, Image>,
+    textures: HashMap<WadName, Image>,
     patches: Vec<(WadName, Option<Image>)>,
     palettes: Vec<Palette>,
     colormaps: Vec<Colormap>,
-    flats: HashMap<Vec<u8>, Flat>,
+    flats: HashMap<WadName, Flat>,
+    animated_walls: Vec<Vec<WadName>>,
+    animated_flats: Vec<Vec<WadName>>,
 }
 
 macro_rules! io_try(
     ($e:expr) => (try!($e.map_err(|e| String::from_str(e.desc))))
 )
 
+fn search_for_frame<'a>(search_for: &WadName, animations: &'a Vec<Vec<WadName>>)
+        -> Option<&'a [WadName]> {
+    for animation in animations.iter() {
+        for frame in animation.iter() {
+            if search_for == frame { return Some(animation[]); }
+        }
+    }
+    None
+}
+
 impl TextureDirectory {
     pub fn from_archive(wad: &mut Archive) -> Result<TextureDirectory, String> {
         info!("Reading texture directory...");
         // Read palettes & colormaps.
-        let palettes = wad.read_lump_by_name(PLAYPAL_LUMP_NAME);
-        let colormaps = wad.read_lump_by_name(COLORMAP_LUMP_NAME);
+        let palettes = wad.read_lump_by_name(&b"PLAYPAL".to_wad_name());
+        let colormaps = wad.read_lump_by_name(&b"COLORMAP".to_wad_name());
         info!("  {:4} palettes", palettes.len());
         info!("  {:4} colormaps", colormaps.len());
 
@@ -55,20 +66,17 @@ impl TextureDirectory {
         let t0 = time::precise_time_s();
         info!("Reading & assembling textures...");
         let mut textures = HashMap::new();
-        for lump_name in TEXTURE_LUMP_NAMES.iter() {
-            let lump_index = match wad.get_lump_index(lump_name) {
+        for lump_name in TEXTURE_LUMP_NAMES.iter().map(|b| b.to_wad_name()) {
+            let lump_index = match wad.get_lump_index(&lump_name) {
                 Some(i) => i,
                 None => {
-                    info!("     0 textures in {}",
-                          str::from_utf8(lump_name));
+                    info!("     0 textures in {}", lump_name);
                     continue
                 }
             };
-            let num_textures = try!(
-                read_textures(wad.read_lump(lump_index).as_slice(),
-                              patches.as_slice(), &mut textures));
-            info!("  {:4} textures in {}",
-                  num_textures, str::from_utf8(lump_name));
+            let num_textures = try!(read_textures(wad.read_lump(lump_index)[],
+                                                  patches[], &mut textures));
+            info!("  {:4} textures in {}", num_textures, lump_name);
         }
         let textures = textures;
         info!("Done in {:.4}s.", time::precise_time_s() - t0);
@@ -84,28 +92,42 @@ impl TextureDirectory {
             palettes: palettes,
             colormaps: colormaps,
             flats: flats,
+            animated_walls: wad.get_metadata().animations.walls.clone(),
+            animated_flats: wad.get_metadata().animations.flats.clone(),
         })
     }
 
-    pub fn get_texture<'a>(&'a self, name: &[u8]) -> Option<&'a Image> {
-        self.textures.find(&name_toupper(name))
+    pub fn get_texture(&self, name: &WadName) -> Option<&Image> {
+        self.textures.find(name)
     }
-    pub fn get_flat<'a>(&'a self, name: &[u8]) -> Option<&'a Flat> {
-        self.flats.find(&name_toupper(name))
+    pub fn expect_texture(&self, name: &WadName) -> &Image {
+        match self.get_texture(name) {
+            Some(t) => t,
+            None => fail!("Texture {} missing.", name),
+        }
+    }
+    pub fn get_flat(&self, name: &WadName) -> Option<&Flat> {
+        self.flats.find(name)
+    }
+    pub fn expect_flat(&self, name: &WadName) -> &Flat {
+        match self.get_flat(name) {
+            Some(t) => t,
+            None => fail!("Flat {} missing.", name),
+        }
     }
 
     pub fn num_patches(&self) -> uint { self.patches.len() }
-    pub fn get_patch<'a>(&'a self, index: uint) -> Option<&'a Image> {
+    pub fn get_patch(&self, index: uint) -> Option<&Image> {
         self.patches[index].1.as_ref()
     }
 
     pub fn num_palettes(&self) -> uint { self.palettes.len() }
-    pub fn get_palette<'a>(&'a self, index: uint) -> &'a Palette {
+    pub fn get_palette(&self, index: uint) -> &Palette {
         &self.palettes[index]
     }
 
     pub fn num_colormaps(&self) -> uint { self.colormaps.len() }
-    pub fn get_colormap<'a>(&'a self, index: uint) -> &'a Colormap {
+    pub fn get_colormap(&self, index: uint) -> &Colormap {
         &self.colormaps[index]
     }
 
@@ -129,7 +151,7 @@ impl TextureDirectory {
         palette_tex.bind(gl::TEXTURE0);
         palette_tex
             .set_filters_nearest()
-            .data_rgb_u8(0, 256, num_colormaps, data.as_slice())
+            .data_rgb_u8(0, 256, num_colormaps, data[])
             .unbind(gl::TEXTURE0);
         palette_tex
     }
@@ -139,37 +161,28 @@ impl TextureDirectory {
         colormap_tex.bind(gl::TEXTURE0);
         colormap_tex
             .set_filters_nearest()
-            .data_red_u8(0, 256, self.colormaps.len(),
-                         self.colormaps.as_slice())
+            .data_red_u8(0, 256, self.colormaps.len(), self.colormaps[])
             .unbind(gl::TEXTURE0);
         colormap_tex
     }
 
-    pub fn build_picture_atlas<'a, T: Iterator<&'a [u8]>>(
-            &self, mut names_iter: T) -> (Texture, HashMap<Vec<u8>, Bounds>) {
+
+    pub fn build_picture_atlas<'a, T: Iterator<&'a WadName>>(
+            &self, mut names_iter: T) -> (Texture, HashMap<WadName, Bounds>) {
         let mut images = Vec::new();
         for name in names_iter {
-            let name = name_toupper(name);
-            match wall_frame_names(name.as_slice()) {
-                None => images.push((self.get_texture(name.as_slice()).unwrap(),
-                                     name, 0, 1)),
+            match search_for_frame(name, &self.animated_walls) {
+                None => images.push((self.expect_texture(name), name, 0, 1)),
                 Some(frames) => {
                     for (offset, name) in frames.iter().enumerate() {
-                        images.push((self.get_texture(name.as_slice()).unwrap(),
-                                     name.to_vec(), offset, frames.len()));
+                        images.push((self.expect_texture(name),
+                                     name, offset, frames.len()));
                     }
                 }
             }
         }
         let images = images;
         assert!(images.len() > 0, "No images in wall atlas.");
-
-        fn img_bound((x_offset, y_offset): (int, int), img: &Image,
-                     frame_offset: uint, num_frames: uint) -> Bounds {
-            Bounds { pos: Vec2::new(x_offset as f32, y_offset as f32),
-                     size: Vec2::new(img.width() as f32, img.height() as f32),
-                     num_frames: num_frames, frame_offset: frame_offset }
-        }
 
         let num_pixels = images
             .iter().map(|t| t.0.num_pixels()).fold(0, |x, y| x + y);
@@ -188,6 +201,14 @@ impl TextureDirectory {
                 if *w * *h >= num_pixels { break; }
             }
         };
+
+        fn img_bound((x_offset, y_offset): (int, int), img: &Image,
+                     frame_offset: uint, num_frames: uint) -> Bounds {
+            Bounds { pos: Vec2::new(x_offset as f32, y_offset as f32),
+                     size: Vec2::new(img.width() as f32, img.height() as f32),
+                     num_frames: num_frames, frame_offset: frame_offset }
+        }
+
 
         let (mut atlas_width, mut atlas_height) = (min_atlas_width,
                                                    min_atlas_height);
@@ -243,8 +264,8 @@ impl TextureDirectory {
         for (i, (image, name, frame_offset, num_frames)) in
                 images.into_iter().enumerate() {
             atlas.blit(image, offsets[i].0, offsets[i].1 as int, true);
-            bound_map.insert(name, img_bound(offsets[i - frame_offset],
-                                             image, frame_offset, num_frames));
+            bound_map.insert(*name, img_bound(offsets[i - frame_offset],
+                                              image, frame_offset, num_frames));
         }
         drop(offsets);
 
@@ -258,16 +279,16 @@ impl TextureDirectory {
         (tex, bound_map)
     }
 
-    pub fn build_flat_atlas<'a, T: Iterator<&'a [u8]>>(&self, mut names_iter: T)
-            -> (Texture, HashMap<Vec<u8>, Bounds>) {
+    pub fn build_flat_atlas<'a, T: Iterator<&'a WadName>>(&self,
+                                                          mut names_iter: T)
+            -> (Texture, HashMap<WadName, Bounds>) {
         let mut names = Vec::new();
         for name in names_iter {
-            let name = name_toupper(name);
-            match flat_frame_names(name.as_slice()) {
+            match search_for_frame(name, &self.animated_flats) {
                 None => names.push((0, 1, name)),
                 Some(frames) => {
                     for (offset, frame) in frames.iter().enumerate() {
-                        names.push((offset, frames.len(), frame.to_vec()));
+                        names.push((offset, frames.len(), frame));
                     }
                 }
             }
@@ -288,14 +309,14 @@ impl TextureDirectory {
                                                  num_rows);
         let mut anim_start_pos = Vec2::zero();
         for (frame_offset, num_frames, name) in names.into_iter() {
-            let flat = self.get_flat(name.as_slice()).expect("Unknown flat.");
+            let flat = self.expect_flat(name);
             let x_offset = column * 64;
             let y_offset = row * 64;
 
             if frame_offset == 0 {
                anim_start_pos = Vec2::new(x_offset as f32, y_offset as f32);
             }
-            offsets.insert(name, Bounds {
+            offsets.insert(*name, Bounds {
                 pos: anim_start_pos,
                 size: Vec2::new(64.0, 64.0),
                 num_frames: num_frames,
@@ -319,7 +340,7 @@ impl TextureDirectory {
         let mut tex = Texture::new(gl::TEXTURE_2D);
         tex.bind(gl::TEXTURE0);
         tex.set_filters_nearest()
-           .data_red_u8(0, width, height, data.as_slice())
+           .data_red_u8(0, width, height, data[])
            .unbind(gl::TEXTURE0);
 
         (tex, offsets)
@@ -335,30 +356,15 @@ fn next_pow2(x: uint) -> uint {
 }
 
 
-static PNAMES_LUMP_NAME: &'static [u8, ..8] =
-    &[b'P', b'N', b'A', b'M', b'E', b'S', b'\0', b'\0'];
-
-static PLAYPAL_LUMP_NAME: &'static [u8, ..8] =
-    &[b'P', b'L', b'A', b'Y', b'P', b'A', b'L', b'\0'];
-
-static COLORMAP_LUMP_NAME: &'static [u8, ..8] =
-    &[b'C', b'O', b'L', b'O', b'R', b'M', b'A', b'P'];
-
-static F_START_LUMP_NAME: &'static [u8, ..8] =
-    &[b'F', b'_', b'S', b'T', b'A', b'R', b'T', b'\0'];
-
-static F_END_LUMP_NAME: &'static [u8, ..8] =
-    &[b'F', b'_', b'E', b'N', b'D', b'\0', b'\0', b'\0'];
-
-static TEXTURE_LUMP_NAMES: &'static [[u8, ..8]] =
+const TEXTURE_LUMP_NAMES: &'static [[u8, ..8]] =
     &[[b'T', b'E', b'X', b'T', b'U', b'R', b'E', b'1'],
       [b'T', b'E', b'X', b'T', b'U', b'R', b'E', b'2']];
 
 
 fn read_patches(wad: &mut Archive)
         -> Result<Vec<(WadName, Option<Image>)>, String> {
-    let pnames_buffer = wad.read_lump_by_name(PNAMES_LUMP_NAME);
-    let mut lump = BufReader::new(pnames_buffer.as_slice());
+    let pnames_buffer = wad.read_lump_by_name(&b"PNAMES".to_wad_name());
+    let mut lump = BufReader::new(pnames_buffer[]);
 
     let num_patches = io_try!(lump.read_le_u32()) as uint;
     let mut patches = Vec::with_capacity(num_patches);
@@ -368,10 +374,10 @@ fn read_patches(wad: &mut Archive)
     info!("Reading {} patches....", num_patches);
     let t0 = time::precise_time_s();
     for _ in range(0, num_patches) {
-        let name = read_binary::<WadName, _>(&mut lump);
+        let name = read_binary::<WadName, _>(&mut lump).into_canonical();
         let patch = wad.get_lump_index(&name).map(|index| {
             let patch_buffer = wad.read_lump(index);
-            Image::from_buffer(patch_buffer.as_slice())
+            Image::from_buffer(patch_buffer[])
         });
         if patch.is_none() { missing_patches += 1; }
         patches.push((name, patch));
@@ -383,9 +389,9 @@ fn read_patches(wad: &mut Archive)
 
 
 fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
-                 textures: &mut HashMap<Vec<u8>, Image>)
+                 textures: &mut HashMap<WadName, Image>)
         -> Result<uint, String> {
-    let mut lump = BufReader::new(lump_buffer.as_slice());
+    let mut lump = BufReader::new(lump_buffer[]);
     let num_textures = io_try!(lump.read_le_u32()) as uint;
     let current_num_textures = textures.len();
     textures.reserve(current_num_textures + num_textures);
@@ -393,13 +399,15 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
     let mut offsets = BufReader::new({
         let begin = io_try!(lump.tell()) as uint;
         let size = num_textures * mem::size_of::<u32>();
-        lump_buffer.slice(begin, begin + size)
+        lump_buffer[begin .. begin + size]
     });
 
     for _ in range(0, num_textures) {
         io_try!(lump.seek(io_try!(offsets.read_le_u32()) as i64, SeekSet));
-        let header = read_binary::<WadTextureHeader, _>(&mut lump);
+        let mut header = read_binary::<WadTextureHeader, _>(&mut lump);
         let mut image = Image::new_from_header(&header);
+        header.name.canonicalise();
+        let header = header;
 
         for i_patch in range(0, header.num_patches) {
             let pref = read_binary::<WadTexturePatchRef, _>(&mut lump);
@@ -412,24 +420,23 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
                 },
                 (ref patch_name, None) => {
                     return Err(format!("Texture {} uses missing patch {}.",
-                               str::from_utf8(header.name),
-                               str::from_utf8(patch_name)));
+                                       header.name, patch_name));
                 }
             }
         }
 
-        textures.insert(name_toupper(header.name), image);
+        textures.insert(header.name, image);
     }
     Ok(num_textures)
 }
 
-fn read_flats(wad: &mut Archive) -> Result<HashMap<Vec<u8>, Flat>, String> {
-    let start = match wad.get_lump_index(F_START_LUMP_NAME) {
+fn read_flats(wad: &mut Archive) -> Result<HashMap<WadName, Flat>, String> {
+    let start = match wad.get_lump_index(&b"F_START".to_wad_name()) {
         Some(index) => index + 1,
         None => return Err(String::from_str("Missing F_START."))
     };
 
-    let end = match wad.get_lump_index(F_END_LUMP_NAME) {
+    let end = match wad.get_lump_index(&b"F_END".to_wad_name()) {
         Some(index) => index,
         None => return Err(String::from_str("Missing F_END."))
     };
@@ -438,7 +445,7 @@ fn read_flats(wad: &mut Archive) -> Result<HashMap<Vec<u8>, Flat>, String> {
     for i_lump in range(start, end) {
         if wad.is_virtual_lump(i_lump) { continue; }
         let lump = wad.read_lump(i_lump);
-        flats.insert(name_toupper(wad.get_lump_name(i_lump)), lump);
+        flats.insert(*wad.get_lump_name(i_lump), lump);
     }
 
     Ok(flats)

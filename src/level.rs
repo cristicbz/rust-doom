@@ -8,14 +8,14 @@ use shader::Shader;
 use std::collections::{HashSet, HashMap};
 use std::hash::sip::SipHasher;
 use std::rc::Rc;
-use std::str;
 use std::vec::Vec;
 use vbo::{BufferBuilder, VertexBuffer};
 use wad;
+use wad::SkyMetadata;
 use wad::tex::{Bounds, TextureDirectory};
 use wad::types::*;
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id,
-                name_toupper, is_sky_flat};
+                is_sky_flat};
 
 
 pub struct Level {
@@ -25,15 +25,15 @@ pub struct Level {
 impl Level {
     pub fn new(wad: &mut wad::Archive,
                textures: &TextureDirectory,
-               name: &WadName) -> Level {
-        let (renderer, start_pos) = build_level(wad, textures, name);
+               level_index: uint) -> Level {
+        let (renderer, start_pos) = build_level(wad, textures, level_index);
         Level {
             renderer: renderer,
             start_pos: start_pos,
         }
     }
 
-    pub fn get_start_pos<'a>(&'a self) -> &'a Vec2f { &self.start_pos }
+    pub fn get_start_pos(&self) -> &Vec2f { &self.start_pos }
 
     pub fn render(&mut self, delta_time: f32, projection_view: &Mat4) {
         self.renderer.render(delta_time, projection_view);
@@ -41,7 +41,7 @@ impl Level {
 }
 
 
-type BoundsLookup = HashMap<Vec<u8>, Bounds>;
+type BoundsLookup = HashMap<WadName, Bounds>;
 
 
 struct TextureMaps {
@@ -96,14 +96,14 @@ struct SkyVertex {
 
 
 // Distance on the wrong side of a BSP and seg line allowed.
-static BSP_TOLERANCE : f32 = 1e-3;
-static SEG_TOLERANCE : f32 = 0.1;
+const BSP_TOLERANCE : f32 = 1e-3;
+const SEG_TOLERANCE : f32 = 0.1;
 
 // All polygons are `fattened' by this amount to fill in thin gaps between them.
-static POLY_BIAS : f32 = 0.64 * 3e-4;
+const POLY_BIAS : f32 = 0.64 * 3e-4;
 
-static PALETTE_UNIT: uint = 0;
-static ATLAS_UNIT: uint = 1;
+const PALETTE_UNIT: uint = 0;
+const ATLAS_UNIT: uint = 1;
 
 
 macro_rules! offset_of(
@@ -114,13 +114,14 @@ macro_rules! offset_of(
 
 pub fn build_level(wad: &mut wad::Archive,
                    textures: &wad::TextureDirectory,
-                   level_name: &WadName)
+                   level_index: uint)
         -> (Renderer, Vec2f) {
-    info!("Building level {}...", str::from_utf8(level_name));
-    let level = wad::Level::from_archive(wad, level_name);
+    let name = *wad.get_level_name(level_index);
+    info!("Building level {}...", name);
+    let level = wad::Level::from_archive(wad, level_index);
 
     let mut steps = RenderSteps {
-        sky: init_sky_step(textures),
+        sky: init_sky_step(wad.get_metadata().sky_for(&name), textures),
         flats: init_flats_step(),
         walls: init_walls_step(),
     };
@@ -159,13 +160,15 @@ fn build_palette(textures: &TextureDirectory, steps: &mut [&mut RenderStep]) {
     }
 }
 
-fn init_sky_step(textures: &wad::TextureDirectory) -> RenderStep {
+fn init_sky_step(meta: &wad::SkyMetadata, textures: &wad::TextureDirectory)
+        -> RenderStep {
     let mut step = RenderStep::new(Shader::new_from_files(
             &Path::new("src/shaders/sky.vert"),
             &Path::new("src/shaders/sky.frag")).unwrap());
-    step.add_unique_texture("u_texture",
+    step.add_constant_f32("u_tiled_band_size", meta.tiled_band_size)
+        .add_unique_texture("u_texture",
                             textures
-                                .get_texture(b"SKY1\0\0\0\0")
+                                .get_texture(&meta.texture_name)
                                 .expect("init_sky_step: Missing sky texture.")
                                 .to_texture(),
                             ATLAS_UNIT);
@@ -184,11 +187,10 @@ fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
     let mut flats = HashSet::with_hasher(SipHasher::new());
     for sector in level.sectors.iter() {
-        flats.insert(name_toupper(sector.floor_texture));
-        flats.insert(name_toupper(sector.ceiling_texture));
+        flats.insert(sector.floor_texture);
+        flats.insert(sector.ceiling_texture);
     }
-    let (atlas, lookup) = textures.build_flat_atlas(
-        flats.iter().map(|x| x.as_slice()));
+    let (atlas, lookup) = textures.build_flat_atlas(flats.iter());
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
         .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
     lookup
@@ -207,17 +209,16 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
     let mut walls = HashSet::with_hasher(SipHasher::new());
     for sidedef in level.sidedefs.iter() {
         if !is_untextured(&sidedef.upper_texture) {
-            walls.insert(name_toupper(sidedef.upper_texture));
+            walls.insert(sidedef.upper_texture);
         }
         if !is_untextured(&sidedef.middle_texture) {
-            walls.insert(name_toupper(sidedef.middle_texture));
+            walls.insert(sidedef.middle_texture);
         }
         if !is_untextured(&sidedef.lower_texture) {
-            walls.insert(name_toupper(sidedef.lower_texture));
+            walls.insert(sidedef.lower_texture);
         }
     }
-    let (atlas, lookup) = textures.build_picture_atlas(
-        walls.iter().map(|x| x.as_slice()));
+    let (atlas, lookup) = textures.build_picture_atlas(walls.iter());
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
         .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
 
@@ -234,7 +235,7 @@ struct VboBuilder<'a> {
     max_height: i16,
 }
 impl<'a> VboBuilder<'a> {
-    fn build(level: &'a wad::Level, bounds: &'a TextureMaps,
+    fn build(level: &wad::Level, bounds: &TextureMaps,
              steps: &mut RenderSteps) {
         let (min_height, max_height) = level.sectors
             .iter()
@@ -256,15 +257,15 @@ impl<'a> VboBuilder<'a> {
         builder.node(&mut Vec::with_capacity(32), root_id);
 
         let mut vbo = VboBuilder::init_sky_buffer();
-        vbo.set_data(gl::STATIC_DRAW, builder.sky.as_slice());
+        vbo.set_data(gl::STATIC_DRAW, builder.sky[]);
         steps.sky.add_static_vbo(vbo);
 
         let mut vbo = VboBuilder::init_flats_buffer();
-        vbo.set_data(gl::STATIC_DRAW, builder.flats.as_slice());
+        vbo.set_data(gl::STATIC_DRAW, builder.flats[]);
         steps.flats.add_static_vbo(vbo);
 
         let mut vbo = VboBuilder::init_walls_buffer();
-        vbo.set_data(gl::STATIC_DRAW, builder.walls.as_slice());
+        vbo.set_data(gl::STATIC_DRAW, builder.walls[]);
         steps.walls.add_static_vbo(vbo);
 
     }
@@ -304,7 +305,7 @@ impl<'a> VboBuilder<'a> {
     fn node(&mut self, lines: &mut Vec<Line2f>, id: ChildId) {
         let (id, is_leaf) = parse_child_id(id);
         if is_leaf {
-            self.subsector(lines.as_slice(), id);
+            self.subsector(lines[mut], id);
             return;
         }
 
@@ -370,7 +371,7 @@ impl<'a> VboBuilder<'a> {
             warn!("Degenerate cannonicalised polygon {} ({} vertices).",
                   id, points.len());
         } else {
-            self.flat_poly(self.level.seg_sector(&segs[0]), points.as_slice());
+            self.flat_poly(self.level.seg_sector(&segs[0]), points[]);
         }
     }
 
@@ -387,6 +388,8 @@ impl<'a> VboBuilder<'a> {
                                if unpeg_lower { PegBottom } else { PegTop });
                 if is_sky_flat(&sector.ceiling_texture) {
                     self.sky_quad(seg, (ceil, max));
+                }
+                if is_sky_flat(&sector.floor_texture) {
                     self.sky_quad(seg, (min, floor));
                 }
                 return
@@ -394,17 +397,15 @@ impl<'a> VboBuilder<'a> {
             Some(s) => s
         };
 
-        if is_sky_flat(&sector.ceiling_texture) &&
-           !is_sky_flat(&back_sector.ceiling_texture) {
-            let has_upper = !is_untextured(&side.upper_texture);
-            let has_lower = !is_untextured(&side.lower_texture);
-
-            if has_upper {
-                self.sky_quad(seg, (ceil, max));
-            }
-            if has_lower {
-                self.sky_quad(seg, (min, floor));
-            }
+        if is_sky_flat(&sector.ceiling_texture)
+                && !is_sky_flat(&back_sector.ceiling_texture)
+                && !is_untextured(&side.upper_texture) {
+            self.sky_quad(seg, (ceil, max));
+        }
+        if is_sky_flat(&sector.floor_texture)
+                && !is_sky_flat(&back_sector.floor_texture)
+                && !is_untextured(&side.lower_texture) {
+            self.sky_quad(seg, (min, floor));
         }
 
         let unpeg_upper = line.upper_unpegged();
@@ -432,13 +433,12 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn wall_quad(&mut self, seg: &WadSeg, (low, high): (WadCoord, WadCoord),
-                 texture_name: &[u8, ..8], peg: PegType) {
+                 texture_name: &WadName, peg: PegType) {
         if low >= high { return; }
         if is_untextured(texture_name) { return; }
-        let bounds = match self.bounds.walls.find(&name_toupper(texture_name)) {
+        let bounds = match self.bounds.walls.find(texture_name) {
             None => {
-                fail!("wall_quad: No such wall texture '{}'",
-                      str::from_utf8(texture_name));
+                fail!("wall_quad: No such wall texture '{}'", texture_name);
             },
             Some(bounds) => bounds,
         };
@@ -495,13 +495,11 @@ impl<'a> VboBuilder<'a> {
     fn flat_poly(&mut self, sector: &WadSector, points: &[Vec2f]) {
         let floor = from_wad_height(sector.floor_height);
         let ceiling = from_wad_height(sector.ceiling_height);
-        let floor_flat = name_toupper(sector.floor_texture);
-        let ceiling_flat = name_toupper(sector.ceiling_texture);
         let floor_bounds = self.bounds.flats
-            .find(&floor_flat)
+            .find(&sector.floor_texture)
             .expect("flat_poly: No such floor texture.");
         let ceiling_bounds = self.bounds.flats
-            .find(&ceiling_flat)
+            .find(&sector.ceiling_texture)
             .expect("flat_poly: No such ceiling texture.");
         let v0 = points[0];
         let light_info = self.light_info(sector);
@@ -570,8 +568,8 @@ impl<'a> VboBuilder<'a> {
         };
         let (alt_light, light_type, sync) = match sector.sector_type {
             1   => (min_light_or(0),     0, sync), // FLASH
-            2   => (min_light_or(0),     1, sync), // SLOW STROBE
-            3|4 => (min_light_or(0),     3, sync), // FAST STROBE
+            2|4 => (min_light_or(0),     3, sync), // FAST STROBE
+            3   => (min_light_or(0),     1, sync), // SLOW STROBE
             8   => (min_light_or(light), 4, 0),    // GLOW
             12  => (min_light_or(0),     1, 0),    // SLOW STROBE SYNC
             13  => (min_light_or(0),     3, 0),    // FAST STROBE SYNC
@@ -625,7 +623,7 @@ fn polygon_center(points: &[Vec2f]) -> Vec2f {
 
 fn points_to_polygon(points: &mut Vec<Vec2f>) {
     // Sort points in polygonal CCW order around their center.
-    let center = polygon_center(points.as_slice());
+    let center = polygon_center(points[mut]);
     points.sort_by(
         |a, b| {
             let ac = a - center;
@@ -671,7 +669,7 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
         simplified.pop();
     }
 
-    let center = polygon_center(simplified.as_slice());
+    let center = polygon_center(simplified[]);
     for point in simplified.iter_mut() {
         *point = *point + (*point - center).normalized() * POLY_BIAS;
     }

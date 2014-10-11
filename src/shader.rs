@@ -1,9 +1,9 @@
 use check_gl;
+use common::read_utf8_file;
 use gl;
 use gl::types::{GLint, GLuint, GLchar};
 use mat4::Mat4;
-use numvec::{Vec2f, Vec3f };
-use std::io::fs::File;
+use numvec::{Vec2f, Vec3f};
 use std::ptr;
 use std::string::String;
 use std::vec::Vec;
@@ -19,8 +19,8 @@ pub struct Uniform {
 impl Shader {
     pub fn new_from_files(vertex_path: &Path, fragment_path: &Path)
             -> Result<Shader, String> {
-        Shader::new_from_source(try!(file_contents(vertex_path)).as_slice(),
-                                try!(file_contents(fragment_path)).as_slice())
+        Shader::new_from_source(try!(read_utf8_file(vertex_path))[],
+                                try!(read_utf8_file(fragment_path))[])
     }
 
     pub fn new_from_source(vertex_source: &str, fragment_source: &str)
@@ -57,7 +57,7 @@ impl Shader {
 
     pub fn expect_uniform(&self, name: &str) -> Uniform {
         self.get_uniform(name).expect(
-            format!("Expected uniform '{}'", name).as_slice())
+            format!("Expected uniform '{}'", name)[])
     }
 
     pub fn set_uniform_i32(&self, uniform: Uniform, value: i32) -> &Shader {
@@ -132,18 +132,6 @@ impl Program {
 }
 impl Drop for Program {
     fn drop(&mut self) { gl::DeleteProgram(self.id); }
-}
-
-
-fn file_contents(path: &Path) -> Result<String, String> {
-    File::open(path)
-    .and_then(|mut file| file.read_to_end())
-    .map_err(|e| String::from_str(e.desc))
-    .and_then(|buffer| {
-        String::from_utf8(buffer).map_err(|_| {
-            format!("File at '{}' is not valid UTF-8.", path.display())
-        })
-    })
 }
 
 

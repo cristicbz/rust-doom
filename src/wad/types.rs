@@ -1,3 +1,5 @@
+pub use super::name::{WadName, WadNameCast};
+
 pub type LightLevel = i16;
 pub type LinedefFlags = u16;
 pub type LinedefType = u16;
@@ -13,7 +15,6 @@ pub type WadCoord = i16;
 pub type SegId = u16;
 pub type LinedefId = u16;
 pub type ChildId = u16;
-pub type WadName = [u8, ..8];
 
 
 #[repr(C)]
@@ -30,7 +31,7 @@ pub struct WadInfo {
 pub struct WadLump {
     pub file_pos : i32,
     pub size     : i32,
-    pub name     : [u8, ..8],
+    pub name     : WadName,
 }
 
 

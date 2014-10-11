@@ -1,18 +1,20 @@
-#![feature(tuple_indexing)]
+#![feature(globs)]
 #![feature(macro_rules)]
 #![feature(phase)]
-#![feature(globs)]
+#![feature(slicing_syntax)]
+#![feature(tuple_indexing)]
 
 #[phase(plugin, link)]
 extern crate log;
-extern crate sdl2;
-extern crate serialize;
+extern crate getopts;
 extern crate gl;
 extern crate libc;
 extern crate native;
+extern crate regex;
+extern crate sdl2;
+extern crate serialize;
 extern crate time;
-extern crate getopts;
-
+extern crate toml;
 
 use ctrl::GameController;
 use getopts::{optopt,optflag,getopts, usage};
@@ -24,13 +26,13 @@ use player::Player;
 use sdl2::scancode;
 use std::default::Default;
 use std::os;
-use std::str;
 use wad::TextureDirectory;
 
 
 #[macro_escape]
 pub mod check_gl;
 pub mod camera;
+pub mod common;
 pub mod ctrl;
 pub mod mat4;
 pub mod numvec;
@@ -44,10 +46,11 @@ pub mod texture;
 pub mod render;
 
 
-static WINDOW_TITLE: &'static str = "Rusty Doom v0.0.6";
-static OPENGL_MAJOR_VERISON: int = 3;
-static OPENGL_MINOR_VERISON: int = 3;
-static OPENGL_DEPTH_SIZE: int = 24;
+const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.7 - Toggle mouse with \
+                                    backtick key (`))";
+const OPENGL_MAJOR_VERISON: int = 3;
+const OPENGL_MINOR_VERISON: int = 3;
+const OPENGL_DEPTH_SIZE: int = 24;
 
 
 pub struct MainWindow {
@@ -67,7 +70,7 @@ impl MainWindow {
         let window = sdl2::video::Window::new(
             WINDOW_TITLE, sdl2::video::PosCentered, sdl2::video::PosCentered,
             width as int, height as int,
-            sdl2::video::OpenGL | sdl2::video::Shown).unwrap();
+            sdl2::video::OPENGL | sdl2::video::SHOWN).unwrap();
 
         let context = window.gl_create_context().unwrap();
         sdl2::clear_error();
@@ -101,23 +104,24 @@ impl MainWindow {
     }
 }
 
-struct GameConfig<'a> {
+pub struct GameConfig<'a> {
     wad: &'a str,
+    metadata: &'a str,
     level_index: uint,
     fov: f32,
 }
 
-struct Game {
+pub struct Game {
     window: MainWindow,
     player: Player,
     level: Level,
 }
 impl Game {
-    fn new<'a>(window: MainWindow, config: GameConfig<'a>) -> Game {
-        let mut wad = wad::Archive::open(&Path::new(config.wad)).unwrap();
+    pub fn new(window: MainWindow, config: GameConfig) -> Game {
+        let mut wad = wad::Archive::open(&Path::new(config.wad),
+                                         &Path::new(config.metadata)).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
-        let level_name = *wad.get_level_name(config.level_index);
-        let level = Level::new(&mut wad, &textures, &level_name);
+        let level = Level::new(&mut wad, &textures, config.level_index);
 
         check_gl!(gl::ClearColor(0.06, 0.07, 0.09, 0.0));
         check_gl!(gl::Enable(gl::DEPTH_TEST));
@@ -135,16 +139,18 @@ impl Game {
         }
     }
 
-    fn run(&mut self) {
+    pub fn run(&mut self) {
         let quit_gesture = ctrl::AnyGesture(
             vec![ctrl::QuitTrigger,
                  ctrl::KeyTrigger(scancode::EscapeScanCode)]);
+        let grab_toggle_gesture = ctrl::KeyTrigger(scancode::GraveScanCode);
 
         let mut cum_time = 0.0;
         let mut cum_updates_time = 0.0;
         let mut num_frames = 0.0;
         let mut t0 = 0.0;
         let mut control = GameController::new();
+        let mut mouse_grabbed = true;
         loop {
             check_gl!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
             let t1 = time::precise_time_s();
@@ -158,7 +164,12 @@ impl Game {
             control.update();
             if control.poll_gesture(&quit_gesture) {
                 break;
+            } else if control.poll_gesture(&grab_toggle_gesture) {
+                mouse_grabbed = !mouse_grabbed;
+                control.set_mouse_enabled(mouse_grabbed);
+                control.set_cursor_grabbed(mouse_grabbed);
             }
+
             self.player.update(delta, &control);
             self.level.render(
                 delta,
@@ -185,11 +196,15 @@ impl Game {
     }
 }
 
+
+#[cfg(not(test))]
 fn main() {
     let args: Vec<String> = os::args();
     let opts = [
         optopt("i", "iwad",
                "set initial wad file to use wad [default='doom1.wad']", "FILE"),
+        optopt("m", "metadata",
+               "path to toml toml metadata file [default='doom.toml']", "FILE"),
         optopt("l", "level",
                "the index of the level to render [default=0]", "N"),
         optopt("f", "fov",
@@ -199,6 +214,7 @@ fn main() {
                "the resolution at which to render the game [default=1280x720]",
                "WIDTHxHEIGHT"),
         optflag("d", "dump-levels", "list all levels and exit."),
+        optflag("", "load-all", "loads all levels and exit; for debugging"),
         optflag("h", "help", "print this help message and exit"),
     ];
 
@@ -210,10 +226,13 @@ fn main() {
     let wad_filename = matches
         .opt_str("i")
         .unwrap_or("doom1.wad".to_string());
+    let meta_filename = matches
+        .opt_str("m")
+        .unwrap_or("doom.toml".to_string());
     let (width, height) = matches
         .opt_str("r")
         .map(|r| {
-            let v = r.as_slice().splitn(1, 'x').collect::<Vec<&str>>();
+            let v = r[].splitn(1, 'x').collect::<Vec<&str>>();
             if v.len() != 2 { None } else { Some(v) }
             .and_then(|v| from_str::<uint>(v[0]).map(|v0| (v0, v[1])))
             .and_then(|(v0, s)| from_str::<uint>(s).map(|v1| (v0, v1)))
@@ -222,12 +241,12 @@ fn main() {
         .unwrap_or((1280, 720));
     let level_index = matches
         .opt_str("l")
-        .map(|l| from_str::<uint>(l.as_slice())
+        .map(|l| from_str::<uint>(l[])
             .expect("Invalid value for --level. Expected integer."))
         .unwrap_or(0);
     let fov = matches
         .opt_str("f")
-        .map(|f| from_str::<f32>(f.as_slice())
+        .map(|f| from_str::<f32>(f[])
              .expect("Invalid value for --fov. Expected float."))
         .unwrap_or(65.0);
 
@@ -237,21 +256,39 @@ fn main() {
     }
 
     if matches.opt_present("d") {
-        let wad = wad::Archive::open(&Path::new(wad_filename)).unwrap();
+        let wad = wad::Archive::open(
+            &Path::new(wad_filename[]), &Path::new(meta_filename[])).unwrap();
         for i_level in range(0, wad.num_levels()) {
-            println!("{:3} {:8}", i_level,
-                     str::from_utf8(wad.get_level_name(i_level))
-                            .unwrap_or("~~~~~~~~"));
+            println!("{:3} {:8}", i_level, wad.get_level_name(i_level));
         }
         return;
     }
 
-    if !sdl2::init(sdl2::InitVideo) { fail!("main: sdl video init failed."); }
+    if matches.opt_present("load-all") {
+        if !sdl2::init(sdl2::INIT_VIDEO) {
+            fail!("main: sdl video init failed.");
+        }
+        let _win = MainWindow::new(width, height);
+        let t0 = time::precise_time_s();
+        let mut wad = wad::Archive::open(
+            &Path::new(wad_filename[]), &Path::new(meta_filename[])).unwrap();
+        let textures = TextureDirectory::from_archive(&mut wad).unwrap();
+        for level_index in range(0, wad.num_levels()) {
+            let level = Level::new(&mut wad, &textures, level_index);
+        }
+        println!("Done, loaded all levels in {:.4}s. Shutting down...",
+                 time::precise_time_s() - t0);
+        sdl2::quit();
+        return;
+    }
+
+    if !sdl2::init(sdl2::INIT_VIDEO) { fail!("main: sdl video init failed."); }
 
     let mut game = Game::new(
         MainWindow::new(width, height),
         GameConfig {
-            wad: wad_filename.as_slice(),
+            wad: wad_filename[],
+            metadata: meta_filename[],
             level_index: level_index,
             fov: fov,
         });

@@ -39,14 +39,14 @@ float light_level() {
         return abs(fract(time) - 0.5) * 2.0 * d + level1;
     } else {
         float subtype = type >> 1;
-        if ((type & 1) == 0) {
+        if ((type & 1) == 0) {   // Random based effect (FLASH / FLICKER)
             float time = floor(u_time * (8.0 + 12.0 * (1.0 - subtype)));
             float noise = noise(time / 1000.0 + sync, sync);
             bool pick = noise <= (subtype * 0.44 + 0.06);
             return pick ? level1 : level0;
-        } else {
-            float time = u_time / (15.0/35.0 + subtype * 20.0 / 35.0);
-            bool pick = fract(time + sync * 3.5453) > 0.9;
+        } else {  // Periodic strobe (SLOW / FAST).
+            float time = u_time * (1.0 + subtype);
+            bool pick = fract(time + sync * 3.5453) > (0.85 - subtype * .15);
             return pick ? level0 : level1;
         }
     }

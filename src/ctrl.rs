@@ -33,6 +33,7 @@ pub struct GameController {
     keyboard_state: [ButtonState, ..NUM_SCAN_CODES],
     quit_requested_index: UpdateIndex,
 
+    mouse_enabled: bool,
     mouse_rel: Vec2f,
 }
 
@@ -43,8 +44,17 @@ impl GameController {
             current_update_index: 1,
             keyboard_state: [Up(0), ..NUM_SCAN_CODES],
             quit_requested_index: 0,
+            mouse_enabled: true,
             mouse_rel: Vec2::zero(),
         }
+    }
+
+    pub fn set_cursor_grabbed(&mut self, grabbed: bool) {
+        sdl2::mouse::set_relative_mouse_mode(grabbed);
+    }
+
+    pub fn set_mouse_enabled(&mut self, enable: bool) {
+        self.mouse_enabled = enable;
     }
 
     pub fn update(&mut self) {
@@ -64,7 +74,11 @@ impl GameController {
                         Up(self.current_update_index);
                 },
                 sdl2::event::MouseMotionEvent(_, _, _, _, _, _, xrel, yrel) => {
-                    self.mouse_rel = Vec2::new(xrel as f32, -yrel as f32);
+                    if self.mouse_enabled {
+                        self.mouse_rel = Vec2::new(xrel as f32, -yrel as f32);
+                    } else {
+                        self.mouse_rel = Vec2::zero();
+                    }
                 },
                 sdl2::event::NoEvent => break,
                 _ => {}
@@ -124,7 +138,7 @@ impl GameController {
     }
 }
 
-static NUM_SCAN_CODES : uint = 512;
+const NUM_SCAN_CODES : uint = 512;
 
 type UpdateIndex = u32;
 

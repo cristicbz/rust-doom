@@ -7,7 +7,7 @@ use std::default::Default;
 
 
 pub struct PlayerBindings {
-    pub move: ctrl::Analog2d,
+    pub movement: ctrl::Analog2d,
     pub look: ctrl::Analog2d,
 }
 
@@ -16,8 +16,8 @@ impl PlayerBindings {
     pub fn look_vector(&self, controller: &GameController) -> Vec2f {
         controller.poll_analog2d(&self.look)
     }
-    pub fn move_vector(&self, controller: &GameController) -> Vec2f {
-        controller.poll_analog2d(&self.move)
+    pub fn movement_vector(&self, controller: &GameController) -> Vec2f {
+        controller.poll_analog2d(&self.movement)
     }
 }
 
@@ -25,7 +25,7 @@ impl PlayerBindings {
 impl Default for PlayerBindings {
     fn default() -> PlayerBindings {
         PlayerBindings {
-            move: ctrl::GesturesAnalog2d(
+            movement: ctrl::GesturesAnalog2d(
                 ctrl::KeyHold(scancode::DScanCode),
                 ctrl::KeyHold(scancode::AScanCode),
                 ctrl::KeyHold(scancode::WScanCode),
@@ -40,7 +40,7 @@ impl Default for PlayerBindings {
 pub struct Player {
     bindings: PlayerBindings,
     camera: Camera,
-    move_speed: f32,
+    movement_speed: f32,
 }
 
 
@@ -53,7 +53,7 @@ impl Player {
         Player {
             bindings: bindings,
             camera: camera,
-            move_speed: 8.0,
+            movement_speed: 8.0,
         }
     }
 
@@ -63,36 +63,36 @@ impl Player {
     }
 
     pub fn update(&mut self, delta_time: f32, controller: &GameController) {
-        let move = self.bindings.move_vector(controller);
+        let movement = self.bindings.movement_vector(controller);
         let look = self.bindings.look_vector(controller);
 
-        if move.norm() == 0.0 && look.norm() == 0.0 { return; }
+        if movement.norm() == 0.0 && look.norm() == 0.0 { return; }
 
         let yaw = self.camera.get_yaw() + look.x;
         let pitch = clamp(self.camera.get_pitch() - look.y,
                           (-3.14 / 2.0, 3.14 / 2.0));
 
-        let displacement = self.move_speed * delta_time;
-        let move : Vec3f = Vec3::new(
-            yaw.cos() * move.x * displacement +
-             yaw.sin() * move.y * displacement * pitch.cos(),
-            -pitch.sin() * move.y * displacement,
-            -yaw.cos() * move.y * displacement * pitch.cos()
-             + yaw.sin() * move.x * displacement);
+        let displacement = self.movement_speed * delta_time;
+        let movement : Vec3f = Vec3::new(
+            yaw.cos() * movement.x * displacement +
+             yaw.sin() * movement.y * displacement * pitch.cos(),
+            -pitch.sin() * movement.y * displacement,
+            -yaw.cos() * movement.y * displacement * pitch.cos()
+             + yaw.sin() * movement.x * displacement);
         self.camera.set_yaw(yaw);
         self.camera.set_pitch(pitch);
-        self.camera.move_by(move);
+        self.camera.move_by(movement);
 
-        if move.norm() > 0.0 {
+        if movement.norm() > 0.0 {
             //info!("Pos: {}", self.camera.get_position())
         }
     }
 
-    pub fn get_camera<'a>(&'a self) -> &'a Camera {
+    pub fn get_camera(&self) -> &Camera {
         &self.camera
     }
 
-    pub fn get_camera_mut<'a>(&'a mut self) -> &'a mut Camera {
+    pub fn get_camera_mut(&mut self) -> &mut Camera {
         &mut self.camera
     }
 }

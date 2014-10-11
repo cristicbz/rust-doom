@@ -154,7 +154,10 @@ impl Mul<Mat4, Mat4> for Mat4 {
     }
 }
 
+#[cfg(test)]
 mod test {
+    use super::Mat4;
+
     #[test]
     fn test_mul() {
         let a = Mat4::new(4.0,    8.0,    1.0,    6.0,

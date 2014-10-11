@@ -1,11 +1,14 @@
 [package]
 name = "rs-doom"
-version = "0.0.6"
+version = "0.0.7"
 authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 
 [dependencies.sdl2]
 git = "https://github.com/cristicbz/rust-sdl2"
-branch = "private_in_exported_fix"
+branch = "static_to_const"
 
 [dependencies.gl]
 git = "https://github.com/bjz/gl-rs"
+
+[dependencies.toml]
+git = "https://github.com/alexcrichton/toml-rs"
