@@ -45,8 +45,8 @@ float light_level() {
             bool pick = noise <= (subtype * 0.44 + 0.06);
             return pick ? level1 : level0;
         } else {  // Periodic strobe (SLOW / FAST).
-            float time = u_time / (1.0 - subtype * 20.0 / 35.0);
-            bool pick = fract(time + sync * 3.5453) > 0.85;
+            float time = u_time * (1.0 + subtype);
+            bool pick = fract(time + sync * 3.5453) > (0.85 - subtype * .15);
             return pick ? level0 : level1;
         }
     }
