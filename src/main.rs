@@ -46,7 +46,8 @@ pub mod texture;
 pub mod render;
 
 
-const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.6";
+const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.6 - Toggle mouse with \
+                                    backtick key (`))";
 const OPENGL_MAJOR_VERISON: int = 3;
 const OPENGL_MINOR_VERISON: int = 3;
 const OPENGL_DEPTH_SIZE: int = 24;
@@ -142,12 +143,14 @@ impl Game {
         let quit_gesture = ctrl::AnyGesture(
             vec![ctrl::QuitTrigger,
                  ctrl::KeyTrigger(scancode::EscapeScanCode)]);
+        let grab_toggle_gesture = ctrl::KeyTrigger(scancode::GraveScanCode);
 
         let mut cum_time = 0.0;
         let mut cum_updates_time = 0.0;
         let mut num_frames = 0.0;
         let mut t0 = 0.0;
         let mut control = GameController::new();
+        let mut mouse_grabbed = true;
         loop {
             check_gl!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
             let t1 = time::precise_time_s();
@@ -161,7 +164,12 @@ impl Game {
             control.update();
             if control.poll_gesture(&quit_gesture) {
                 break;
+            } else if control.poll_gesture(&grab_toggle_gesture) {
+                mouse_grabbed = !mouse_grabbed;
+                control.set_mouse_enabled(mouse_grabbed);
+                control.set_cursor_grabbed(mouse_grabbed);
             }
+
             self.player.update(delta, &control);
             self.level.render(
                 delta,
