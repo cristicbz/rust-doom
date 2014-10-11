@@ -568,8 +568,8 @@ impl<'a> VboBuilder<'a> {
         };
         let (alt_light, light_type, sync) = match sector.sector_type {
             1   => (min_light_or(0),     0, sync), // FLASH
-            2   => (min_light_or(0),     1, sync), // SLOW STROBE
-            3|4 => (min_light_or(0),     3, sync), // FAST STROBE
+            2|4 => (min_light_or(0),     3, sync), // FAST STROBE
+            3   => (min_light_or(0),     1, sync), // SLOW STROBE
             8   => (min_light_or(light), 4, 0),    // GLOW
             12  => (min_light_or(0),     1, 0),    // SLOW STROBE SYNC
             13  => (min_light_or(0),     3, 0),    // FAST STROBE SYNC

@@ -49,8 +49,8 @@ float light_level() {
             bool pick = noise <= (subtype * 0.44 + 0.06);
             return pick ? level1 : level0;
         } else {
-            float time = u_time / (15.0/35.0 + subtype * 20.0 / 35.0);
-            bool pick = fract(time + sync * 3.5453) > 0.9;
+            float time = u_time / (1.0 - subtype * 20.0 / 35.0);
+            bool pick = fract(time + sync * 3.5453) > 0.85;
             return pick ? level0 : level1;
         }
     }
