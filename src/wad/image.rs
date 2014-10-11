@@ -87,13 +87,12 @@ impl Image {
                 pixels: pixels }
     }
 
-    #[allow(unsigned_negate)]
     pub fn blit(&mut self, source: &Image, x_offset: int, y_offset: int,
                 ignore_transparency: bool) {
         // Figure out the region in source which is not out of bounds when
         // copied into self.
-        let y_start = if y_offset < 0 { -y_offset as uint } else { 0 };
-        let x_start = if x_offset < 0 { -x_offset as uint } else { 0 };
+        let y_start = if y_offset < 0 { (-y_offset) as uint } else { 0 };
+        let x_start = if x_offset < 0 { (-x_offset) as uint } else { 0 };
         let y_end = if self.height as int > source.height as int + y_offset {
             source.height
         } else {
@@ -143,7 +142,7 @@ impl Image {
                         // ops we can avoid branching.
                         let src_pixel = *src_ptr.offset(src_index);
                         let dest_pixel = dest_ptr.offset(dest_index);
-                        let blend = (-(src_pixel >> 15)) as u16;
+                        let blend = (0 - (src_pixel >> 15)) as u16;
                         *dest_pixel = (src_pixel & !blend) |
                                       (*dest_pixel & blend);
                     }
