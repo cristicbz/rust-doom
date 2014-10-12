@@ -22,7 +22,7 @@ Then, to build, run [cargo](http://crates.io) in the project's root (where Cargo
 cargo build --release
 ```
 
-Note that you'll need a WAD file (which contains the game's levels and art assets). If you own the game (or are willing to buy it for a few quid/bucks), you'll find it in your game files. If not, you can probably find the shareware ones floating around on the interwebs. Alternatively you can use the [Freedoom](http://freedoom.github.io/download.html) wads, or, though I would not know of such things, you may be able to obtain them for free in less.... savoury parts of the internet.
+Note that you'll need a WAD file (which contains the game's levels and art assets). If you own the game (or are willing to buy it for a few quid/bucks), you'll find the WAD in your game folder. If not, you can use the [shareware ones](http://distro.ibiblio.org/pub/linux/distributions/slitaz/sources/packages/d/doom1.wad) floating around on the interwebs. Or, though I would not know of such things, you may be able to obtain the originals for free in less.... savoury parts of the internet.
 
 Copy the WAD file to the repo root (where Cargo.toml is). Then, to run:
 ```
