@@ -20,6 +20,6 @@ void main() {
     } else if (uv.y >= 1.0) {
         uv.y = 1.0 - uv.y;
     }
-    float palette_index = texture2D(u_texture, uv).r;
-    color = texture2D(u_palette, vec2(palette_index, 0)).rgb;
+    float palette_index = texture(u_texture, uv).r;
+    color = texture(u_palette, vec2(palette_index, 0)).rgb;
 }
