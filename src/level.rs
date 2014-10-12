@@ -6,7 +6,6 @@ use numvec::{Vec2f, Vec2, Vec3f, Vec3, Numvec};
 use render::{Renderer, RenderStep};
 use shader::ShaderLoader;
 use std::collections::HashSet;
-use std::hash::sip::SipHasher;
 use std::rc::Rc;
 use std::vec::Vec;
 use vbo::{BufferBuilder, VertexBuffer};
@@ -183,12 +182,27 @@ fn init_flats_step(shader_loader: &ShaderLoader) -> RenderStep {
 
 fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
-    let mut flats = HashSet::with_hasher(SipHasher::new());
-    for sector in level.sectors.iter() {
-        flats.insert(sector.floor_texture);
-        flats.insert(sector.ceiling_texture);
+    struct SectorTexIter<'a> { sector: &'a WadSector, tex_index: uint }
+    impl<'a> SectorTexIter<'a> {
+        fn new(sector: &'a WadSector) -> SectorTexIter {
+            SectorTexIter { sector: sector, tex_index: 0 }
+        }
     }
-    let (atlas, lookup) = textures.build_flat_atlas(flats.iter());
+    impl<'a> Iterator<&'a WadName> for SectorTexIter<'a> {
+        fn next(&mut self) -> Option<&'a WadName> {
+            self.tex_index += 1;
+            match self.tex_index {
+                1 => Some(&self.sector.floor_texture),
+                2 => Some(&self.sector.ceiling_texture),
+                _ => None
+            }
+        }
+    }
+    let flat_name_iter = level.sectors
+            .iter()
+            .flat_map(|s| SectorTexIter::new(s))
+            .filter(|name| !is_untextured(*name) && !is_sky_flat(*name));
+    let (atlas, lookup) = textures.build_flat_atlas(flat_name_iter);
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
         .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
     lookup
@@ -202,19 +216,28 @@ fn init_walls_step(shader_loader: &ShaderLoader) -> RenderStep {
 
 fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
-    let mut walls = HashSet::with_hasher(SipHasher::new());
-    for sidedef in level.sidedefs.iter() {
-        if !is_untextured(&sidedef.upper_texture) {
-            walls.insert(sidedef.upper_texture);
-        }
-        if !is_untextured(&sidedef.middle_texture) {
-            walls.insert(sidedef.middle_texture);
-        }
-        if !is_untextured(&sidedef.lower_texture) {
-            walls.insert(sidedef.lower_texture);
+    struct SidedefTexIter<'a> { side: &'a WadSidedef, tex_index: uint }
+    impl<'a> SidedefTexIter<'a> {
+        fn new(side: &'a WadSidedef) -> SidedefTexIter {
+            SidedefTexIter { side: side, tex_index: 0 }
         }
     }
-    let (atlas, lookup) = textures.build_picture_atlas(walls.iter());
+    impl<'a> Iterator<&'a WadName> for SidedefTexIter<'a> {
+        fn next(&mut self) -> Option<&'a WadName> {
+            self.tex_index += 1;
+            match self.tex_index {
+                1 => Some(&self.side.upper_texture),
+                2 => Some(&self.side.lower_texture),
+                3 => Some(&self.side.middle_texture),
+                _ => None
+            }
+        }
+    }
+    let tex_name_iter = level.sidedefs
+            .iter()
+            .flat_map(|s| SidedefTexIter::new(s))
+            .filter(|name| !is_untextured(*name));
+    let (atlas, lookup) = textures.build_texture_atlas(tex_name_iter);
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
         .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
 
@@ -489,23 +512,22 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn flat_poly(&mut self, sector: &WadSector, points: &[Vec2f]) {
-        let floor = from_wad_height(sector.floor_height);
-        let ceiling = from_wad_height(sector.ceiling_height);
-        let floor_bounds = self.bounds.flats
-            .find(&sector.floor_texture)
-            .expect("flat_poly: No such floor texture.");
-        let ceiling_bounds = self.bounds.flats
-            .find(&sector.ceiling_texture)
-            .expect("flat_poly: No such ceiling texture.");
-        let v0 = points[0];
         let light_info = self.light_info(sector);
+        let floor_y = from_wad_height(sector.floor_height);
+        let floor_tex = &sector.floor_texture;
+        let ceil_y = from_wad_height(sector.ceiling_height);
+        let ceil_tex = &sector.ceiling_texture;
 
-        if !is_sky_flat(&sector.floor_texture) {
+        let v0 = points[0];
+        if !is_sky_flat(floor_tex) {
+            let floor_bounds = self.bounds.flats
+                .find(floor_tex)
+                .expect(format!("flat: No such floor {}.", floor_tex)[]);
             for i in range(1, points.len()) {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-                self.flat_vertex(&v0, floor, light_info, floor_bounds);
-                self.flat_vertex(&v1, floor, light_info, floor_bounds);
-                self.flat_vertex(&v2, floor, light_info, floor_bounds);
+                self.flat_vertex(&v0, floor_y, light_info, floor_bounds);
+                self.flat_vertex(&v1, floor_y, light_info, floor_bounds);
+                self.flat_vertex(&v2, floor_y, light_info, floor_bounds);
             }
         } else {
             let min = from_wad_height(self.min_height);
@@ -518,12 +540,15 @@ impl<'a> VboBuilder<'a> {
             }
         }
 
-        if !is_sky_flat(&sector.ceiling_texture) {
+        if !is_sky_flat(ceil_tex) {
+            let ceiling_bounds = self.bounds.flats
+                .find(ceil_tex)
+                .expect(format!("flat: No such ceiling {}.", ceil_tex)[]);
             for i in range(1, points.len()) {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-                self.flat_vertex(&v2, ceiling, light_info, ceiling_bounds);
-                self.flat_vertex(&v1, ceiling, light_info, ceiling_bounds);
-                self.flat_vertex(&v0, ceiling, light_info, ceiling_bounds);
+                self.flat_vertex(&v2, ceil_y, light_info, ceiling_bounds);
+                self.flat_vertex(&v1, ceil_y, light_info, ceiling_bounds);
+                self.flat_vertex(&v0, ceil_y, light_info, ceiling_bounds);
             }
         } else {
             let max = from_wad_height(self.max_height);
