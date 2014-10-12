@@ -5,14 +5,14 @@ use mat4::Mat4;
 use numvec::{Vec2f, Vec2, Vec3f, Vec3, Numvec};
 use render::{Renderer, RenderStep};
 use shader::Shader;
-use std::collections::{HashSet, HashMap};
+use std::collections::HashSet;
 use std::hash::sip::SipHasher;
 use std::rc::Rc;
 use std::vec::Vec;
 use vbo::{BufferBuilder, VertexBuffer};
 use wad;
 use wad::SkyMetadata;
-use wad::tex::{Bounds, TextureDirectory};
+use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
 use wad::types::*;
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id,
                 is_sky_flat};
@@ -39,9 +39,6 @@ impl Level {
         self.renderer.render(delta_time, projection_view);
     }
 }
-
-
-type BoundsLookup = HashMap<WadName, Bounds>;
 
 
 struct TextureMaps {

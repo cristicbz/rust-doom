@@ -25,6 +25,8 @@ pub struct Bounds {
     pub frame_offset: uint,
 }
 
+pub type BoundsLookup = HashMap<WadName, Bounds>;
+
 pub struct TextureDirectory {
     textures: HashMap<WadName, Image>,
     patches: Vec<(WadName, Option<Image>)>,
@@ -168,7 +170,7 @@ impl TextureDirectory {
 
 
     pub fn build_picture_atlas<'a, T: Iterator<&'a WadName>>(
-            &self, mut names_iter: T) -> (Texture, HashMap<WadName, Bounds>) {
+            &self, mut names_iter: T) -> (Texture, BoundsLookup) {
         let mut images = Vec::new();
         for name in names_iter {
             match search_for_frame(name, &self.animated_walls) {
@@ -240,7 +242,7 @@ impl TextureDirectory {
             if failed {
                 offsets.clear();
 
-                // Try transposing width<->height.
+                // Try swapping width and height to see if it fits that way.
                 let aux = atlas_width;
                 atlas_width = atlas_height;
                 atlas_height = aux;
@@ -279,9 +281,8 @@ impl TextureDirectory {
         (tex, bound_map)
     }
 
-    pub fn build_flat_atlas<'a, T: Iterator<&'a WadName>>(&self,
-                                                          mut names_iter: T)
-            -> (Texture, HashMap<WadName, Bounds>) {
+    pub fn build_flat_atlas<'a, T: Iterator<&'a WadName>>(
+            &self, mut names_iter: T) -> (Texture, BoundsLookup) {
         let mut names = Vec::new();
         for name in names_iter {
             match search_for_frame(name, &self.animated_flats) {
