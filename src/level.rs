@@ -361,7 +361,7 @@ impl<'a> VboBuilder<'a> {
         }
 
         // The convex polyon defined at the intersection of the partition lines,
-        // intersected with the half-volume of the segs form the 'implicit'
+        // intersected with the half-volumes of the segs form the 'implicit'
         // points.
         for i_line in range(0, lines.len() - 1) {
             for j_line in range(i_line + 1, lines.len()) {
@@ -498,6 +498,7 @@ impl<'a> VboBuilder<'a> {
         };
         let (t1, t2) = (t1 + side.y_offset as f32, t2 + side.y_offset as f32);
 
+        // Checks if the texture is scrolling.
         let scroll = if line.special_type == 0x30 { 35.0 }
                      else { 0.0 };
 
