@@ -66,7 +66,8 @@ impl MainWindow {
         sdl2::video::gl_set_attribute(sdl2::video::GLDepthSize,
                                       OPENGL_DEPTH_SIZE);
         sdl2::video::gl_set_attribute(sdl2::video::GLDoubleBuffer, 1);
-
+        sdl2::video::gl_set_attribute(sdl2::video::GLContextProfileMask,
+                                      sdl2::video::ll::SDL_GL_CONTEXT_PROFILE_CORE as int);
         let window = sdl2::video::Window::new(
             WINDOW_TITLE, sdl2::video::PosCentered, sdl2::video::PosCentered,
             width as int, height as int,
