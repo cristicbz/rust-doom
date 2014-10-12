@@ -12,7 +12,12 @@ The code is mostly based on the endlessly useful [Doom Wiki](http://doomwiki.org
 ### Build Instructions
 I build against nightlies; I pull rustc every few days or so. Give me a shout (submit an issue) if it doesn't build on the most recent nightly and I'll fix it ASAP.
 
-To build use [cargo](http://crates.io):
+Currently the only non-rust dependency is SDL2. You can install it your system's package manager:
+
+* _Ubuntu/Debian_: ```sudo apt-get install libsdl2-dev```
+* _Mac OS_: ```brew install sdl2```
+
+Then, to build, run [cargo](http://crates.io) in the project's root (where Cargo.toml is):
 ```
 cargo build --release
 ```
