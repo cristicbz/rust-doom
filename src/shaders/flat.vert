@@ -75,7 +75,7 @@ void main() {
           a_atlas_uv.y + floor(atlas_u / u_atlas_size.x) * TILE_SIZE;
       v_offset = vec2(atlas_u, atlas_v);
   }
-  v_light = light_level() * 2.0 / 31.0;
+  v_light = light_level() * 1.0 / 31.0;
 
   vec4 projected_pos = u_transform * vec4(a_pos, 1);
   v_dist = projected_pos.w;
