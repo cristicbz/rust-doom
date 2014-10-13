@@ -1,4 +1,5 @@
-#version 330 core
+#version 300 es
+
 uniform mat4 u_transform;
 uniform float u_time;
 uniform vec2 u_atlas_size;
@@ -35,10 +36,10 @@ float light_level() {
 
     if (type == LIGHT_GLOW) {
         float d = level0 - level1;
-        float time = (u_time + sync * 3.5435) * 16 / d;
+        float time = (u_time + sync * 3.5435) * 16.0 / d;
         return abs(fract(time) - 0.5) * 2.0 * d + level1;
     } else {
-        float subtype = type >> 1;
+        float subtype = float(type >> 1);
         if ((type & 1) == 0) {   // Random based effect (FLASH / FLICKER)
             float time = floor(u_time * (8.0 + 12.0 * (1.0 - subtype)));
             float noise = noise(time / 1000.0 + sync, sync);
@@ -67,8 +68,8 @@ void main() {
   if (a_num_frames == 1) {
       v_offset = a_atlas_uv;
   } else {
-      float frame_index = floor(mod(
-              u_time / ANIM_FPS + a_frame_offset, a_num_frames));
+      float frame_index = floor(mod(u_time / ANIM_FPS + float(a_frame_offset),
+                                    float(a_num_frames)));
       float atlas_u = a_atlas_uv.x + frame_index * TILE_SIZE;
       float atlas_v =
           a_atlas_uv.y + floor(atlas_u / u_atlas_size.x) * TILE_SIZE;
