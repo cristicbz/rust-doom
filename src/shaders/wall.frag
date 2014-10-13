@@ -23,7 +23,13 @@ void main() {
     } else {
         float dist_term = min(1.0, 1.0 - 1.2 / (v_dist + 1.2));
         float light = min(v_light, v_light * LIGHT_SCALE - dist_term);
-        light = clamp(1.0 - light, LIGHT_BIAS, 1.0 - LIGHT_BIAS);
-        color = texture(u_palette, vec2(palette_index.r, light)).rgb;
+
+        light = clamp(light, LIGHT_BIAS, 1.0 - LIGHT_BIAS);
+
+        // Palettized lighting:
+        //color = texture(u_palette, vec2(palette_index.r, 1.0 - light)).rgb;
+
+        // Linear interpolated lighting:
+        color = texture(u_palette, vec2(palette_index.r, 0.0)).rgb * vec3(light, light, light);
     }
 }

@@ -77,6 +77,7 @@ void main() {
   v_light = light_level() * 1.0 / 31.0;
 
   vec4 projected_pos = u_transform * vec4(a_pos, 1);
+
   v_dist = projected_pos.w;
   gl_Position = projected_pos;
 }
