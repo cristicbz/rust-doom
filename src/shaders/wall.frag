@@ -12,6 +12,7 @@ flat in float v_tile_width;
 flat in float v_light;
 
 const float TILE_HEIGHT = 128.0;
+const float DIST_SCALE = 1.0;
 const float LIGHT_SCALE = 2.0;
 const float LIGHT_BIAS = 1e-4;
 
@@ -21,7 +22,7 @@ void main() {
     if (palette_index.g > .5) {  // Transparent pixel.
         discard;
     } else {
-        float dist_term = min(1.0, 1.0 - 1.2 / (v_dist + 1.2));
+        float dist_term = min(1.0, 1.0 - DIST_SCALE / (v_dist + DIST_SCALE));
         float light = min(v_light, v_light * LIGHT_SCALE - dist_term);
         light = clamp(1.0 - light, LIGHT_BIAS, 1.0 - LIGHT_BIAS);
         color = texture(u_palette, vec2(palette_index.r, light)).rgb;
