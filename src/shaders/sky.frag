@@ -1,4 +1,6 @@
-#version 330 core
+#version 300 es
+precision mediump float;
+
 out vec3 color;
 
 uniform sampler2D u_palette;
@@ -13,13 +15,13 @@ void main() {
     uv = vec2(uv.x - 4.0 * v_r.x / 3.14159, uv.y + 1.0 + v_r.y);
     if (uv.y < 0.0) {
         uv.y = abs(mod(-uv.y + u_tiled_band_size,
-                       u_tiled_band_size * 2) - u_tiled_band_size);
+                       u_tiled_band_size * 2.0) - u_tiled_band_size);
     } else if (uv.y >= 2.0) {
         uv.y = abs(mod(uv.y - 2.0 + u_tiled_band_size,
-                       u_tiled_band_size * 2) - u_tiled_band_size);
+                       u_tiled_band_size * 2.0) - u_tiled_band_size);
     } else if (uv.y >= 1.0) {
         uv.y = 1.0 - uv.y;
     }
     float palette_index = texture(u_texture, uv).r;
-    color = texture(u_palette, vec2(palette_index, 0)).rgb;
+    color = texture(u_palette, vec2(palette_index, 0.0)).rgb;
 }

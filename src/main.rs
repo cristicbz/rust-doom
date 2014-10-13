@@ -7,7 +7,6 @@
 #[phase(plugin, link)]
 extern crate log;
 extern crate getopts;
-extern crate gl;
 extern crate libc;
 extern crate native;
 extern crate regex;
@@ -15,6 +14,8 @@ extern crate sdl2;
 extern crate serialize;
 extern crate time;
 extern crate toml;
+#[phase(plugin)]
+extern crate gl_generator;
 
 use ctrl::GameController;
 use getopts::{optopt,optflag,getopts, usage};
@@ -34,6 +35,7 @@ pub mod check_gl;
 pub mod camera;
 pub mod common;
 pub mod ctrl;
+pub mod gl;
 pub mod mat4;
 pub mod numvec;
 pub mod player;
@@ -49,7 +51,7 @@ pub mod render;
 const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.7 - Toggle mouse with \
                                     backtick key (`))";
 const OPENGL_MAJOR_VERSION: int = 3;
-const OPENGL_MINOR_VERSION: int = 3;
+const OPENGL_MINOR_VERSION: int = 0;
 const OPENGL_DEPTH_SIZE: int = 24;
 
 
@@ -66,8 +68,10 @@ impl MainWindow {
         sdl2::video::gl_set_attribute(sdl2::video::GLDepthSize,
                                       OPENGL_DEPTH_SIZE);
         sdl2::video::gl_set_attribute(sdl2::video::GLDoubleBuffer, 1);
-        sdl2::video::gl_set_attribute(sdl2::video::GLContextProfileMask,
-                                      sdl2::video::ll::SDL_GL_CONTEXT_PROFILE_CORE as int);
+        sdl2::video::gl_set_attribute(
+            sdl2::video::GLContextProfileMask,
+            sdl2::video::ll::SDL_GL_CONTEXT_PROFILE_CORE as int);
+
         let window = sdl2::video::Window::new(
             WINDOW_TITLE, sdl2::video::PosCentered, sdl2::video::PosCentered,
             width as int, height as int,
