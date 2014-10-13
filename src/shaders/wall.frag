@@ -1,4 +1,6 @@
-#version 330 core
+#version 300 es
+precision mediump float;
+
 out vec3 color;
 
 uniform vec2 u_atlas_size;

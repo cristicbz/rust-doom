@@ -19,6 +19,8 @@ pub struct Uniform {
 impl Shader {
     pub fn new_from_files(vertex_path: &Path, fragment_path: &Path)
             -> Result<Shader, String> {
+        info!("Reading shaders from {} {}...",
+              vertex_path.display(), fragment_path.display());
         Shader::new_from_source(try!(read_utf8_file(vertex_path))[],
                                 try!(read_utf8_file(fragment_path))[])
     }
