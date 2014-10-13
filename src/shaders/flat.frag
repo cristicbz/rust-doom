@@ -12,7 +12,7 @@ in float v_dist;
 
 const float WORLD_TO_PIXEL = 100.0;
 const float TILE_SIZE = 64.0;
-const float LIGHT_SCALE = 1.75;
+const float LIGHT_SCALE = 2.0;
 const float LIGHT_BIAS = 1e-4;
 
 void main() {

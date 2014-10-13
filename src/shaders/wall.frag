@@ -12,7 +12,7 @@ flat in float v_tile_width;
 flat in float v_light;
 
 const float TILE_HEIGHT = 128.0;
-const float LIGHT_SCALE = 1.75;
+const float LIGHT_SCALE = 2.0;
 const float LIGHT_BIAS = 1e-4;
 
 void main() {
