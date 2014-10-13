@@ -10,7 +10,7 @@ in vec4 v_p;
 
 void main() {
     vec2 uv = vec2(v_p.x, v_p.y) / v_p.w * vec2(1, -1);
-    uv = vec2(uv.x - 4.0 * v_r.x / 3.14159, uv.y + 1.0 + v_r.y);
+    uv = vec2(uv.x - 4.0 * v_r.x / 3.14159265358, uv.y + 1.0 + v_r.y);
     if (uv.y < 0.0) {
         uv.y = abs(mod(-uv.y + u_tiled_band_size,
                        u_tiled_band_size * 2) - u_tiled_band_size);
