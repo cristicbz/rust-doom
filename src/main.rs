@@ -28,7 +28,7 @@ use sdl2::scancode;
 use std::default::Default;
 use std::os;
 use wad::TextureDirectory;
-
+use shader::{GlslVersion, ShaderLoader};
 
 #[macro_escape]
 pub mod check_gl;
@@ -47,12 +47,29 @@ pub mod line;
 pub mod texture;
 pub mod render;
 
+#[cfg(target_os = "linux")]
+const GLSL_VERSION: GlslVersion = shader::Glsl300Es;
+
+#[cfg(target_os = "linux")]
+const OPENGL_MAJOR_VERSION: int = 3;
+
+#[cfg(target_os = "linux")]
+const OPENGL_MINOR_VERSION: int = 0;
+
+#[cfg(not(target_os = "linux"))]
+const GLSL_VERSION: GlslVersion = shader::Glsl330Core;
+
+#[cfg(not(target_os = "linux"))]
+const OPENGL_MAJOR_VERSION: int = 3;
+
+#[cfg(not(target_os = "linux"))]
+const OPENGL_MINOR_VERSION: int = 3;
+
 
 const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.7 - Toggle mouse with \
                                     backtick key (`))";
-const OPENGL_MAJOR_VERSION: int = 3;
-const OPENGL_MINOR_VERSION: int = 0;
 const OPENGL_DEPTH_SIZE: int = 24;
+const SHADER_ROOT: &'static str = "src/shaders";
 
 
 pub struct MainWindow {
@@ -126,7 +143,10 @@ impl Game {
         let mut wad = wad::Archive::open(&Path::new(config.wad),
                                          &Path::new(config.metadata)).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
-        let level = Level::new(&mut wad, &textures, config.level_index);
+        let shader_loader = ShaderLoader::new(GLSL_VERSION,
+                                              Path::new(SHADER_ROOT));
+        let level = Level::new(&shader_loader,
+                               &mut wad, &textures, config.level_index);
 
         check_gl!(gl::ClearColor(0.06, 0.07, 0.09, 0.0));
         check_gl!(gl::Enable(gl::DEPTH_TEST));
@@ -279,7 +299,10 @@ fn main() {
             &Path::new(wad_filename[]), &Path::new(meta_filename[])).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
         for level_index in range(0, wad.num_levels()) {
-            let level = Level::new(&mut wad, &textures, level_index);
+            let shader_loader = ShaderLoader::new(GLSL_VERSION,
+                                                  Path::new(SHADER_ROOT));
+            let level = Level::new(&shader_loader,
+                                   &mut wad, &textures, level_index);
         }
         println!("Done, loaded all levels in {:.4}s. Shutting down...",
                  time::precise_time_s() - t0);

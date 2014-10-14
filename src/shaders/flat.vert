@@ -1,5 +1,3 @@
-#version 300 es
-
 uniform mat4 u_transform;
 uniform float u_time;
 uniform vec2 u_atlas_size;

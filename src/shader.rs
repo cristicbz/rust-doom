@@ -8,27 +8,46 @@ use std::ptr;
 use std::string::String;
 use std::vec::Vec;
 
-pub struct Shader {
-    program : Program,
+pub enum GlslVersion {
+    Glsl300Es,
+    Glsl330Core,
 }
 
 pub struct Uniform {
     id : GLint,
 }
 
-impl Shader {
-    pub fn new_from_files(vertex_path: &Path, fragment_path: &Path)
-            -> Result<Shader, String> {
-        info!("Reading shaders from {} {}...",
-              vertex_path.display(), fragment_path.display());
-        Shader::new_from_source(try!(read_utf8_file(vertex_path))[],
-                                try!(read_utf8_file(fragment_path))[])
+pub struct ShaderLoader {
+    root_path: Path,
+    version_directive: String,
+}
+impl ShaderLoader {
+    pub fn new(version: GlslVersion, root_path: Path) -> ShaderLoader {
+        ShaderLoader {
+            version_directive: glsl_version_directive(version).to_string(),
+            root_path: root_path
+        }
     }
+
+    pub fn load(&self, name: &str) -> Result<Shader, String> {
+        let name = name.to_string();
+        let frag_src = self.version_directive +
+            try!(read_utf8_file(&self.root_path.join(name + ".frag")))[];
+        let vert_src = self.version_directive +
+            try!(read_utf8_file(&self.root_path.join(name + ".vert")))[];
+        Shader::new_from_source(vert_src[], frag_src[])
+    }
+}
+
+pub struct Shader {
+    program : Program,
+}
+impl Shader {
 
     pub fn new_from_source(vertex_source: &str, fragment_source: &str)
             -> Result<Shader, String> {
-        let vertex = try!(VertexShader::compile(vertex_source));
-        let fragment = try!(FragmentShader::compile(fragment_source));
+        let vertex = try!(VertexShader::compile(vertex_source[]));
+        let fragment = try!(FragmentShader::compile(fragment_source[]));
         let program = try!(Program::link(vertex, fragment));
         Ok(Shader { program: program })
     }
@@ -89,6 +108,13 @@ impl Shader {
         check_gl_unsafe!(gl::UniformMatrix4fv(
             uniform.id, 1, 0u8, value.as_scalar_ptr()));
         self
+    }
+}
+
+fn glsl_version_directive(version: GlslVersion) -> &'static str {
+    match version {
+        Glsl300Es => "#version 300 es\n",
+        Glsl330Core => "#version 330 core\n",
     }
 }
 
