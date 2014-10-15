@@ -4,7 +4,7 @@ use line::{Line2, Line2f};
 use mat4::Mat4;
 use numvec::{Vec2f, Vec2, Vec3f, Vec3, Numvec};
 use render::{Renderer, RenderStep};
-use shader::Shader;
+use shader::ShaderLoader;
 use std::rc::Rc;
 use std::vec::Vec;
 use vbo::{BufferBuilder, VertexBuffer};
@@ -21,10 +21,12 @@ pub struct Level {
     renderer: Renderer,
 }
 impl Level {
-    pub fn new(wad: &mut wad::Archive,
+    pub fn new(shader_loader: &ShaderLoader,
+               wad: &mut wad::Archive,
                textures: &TextureDirectory,
                level_index: uint) -> Level {
-        let (renderer, start_pos) = build_level(wad, textures, level_index);
+        let (renderer, start_pos) = build_level(shader_loader,
+                                                wad, textures, level_index);
         Level {
             renderer: renderer,
             start_pos: start_pos,
@@ -107,7 +109,8 @@ macro_rules! offset_of(
 )
 
 
-pub fn build_level(wad: &mut wad::Archive,
+pub fn build_level(shader_loader: &ShaderLoader,
+                   wad: &mut wad::Archive,
                    textures: &wad::TextureDirectory,
                    level_index: uint)
         -> (Renderer, Vec2f) {
@@ -116,9 +119,10 @@ pub fn build_level(wad: &mut wad::Archive,
     let level = wad::Level::from_archive(wad, level_index);
 
     let mut steps = RenderSteps {
-        sky: init_sky_step(wad.get_metadata().sky_for(&name), textures),
-        flats: init_flats_step(),
-        walls: init_walls_step(),
+        sky: init_sky_step(shader_loader, wad.get_metadata().sky_for(&name),
+                           textures),
+        flats: init_flats_step(shader_loader),
+        walls: init_walls_step(shader_loader),
     };
     build_palette(textures, &mut [&mut steps.flats,
                                   &mut steps.sky,
@@ -155,11 +159,10 @@ fn build_palette(textures: &TextureDirectory, steps: &mut [&mut RenderStep]) {
     }
 }
 
-fn init_sky_step(meta: &wad::SkyMetadata, textures: &wad::TextureDirectory)
+fn init_sky_step(shader_loader: &ShaderLoader,
+                 meta: &wad::SkyMetadata, textures: &wad::TextureDirectory)
         -> RenderStep {
-    let mut step = RenderStep::new(Shader::new_from_files(
-            &Path::new("src/shaders/sky.vert"),
-            &Path::new("src/shaders/sky.frag")).unwrap());
+    let mut step = RenderStep::new(shader_loader.load("sky").unwrap());
     step.add_constant_f32("u_tiled_band_size", meta.tiled_band_size)
         .add_unique_texture("u_texture",
                             textures
@@ -171,10 +174,8 @@ fn init_sky_step(meta: &wad::SkyMetadata, textures: &wad::TextureDirectory)
 }
 
 
-fn init_flats_step() -> RenderStep {
-    RenderStep::new(Shader::new_from_files(
-            &Path::new("src/shaders/flat.vert"),
-            &Path::new("src/shaders/flat.frag")).unwrap())
+fn init_flats_step(shader_loader: &ShaderLoader) -> RenderStep {
+    RenderStep::new(shader_loader.load("flat").unwrap())
 }
 
 
@@ -207,10 +208,8 @@ fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
 }
 
 
-fn init_walls_step() -> RenderStep {
-    RenderStep::new(Shader::new_from_files(
-        &Path::new("src/shaders/wall.vert"),
-        &Path::new("src/shaders/wall.frag")).unwrap())
+fn init_walls_step(shader_loader: &ShaderLoader) -> RenderStep {
+    RenderStep::new(shader_loader.load("wall").unwrap())
 }
 
 
@@ -498,7 +497,6 @@ impl<'a> VboBuilder<'a> {
         };
         let (t1, t2) = (t1 + side.y_offset as f32, t2 + side.y_offset as f32);
 
-        // Checks if the texture is scrolling.
         let scroll = if line.special_type == 0x30 { 35.0 }
                      else { 0.0 };
 

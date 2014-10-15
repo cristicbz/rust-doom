@@ -1,4 +1,3 @@
-#version 300 es
 precision mediump float;
 
 out vec3 color;
@@ -14,13 +13,15 @@ in float v_dist;
 
 const float WORLD_TO_PIXEL = 100.0;
 const float TILE_SIZE = 64.0;
-const float LIGHT_BIAS = 1e-5;
+const float DIST_SCALE = 1.0;
+const float LIGHT_SCALE = 2.0;
+const float LIGHT_BIAS = 1e-4;
 
 void main() {
-    vec2 uv = mod(v_pos.xz * WORLD_TO_PIXEL, TILE_SIZE) + v_offset;
+    vec2 uv = mod(-v_pos.xz * WORLD_TO_PIXEL, TILE_SIZE) + v_offset;
     float palette_index = texture(u_atlas, uv / u_atlas_size).r;
-    float dist_term = clamp(0.0, 1.0, 1.0 - 1.2 / (v_dist + 1.2));
-    float light = clamp(0.0, v_light, v_light - dist_term);
+    float dist_term = min(1.0, 1.0 - DIST_SCALE / (v_dist + DIST_SCALE));
+    float light = min(v_light, v_light * LIGHT_SCALE - dist_term);
     light = 1.0 - clamp(light, LIGHT_BIAS, 1.0 - LIGHT_BIAS);
     color = texture(u_palette, vec2(palette_index, light)).rgb;
 }

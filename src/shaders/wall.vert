@@ -1,5 +1,3 @@
-#version 300 es
-
 uniform mat4 u_transform;
 uniform float u_time;
 uniform vec2 u_atlas_size;
@@ -79,7 +77,7 @@ void main() {
         v_atlas_uv = vec2(atlas_u, atlas_v);
     }
     v_tile_width = a_tile_width;
-    v_light = light_level() * 2.0 / 31.0;
+    v_light = light_level() * 1.0 / 31.0;
     vec4 projected_pos = u_transform * vec4(a_pos, 1);
     v_dist = projected_pos.w;
     gl_Position = projected_pos;
