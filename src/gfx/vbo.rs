@@ -1,20 +1,48 @@
-use check_gl;
 use gl;
 use gl::types::{GLint, GLuint, GLenum, GLsizeiptr};
 use libc;
 use libc::c_void;
 use std::mem;
 
-type IndexType = u16;
+pub struct VertexBuffer {
+    id: VboId,
+    length: uint,
+    attributes: Vec<VertexAttribute>,
+    vertex_size: uint,
+}
+impl VertexBuffer {
+    fn new(vertex_size: uint, attributes: Vec<VertexAttribute>)
+            -> VertexBuffer {
+        VertexBuffer {
+            id: VboId::new_orphaned(),
+            length: 0,
+            vertex_size: vertex_size,
+            attributes: attributes,
+        }
+    }
 
-#[allow(raw_pointer_deriving)]
-#[deriving(Clone)]
-struct VertexAttribute {
-    layout: GLuint,
-    gl_type: GLenum,
-    size: GLint,
-    normalized: u8,
-    offset: *const c_void
+    pub fn draw_triangles(&self) -> &VertexBuffer {
+        check_gl!(gl::BindBuffer(gl::ARRAY_BUFFER, self.id.id()));
+        bind_attributes(self.vertex_size, self.attributes[]);
+        check_gl!(gl::DrawArrays(gl::TRIANGLES, 0, self.length as i32));
+        unbind_attributes(self.attributes[]);
+        check_gl!(gl::BindBuffer(gl::ARRAY_BUFFER, 0));
+        self
+    }
+
+    pub fn len(&self) -> uint { self.length }
+
+    pub fn set_data<V: Copy> (&mut self, usage: GLenum, data: &[V])
+            -> &mut VertexBuffer {
+        assert_eq!(self.vertex_size, mem::size_of::<V>());
+        self.id.reset().bind();
+        self.length = data.len();
+        check_gl_unsafe!(gl::BufferData(
+                gl::ARRAY_BUFFER, (data.len() * self.vertex_size) as GLsizeiptr,
+                data.as_ptr() as *const libc::c_void, usage));
+        self.id.unbind();
+        self
+    }
 }
 
 pub struct BufferBuilder<VertexType: Copy> {
@@ -98,6 +126,19 @@ impl<VertexType: Copy>  BufferBuilder<VertexType> {
     }
 }
 
+type IndexType = u16;
+
+#[allow(raw_pointer_deriving)]
+#[deriving(Clone)]
+struct VertexAttribute {
+    layout: GLuint,
+    gl_type: GLenum,
+    size: GLint,
+    normalized: u8,
+    offset: *const c_void
+}
+
+
 fn bind_attributes(stride: uint, attributes: &[VertexAttribute]) {
     let stride = stride as i32;
     for attr in attributes.iter() {
@@ -156,44 +197,3 @@ impl VboId {
     fn id(&self) -> GLuint { self.id }
 }
 
-pub struct VertexBuffer {
-    id: VboId,
-    length: uint,
-    attributes: Vec<VertexAttribute>,
-    vertex_size: uint,
-}
-
-impl VertexBuffer {
-    fn new(vertex_size: uint, attributes: Vec<VertexAttribute>)
-            -> VertexBuffer {
-        VertexBuffer {
-            id: VboId::new_orphaned(),
-            length: 0,
-            vertex_size: vertex_size,
-            attributes: attributes,
-        }
-    }
-
-    pub fn draw_triangles(&self) -> &VertexBuffer {
-        check_gl!(gl::BindBuffer(gl::ARRAY_BUFFER, self.id.id()));
-        bind_attributes(self.vertex_size, self.attributes[]);
-        check_gl!(gl::DrawArrays(gl::TRIANGLES, 0, self.length as i32));
-        unbind_attributes(self.attributes[]);
-        check_gl!(gl::BindBuffer(gl::ARRAY_BUFFER, 0));
-        self
-    }
-
-    pub fn len(&self) -> uint { self.length }
-
-    pub fn set_data<V: Copy> (&mut self, usage: GLenum, data: &[V])
-            -> &mut VertexBuffer {
-        assert_eq!(self.vertex_size, mem::size_of::<V>());
-        self.id.reset().bind();
-        self.length = data.len();
-        check_gl_unsafe!(gl::BufferData(
-                gl::ARRAY_BUFFER, (data.len() * self.vertex_size) as GLsizeiptr,
-                data.as_ptr() as *const libc::c_void, usage));
-        self.id.unbind();
-        self
-    }
-}

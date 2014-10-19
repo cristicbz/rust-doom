@@ -1,0 +1,23 @@
+[package]
+name = "game"
+version = "0.0.1"
+authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
+
+[[lib]]
+name = "game"
+path = "lib.rs"
+
+[dependencies.sdl2]
+git = "https://github.com/AngryLawyer/rust-sdl2"
+
+[dependencies.gfx]
+path = "../gfx"
+
+[dependencies.gl]
+path = "../gl"
+
+[dependencies.math]
+path = "../math"
+
+[dependencies.wad]
+path = "../wad"

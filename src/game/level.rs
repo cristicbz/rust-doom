@@ -1,13 +1,9 @@
 use gl;
 use libc::c_void;
-use line::{Line2, Line2f};
-use mat4::Mat4;
-use numvec::{Vec2f, Vec2, Vec3f, Vec3, Numvec};
-use render::{Renderer, RenderStep};
-use shader::ShaderLoader;
+use math::{Mat4, Line2, Line2f, Vec2f, Vec2, Vec3f, Vec3, Numvec};
+use gfx::{BufferBuilder, Renderer, RenderStep, ShaderLoader, VertexBuffer};
 use std::rc::Rc;
 use std::vec::Vec;
-use vbo::{BufferBuilder, VertexBuffer};
 use wad;
 use wad::SkyMetadata;
 use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
@@ -47,9 +43,7 @@ struct TextureMaps {
 }
 
 
-struct RenderSteps {
-    sky: RenderStep,
-    flats: RenderStep,
+struct RenderSteps { sky: RenderStep, flats: RenderStep,
     walls: RenderStep,
 }
 
@@ -242,6 +236,9 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
 
     lookup
 }
+
+type LightInfo = u16;
+
 
 struct VboBuilder<'a> {
     level: &'a wad::Level,

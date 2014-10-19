@@ -1,6 +1,6 @@
 use std::mem;
 use std::slice::raw;
-use numvec::{Vec2, Vec2f};
+use math::{Vec2, Vec2f};
 use super::types::{WadCoord, WadInfo, WadName, ChildId, WadNameCast};
 
 pub enum WadType { Initial, Patch }

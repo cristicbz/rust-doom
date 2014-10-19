@@ -2,15 +2,16 @@ use std::collections::HashMap;
 use std::io::{BufReader, Reader, SeekSet};
 use std::mem;
 
-use super::Archive;
-use super::image::Image;
-use super::types::*;
-use super::util;
+use archive::Archive;
+use image::Image;
+use util;
+use gfx::Texture;
+use types::{WadTextureHeader, WadTexturePatchRef};
+use name::{WadName, WadNameCast};
 
-use texture::Texture;
+use math::{Vec2, Vec2f};
 
 use gl;
-use numvec::{Vec2, Vec2f};
 use time;
 
 

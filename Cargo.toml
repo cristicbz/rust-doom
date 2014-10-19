@@ -3,12 +3,8 @@ name = "rs-doom"
 version = "0.0.7"
 authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 
-[dependencies.sdl2]
-git = "https://github.com/cristicbz/rust-sdl2"
-branch = "static_to_const"
+[[bin]]
+name = "rs-doom"
 
-[dependencies.gl]
-git = "https://github.com/bjz/gl-rs"
-
-[dependencies.toml]
-git = "https://github.com/alexcrichton/toml-rs"
+[dependencies.game]
+path = "src/game"

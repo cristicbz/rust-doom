@@ -1,30 +1,25 @@
-use check_gl;
-use common::read_utf8_file;
 use gl;
 use gl::types::{GLint, GLuint, GLchar};
-use mat4::Mat4;
-use numvec::{Vec2f, Vec3f};
+use math::{Mat4, Vec2f, Vec3f};
 use std::ptr;
 use std::string::String;
 use std::vec::Vec;
+use base::read_utf8_file;
 
-pub enum GlslVersion {
-    Glsl300Es,
-    Glsl330Core,
-}
 
 pub struct Uniform {
     id : GLint,
 }
+
 
 pub struct ShaderLoader {
     root_path: Path,
     version_directive: String,
 }
 impl ShaderLoader {
-    pub fn new(version: GlslVersion, root_path: Path) -> ShaderLoader {
+    pub fn new(version: &str, root_path: Path) -> ShaderLoader {
         ShaderLoader {
-            version_directive: glsl_version_directive(version).to_string(),
+            version_directive: format!("#version {}\n", version),
             root_path: root_path
         }
     }
@@ -108,13 +103,6 @@ impl Shader {
         check_gl_unsafe!(gl::UniformMatrix4fv(
             uniform.id, 1, 0u8, value.as_scalar_ptr()));
         self
-    }
-}
-
-fn glsl_version_directive(version: GlslVersion) -> &'static str {
-    match version {
-        Glsl300Es => "#version 300 es\n",
-        Glsl330Core => "#version 330 core\n",
     }
 }
 

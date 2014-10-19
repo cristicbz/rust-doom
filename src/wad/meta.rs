@@ -1,4 +1,4 @@
-use common;
+use base;
 use regex::Regex;
 use serialize;
 use super::name::WadName;
@@ -45,7 +45,7 @@ pub struct WadMetadata {
 }
 impl WadMetadata {
     pub fn from_file(path: &Path) -> Result<WadMetadata, String> {
-        common::read_utf8_file(path).and_then(
+        base::read_utf8_file(path).and_then(
             |contents| WadMetadata::from_text(contents[]))
     }
 

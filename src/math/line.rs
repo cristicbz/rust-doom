@@ -1,5 +1,5 @@
 use numvec::{Vec2, Numvec};
-use std::num::Float;
+
 
 pub type Line2f = Line2<f32>;
 
@@ -8,8 +8,6 @@ pub struct Line2<T: Float + FloatMath> {
     origin: Vec2<T>,
     displace: Vec2<T>,
 }
-
-
 impl<T: Float + FloatMath> Line2<T> {
     pub fn from_origin_and_displace(origin: Vec2<T>,
                                     displace: Vec2<T>) -> Line2<T> {

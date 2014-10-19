@@ -1,5 +1,5 @@
-use std::ops::Mul;
 use std::fmt;
+use std::ops::Mul;
 
 use numvec::Vec3f;
 

@@ -1,4 +1,4 @@
-use numvec::{Vec2f, Vec2};
+use math::{Vec2f, Vec2};
 use sdl2;
 use sdl2::mouse::Mouse;
 use sdl2::scancode::ScanCode;
