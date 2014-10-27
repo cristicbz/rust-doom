@@ -1,8 +1,8 @@
 use std::vec::Vec;
 use std::io::BufReader;
-use super::types::*;
+use super::types::WadTextureHeader;
 use std::ptr::copy_nonoverlapping_memory;
-use texture::Texture;
+use gfx::Texture;
 use gl;
 
 

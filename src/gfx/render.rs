@@ -1,8 +1,6 @@
-use check_gl;
 use gl;
 use gl::types::GLenum;
-use mat4::Mat4;
-use numvec::Vec2f;
+use math::{Mat4, Vec2f};
 use shader::{Shader, Uniform};
 use std::rc::Rc;
 use std::vec::Vec;

@@ -1,11 +1,10 @@
-use numvec::Vec2f;
+use math::Vec2f;
 use std::mem;
 use std::vec::Vec;
-use super::archive::Archive;
-use super::types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg,
-                   WadSubsector, WadNode, WadSector, VertexId, LightLevel,
-                   SectorId};
-use super::util::from_wad_coords;
+use archive::Archive;
+use types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg, WadSubsector,
+            WadNode, WadSector, VertexId, LightLevel, SectorId};
+use util::from_wad_coords;
 
 
 const THINGS_OFFSET: uint = 1;

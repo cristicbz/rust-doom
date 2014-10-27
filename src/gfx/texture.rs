@@ -1,8 +1,7 @@
-use check_gl;
 use gl;
 use gl::types::*;
 use libc;
-use numvec::{Vec2f, Vec2};
+use math::{Vec2f, Vec2};
 use std::mem;
 
 pub struct Texture {

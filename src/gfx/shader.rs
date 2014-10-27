@@ -1,30 +1,25 @@
-use check_gl;
-use common::read_utf8_file;
 use gl;
 use gl::types::{GLint, GLuint, GLchar};
-use mat4::Mat4;
-use numvec::{Vec2f, Vec3f};
+use math::{Mat4, Vec2f, Vec3f};
 use std::ptr;
 use std::string::String;
 use std::vec::Vec;
+use base::read_utf8_file;
 
-pub enum GlslVersion {
-    Glsl300Es,
-    Glsl330Core,
-}
 
 pub struct Uniform {
     id : GLint,
 }
+
 
 pub struct ShaderLoader {
     root_path: Path,
     version_directive: String,
 }
 impl ShaderLoader {
-    pub fn new(version: GlslVersion, root_path: Path) -> ShaderLoader {
+    pub fn new(version: &str, root_path: Path) -> ShaderLoader {
         ShaderLoader {
-            version_directive: glsl_version_directive(version).to_string(),
+            version_directive: format!("#version {}\n", version),
             root_path: root_path
         }
     }
@@ -111,13 +106,6 @@ impl Shader {
     }
 }
 
-fn glsl_version_directive(version: GlslVersion) -> &'static str {
-    match version {
-        Glsl300Es => "#version 300 es\n",
-        Glsl330Core => "#version 330 core\n",
-    }
-}
-
 struct VertexShader { id : GLuint }
 impl VertexShader {
     fn compile(source: &str) -> Result<VertexShader, String> {
@@ -199,7 +187,7 @@ fn get_compilation_log(shader_id: GLuint) -> String {
     let mut log_buffer = Vec::from_elem(log_length as uint, 0u8);
     let log_buffer_ptr = log_buffer.as_mut_ptr() as *mut gl::types::GLchar;
     check_gl_unsafe!(gl::GetShaderInfoLog(
-            shader_id, log_length, ptr::mut_null(), log_buffer_ptr));
+            shader_id, log_length, ptr::null_mut(), log_buffer_ptr));
     String::from_utf8(log_buffer).unwrap()
 }
 
@@ -219,6 +207,6 @@ fn get_link_log(shader_id: GLuint) -> String {
     let mut log_buffer = Vec::from_elem(log_length as uint, 0u8);
     let log_buffer_ptr = log_buffer.as_mut_ptr() as *mut gl::types::GLchar;
     check_gl_unsafe!(gl::GetProgramInfoLog(
-            shader_id, log_length, ptr::mut_null(), log_buffer_ptr));
+            shader_id, log_length, ptr::null_mut(), log_buffer_ptr));
     String::from_utf8(log_buffer).unwrap()
 }

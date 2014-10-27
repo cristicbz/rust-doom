@@ -1,5 +1,4 @@
-use mat4::Mat4;
-use numvec::{Vec3, Vec3f};
+use math::{Mat4, Vec3, Vec3f};
 use std::cell::UnsafeCell;
 
 /// A Camera object abstracts a projection-view transform.

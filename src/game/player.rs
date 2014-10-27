@@ -1,7 +1,7 @@
 use camera::Camera;
 use ctrl;
 use ctrl::GameController;
-use numvec::{Vec3, Vec3f, Vec2f, Numvec};
+use math::{Vec3, Vec3f, Vec2f, Numvec};
 use sdl2::scancode;
 use std::default::Default;
 

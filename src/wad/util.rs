@@ -1,6 +1,6 @@
 use std::mem;
 use std::slice::raw;
-use numvec::{Vec2, Vec2f};
+use math::{Vec2, Vec2f};
 use super::types::{WadCoord, WadInfo, WadName, ChildId, WadNameCast};
 
 pub enum WadType { Initial, Patch }
@@ -10,12 +10,14 @@ const IWAD_HEADER: &'static [u8] = b"IWAD";
 const PWAD_HEADER: &'static [u8] = b"PWAD";
 
 
-pub fn wad_type_from_info(wad_info : &WadInfo) -> Option<WadType> {
-    let id : &[u8] = &wad_info.identifier;
-    match id {
-        IWAD_HEADER => Some(Initial),
-        PWAD_HEADER => Some(Patch),
-        _           => None
+pub fn wad_type_from_info(wad_info: &WadInfo) -> Option<WadType> {
+    let id = wad_info.identifier[];
+    if id == IWAD_HEADER {
+        Some(Initial)
+    } else if id == PWAD_HEADER {
+        Some(Patch)
+    } else {
+        None
     }
 }
 

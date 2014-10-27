@@ -4,6 +4,10 @@ use std::ops::{Add, Sub, Mul};
 use std::fmt;
 use std::fmt::Show;
 
+pub type Vec2f = Vec2<f32>;
+pub type Vec3f = Vec3<f32>;
+pub type Vec4f = Vec4<f32>;
+
 pub trait Numvec<T : Float + FloatMath>
         : Add<Self, Self> + Mul<T, Self> + Div<T, Self> {
     fn dot(&self, other : &Self) -> T;
@@ -27,28 +31,6 @@ pub struct Vec2<T: Float + FloatMath> {
     pub x : T,
     pub y : T,
 }
-
-#[packed]
-#[repr(C)]
-pub struct Vec3<T: Float + FloatMath> {
-    pub x : T,
-    pub y : T,
-    pub z : T,
-}
-
-#[packed]
-#[repr(C)]
-pub struct Vec4<T: Float + FloatMath> {
-    pub x : T,
-    pub y : T,
-    pub z : T,
-    pub w : T,
-}
-
-pub type Vec2f = Vec2<f32>;
-pub type Vec3f = Vec3<f32>;
-pub type Vec4f = Vec4<f32>;
-
 impl<T : Float + FloatMath> Vec2<T> {
     pub fn new(x: T, y: T) -> Vec2<T> { Vec2 { x: x, y: y } }
 
@@ -68,49 +50,6 @@ impl<T : Float + FloatMath> Vec2<T> {
         Vec2::new(-self.y, self.x)
     }
 }
-
-impl<T : Float + FloatMath> Vec3<T> {
-    pub fn new(x: T, y: T, z: T) -> Vec3<T> { Vec3 { x: x, y: y, z: z } }
-
-    pub fn zero()   -> Vec3<T> { Vec3 { x: zero(), y: zero(), z: zero() } }
-    pub fn x_axis() -> Vec3<T> { Vec3 { x:  one(), y: zero(), z: zero() } }
-    pub fn y_axis() -> Vec3<T> { Vec3 { x: zero(), y:  one(), z: zero() } }
-    pub fn z_axis() -> Vec3<T> { Vec3 { x: zero(), y: zero(), z:  one() } }
-
-    pub fn cross(&self, rhs : &Vec3<T>) -> Vec3<T> {
-        Vec3 { x: self.y * rhs.z - self.z * rhs.y,
-               y: self.z * rhs.x - self.x * rhs.z,
-               z: self.x * rhs.y - self.y * rhs.x }
-    }
-}
-
-impl<T : Float + FloatMath> Vec4<T> {
-    pub fn new(x: T, y: T, z: T, w: T) -> Vec4<T> {
-        Vec4 { x: x, y: y, z: z, w: w }
-    }
-
-    pub fn zero()   -> Vec4<T> {
-        Vec4 { x: zero(), y: zero(), z: zero(), w: zero() }
-    }
-
-    pub fn x_axis() -> Vec4<T> {
-        Vec4 { x: one(), y: zero(), z: zero(), w: zero() }
-    }
-
-    pub fn y_axis() -> Vec4<T> {
-        Vec4 { x: zero(), y: one(), z: zero(), w: zero() }
-    }
-
-    pub fn z_axis() -> Vec4<T> {
-        Vec4 { x: zero(), y: zero(), z: one(), w: zero() }
-    }
-
-    pub fn w_axis() -> Vec4<T> {
-        Vec4 { x: zero(), y: zero(), z: zero(), w: one() }
-    }
-}
-
-// Vec2 ops
 impl<T : Float + FloatMath> Numvec<T> for Vec2<T> {
     fn dot(&self, rhs : &Vec2<T>) -> T {
         self.x * rhs.x + self.y * rhs.y
@@ -147,7 +86,28 @@ impl<T : Float + FloatMath + Show> Show for Vec2<T> {
     }
 }
 
-// Vec3 ops
+
+#[packed]
+#[repr(C)]
+pub struct Vec3<T: Float + FloatMath> {
+    pub x : T,
+    pub y : T,
+    pub z : T,
+}
+impl<T : Float + FloatMath> Vec3<T> {
+    pub fn new(x: T, y: T, z: T) -> Vec3<T> { Vec3 { x: x, y: y, z: z } }
+
+    pub fn zero()   -> Vec3<T> { Vec3 { x: zero(), y: zero(), z: zero() } }
+    pub fn x_axis() -> Vec3<T> { Vec3 { x:  one(), y: zero(), z: zero() } }
+    pub fn y_axis() -> Vec3<T> { Vec3 { x: zero(), y:  one(), z: zero() } }
+    pub fn z_axis() -> Vec3<T> { Vec3 { x: zero(), y: zero(), z:  one() } }
+
+    pub fn cross(&self, rhs : &Vec3<T>) -> Vec3<T> {
+        Vec3 { x: self.y * rhs.z - self.z * rhs.y,
+               y: self.z * rhs.x - self.x * rhs.z,
+               z: self.x * rhs.y - self.y * rhs.x }
+    }
+}
 impl<T : Float + FloatMath> Numvec<T> for Vec3<T> {
     fn dot(&self, rhs : &Vec3<T>) -> T {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
@@ -184,7 +144,40 @@ impl<T : Float + FloatMath + Show> Show for Vec3<T> {
     }
 }
 
-// Vec4 ops
+
+#[packed]
+#[repr(C)]
+pub struct Vec4<T: Float + FloatMath> {
+    pub x : T,
+    pub y : T,
+    pub z : T,
+    pub w : T,
+}
+impl<T : Float + FloatMath> Vec4<T> {
+    pub fn new(x: T, y: T, z: T, w: T) -> Vec4<T> {
+        Vec4 { x: x, y: y, z: z, w: w }
+    }
+
+    pub fn zero()   -> Vec4<T> {
+        Vec4 { x: zero(), y: zero(), z: zero(), w: zero() }
+    }
+
+    pub fn x_axis() -> Vec4<T> {
+        Vec4 { x: one(), y: zero(), z: zero(), w: zero() }
+    }
+
+    pub fn y_axis() -> Vec4<T> {
+        Vec4 { x: zero(), y: one(), z: zero(), w: zero() }
+    }
+
+    pub fn z_axis() -> Vec4<T> {
+        Vec4 { x: zero(), y: zero(), z: one(), w: zero() }
+    }
+
+    pub fn w_axis() -> Vec4<T> {
+        Vec4 { x: zero(), y: zero(), z: zero(), w: one() }
+    }
+}
 impl<T : Float + FloatMath> Numvec<T> for Vec4<T> {
     fn dot(&self, rhs : &Vec4<T>) -> T {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
