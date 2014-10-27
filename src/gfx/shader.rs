@@ -187,7 +187,7 @@ fn get_compilation_log(shader_id: GLuint) -> String {
     let mut log_buffer = Vec::from_elem(log_length as uint, 0u8);
     let log_buffer_ptr = log_buffer.as_mut_ptr() as *mut gl::types::GLchar;
     check_gl_unsafe!(gl::GetShaderInfoLog(
-            shader_id, log_length, ptr::mut_null(), log_buffer_ptr));
+            shader_id, log_length, ptr::null_mut(), log_buffer_ptr));
     String::from_utf8(log_buffer).unwrap()
 }
 
@@ -207,6 +207,6 @@ fn get_link_log(shader_id: GLuint) -> String {
     let mut log_buffer = Vec::from_elem(log_length as uint, 0u8);
     let log_buffer_ptr = log_buffer.as_mut_ptr() as *mut gl::types::GLchar;
     check_gl_unsafe!(gl::GetProgramInfoLog(
-            shader_id, log_length, ptr::mut_null(), log_buffer_ptr));
+            shader_id, log_length, ptr::null_mut(), log_buffer_ptr));
     String::from_utf8(log_buffer).unwrap()
 }

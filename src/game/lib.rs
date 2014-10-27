@@ -270,8 +270,7 @@ pub fn run() {
         for level_index in range(0, wad.num_levels()) {
             let shader_loader = ShaderLoader::new(
                 gl::platform::GLSL_VERSION_STRING, Path::new(SHADER_ROOT));
-            let level = Level::new(&shader_loader,
-                                   &mut wad, &textures, level_index);
+            Level::new(&shader_loader, &mut wad, &textures, level_index);
         }
         println!("Done, loaded all levels in {:.4}s. Shutting down...",
                  time::precise_time_s() - t0);

@@ -6,10 +6,20 @@
 extern crate gl_generator;
 
 #[cfg(target_os = "linux")]
-generate_gl_bindings!("gl", "core", "3.0", "global")
+generate_gl_bindings! {
+    api: "gl",
+    profile: "core",
+    version: "3.0",
+    generator: "global",
+}
 
 #[cfg(not(target_os = "linux"))]
-generate_gl_bindings!("gl", "core", "3.3", "global")
+generate_gl_bindings! {
+    api: "gl",
+    profile: "core",
+    version: "3.3",
+    generator: "global",
+}
 
 #[cfg(target_os = "linux")]
 pub mod platform {
