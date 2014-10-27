@@ -1,6 +1,5 @@
 #![feature(macro_rules)]
 #![feature(phase)]
-#![macro_escape]
 
 #[phase(plugin)]
 extern crate gl_generator;
