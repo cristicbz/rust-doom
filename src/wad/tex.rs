@@ -106,7 +106,7 @@ impl TextureDirectory {
     pub fn expect_texture(&self, name: &WadName) -> &Image {
         match self.get_texture(name) {
             Some(t) => t,
-            None => fail!("Texture {} missing.", name),
+            None => panic!("Texture {} missing.", name),
         }
     }
     pub fn get_flat(&self, name: &WadName) -> Option<&Flat> {
@@ -115,7 +115,7 @@ impl TextureDirectory {
     pub fn expect_flat(&self, name: &WadName) -> &Flat {
         match self.get_flat(name) {
             Some(t) => t,
-            None => fail!("Flat {} missing.", name),
+            None => panic!("Flat {} missing.", name),
         }
     }
 
@@ -188,7 +188,7 @@ impl TextureDirectory {
         let next_size = |w: &mut uint, h: &mut uint| {
             loop {
                 if *w == *h {
-                    if *w == max_size { fail!("Could not fit wall atlas."); }
+                    if *w == max_size { panic!("Could not fit wall atlas."); }
                     *w *= 2; *h = min_atlas_height;
                 } else { *h *= 2; }
 

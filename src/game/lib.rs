@@ -214,7 +214,7 @@ pub fn run() {
 
     let matches = match getopts(args.tail(), opts) {
         Ok(m) => m,
-        Err(f) => fail!(f.to_string()),
+        Err(f) => panic!(f.to_string()),
     };
 
     let wad_filename = matches
@@ -260,7 +260,7 @@ pub fn run() {
 
     if matches.opt_present("load-all") {
         if !sdl2::init(sdl2::INIT_VIDEO) {
-            fail!("main: sdl video init failed.");
+            panic!("main: sdl video init failed.");
         }
         let _win = MainWindow::new(width, height);
         let t0 = time::precise_time_s();
@@ -278,7 +278,7 @@ pub fn run() {
         return;
     }
 
-    if !sdl2::init(sdl2::INIT_VIDEO) { fail!("main: sdl video init failed."); }
+    if !sdl2::init(sdl2::INIT_VIDEO) { panic!("main: sdl video init failed."); }
 
     let mut game = Game::new(
         MainWindow::new(width, height),

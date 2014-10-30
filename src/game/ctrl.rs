@@ -116,7 +116,7 @@ impl GameController {
                 true
             },
             NoGesture => false,
-            _ => { fail!("Unimplemented gesture type."); }
+            _ => { panic!("Unimplemented gesture type."); }
         }
     }
 

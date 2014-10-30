@@ -54,7 +54,7 @@ pub mod check {
                            function_call: &'static str) {
         let gl_error_code = super::GetError();
         if gl_error_code != super::NO_ERROR {
-            fail!("OpenGL Error in call '{}' at {}:{}; error code: {} ({}).",
+            panic!("OpenGL Error in call '{}' at {}:{}; error code: {} ({}).",
                   function_call, filename, line,
                   gl_error_code, error_code_to_string(gl_error_code));
         }

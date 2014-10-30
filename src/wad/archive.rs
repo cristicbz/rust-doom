@@ -94,7 +94,7 @@ impl Archive {
 
     pub fn read_lump_by_name<T: Copy>(&mut self, name: &WadName) -> Vec<T> {
         let index = self.get_lump_index(name).unwrap_or_else(
-            || fail!("No such lump '{}'", name));
+            || panic!("No such lump '{}'", name));
         self.read_lump(index)
     }
 

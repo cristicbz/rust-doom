@@ -179,7 +179,7 @@ mod test {
 
         for i in range(0, 16) {
             if exp_ab.data[i] != ab.data[i] {
-                fail!("They differ at {} ({}):\nexpected=\n{}\n\nactual=\n{}",
+                panic!("They differ at {} ({}):\nexpected=\n{}\n\nactual=\n{}",
                       i, (a.data[i] - b.data[i]).abs(), exp_ab, ab);
             }
         }

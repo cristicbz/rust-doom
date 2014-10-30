@@ -97,7 +97,7 @@ impl<VertexType: Copy>  BufferBuilder<VertexType> {
             gl::FLOAT => mem::size_of::<f32>(),
             gl::UNSIGNED_BYTE => mem::size_of::<u8>(),
             gl::UNSIGNED_SHORT => mem::size_of::<u16>(),
-            _ => fail!("Unsupported attribute type.")
+            _ => panic!("Unsupported attribute type.")
         };
         assert!(self.max_attribute_size_left() >= attr_size);
         self.vertex_size += attr_size;
@@ -150,7 +150,7 @@ fn bind_attributes(stride: uint, attributes: &[VertexAttribute]) {
             gl::UNSIGNED_BYTE |
             gl::UNSIGNED_SHORT => check_gl_unsafe!(gl::VertexAttribIPointer(
                 attr.layout, attr.size, attr.gl_type, stride, attr.offset)),
-            _ => fail!("Missing attribute type from attrib ptr.")
+            _ => panic!("Missing attribute type from attrib ptr.")
         }
     }
 }

@@ -13,7 +13,7 @@ impl WadName {
     pub fn as_str(&self) -> &str {
         match self.as_str_opt() {
             Some(s) => s,
-            None => fail!("Failed WadName.as_str(): {}", self)
+            None => panic!("Failed WadName.as_str(): {}", self)
         }
     }
 
@@ -33,7 +33,7 @@ impl WadName {
     pub fn canonicalise(&mut self) -> &mut WadName {
         let new_packed = match self.as_bytes().to_wad_name_opt() {
             Some(name) => name.packed,
-            None => fail!("Malformed wad name: {}", self)
+            None => panic!("Malformed wad name: {}", self)
         };
         self.packed = new_packed;
         self
@@ -55,7 +55,7 @@ impl<S: Encoder<E>, E> Encodable<S, E> for WadName {
     fn encode(&self, encoder: &mut S) -> Result<(), E> {
         match self.as_str_opt() {
             Some(s) => s.encode(encoder),
-            None => fail!("Cannot encode WadName {}", self)
+            None => panic!("Cannot encode WadName {}", self)
         }
     }
 }
@@ -77,7 +77,7 @@ pub trait WadNameCast : Show {
     fn to_wad_name(&self) -> WadName {
         match self.to_wad_name_opt() {
             Some(n) => n,
-            None => fail!("Malformed WadName cast {}", self)
+            None => panic!("Malformed WadName cast {}", self)
         }
     }
 }

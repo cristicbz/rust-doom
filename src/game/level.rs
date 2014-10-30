@@ -453,7 +453,7 @@ impl<'a> VboBuilder<'a> {
         if is_untextured(texture_name) { return; }
         let bounds = match self.bounds.walls.find(texture_name) {
             None => {
-                fail!("wall_quad: No such wall texture '{}'", texture_name);
+                panic!("wall_quad: No such wall texture '{}'", texture_name);
             },
             Some(bounds) => bounds,
         };
