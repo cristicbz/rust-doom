@@ -23,7 +23,7 @@ impl Renderer {
     }
 
     pub fn render(&mut self, delta_time: f32, transform: &Mat4) -> &Renderer {
-        check_gl!(gl::Enable(gl::CULL_FACE));
+        check_gl_unsafe!(gl::Enable(gl::CULL_FACE));
         self.time += delta_time;
         for step in self.steps.iter() {
             step.render_setup(transform, self.time).render_done();

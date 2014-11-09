@@ -81,7 +81,7 @@ impl Archive {
     pub fn num_lumps(&self) -> uint { self.lumps.len() }
 
     pub fn get_lump_index(&self, name: &WadName) -> Option<uint> {
-        self.index_map.find(name).map(|x| *x)
+        self.index_map.get(name).map(|x| *x)
     }
 
     pub fn get_lump_name(&self, lump_index: uint) -> &WadName {

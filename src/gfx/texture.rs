@@ -19,17 +19,17 @@ impl Texture {
     }
 
     pub fn set_filters_nearest(&mut self) -> &mut Texture {
-        check_gl!(gl::TexParameteri(self.target, gl::TEXTURE_MAG_FILTER,
+        check_gl_unsafe!(gl::TexParameteri(self.target, gl::TEXTURE_MAG_FILTER,
                                     gl::NEAREST as GLint));
-        check_gl!(gl::TexParameteri(self.target, gl::TEXTURE_MIN_FILTER,
+        check_gl_unsafe!(gl::TexParameteri(self.target, gl::TEXTURE_MIN_FILTER,
                                     gl::NEAREST as GLint));
         self
     }
 
     pub fn set_filters_linear(&mut self) -> &mut Texture {
-        check_gl!(gl::TexParameteri(self.target, gl::TEXTURE_MAG_FILTER,
+        check_gl_unsafe!(gl::TexParameteri(self.target, gl::TEXTURE_MAG_FILTER,
                                     gl::LINEAR as GLint));
-        check_gl!(gl::TexParameteri(self.target, gl::TEXTURE_MIN_FILTER,
+        check_gl_unsafe!(gl::TexParameteri(self.target, gl::TEXTURE_MIN_FILTER,
                                     gl::LINEAR as GLint));
         self
     }
@@ -80,13 +80,13 @@ impl Texture {
     }
 
     pub fn bind(&self, unit: GLenum) {
-        check_gl!(gl::ActiveTexture(unit));
-        check_gl!(gl::BindTexture(self.target, self.id));
+        check_gl_unsafe!(gl::ActiveTexture(unit));
+        check_gl_unsafe!(gl::BindTexture(self.target, self.id));
     }
 
     pub fn unbind(&self, unit: GLenum) {
-        check_gl!(gl::ActiveTexture(unit));
-        check_gl!(gl::BindTexture(self.target, 0));
+        check_gl_unsafe!(gl::ActiveTexture(unit));
+        check_gl_unsafe!(gl::BindTexture(self.target, 0));
     }
 
     pub fn width(&self) -> uint { self.width }

@@ -101,7 +101,7 @@ impl TextureDirectory {
     }
 
     pub fn get_texture(&self, name: &WadName) -> Option<&Image> {
-        self.textures.find(name)
+        self.textures.get(name)
     }
     pub fn expect_texture(&self, name: &WadName) -> &Image {
         match self.get_texture(name) {
@@ -110,7 +110,7 @@ impl TextureDirectory {
         }
     }
     pub fn get_flat(&self, name: &WadName) -> Option<&Flat> {
-        self.flats.find(name)
+        self.flats.get(name)
     }
     pub fn expect_flat(&self, name: &WadName) -> &Flat {
         match self.get_flat(name) {
@@ -144,9 +144,9 @@ impl TextureDirectory {
         for i_colormap in range(colormap_start, colormap_end) {
             for i_color in range(0, 256) {
                 let rgb = &palette[self.colormaps[i_colormap][i_color] as uint];
-                *data.get_mut(0 + i_color * 3 + i_colormap * 256 * 3) = rgb[0];
-                *data.get_mut(1 + i_color * 3 + i_colormap * 256 * 3) = rgb[1];
-                *data.get_mut(2 + i_color * 3 + i_colormap * 256 * 3) = rgb[2];
+                data[0 + i_color * 3 + i_colormap * 256 * 3] = rgb[0];
+                data[1 + i_color * 3 + i_colormap * 256 * 3] = rgb[1];
+                data[2 + i_color * 3 + i_colormap * 256 * 3] = rgb[2];
             }
         }
 
@@ -308,7 +308,7 @@ impl TextureDirectory {
 
             for y in range(0, 64) {
                 for x in range(0, 64) {
-                    *data.get_mut(x_offset + x + (y + y_offset) * width)
+                    data[x_offset + x + (y + y_offset) * width]
                         = flat[x + y * 64];
                 }
             }
@@ -351,7 +351,7 @@ fn read_patches(wad: &mut Archive)
     let num_patches = io_try!(lump.read_le_u32()) as uint;
     let mut patches = Vec::with_capacity(num_patches);
 
-    patches.reserve_additional(num_patches);
+    patches.reserve(num_patches);
     let mut missing_patches = 0u;
     info!("Reading {} patches....", num_patches);
     let t0 = time::precise_time_s();

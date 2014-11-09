@@ -22,11 +22,11 @@ impl VertexBuffer {
     }
 
     pub fn draw_triangles(&self) -> &VertexBuffer {
-        check_gl!(gl::BindBuffer(gl::ARRAY_BUFFER, self.id.id()));
+        check_gl_unsafe!(gl::BindBuffer(gl::ARRAY_BUFFER, self.id.id()));
         bind_attributes(self.vertex_size, self.attributes[]);
-        check_gl!(gl::DrawArrays(gl::TRIANGLES, 0, self.length as i32));
+        check_gl_unsafe!(gl::DrawArrays(gl::TRIANGLES, 0, self.length as i32));
         unbind_attributes(self.attributes[]);
-        check_gl!(gl::BindBuffer(gl::ARRAY_BUFFER, 0));
+        check_gl_unsafe!(gl::BindBuffer(gl::ARRAY_BUFFER, 0));
         self
     }
 
@@ -103,7 +103,7 @@ impl<VertexType: Copy>  BufferBuilder<VertexType> {
         self.vertex_size += attr_size;
         if self.used_layouts.len() > layout {
             assert!(!self.used_layouts[layout]);
-            *self.used_layouts.get_mut(layout) = true;
+            self.used_layouts[layout] = true;
         } else {
             for _ in range(0, layout - self.used_layouts.len()) {
                 self.used_layouts.push(false);
@@ -142,7 +142,7 @@ struct VertexAttribute {
 fn bind_attributes(stride: uint, attributes: &[VertexAttribute]) {
     let stride = stride as i32;
     for attr in attributes.iter() {
-        check_gl!(gl::EnableVertexAttribArray(attr.layout));
+        check_gl_unsafe!(gl::EnableVertexAttribArray(attr.layout));
         match attr.gl_type {
             gl::FLOAT => check_gl_unsafe!(gl::VertexAttribPointer(
                 attr.layout, attr.size, attr.gl_type, attr.normalized,
@@ -157,7 +157,7 @@ fn bind_attributes(stride: uint, attributes: &[VertexAttribute]) {
 
 fn unbind_attributes(attributes: &[VertexAttribute]) {
     for attr in attributes.iter() {
-        check_gl!(gl::DisableVertexAttribArray(attr.layout));
+        check_gl_unsafe!(gl::DisableVertexAttribArray(attr.layout));
     }
 }
 
@@ -185,12 +185,12 @@ impl VboId {
     }
 
     fn bind(&self) -> &VboId {
-        check_gl!(gl::BindBuffer(gl::ARRAY_BUFFER, self.id));
+        check_gl_unsafe!(gl::BindBuffer(gl::ARRAY_BUFFER, self.id));
         self
     }
 
     fn unbind(&self) -> &VboId {
-        check_gl!(gl::BindBuffer(gl::ARRAY_BUFFER, 0));
+        check_gl_unsafe!(gl::BindBuffer(gl::ARRAY_BUFFER, 0));
         self
     }
 

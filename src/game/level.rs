@@ -451,7 +451,7 @@ impl<'a> VboBuilder<'a> {
                  texture_name: &WadName, peg: PegType) {
         if low >= high { return; }
         if is_untextured(texture_name) { return; }
-        let bounds = match self.bounds.walls.find(texture_name) {
+        let bounds = match self.bounds.walls.get(texture_name) {
             None => {
                 panic!("wall_quad: No such wall texture '{}'", texture_name);
             },
@@ -517,7 +517,7 @@ impl<'a> VboBuilder<'a> {
         let v0 = points[0];
         if !is_sky_flat(floor_tex) {
             let floor_bounds = self.bounds.flats
-                .find(floor_tex)
+                .get(floor_tex)
                 .expect(format!("flat: No such floor {}.", floor_tex)[]);
             for i in range(1, points.len()) {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
@@ -538,7 +538,7 @@ impl<'a> VboBuilder<'a> {
 
         if !is_sky_flat(ceil_tex) {
             let ceiling_bounds = self.bounds.flats
-                .find(ceil_tex)
+                .get(ceil_tex)
                 .expect(format!("flat: No such ceiling {}.", ceil_tex)[]);
             for i in range(1, points.len()) {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
@@ -643,8 +643,8 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
     let center = polygon_center(points[mut]);
     points.sort_by(
         |a, b| {
-            let ac = a - center;
-            let bc = b - center;
+            let ac = *a - center;
+            let bc = *b - center;
             if ac.x >= 0.0 && bc.x < 0.0 {
                 return Less;
             }

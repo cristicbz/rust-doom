@@ -48,7 +48,7 @@ impl Shader {
     }
 
     pub fn bind(&self) -> &Shader {
-        check_gl!(gl::UseProgram(self.program.id));
+        check_gl_unsafe!(gl::UseProgram(self.program.id));
         self
     }
 
@@ -58,7 +58,7 @@ impl Shader {
     }
 
     pub fn unbind(&self) -> &Shader {
-        check_gl!(gl::UseProgram(0));
+        check_gl_unsafe!(gl::UseProgram(0));
         self
     }
 
@@ -77,12 +77,12 @@ impl Shader {
     }
 
     pub fn set_uniform_i32(&self, uniform: Uniform, value: i32) -> &Shader {
-        check_gl!(gl::Uniform1i(uniform.id, value));
+        check_gl_unsafe!(gl::Uniform1i(uniform.id, value));
         self
     }
 
     pub fn set_uniform_f32(&self, uniform: Uniform, value: f32) -> &Shader {
-        check_gl!(gl::Uniform1f(uniform.id, value));
+        check_gl_unsafe!(gl::Uniform1f(uniform.id, value));
         self
     }
 
@@ -114,7 +114,7 @@ impl VertexShader {
     }
 }
 impl Drop for VertexShader {
-    fn drop(&mut self) { check_gl!(gl::DeleteShader(self.id)); }
+    fn drop(&mut self) { check_gl_unsafe!(gl::DeleteShader(self.id)); }
 }
 
 
@@ -126,7 +126,7 @@ impl FragmentShader {
     }
 }
 impl Drop for FragmentShader {
-    fn drop(&mut self) { check_gl!(gl::DeleteShader(self.id)); }
+    fn drop(&mut self) { check_gl_unsafe!(gl::DeleteShader(self.id)); }
 }
 
 
@@ -134,10 +134,10 @@ struct Program { id : GLuint }
 impl Program {
     fn link(vertex: VertexShader, fragment: FragmentShader)
             -> Result<Program, String> {
-        let program = Program{ id: check_gl!(gl::CreateProgram()) };
-        check_gl!(gl::AttachShader(program.id, vertex.id));
-        check_gl!(gl::AttachShader(program.id, fragment.id));
-        check_gl!(gl::LinkProgram(program.id));
+        let program = Program{ id: check_gl_unsafe!(gl::CreateProgram()) };
+        check_gl_unsafe!(gl::AttachShader(program.id, vertex.id));
+        check_gl_unsafe!(gl::AttachShader(program.id, fragment.id));
+        check_gl_unsafe!(gl::LinkProgram(program.id));
         if link_succeeded(program.id) {
             Ok(program)
         } else {
@@ -147,22 +147,22 @@ impl Program {
     }
 }
 impl Drop for Program {
-    fn drop(&mut self) { gl::DeleteProgram(self.id); }
+    fn drop(&mut self) { unsafe { gl::DeleteProgram(self.id); } }
 }
 
 
 fn compile_any(shader_type: u32, source: &str) -> Result<GLuint, String> {
-    let id = check_gl!(gl::CreateShader(shader_type));
+    let id = check_gl_unsafe!(gl::CreateShader(shader_type));
     assert!(id != 0);
     source.with_c_str(|c_str| {
         check_gl_unsafe!(gl::ShaderSource(id, 1, &c_str, ptr::null()));
     });
-    check_gl!(gl::CompileShader(id));
+    check_gl_unsafe!(gl::CompileShader(id));
     if compilation_succeeded(id) {
         Ok(id)
     } else {
         let log = get_compilation_log(id);;
-        check_gl!(gl::DeleteShader(id));
+        check_gl_unsafe!(gl::DeleteShader(id));
         if shader_type == gl::VERTEX_SHADER {
             Err(format!("Vertex shader compilation failed:\n{}", log))
         } else {

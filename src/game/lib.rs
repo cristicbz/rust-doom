@@ -76,8 +76,8 @@ impl MainWindow {
         });
         unsafe {
             let mut vao_id = 0;
-            check_gl!(gl::GenVertexArrays(1, &mut vao_id));
-            check_gl!(gl::BindVertexArray(vao_id));
+            check_gl_unsafe!(gl::GenVertexArrays(1, &mut vao_id));
+            check_gl_unsafe!(gl::BindVertexArray(vao_id));
         }
         MainWindow {
            window: window,
@@ -117,9 +117,9 @@ impl Game {
         let level = Level::new(&shader_loader,
                                &mut wad, &textures, config.level_index);
 
-        check_gl!(gl::ClearColor(0.06, 0.07, 0.09, 0.0));
-        check_gl!(gl::Enable(gl::DEPTH_TEST));
-        check_gl!(gl::DepthFunc(gl::LESS));
+        check_gl_unsafe!(gl::ClearColor(0.06, 0.07, 0.09, 0.0));
+        check_gl_unsafe!(gl::Enable(gl::DEPTH_TEST));
+        check_gl_unsafe!(gl::DepthFunc(gl::LESS));
 
         let start = *level.get_start_pos();
         let mut player = Player::new(config.fov, window.aspect_ratio(),
@@ -146,7 +146,8 @@ impl Game {
         let mut control = GameController::new();
         let mut mouse_grabbed = true;
         loop {
-            check_gl!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
+            check_gl_unsafe!(
+                gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
             let t1 = time::precise_time_s();
             let mut delta = (t1 - t0) as f32;
             if delta < 1e-10 { delta = 1.0 / 60.0; }

@@ -52,7 +52,7 @@ pub mod check {
     pub fn check_gl_helper(filename: &'static str,
                            line: uint,
                            function_call: &'static str) {
-        let gl_error_code = super::GetError();
+        let gl_error_code = unsafe { super::GetError() } ;
         if gl_error_code != super::NO_ERROR {
             panic!("OpenGL Error in call '{}' at {}:{}; error code: {} ({}).",
                   function_call, filename, line,
@@ -68,15 +68,10 @@ pub mod check {
 
 
 #[macro_export]
-macro_rules! check_gl (
-  ($func:expr) => ({
+macro_rules! check_gl_unsafe (
+  ($func:expr) => ({ unsafe {
     let ret = $func;
     gl::check::check_gl_helper(file!(), line!(), stringify!($func));
     ret
-  });
-)
-
-#[macro_export]
-pub macro_rules! check_gl_unsafe (
-  ($func:expr) => ({ unsafe { check_gl!($func) } });
+  }});
 )
