@@ -1,5 +1,6 @@
 use std::fmt;
 use std::ops::Mul;
+use std::num::FloatMath;
 
 use numvec::Vec3f;
 

@@ -21,3 +21,6 @@ path = "../math"
 
 [dependencies.toml]
 git = "https://github.com/alexcrichton/toml-rs"
+
+[dependencies.time]
+git = "https://github.com/rust-lang/time"

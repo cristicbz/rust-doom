@@ -74,11 +74,9 @@ impl MainWindow {
                 }
             }
         });
-        unsafe {
-            let mut vao_id = 0;
-            check_gl_unsafe!(gl::GenVertexArrays(1, &mut vao_id));
-            check_gl_unsafe!(gl::BindVertexArray(vao_id));
-        }
+        let mut vao_id = 0;
+        check_gl_unsafe!(gl::GenVertexArrays(1, &mut vao_id));
+        check_gl_unsafe!(gl::BindVertexArray(vao_id));
         MainWindow {
            window: window,
             _context: context,

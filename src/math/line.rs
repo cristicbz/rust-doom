@@ -1,3 +1,4 @@
+use std::num::{Float, FloatMath};
 use numvec::{Vec2, Numvec};
 
 

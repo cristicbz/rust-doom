@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::{BufReader, Reader, SeekSet};
 use std::mem;
+use std::num::Float;
 
 use archive::Archive;
 use image::Image;

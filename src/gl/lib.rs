@@ -68,10 +68,19 @@ pub mod check {
 
 
 #[macro_export]
+macro_rules! check_gl(
+  ($func:expr) => ({
+    let ret = $func;
+    ::gl::check::check_gl_helper(file!(), line!(), stringify!($func));
+    ret
+  });
+)
+
+#[macro_export]
 macro_rules! check_gl_unsafe (
   ($func:expr) => ({ unsafe {
     let ret = $func;
-    gl::check::check_gl_helper(file!(), line!(), stringify!($func));
+    ::gl::check::check_gl_helper(file!(), line!(), stringify!($func));
     ret
   }});
 )
