@@ -1,5 +1,7 @@
 use math::{Vec2f, Vec2};
-use sdl2;
+use sdl2::event;
+use sdl2::event::Event;
+use sdl2::mouse;
 use sdl2::mouse::Mouse;
 use sdl2::scancode::ScanCode;
 use std::vec::Vec;
@@ -12,8 +14,8 @@ pub enum Gesture {
     KeyTrigger(ScanCode),
     ButtonHold(Mouse),
     ButtonTrigger(Mouse),
-    AnyGesture(Vec<Gesture>),
-    AllGestures(Vec<Gesture>),
+    AnyOf(Vec<Gesture>),
+    AllOf(Vec<Gesture>),
     QuitTrigger,
 }
 
@@ -21,10 +23,10 @@ pub enum Analog2d {
     NoAnalog2d,
 
     // (mouse_sensitivity)
-    MouseMotion(Sensitivity),
+    Mouse(Sensitivity),
 
     // (xpos, xneg, ypos, yneg, step)
-    GesturesAnalog2d(Gesture, Gesture, Gesture, Gesture, Sensitivity),
+    Gestures(Gesture, Gesture, Gesture, Gesture, Sensitivity),
 }
 
 pub struct GameController {
@@ -39,10 +41,10 @@ pub struct GameController {
 
 impl GameController {
     pub fn new() -> GameController {
-        sdl2::mouse::set_relative_mouse_mode(true);
+        mouse::set_relative_mouse_mode(true);
         GameController {
             current_update_index: 1,
-            keyboard_state: [Up(0), ..NUM_SCAN_CODES],
+            keyboard_state: [ButtonState::Up(0), ..NUM_SCAN_CODES],
             quit_requested_index: 0,
             mouse_enabled: true,
             mouse_rel: Vec2::zero(),
@@ -50,7 +52,7 @@ impl GameController {
     }
 
     pub fn set_cursor_grabbed(&mut self, grabbed: bool) {
-        sdl2::mouse::set_relative_mouse_mode(grabbed);
+        mouse::set_relative_mouse_mode(grabbed);
     }
 
     pub fn set_mouse_enabled(&mut self, enable: bool) {
@@ -61,26 +63,26 @@ impl GameController {
         self.current_update_index += 1;
         self.mouse_rel = Vec2::zero();
         loop {
-            match sdl2::event::poll_event() {
-                sdl2::event::QuitEvent(_) => {
+            match event::poll_event() {
+                Event::Quit(_) => {
                     self.quit_requested_index = self.current_update_index;
                 },
-                sdl2::event::KeyDownEvent(_, _, _, code, _) => {
+                Event::KeyDown(_, _, _, code, _) => {
                     self.keyboard_state[code as uint] =
-                        Down(self.current_update_index);
+                        ButtonState::Down(self.current_update_index);
                 },
-                sdl2::event::KeyUpEvent(_, _, _, code, _) => {
+                Event::KeyUp(_, _, _, code, _) => {
                     self.keyboard_state[code as uint] =
-                        Up(self.current_update_index);
+                        ButtonState::Up(self.current_update_index);
                 },
-                sdl2::event::MouseMotionEvent(_, _, _, _, _, _, xrel, yrel) => {
+                Event::MouseMotion(_, _, _, _, _, _, xrel, yrel) => {
                     if self.mouse_enabled {
                         self.mouse_rel = Vec2::new(xrel as f32, -yrel as f32);
                     } else {
                         self.mouse_rel = Vec2::zero();
                     }
                 },
-                sdl2::event::NoEvent => break,
+                Event::None => break,
                 _ => {}
             }
         }
@@ -88,18 +90,19 @@ impl GameController {
 
     pub fn poll_gesture(&self, gesture: &Gesture) -> bool {
         match *gesture {
-            QuitTrigger => {
+            Gesture::QuitTrigger => {
                 self.quit_requested_index == self.current_update_index
             },
-            KeyHold(code) => match self.keyboard_state[code as uint] {
-                Down(_) => true,
+            Gesture::KeyHold(code) => match self.keyboard_state[code as uint] {
+                ButtonState::Down(_) => true,
                 _ => false
             },
-            KeyTrigger(code) => match self.keyboard_state[code as uint] {
-                Down(index) => self.current_update_index == index,
+            Gesture::KeyTrigger(code)
+                    => match self.keyboard_state[code as uint] {
+                ButtonState::Down(index) => self.current_update_index == index,
                 _ => false
             },
-            AnyGesture(ref subs) => {
+            Gesture::AnyOf(ref subs) => {
                 for subgesture in subs.iter() {
                     if self.poll_gesture(subgesture) {
                         return true;
@@ -107,7 +110,7 @@ impl GameController {
                 }
                 false
             },
-            AllGestures(ref subs) => {
+            Gesture::AllOf(ref subs) => {
                 for subgesture in subs.iter() {
                     if !self.poll_gesture(subgesture) {
                         return false;
@@ -115,15 +118,16 @@ impl GameController {
                 }
                 true
             },
-            NoGesture => false,
+            Gesture::NoGesture => false,
             _ => { panic!("Unimplemented gesture type."); }
         }
     }
 
     pub fn poll_analog2d(&self, motion: &Analog2d) -> Vec2f {
-        match *motion {
-            MouseMotion(sensitivity) => self.mouse_rel * sensitivity,
-            GesturesAnalog2d(ref xpos, ref xneg, ref ypos, ref yneg, step) => {
+        match motion {
+            &Analog2d::Mouse(sensitivity) => self.mouse_rel * sensitivity,
+            &Analog2d::Gestures(
+                    ref xpos, ref xneg, ref ypos, ref yneg, step) => {
                 Vec2::new(
                     if self.poll_gesture(xpos) { step }
                     else if self.poll_gesture(xneg) { -step }
@@ -133,7 +137,7 @@ impl GameController {
                     else { 0.0 }
                 )
             }
-            NoAnalog2d => Vec2::zero()
+            &Analog2d::NoAnalog2d => Vec2::zero()
         }
     }
 }

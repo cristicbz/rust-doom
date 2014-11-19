@@ -48,12 +48,12 @@ struct RenderSteps { sky: RenderStep, flats: RenderStep,
 }
 
 
-enum PegType {
-    PegTop,
-    PegBottom,
-    PegBottomLower,
-    PegTopFloat,
-    PegBottomFloat
+enum Peg {
+    Top,
+    Bottom,
+    BottomLower,
+    TopFloat,
+    BottomFloat
 }
 
 #[repr(packed)]
@@ -400,7 +400,7 @@ impl<'a> VboBuilder<'a> {
         let back_sector = match self.level.seg_back_sector(seg) {
             None => {
                 self.wall_quad(seg, (floor, ceil), &side.middle_texture,
-                               if unpeg_lower { PegBottom } else { PegTop });
+                               if unpeg_lower { Peg::Bottom } else { Peg::Top });
                 if is_sky_flat(&sector.ceiling_texture) {
                     self.sky_quad(seg, (ceil, max));
                 }
@@ -428,7 +428,7 @@ impl<'a> VboBuilder<'a> {
         let back_ceil = back_sector.ceiling_height;
         let floor = if back_floor > floor {
             self.wall_quad(seg, (floor, back_floor), &side.lower_texture,
-                           if unpeg_lower { PegBottomLower } else { PegTop });
+                           if unpeg_lower { Peg::BottomLower } else { Peg::Top });
             back_floor
         } else {
             floor
@@ -436,19 +436,19 @@ impl<'a> VboBuilder<'a> {
         let ceil = if back_ceil < ceil {
             if !is_sky_flat(&back_sector.ceiling_texture) {
                 self.wall_quad(seg, (back_ceil, ceil), &side.upper_texture,
-                               if unpeg_upper { PegTop } else { PegBottom });
+                               if unpeg_upper { Peg::Top } else { Peg::Bottom });
             }
             back_ceil
         } else {
             ceil
         };
         self.wall_quad(seg, (floor, ceil), &side.middle_texture,
-                       if unpeg_lower { PegTopFloat } else { PegBottomFloat });
+                       if unpeg_lower { Peg::TopFloat } else { Peg::BottomFloat });
 
     }
 
     fn wall_quad(&mut self, seg: &WadSeg, (low, high): (WadCoord, WadCoord),
-                 texture_name: &WadName, peg: PegType) {
+                 texture_name: &WadName, peg: Peg) {
         if low >= high { return; }
         if is_untextured(texture_name) { return; }
         let bounds = match self.bounds.walls.get(texture_name) {
@@ -465,12 +465,12 @@ impl<'a> VboBuilder<'a> {
         let bias = (v2 - v1).normalized() * POLY_BIAS;
         let (v1, v2) = (v1 - bias, v2 + bias);
         let (low, high) = match peg {
-            PegTopFloat => (from_wad_height(low + side.y_offset),
-                            from_wad_height(low + bounds.size.y as i16 +
-                                            side.y_offset)),
-            PegBottomFloat => (from_wad_height(high + side.y_offset -
-                                               bounds.size.y as i16),
-                               from_wad_height(high + side.y_offset)),
+            Peg::TopFloat => (from_wad_height(low + side.y_offset),
+                              from_wad_height(low + bounds.size.y as i16 +
+                                              side.y_offset)),
+            Peg::BottomFloat => (from_wad_height(high + side.y_offset -
+                                                 bounds.size.y as i16),
+                                 from_wad_height(high + side.y_offset)),
             _ => (from_wad_height(low), from_wad_height(high))
         };
 
@@ -479,16 +479,16 @@ impl<'a> VboBuilder<'a> {
         let s1 = seg.offset as f32 + side.x_offset as f32;
         let s2 = s1 + (v2 - v1).norm() * 100.0;
         let (t1, t2) = match peg {
-            PegTop => (height, 0.0),
-            PegBottom => (bounds.size.y, bounds.size.y - height),
-            PegBottomLower => {
+            Peg::Top => (height, 0.0),
+            Peg::Bottom => (bounds.size.y, bounds.size.y - height),
+            Peg::BottomLower => {
                 // As far as I can tell, this is a special case.
                 let sector_height = (sector.ceiling_height -
                                      sector.floor_height) as f32;
                 (bounds.size.y + sector_height,
                  bounds.size.y - height + sector_height)
             }
-            PegTopFloat | PegBottomFloat => {
+            Peg::TopFloat | Peg::BottomFloat => {
                 (bounds.size.y, 0.0)
             }
         };

@@ -18,12 +18,13 @@ extern crate sdl2;
 extern crate time;
 
 use ctrl::GameController;
+use ctrl::Gesture;
 use getopts::{optopt,optflag,getopts, usage};
 use level::Level;
 use libc::c_void;
 use math::{Mat4, Vec3};
 use player::Player;
-use sdl2::scancode;
+use sdl2::scancode::ScanCode;
 use gfx::ShaderLoader;
 use std::default::Default;
 use std::os;
@@ -132,10 +133,10 @@ impl Game {
     }
 
     pub fn run(&mut self) {
-        let quit_gesture = ctrl::AnyGesture(
-            vec![ctrl::QuitTrigger,
-                 ctrl::KeyTrigger(scancode::EscapeScanCode)]);
-        let grab_toggle_gesture = ctrl::KeyTrigger(scancode::GraveScanCode);
+        let quit_gesture = Gesture::AnyOf(
+            vec![Gesture::QuitTrigger,
+                 Gesture::KeyTrigger(ScanCode::Escape)]);
+        let grab_toggle_gesture = Gesture::KeyTrigger(ScanCode::Grave);
 
         let mut cum_time = 0.0;
         let mut cum_updates_time = 0.0;

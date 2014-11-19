@@ -13,9 +13,9 @@ const PWAD_HEADER: &'static [u8] = b"PWAD";
 pub fn wad_type_from_info(wad_info: &WadInfo) -> Option<WadType> {
     let id = wad_info.identifier[];
     if id == IWAD_HEADER {
-        Some(Initial)
+        Some(WadType::Initial)
     } else if id == PWAD_HEADER {
-        Some(Patch)
+        Some(WadType::Patch)
     } else {
         None
     }

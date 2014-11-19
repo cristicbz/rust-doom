@@ -1,15 +1,15 @@
 use camera::Camera;
-use ctrl;
 use ctrl::GameController;
+use ctrl::{Analog2d, Gesture};
 use math::{Vec3, Vec3f, Vec2f, Numvec};
-use sdl2::scancode;
+use sdl2::scancode::ScanCode;
 use std::default::Default;
 use std::num::FloatMath;
 
 
 pub struct PlayerBindings {
-    pub movement: ctrl::Analog2d,
-    pub look: ctrl::Analog2d,
+    pub movement: Analog2d,
+    pub look: Analog2d,
 }
 
 
@@ -26,13 +26,13 @@ impl PlayerBindings {
 impl Default for PlayerBindings {
     fn default() -> PlayerBindings {
         PlayerBindings {
-            movement: ctrl::GesturesAnalog2d(
-                ctrl::KeyHold(scancode::DScanCode),
-                ctrl::KeyHold(scancode::AScanCode),
-                ctrl::KeyHold(scancode::WScanCode),
-                ctrl::KeyHold(scancode::SScanCode),
+            movement: Analog2d::Gestures(
+                Gesture::KeyHold(ScanCode::D),
+                Gesture::KeyHold(ScanCode::A),
+                Gesture::KeyHold(ScanCode::W),
+                Gesture::KeyHold(ScanCode::S),
                 1.0),
-            look: ctrl::MouseMotion(0.002)
+            look: Analog2d::Mouse(0.002)
         }
     }
 }
