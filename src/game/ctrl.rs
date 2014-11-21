@@ -67,11 +67,11 @@ impl GameController {
                 Event::Quit(_) => {
                     self.quit_requested_index = self.current_update_index;
                 },
-                Event::KeyDown(_, _, _, code, _) => {
+                Event::KeyDown(_, _, _, code, _, _) => {
                     self.keyboard_state[code as uint] =
                         ButtonState::Down(self.current_update_index);
                 },
-                Event::KeyUp(_, _, _, code, _) => {
+                Event::KeyUp(_, _, _, code, _, _) => {
                     self.keyboard_state[code as uint] =
                         ButtonState::Up(self.current_update_index);
                 },

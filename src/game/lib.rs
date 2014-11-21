@@ -212,7 +212,7 @@ pub fn run() {
         optflag("h", "help", "print this help message and exit"),
     ];
 
-    let matches = match getopts(args.tail(), opts) {
+    let matches = match getopts(args.tail(), &opts) {
         Ok(m) => m,
         Err(f) => panic!(f.to_string()),
     };

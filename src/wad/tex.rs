@@ -366,7 +366,7 @@ fn read_patches(wad: &mut Archive)
         patches.push((name, patch));
     }
     let time = time::precise_time_s() - t0;
-    warn!("Done in {:.4f}s; {} missing patches.", time, missing_patches);
+    warn!("Done in {:.4}s; {} missing patches.", time, missing_patches);
     Ok(patches)
 }
 
