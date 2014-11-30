@@ -41,6 +41,11 @@
     texture_name = "SKY3"
     tiled_band_size = 0.162
 
+[[sky]]
+    level_pattern = "E4M."
+    texture_name = "SKY4"
+    tiled_band_size = 1.0
+
 # DOOM 2 levels.
 #   Same goes for these levels, sky at the top being repeated. The first sky,
 # however is _all_ sky, so the tiled band the whole sky (ABC -> CBABCBABCBABC).
