@@ -1,5 +1,5 @@
 use std::mem;
-use std::slice::raw;
+use std::slice;
 use math::{Vec2, Vec2f};
 use super::types::{WadCoord, WadInfo, WadName, ChildId, WadNameCast};
 
@@ -26,10 +26,12 @@ pub fn read_binary<T : Copy, R : Reader>(reader : &mut R) -> T {
     let mut loaded : T = unsafe { mem::zeroed() };
     let size = mem::size_of::<T>();
     unsafe {
-        raw::mut_buf_as_slice(
-            &mut loaded as *mut T as *mut u8, size,
-            |buf| { reader.read_at_least(size, buf).unwrap() });
-    };
+        reader.read_at_least(
+            size,
+            slice::from_raw_mut_buf(
+                &(&mut loaded as *mut _ as *mut u8),
+                size)).unwrap();
+    }
     loaded
 }
 

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::{File, SeekSet};
 use std::{mem, iter};
-use std::slice::raw;
+use std::slice;
 use std::vec::Vec;
 
 use super::meta::WadMetadata;
@@ -107,9 +107,9 @@ impl Archive {
         self.file.seek(info.offset, SeekSet).unwrap();
         unsafe {
             buf.set_len(num_elems);
-            raw::mut_buf_as_slice(
-                buf.as_mut_ptr() as *mut u8, info.size,
-                |slice| self.file.read_at_least(info.size, slice).unwrap());
+            self.file.read_at_least(info.size,
+                    slice::from_raw_mut_buf(
+                        &(buf.as_mut_ptr() as *mut u8), info.size)).unwrap();
         }
         buf
     }
