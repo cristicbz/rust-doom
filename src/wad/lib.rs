@@ -1,7 +1,6 @@
 #![feature(macro_rules)]
 #![feature(phase)]
 #![feature(slicing_syntax)]
-#![feature(tuple_indexing)]
 
 extern crate base;
 extern crate gfx;

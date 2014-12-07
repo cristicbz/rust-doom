@@ -53,8 +53,8 @@ impl WadMetadata {
         let mut parser = toml::Parser::new(text);
         match parser.parse() {
             Some(value) => serialize::Decodable::decode(
-                               &mut toml::Decoder::new(toml::Table(value))
-                           ).map_err(|e| show_decode_err(e)),
+                    &mut toml::Decoder::new(toml::Value::Table(value)))
+                .map_err(|e| show_decode_err(e)),
             None => Err(format!("Error parsing WadMetadata from TOML: {}",
                                 parser.errors))
         }

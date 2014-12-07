@@ -2,7 +2,6 @@
 #![feature(macro_rules)]
 #![feature(phase)]
 #![feature(slicing_syntax)]
-#![feature(tuple_indexing)]
 
 extern crate gfx;
 extern crate wad;
@@ -20,12 +19,14 @@ extern crate time;
 use ctrl::GameController;
 use ctrl::Gesture;
 use getopts::{optopt,optflag,getopts, usage};
+use gfx::ShaderLoader;
 use level::Level;
 use libc::c_void;
 use math::{Mat4, Vec3};
 use player::Player;
 use sdl2::scancode::ScanCode;
-use gfx::ShaderLoader;
+use sdl2::video::GLAttr;
+use sdl2::video::WindowPos;
 use std::default::Default;
 use std::os;
 use wad::TextureDirectory;
@@ -48,19 +49,18 @@ pub struct MainWindow {
 }
 impl MainWindow {
     pub fn new(width: uint, height: uint) -> MainWindow {
-        sdl2::video::gl_set_attribute(sdl2::video::GLContextMajorVersion,
+        sdl2::video::gl_set_attribute(GLAttr::GLContextMajorVersion,
                                       gl::platform::GL_MAJOR_VERSION);
-        sdl2::video::gl_set_attribute(sdl2::video::GLContextMinorVersion,
+        sdl2::video::gl_set_attribute(GLAttr::GLContextMinorVersion,
                                       gl::platform::GL_MINOR_VERSION);
-        sdl2::video::gl_set_attribute(sdl2::video::GLDepthSize,
-                                      OPENGL_DEPTH_SIZE);
-        sdl2::video::gl_set_attribute(sdl2::video::GLDoubleBuffer, 1);
+        sdl2::video::gl_set_attribute(GLAttr::GLDepthSize, OPENGL_DEPTH_SIZE);
+        sdl2::video::gl_set_attribute(GLAttr::GLDoubleBuffer, 1);
         sdl2::video::gl_set_attribute(
-            sdl2::video::GLContextProfileMask,
-            sdl2::video::ll::SDL_GL_CONTEXT_PROFILE_CORE as int);
+            GLAttr::GLContextProfileMask,
+            sdl2::video::ll::SDL_GLprofile::SDL_GL_CONTEXT_PROFILE_CORE as int);
 
         let window = sdl2::video::Window::new(
-            WINDOW_TITLE, sdl2::video::PosCentered, sdl2::video::PosCentered,
+            WINDOW_TITLE, WindowPos::PosCentered, WindowPos::PosCentered,
             width as int, height as int,
             sdl2::video::OPENGL | sdl2::video::SHOWN).unwrap();
 
