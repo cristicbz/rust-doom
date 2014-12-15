@@ -3,7 +3,7 @@ use std::fmt::Show;
 use std::string::String;
 use serialize::{Encoder, Encodable, Decoder, Decodable};
 
-#[deriving(Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[deriving(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct WadName { packed: u64 }
 impl WadName {
     pub fn as_str_opt(&self) -> Option<&str> {

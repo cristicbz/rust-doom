@@ -146,6 +146,7 @@ const NUM_SCAN_CODES : uint = 512;
 
 type UpdateIndex = u32;
 
+#[deriving(Copy)]
 enum ButtonState {
     Up(UpdateIndex),
     Down(UpdateIndex),

@@ -124,7 +124,7 @@ impl Archive {
     pub fn get_metadata(&self) -> &WadMetadata { &self.meta }
 }
 
-
+#[deriving(Copy)]
 struct LumpInfo {
     name   : WadName,
     offset : i64,

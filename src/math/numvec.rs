@@ -26,6 +26,7 @@ pub trait Numvec<T : Float + FloatMath>
 
 #[packed]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct Vec2<T: Float + FloatMath> {
     pub x : T,
     pub y : T,
@@ -88,6 +89,7 @@ impl<T : Float + FloatMath + Show> Show for Vec2<T> {
 
 #[packed]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct Vec3<T: Float + FloatMath> {
     pub x : T,
     pub y : T,
@@ -146,6 +148,7 @@ impl<T : Float + FloatMath + Show> Show for Vec3<T> {
 
 #[packed]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct Vec4<T: Float + FloatMath> {
     pub x : T,
     pub y : T,
