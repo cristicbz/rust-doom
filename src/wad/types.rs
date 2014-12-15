@@ -177,3 +177,35 @@ impl WadLinedef {
     pub fn always_shown_on_map(&self) -> bool { self.flags & 0x0080 != 0 }
     pub fn never_shown_on_map(&self) -> bool { self.flags & 0x0100 != 0 }
 }
+
+macro_rules! size_tests(
+    ($($t:ident = $size:expr),+) => (
+        #[cfg(test)]
+        #[allow(non_snake_case)]
+        mod size_tests {
+            use std::mem::size_of;
+            $(
+                #[test]
+                fn $t() {
+                    use super::$t;
+                    assert_eq!(size_of::<$t>(), $size);
+                }
+            )+
+        }
+    )
+)
+
+size_tests! {
+    WadInfo = 12,
+    WadLump = 16,
+    WadThing = 10,
+    WadVertex = 4,
+    WadLinedef = 14,
+    WadSidedef = 30,
+    WadSector = 26,
+    WadSubsector = 4,
+    WadSeg = 12,
+    WadNode = 28,
+    WadTextureHeader = 22,
+    WadTexturePatchRef = 10
+}
