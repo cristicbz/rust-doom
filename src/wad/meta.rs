@@ -92,20 +92,43 @@ mod test {
 
     #[test]
     fn test_wad_metadata() {
-        assert!("{}", WadMetadata::from_text(r#"
+        WadMetadata::from_text(r#"
             [[sky]]
-                level_range = [0, 10]
+                level_pattern = "MAP(0[1-9]|10|11)"
                 texture_name = "SKY1"
                 tiled_band_size = 0.15
             [[sky]]
-                level_range = [11, 20]
+                level_pattern = "MAP(1[2-9]|20)"
                 texture_name = "SKY2"
                 tiled_band_size = 0.15
             [[sky]]
-                level_range = [21, 35]
+                level_pattern = "MAP(2[1-9]|32)"
                 texture_name = "SKY3"
                 tiled_band_size = 0.15
-        "#).is_ok());
+            [animations]
+                flats = [
+                    ["NUKAGE1", "NUKAGE2", "NUKAGE3"],
+                    [],
+                ]
+                walls = [
+                    [],
+                    ["DBRAIN1", "DBRAIN2", "DBRAIN3",  "DBRAIN4"],
+                ]
+            [things]
+                [[things.decoration]]
+                    thing_type = 10
+                    sprite = "PLAY"
+                    sequence = "W"
+                    obstacle = false
+                    hanging = false
+
+                [[things.decoration]]
+                    thing_type = 12
+                    sprite = "PLAY"
+                    sequence = "W"
+                    obstacle = false
+                    hanging = false
+        "#).unwrap();
     }
 }
 
