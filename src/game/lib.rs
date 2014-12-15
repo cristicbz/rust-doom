@@ -18,7 +18,6 @@ extern crate time;
 
 use ctrl::GameController;
 use ctrl::Gesture;
-use getopts::{optopt,optflag,getopts, usage};
 use gfx::ShaderLoader;
 use level::Level;
 use libc::c_void;
@@ -28,7 +27,6 @@ use sdl2::scancode::ScanCode;
 use sdl2::video::GLAttr;
 use sdl2::video::WindowPos;
 use std::default::Default;
-use std::os;
 use wad::TextureDirectory;
 
 pub mod camera;
@@ -193,6 +191,9 @@ impl Game {
 
 #[cfg(not(test))]
 pub fn run() {
+    use getopts::{optopt,optflag,getopts, usage};
+    use std::os;
+
     let args: Vec<String> = os::args();
     let opts = [
         optopt("i", "iwad",
