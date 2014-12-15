@@ -1,8 +1,4 @@
-#![feature(globs)]
-#![feature(macro_rules)]
-#![feature(phase)]
-#![feature(slicing_syntax)]
-#![feature(tuple_indexing)]
+#![feature(globs, macro_rules, phase, slicing_syntax)]
 
 #[phase(plugin, link)]
 extern crate gl;
