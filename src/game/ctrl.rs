@@ -29,6 +29,7 @@ pub enum Analog2d {
     Gestures(Gesture, Gesture, Gesture, Gesture, Sensitivity),
 }
 
+#[deriving(Copy)]
 pub struct GameController {
     current_update_index: UpdateIndex,
 

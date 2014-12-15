@@ -17,6 +17,7 @@ pub type Scalar = f32;
 /// _Note:_ The 16 elements are stored in place, so copies are not cheap.
 #[packed]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct Mat4 {
     data : [Scalar, ..16]
 }

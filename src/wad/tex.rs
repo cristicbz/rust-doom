@@ -20,6 +20,7 @@ pub type Palette = [[u8, ..3], ..256];
 pub type Colormap = [u8, ..256];
 pub type Flat = Vec<u8>;
 
+#[deriving(Copy)]
 pub struct Bounds {
     pub pos: Vec2f,
     pub size: Vec2f,
