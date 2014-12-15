@@ -162,6 +162,7 @@ mod test {
 
     #[test]
     fn test_mul() {
+        use std::num::Float;
         let a = Mat4::new(4.0,    8.0,    1.0,    6.0,
                           9.0,    4.0,    2.0,    1.0,
                           4.0,    3.0,    9.0,    3.0,
