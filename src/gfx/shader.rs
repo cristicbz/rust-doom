@@ -6,7 +6,7 @@ use std::string::String;
 use std::vec::Vec;
 use base::read_utf8_file;
 
-
+#[deriving(Copy)]
 pub struct Uniform {
     id : GLint,
 }

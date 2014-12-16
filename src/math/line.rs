@@ -4,7 +4,7 @@ use numvec::{Vec2, Numvec};
 
 pub type Line2f = Line2<f32>;
 
-
+#[deriving(Copy)]
 pub struct Line2<T: Float + FloatMath> {
     origin: Vec2<T>,
     displace: Vec2<T>,

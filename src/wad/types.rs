@@ -19,6 +19,7 @@ pub type ChildId = u16;
 
 #[repr(C)]
 #[repr(packed)]
+#[deriving(Copy)]
 pub struct WadInfo {
     pub identifier        : [u8, ..4],
     pub num_lumps         : i32,
@@ -28,6 +29,7 @@ pub struct WadInfo {
 
 #[repr(C)]
 #[repr(packed)]
+#[deriving(Copy)]
 pub struct WadLump {
     pub file_pos : i32,
     pub size     : i32,
@@ -37,6 +39,7 @@ pub struct WadLump {
 
 #[repr(packed)]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct WadThing {
     pub x: WadCoord,
     pub y: WadCoord,
@@ -48,6 +51,7 @@ pub struct WadThing {
 
 #[repr(packed)]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct WadVertex {
     pub x: WadCoord,
     pub y: WadCoord,
@@ -56,6 +60,7 @@ pub struct WadVertex {
 
 #[repr(packed)]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct WadLinedef {
     pub start_vertex: VertexId,
     pub end_vertex: VertexId,
@@ -69,6 +74,7 @@ pub struct WadLinedef {
 
 #[repr(packed)]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct WadSidedef {
     pub x_offset: WadCoord,
     pub y_offset: WadCoord,
@@ -81,6 +87,7 @@ pub struct WadSidedef {
 
 #[repr(packed)]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct WadSector {
     pub floor_height: WadCoord,
     pub ceiling_height: WadCoord,
@@ -94,6 +101,7 @@ pub struct WadSector {
 
 #[repr(packed)]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct WadSubsector {
     pub num_segs: u16,
     pub first_seg: SegId,
@@ -102,6 +110,7 @@ pub struct WadSubsector {
 
 #[repr(packed)]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct WadSeg {
     pub start_vertex: VertexId,
     pub end_vertex: VertexId,
@@ -114,6 +123,7 @@ pub struct WadSeg {
 
 #[repr(packed)]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct WadNode {
     pub line_x: WadCoord,
     pub line_y: WadCoord,
@@ -134,6 +144,7 @@ pub struct WadNode {
 
 #[repr(C)]
 #[repr(packed)]
+#[deriving(Copy)]
 pub struct WadTextureHeader {
     pub name: WadName,
     pub masked: u32,
@@ -146,6 +157,7 @@ pub struct WadTextureHeader {
 
 #[repr(packed)]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct WadTexturePatchRef {
     pub origin_x: i16,
     pub origin_y: i16,
@@ -164,4 +176,36 @@ impl WadLinedef {
     pub fn blocks_sound(&self) -> bool { self.flags & 0x0040 != 0 }
     pub fn always_shown_on_map(&self) -> bool { self.flags & 0x0080 != 0 }
     pub fn never_shown_on_map(&self) -> bool { self.flags & 0x0100 != 0 }
+}
+
+macro_rules! size_tests(
+    ($($t:ident = $size:expr),+) => (
+        #[cfg(test)]
+        #[allow(non_snake_case)]
+        mod size_tests {
+            use std::mem::size_of;
+            $(
+                #[test]
+                fn $t() {
+                    use super::$t;
+                    assert_eq!(size_of::<$t>(), $size);
+                }
+            )+
+        }
+    )
+)
+
+size_tests! {
+    WadInfo = 12,
+    WadLump = 16,
+    WadThing = 10,
+    WadVertex = 4,
+    WadLinedef = 14,
+    WadSidedef = 30,
+    WadSector = 26,
+    WadSubsector = 4,
+    WadSeg = 12,
+    WadNode = 28,
+    WadTextureHeader = 22,
+    WadTexturePatchRef = 10
 }

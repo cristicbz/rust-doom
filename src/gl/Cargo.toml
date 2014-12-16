@@ -7,6 +7,6 @@ authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 name = "gl"
 path = "lib.rs"
 
-[dependencies.gl]
+[dependencies.gl_generator]
 git = "https://github.com/bjz/gl-rs"
 

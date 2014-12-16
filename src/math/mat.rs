@@ -17,6 +17,7 @@ pub type Scalar = f32;
 /// _Note:_ The 16 elements are stored in place, so copies are not cheap.
 #[packed]
 #[repr(C)]
+#[deriving(Copy)]
 pub struct Mat4 {
     data : [Scalar, ..16]
 }
@@ -161,6 +162,7 @@ mod test {
 
     #[test]
     fn test_mul() {
+        use std::num::Float;
         let a = Mat4::new(4.0,    8.0,    1.0,    6.0,
                           9.0,    4.0,    2.0,    1.0,
                           4.0,    3.0,    9.0,    3.0,

@@ -40,6 +40,10 @@ _(subject to change)_
 * **Correct 256 color palette.** Uses the original palette and colormaps to replicate the original lighting effects (mostly you'll notice things get darker in visible steps and they also get greyer as they get darker). Doing 256 color palette lookups in a fragment shader is wonderfully anachronistic.
 * **Free flying camera.** Mouse & keyboard control for full 6 degrees of freedom.
 
+## Contributing
+
+A `Makefile` is provided for convenient testing, please run `make test` to ensure all subcrates are working.
+
 ## Todo
 * [x] BSP -> convex subsector conversion.
 * [x] Flats (floors & ceiling) texture mapping.

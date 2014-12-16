@@ -29,6 +29,7 @@ pub enum Analog2d {
     Gestures(Gesture, Gesture, Gesture, Gesture, Sensitivity),
 }
 
+#[deriving(Copy)]
 pub struct GameController {
     current_update_index: UpdateIndex,
 
@@ -146,6 +147,7 @@ const NUM_SCAN_CODES : uint = 512;
 
 type UpdateIndex = u32;
 
+#[deriving(Copy)]
 enum ButtonState {
     Up(UpdateIndex),
     Down(UpdateIndex),

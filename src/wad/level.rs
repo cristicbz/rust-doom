@@ -16,7 +16,6 @@ const SSECTORS_OFFSET: uint = 6;
 const NODES_OFFSET: uint = 7;
 const SECTORS_OFFSET: uint = 8;
 
-
 pub struct Level {
     pub things: Vec<WadThing>,
     pub linedefs: Vec<WadLinedef>,
