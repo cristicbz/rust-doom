@@ -7,8 +7,8 @@ pub type Vec2f = Vec2<f32>;
 pub type Vec3f = Vec3<f32>;
 pub type Vec4f = Vec4<f32>;
 
-pub trait Numvec<T : Float + FloatMath>
-        : Add<Self, Self> + Mul<T, Self> + Div<T, Self> {
+pub trait Numvec<T : Float + FloatMath + Copy>
+        : Add<Self, Self> + Mul<T, Self> + Div<T, Self> + Copy {
     fn dot(&self, other : &Self) -> T;
 
     fn squared_norm(&self) -> T { self.dot(self) }
@@ -56,23 +56,23 @@ impl<T : Float + FloatMath> Numvec<T> for Vec2<T> {
     }
 }
 impl<T : Float + FloatMath> Add<Vec2<T>, Vec2<T>> for Vec2<T> {
-    fn add(&self, rhs : &Vec2<T>) -> Vec2<T> {
+    fn add(self, rhs : Vec2<T>) -> Vec2<T> {
         return Vec2::new(self.x + rhs.x, self.y + rhs.y);
     }
 }
 impl<T : Float + FloatMath> Sub<Vec2<T>, Vec2<T>> for Vec2<T> {
-    fn sub(&self, rhs : &Vec2<T>) -> Vec2<T> {
+    fn sub(self, rhs : Vec2<T>) -> Vec2<T> {
         return Vec2::new(self.x - rhs.x, self.y - rhs.y);
     }
 }
 impl<T : Float + FloatMath> Mul<T, Vec2<T>> for Vec2<T> {
-    fn mul(&self, rhs : &T) -> Vec2<T> {
-        return Vec2::new(self.x * *rhs, self.y * *rhs);
+    fn mul(self, rhs : T) -> Vec2<T> {
+        return Vec2::new(self.x * rhs, self.y * rhs);
     }
 }
 impl<T : Float + FloatMath> Div<T, Vec2<T>> for Vec2<T> {
-    fn div(&self, rhs : &T) -> Vec2<T> {
-        return Vec2::new(self.x / *rhs, self.y / *rhs);
+    fn div(self, rhs : T) -> Vec2<T> {
+        return Vec2::new(self.x / rhs, self.y / rhs);
     }
 }
 impl<T : Float + FloatMath> Neg<Vec2<T>> for Vec2<T> {
@@ -115,23 +115,23 @@ impl<T : Float + FloatMath> Numvec<T> for Vec3<T> {
     }
 }
 impl<T : Float + FloatMath> Add<Vec3<T>, Vec3<T>> for Vec3<T> {
-    fn add(&self, rhs : &Vec3<T>) -> Vec3<T> {
+    fn add(self, rhs : Vec3<T>) -> Vec3<T> {
         return Vec3::new(self.x + rhs.x, self.y + rhs.y, self.z + rhs.z);
     }
 }
 impl<T : Float + FloatMath> Sub<Vec3<T>, Vec3<T>> for Vec3<T> {
-    fn sub(&self, rhs : &Vec3<T>) -> Vec3<T> {
+    fn sub(self, rhs : Vec3<T>) -> Vec3<T> {
         return Vec3::new(self.x - rhs.x, self.y - rhs.y, self.z - rhs.z);
     }
 }
 impl<T : Float + FloatMath> Mul<T, Vec3<T>> for Vec3<T> {
-    fn mul(&self, rhs : &T) -> Vec3<T> {
-        return Vec3::new(self.x * *rhs, self.y * *rhs, self.z * *rhs);
+    fn mul(self, rhs : T) -> Vec3<T> {
+        return Vec3::new(self.x * rhs, self.y * rhs, self.z * rhs);
     }
 }
 impl<T : Float + FloatMath> Div<T, Vec3<T>> for Vec3<T> {
-    fn div(&self, rhs : &T) -> Vec3<T> {
-        return Vec3::new(self.x / *rhs, self.y / *rhs, self.z / *rhs);
+    fn div(self, rhs : T) -> Vec3<T> {
+        return Vec3::new(self.x / rhs, self.y / rhs, self.z / rhs);
     }
 }
 impl<T : Float + FloatMath> Neg<Vec3<T>> for Vec3<T> {
@@ -186,27 +186,27 @@ impl<T : Float + FloatMath> Numvec<T> for Vec4<T> {
     }
 }
 impl<T : Float + FloatMath> Add<Vec4<T>, Vec4<T>> for Vec4<T> {
-    fn add(&self, rhs : &Vec4<T>) -> Vec4<T> {
+    fn add(self, rhs : Vec4<T>) -> Vec4<T> {
         return Vec4::new(self.x + rhs.x, self.y + rhs.y, self.z + rhs.z,
                          self.w + rhs.w);
     }
 }
 impl<T : Float + FloatMath> Sub<Vec4<T>, Vec4<T>> for Vec4<T> {
-    fn sub(&self, rhs : &Vec4<T>) -> Vec4<T> {
+    fn sub(self, rhs : Vec4<T>) -> Vec4<T> {
         return Vec4::new(self.x - rhs.x, self.y - rhs.y, self.z - rhs.z,
                          self.w - rhs.w);
     }
 }
 impl<T : Float + FloatMath> Mul<T, Vec4<T>> for Vec4<T> {
-    fn mul(&self, rhs : &T) -> Vec4<T> {
-        return Vec4::new(self.x * *rhs, self.y * *rhs, self.z * *rhs,
-                         self.w * *rhs);
+    fn mul(self, rhs : T) -> Vec4<T> {
+        return Vec4::new(self.x * rhs, self.y * rhs, self.z * rhs,
+                         self.w * rhs);
     }
 }
 impl<T : Float + FloatMath> Div<T, Vec4<T>> for Vec4<T> {
-    fn div(&self, rhs : &T) -> Vec4<T> {
-        return Vec4::new(self.x / *rhs, self.y / *rhs, self.z / *rhs,
-                         self.w / *rhs);
+    fn div(self, rhs : T) -> Vec4<T> {
+        return Vec4::new(self.x / rhs, self.y / rhs, self.z / rhs,
+                         self.w / rhs);
     }
 }
 impl<T : Float + FloatMath> Neg<Vec4<T>> for Vec4<T> {

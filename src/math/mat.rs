@@ -129,7 +129,7 @@ impl fmt::Show for Mat4 {
 }
 
 impl Mul<Mat4, Mat4> for Mat4 {
-    fn mul(&self, rhs: &Mat4) -> Mat4 {
+    fn mul(self, rhs: Mat4) -> Mat4 {
         let l = &self.data;
         let r = &rhs.data;
         Mat4 { data:[
