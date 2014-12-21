@@ -57,14 +57,14 @@ impl Level {
         let sectors = sectors;
 
         info!("Loaded level '{}':", name);
-        info!("    {:4} things", things.len())
-        info!("    {:4} linedefs", linedefs.len())
-        info!("    {:4} sidedefs", sidedefs.len())
-        info!("    {:4} vertices", vertices.len())
-        info!("    {:4} segs", segs.len())
-        info!("    {:4} subsectors", subsectors.len())
-        info!("    {:4} nodes", nodes.len())
-        info!("    {:4} sectors", sectors.len())
+        info!("    {:4} things", things.len());
+        info!("    {:4} linedefs", linedefs.len());
+        info!("    {:4} sidedefs", sidedefs.len());
+        info!("    {:4} vertices", vertices.len());
+        info!("    {:4} segs", segs.len());
+        info!("    {:4} subsectors", subsectors.len());
+        info!("    {:4} nodes", nodes.len());
+        info!("    {:4} sectors", sectors.len());
 
         Level {
             things: things,

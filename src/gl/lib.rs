@@ -77,7 +77,7 @@ macro_rules! check_gl(
     ::gl::check::check_gl_helper(file!(), line!(), stringify!($func));
     ret
   });
-)
+);
 
 #[macro_export]
 macro_rules! check_gl_unsafe (
@@ -86,4 +86,4 @@ macro_rules! check_gl_unsafe (
     ::gl::check::check_gl_helper(file!(), line!(), stringify!($func));
     ret
   }});
-)
+);

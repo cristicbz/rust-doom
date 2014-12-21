@@ -193,7 +193,7 @@ macro_rules! size_tests(
             )+
         }
     )
-)
+);
 
 size_tests! {
     WadInfo = 12,

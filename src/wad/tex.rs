@@ -42,7 +42,7 @@ pub struct TextureDirectory {
 
 macro_rules! io_try(
     ($e:expr) => (try!($e.map_err(|e| String::from_str(e.desc))))
-)
+);
 
 fn search_for_frame<'a>(search_for: &WadName, animations: &'a Vec<Vec<WadName>>)
         -> Option<&'a [WadName]> {
