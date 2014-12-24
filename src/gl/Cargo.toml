@@ -2,6 +2,7 @@
 name = "gl"
 version = "0.0.1"
 authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
+build = "build.rs"
 
 [lib]
 name = "gl"

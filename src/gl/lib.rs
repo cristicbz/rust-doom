@@ -7,21 +7,7 @@
 #[phase(plugin)]
 extern crate gl_generator;
 
-#[cfg(target_os = "linux")]
-generate_gl_bindings! {
-    api: "gl",
-    profile: "core",
-    version: "3.0",
-    generator: "global",
-}
-
-#[cfg(not(target_os = "linux"))]
-generate_gl_bindings! {
-    api: "gl",
-    profile: "core",
-    version: "3.3",
-    generator: "global",
-}
+include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 
 #[cfg(target_os = "linux")]
 pub mod platform {
