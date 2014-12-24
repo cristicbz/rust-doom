@@ -76,7 +76,7 @@ impl<T : Float + FloatMath> Div<T, Vec2<T>> for Vec2<T> {
     }
 }
 impl<T : Float + FloatMath> Neg<Vec2<T>> for Vec2<T> {
-    fn neg(&self) -> Vec2<T> {
+    fn neg(self) -> Vec2<T> {
         return Vec2::new(-self.x, -self.y);
     }
 }
@@ -135,7 +135,7 @@ impl<T : Float + FloatMath> Div<T, Vec3<T>> for Vec3<T> {
     }
 }
 impl<T : Float + FloatMath> Neg<Vec3<T>> for Vec3<T> {
-    fn neg(&self) -> Vec3<T> {
+    fn neg(self) -> Vec3<T> {
         return Vec3::new(-self.x, -self.y, -self.z);
     }
 }
@@ -210,7 +210,7 @@ impl<T : Float + FloatMath> Div<T, Vec4<T>> for Vec4<T> {
     }
 }
 impl<T : Float + FloatMath> Neg<Vec4<T>> for Vec4<T> {
-    fn neg(&self) -> Vec4<T> {
+    fn neg(self) -> Vec4<T> {
         return Vec4::new(-self.x, -self.y, -self.z, -self.w);
     }
 }
