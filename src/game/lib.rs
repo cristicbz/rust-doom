@@ -229,20 +229,20 @@ pub fn run() {
         .map(|r| {
             let v = r[].splitn(1, 'x').collect::<Vec<&str>>();
             if v.len() != 2 { None } else { Some(v) }
-            .and_then(|v| from_str::<uint>(v[0]).map(|v0| (v0, v[1])))
-            .and_then(|(v0, s)| from_str::<uint>(s).map(|v1| (v0, v1)))
+            .and_then(|v| v[0].parse().map(|v0| (v0, v[1])))
+            .and_then(|(v0, s)| s.parse().map(|v1| (v0, v1)))
             .expect("Invalid format for resolution, please use WIDTHxHEIGHT.")
         })
         .unwrap_or((1280, 720));
     let level_index = matches
         .opt_str("l")
-        .map(|l| from_str::<uint>(l[])
-            .expect("Invalid value for --level. Expected integer."))
+        .map(|l| l[].parse()
+                    .expect("Invalid value for --level. Expected integer."))
         .unwrap_or(0);
     let fov = matches
         .opt_str("f")
-        .map(|f| from_str::<f32>(f[])
-             .expect("Invalid value for --fov. Expected float."))
+        .map(|f| f[].parse()
+                    .expect("Invalid value for --fov. Expected float."))
         .unwrap_or(65.0);
 
     if matches.opt_present("h") {
