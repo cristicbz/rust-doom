@@ -1,13 +1,13 @@
 use std::{fmt, mem, str};
 use std::fmt::Show;
 use std::string::String;
-use serialize::{Encoder, Encodable, Decoder, Decodable};
+use rustc_serialize::{Encoder, Encodable, Decoder, Decodable};
 
 #[deriving(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct WadName { packed: u64 }
 impl WadName {
     pub fn as_str_opt(&self) -> Option<&str> {
-        str::from_utf8(self.as_bytes())
+        str::from_utf8(self.as_bytes()).ok()
     }
 
     pub fn as_str(&self) -> &str {

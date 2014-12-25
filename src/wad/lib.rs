@@ -12,7 +12,7 @@ extern crate math;
 extern crate log;
 #[phase(plugin, link)]
 extern crate regex;
-extern crate serialize;
+extern crate "rustc-serialize" as rustc_serialize;
 extern crate time;
 extern crate toml;
 
