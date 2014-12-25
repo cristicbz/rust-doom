@@ -83,31 +83,7 @@ pub trait WadNameCast : Show {
 }
 impl<'a> WadNameCast for &'a [u8,.. 8] {
     fn to_wad_name_opt(&self) -> Option<WadName> {
-        let mut name = [0u8, ..8];
-        let mut nulled = false;
-        for (dest, src) in name.iter_mut().zip(self.iter()) {
-            let new_byte = match src.to_ascii_opt() {
-                Some(ascii) => match ascii.to_uppercase().as_byte() {
-                    b@b'A'...b'Z' | b@b'0'...b'9' | b@b'_' | b@b'-' |
-                    b@b'[' | b@b']' | b@b'\\' => b,
-                    b'\0' => { nulled = true; break },
-                    b => {
-                        debug!("Bailed on ascii {}", b);
-                        return None;
-                    }
-                },
-                None => {
-                    debug!("Bailed on non-ascii {}", src);
-                    return None;
-                }
-            };
-            *dest = new_byte;
-        }
-        if !nulled && self.len() > 8 {
-            debug!("Bailed on '{}' {} {}", str::from_utf8(*self),
-                                           self.len(), !nulled);
-            return None; }
-        Some(WadName { packed: unsafe { mem::transmute(name) } })
+        self[].to_wad_name_opt()
     }
 }
 impl<'a> WadNameCast for &'a [u8] {
