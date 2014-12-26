@@ -8,6 +8,9 @@ build = "build.rs"
 name = "gl"
 path = "lib.rs"
 
-[dependencies.gl_generator]
+[build-dependencies.gl_generator]
+git = "https://github.com/bjz/gl-rs"
+
+[dependencies.gl_common]
 git = "https://github.com/bjz/gl-rs"
 
