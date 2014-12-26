@@ -27,3 +27,5 @@ git = "https://github.com/rust-lang/time"
 
 [dependencies]
 rustc-serialize = "*"
+log = "*"
+regex = "*"

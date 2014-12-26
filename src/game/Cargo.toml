@@ -24,3 +24,6 @@ path = "../wad"
 
 [dependencies.time]
 git = "https://github.com/rust-lang/time"
+
+[dependencies]
+log = "*"
