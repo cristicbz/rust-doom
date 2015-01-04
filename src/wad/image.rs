@@ -17,7 +17,7 @@ pub struct Image {
 
 macro_rules! io_try(
     ($e:expr) => (try!($e.map_err(|e| String::from_str(e.desc))))
-)
+);
 
 
 impl Image {

@@ -101,9 +101,10 @@ const ATLAS_UNIT: uint = 1;
 
 
 macro_rules! offset_of(
-    ($T:ty, $m:ident) =>
-        (unsafe { (&((*(0 as *const $T)).$m)) as *const _ as *const c_void })
-)
+    ($T:ty, $m:ident) => (
+        unsafe { (&((*(0 as *const $T)).$m)) as *const _ as *const c_void }
+    )
+);
 
 
 pub fn build_level(shader_loader: &ShaderLoader,
@@ -370,7 +371,7 @@ impl<'a> VboBuilder<'a> {
                     None => continue
                 };
 
-                let dist = |l: &Line2f| l.signed_distance(&point);
+                let dist = |&: l: &Line2f| l.signed_distance(&point);
 
                 // The intersection point must lie both within the BSP volume
                 // and the segs volume.

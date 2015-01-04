@@ -7,21 +7,7 @@
 #[phase(plugin)]
 extern crate gl_generator;
 
-#[cfg(target_os = "linux")]
-generate_gl_bindings! {
-    api: "gl",
-    profile: "core",
-    version: "3.0",
-    generator: "global",
-}
-
-#[cfg(not(target_os = "linux"))]
-generate_gl_bindings! {
-    api: "gl",
-    profile: "core",
-    version: "3.3",
-    generator: "global",
-}
+include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 
 #[cfg(target_os = "linux")]
 pub mod platform {
@@ -77,7 +63,7 @@ macro_rules! check_gl(
     ::gl::check::check_gl_helper(file!(), line!(), stringify!($func));
     ret
   });
-)
+);
 
 #[macro_export]
 macro_rules! check_gl_unsafe (
@@ -86,4 +72,4 @@ macro_rules! check_gl_unsafe (
     ::gl::check::check_gl_helper(file!(), line!(), stringify!($func));
     ret
   }});
-)
+);

@@ -1,6 +1,6 @@
 use base;
 use regex::Regex;
-use serialize;
+use rustc_serialize;
 use super::name::WadName;
 use super::types::ThingType;
 use toml;
@@ -8,7 +8,7 @@ use toml::{DecodeError, ApplicationError, ExpectedField, ExpectedType,
            ExpectedMapElement, ExpectedMapKey, NoEnumVariants, NilTooLong};
 
 
-#[deriving(Decodable, Encodable)]
+#[deriving(RustcDecodable, RustcEncodable)]
 pub struct SkyMetadata {
     pub texture_name: WadName,
     pub level_pattern: String,
@@ -16,14 +16,14 @@ pub struct SkyMetadata {
 }
 
 
-#[deriving(Decodable, Encodable)]
+#[deriving(RustcDecodable, RustcEncodable)]
 pub struct AnimationMetadata {
     pub flats: Vec<Vec<WadName>>,
     pub walls: Vec<Vec<WadName>>,
 }
 
 
-#[deriving(Decodable, Encodable)]
+#[deriving(RustcDecodable, RustcEncodable)]
 pub struct ThingMetadata {
     pub thing_type: ThingType,
     pub sprite: WadName,
@@ -31,13 +31,13 @@ pub struct ThingMetadata {
 }
 
 
-#[deriving(Decodable, Encodable)]
+#[deriving(RustcDecodable, RustcEncodable)]
 pub struct ThingDirectoryMetadata {
     pub decoration: Vec<ThingMetadata>
 }
 
 
-#[deriving(Decodable, Encodable)]
+#[deriving(RustcDecodable, RustcEncodable)]
 pub struct WadMetadata {
     pub sky: Vec<SkyMetadata>,
     pub animations: AnimationMetadata,
@@ -52,7 +52,7 @@ impl WadMetadata {
     pub fn from_text(text: &str) -> Result<WadMetadata, String> {
         let mut parser = toml::Parser::new(text);
         match parser.parse() {
-            Some(value) => serialize::Decodable::decode(
+            Some(value) => rustc_serialize::Decodable::decode(
                     &mut toml::Decoder::new(toml::Value::Table(value)))
                 .map_err(|e| show_decode_err(e)),
             None => Err(format!("Error parsing WadMetadata from TOML: {}",

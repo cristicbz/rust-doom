@@ -25,11 +25,12 @@ impl ShaderLoader {
     }
 
     pub fn load(&self, name: &str) -> Result<Shader, String> {
-        let name = name.to_string();
-        let frag_src = self.version_directive +
-            try!(read_utf8_file(&self.root_path.join(name + ".frag")))[];
-        let vert_src = self.version_directive +
-            try!(read_utf8_file(&self.root_path.join(name + ".vert")))[];
+        debug!("Loading shader: {}", name);
+        let frag_src = self.version_directive.clone() +
+            try!(read_utf8_file(&self.root_path.join(name.to_string() + ".frag")))[];
+        let vert_src = self.version_directive.clone() +
+            try!(read_utf8_file(&self.root_path.join(name.to_string() + ".vert")))[];
+        debug!("Shader '{}' loaded successfully", name);
         Shader::new_from_source(vert_src[], frag_src[])
     }
 }
