@@ -1,17 +1,16 @@
-#![feature(globs)]
-#![feature(macro_rules)]
-#![feature(phase)]
 #![feature(slicing_syntax)]
+#![allow(unstable)]
 
 extern crate gfx;
 extern crate wad;
 extern crate math;
 
 extern crate getopts;
-#[phase(plugin, link)]
+#[macro_use]
 extern crate gl;
 extern crate libc;
-#[phase(plugin, link)]
+
+#[macro_use]
 extern crate log;
 extern crate sdl2;
 extern crate time;
@@ -37,7 +36,7 @@ pub mod level;
 
 const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.7 - Toggle mouse with \
                                     backtick key (`))";
-const OPENGL_DEPTH_SIZE: int = 24;
+const OPENGL_DEPTH_SIZE: isize = 24;
 const SHADER_ROOT: &'static str = "src/shaders";
 
 
@@ -46,7 +45,7 @@ pub struct MainWindow {
     _context: sdl2::video::GLContext,
 }
 impl MainWindow {
-    pub fn new(width: uint, height: uint) -> MainWindow {
+    pub fn new(width: usize, height: usize) -> MainWindow {
         sdl2::video::gl_set_attribute(GLAttr::GLContextMajorVersion,
                                       gl::platform::GL_MAJOR_VERSION);
         sdl2::video::gl_set_attribute(GLAttr::GLContextMinorVersion,
@@ -55,11 +54,11 @@ impl MainWindow {
         sdl2::video::gl_set_attribute(GLAttr::GLDoubleBuffer, 1);
         sdl2::video::gl_set_attribute(
             GLAttr::GLContextProfileMask,
-            sdl2::video::ll::SDL_GLprofile::SDL_GL_CONTEXT_PROFILE_CORE as int);
+            sdl2::video::ll::SDL_GLprofile::SDL_GL_CONTEXT_PROFILE_CORE as isize);
 
         let window = sdl2::video::Window::new(
             WINDOW_TITLE, WindowPos::PosCentered, WindowPos::PosCentered,
-            width as int, height as int,
+            width as isize, height as isize,
             sdl2::video::OPENGL | sdl2::video::SHOWN).unwrap();
 
         let context = window.gl_create_context().unwrap();
@@ -95,7 +94,7 @@ impl MainWindow {
 pub struct GameConfig<'a> {
     wad: &'a str,
     metadata: &'a str,
-    level_index: uint,
+    level_index: usize,
     fov: f32,
 }
 
@@ -227,11 +226,14 @@ pub fn run() {
     let (width, height) = matches
         .opt_str("r")
         .map(|r| {
-            let v = r[].splitn(1, 'x').collect::<Vec<&str>>();
-            if v.len() != 2 { None } else { Some(v) }
-            .and_then(|v| v[0].parse().map(|v0| (v0, v[1])))
-            .and_then(|(v0, s)| s.parse().map(|v1| (v0, v1)))
-            .expect("Invalid format for resolution, please use WIDTHxHEIGHT.")
+            let r: Vec<&str> = r.splitn(1, 'x').collect();
+            match r.as_slice() {
+                [w, h] => (w.parse().unwrap(), h.parse().unwrap()),
+                _ => {
+                    panic!("Invalid format for resolution, \
+                            please use WIDTHxHEIGHT.");
+                }
+            }
         })
         .unwrap_or((1280, 720));
     let level_index = matches
@@ -252,7 +254,7 @@ pub fn run() {
 
     if matches.opt_present("d") {
         let wad = wad::Archive::open(
-            &Path::new(wad_filename[]), &Path::new(meta_filename[])).unwrap();
+            &Path::new(&wad_filename[]), &Path::new(&meta_filename[])).unwrap();
         for i_level in range(0, wad.num_levels()) {
             println!("{:3} {:8}", i_level, wad.get_level_name(i_level));
         }
@@ -266,7 +268,7 @@ pub fn run() {
         let _win = MainWindow::new(width, height);
         let t0 = time::precise_time_s();
         let mut wad = wad::Archive::open(
-            &Path::new(wad_filename[]), &Path::new(meta_filename[])).unwrap();
+            &Path::new(&wad_filename[]), &Path::new(&meta_filename[])).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
         for level_index in range(0, wad.num_levels()) {
             let shader_loader = ShaderLoader::new(
@@ -284,8 +286,8 @@ pub fn run() {
     let mut game = Game::new(
         MainWindow::new(width, height),
         GameConfig {
-            wad: wad_filename[],
-            metadata: meta_filename[],
+            wad: &wad_filename[],
+            metadata: &meta_filename[],
             level_index: level_index,
             fov: fov,
         });

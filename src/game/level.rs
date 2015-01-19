@@ -1,7 +1,8 @@
+use gfx::{BufferBuilder, Renderer, RenderStep, ShaderLoader, VertexBuffer};
 use gl;
 use libc::c_void;
 use math::{Mat4, Line2, Line2f, Vec2f, Vec2, Vec3f, Vec3, Numvec};
-use gfx::{BufferBuilder, Renderer, RenderStep, ShaderLoader, VertexBuffer};
+use std::cmp::Ordering;
 use std::rc::Rc;
 use std::vec::Vec;
 use wad;
@@ -20,7 +21,7 @@ impl Level {
     pub fn new(shader_loader: &ShaderLoader,
                wad: &mut wad::Archive,
                textures: &TextureDirectory,
-               level_index: uint) -> Level {
+               level_index: usize) -> Level {
         let (renderer, start_pos) = build_level(shader_loader,
                                                 wad, textures, level_index);
         Level {
@@ -47,7 +48,7 @@ struct RenderSteps { sky: RenderStep, flats: RenderStep,
     walls: RenderStep,
 }
 
-#[deriving(Copy)]
+#[derive(Copy)]
 enum Peg {
     Top,
     Bottom,
@@ -57,7 +58,7 @@ enum Peg {
 }
 
 #[repr(packed)]
-#[deriving(Copy)]
+#[derive(Copy)]
 struct FlatVertex {
     _pos: Vec3f,
     _atlas_uv: Vec2f,
@@ -68,7 +69,7 @@ struct FlatVertex {
 
 
 #[repr(packed)]
-#[deriving(Copy)]
+#[derive(Copy)]
 struct WallVertex {
     _pos: Vec3f,
     _tile_uv: Vec2f,
@@ -82,7 +83,7 @@ struct WallVertex {
 
 
 #[repr(packed)]
-#[deriving(Copy)]
+#[derive(Copy)]
 struct SkyVertex {
     _pos: Vec3f,
 }
@@ -90,14 +91,14 @@ struct SkyVertex {
 
 
 // Distance on the wrong side of a BSP and seg line allowed.
-const BSP_TOLERANCE : f32 = 1e-3;
-const SEG_TOLERANCE : f32 = 0.1;
+const BSP_TOLERANCE: f32 = 1e-3;
+const SEG_TOLERANCE: f32 = 0.1;
 
 // All polygons are `fattened' by this amount to fill in thin gaps between them.
-const POLY_BIAS : f32 = 0.64 * 3e-4;
+const POLY_BIAS: f32 = 0.64 * 3e-4;
 
-const PALETTE_UNIT: uint = 0;
-const ATLAS_UNIT: uint = 1;
+const PALETTE_UNIT: usize = 0;
+const ATLAS_UNIT: usize = 1;
 
 
 macro_rules! offset_of(
@@ -110,7 +111,7 @@ macro_rules! offset_of(
 pub fn build_level(shader_loader: &ShaderLoader,
                    wad: &mut wad::Archive,
                    textures: &wad::TextureDirectory,
-                   level_index: uint)
+                   level_index: usize)
         -> (Renderer, Vec2f) {
     let name = *wad.get_level_name(level_index);
     info!("Building level {}...", name);
@@ -143,7 +144,7 @@ pub fn build_level(shader_loader: &ShaderLoader,
     for thing in level.things.iter() {
         if thing.thing_type == 1 {  // Player 1 start position.
             start_pos = from_wad_coords(thing.x, thing.y);
-            info!("Player start position: {}.", start_pos);
+            info!("Player start position: {:?}.", start_pos);
         }
     }
     (renderer, start_pos)
@@ -179,13 +180,14 @@ fn init_flats_step(shader_loader: &ShaderLoader) -> RenderStep {
 
 fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
-    struct SectorTexIter<'a> { sector: &'a WadSector, tex_index: uint }
+    struct SectorTexIter<'a> { sector: &'a WadSector, tex_index: usize }
     impl<'a> SectorTexIter<'a> {
         fn new(sector: &'a WadSector) -> SectorTexIter {
             SectorTexIter { sector: sector, tex_index: 0 }
         }
     }
-    impl<'a> Iterator<&'a WadName> for SectorTexIter<'a> {
+    impl<'a> Iterator for SectorTexIter<'a> {
+        type Item = &'a WadName;
         fn next(&mut self) -> Option<&'a WadName> {
             self.tex_index += 1;
             match self.tex_index {
@@ -213,13 +215,14 @@ fn init_walls_step(shader_loader: &ShaderLoader) -> RenderStep {
 
 fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
-    struct SidedefTexIter<'a> { side: &'a WadSidedef, tex_index: uint }
+    struct SidedefTexIter<'a> { side: &'a WadSidedef, tex_index: usize }
     impl<'a> SidedefTexIter<'a> {
         fn new(side: &'a WadSidedef) -> SidedefTexIter {
             SidedefTexIter { side: side, tex_index: 0 }
         }
     }
-    impl<'a> Iterator<&'a WadName> for SidedefTexIter<'a> {
+    impl<'a> Iterator for SidedefTexIter<'a> {
+        type Item = &'a WadName;
         fn next(&mut self) -> Option<&'a WadName> {
             self.tex_index += 1;
             match self.tex_index {
@@ -276,15 +279,15 @@ impl<'a> VboBuilder<'a> {
         builder.node(&mut Vec::with_capacity(32), root_id);
 
         let mut vbo = VboBuilder::init_sky_buffer();
-        vbo.set_data(gl::STATIC_DRAW, builder.sky[]);
+        vbo.set_data(gl::STATIC_DRAW, &builder.sky[]);
         steps.sky.add_static_vbo(vbo);
 
         let mut vbo = VboBuilder::init_flats_buffer();
-        vbo.set_data(gl::STATIC_DRAW, builder.flats[]);
+        vbo.set_data(gl::STATIC_DRAW, &builder.flats[]);
         steps.flats.add_static_vbo(vbo);
 
         let mut vbo = VboBuilder::init_walls_buffer();
-        vbo.set_data(gl::STATIC_DRAW, builder.walls[]);
+        vbo.set_data(gl::STATIC_DRAW, &builder.walls[]);
         steps.walls.add_static_vbo(vbo);
 
     }
@@ -324,7 +327,7 @@ impl<'a> VboBuilder<'a> {
     fn node(&mut self, lines: &mut Vec<Line2f>, id: ChildId) {
         let (id, is_leaf) = parse_child_id(id);
         if is_leaf {
-            self.subsector(lines[mut], id);
+            self.subsector(&mut lines[], id);
             return;
         }
 
@@ -341,7 +344,7 @@ impl<'a> VboBuilder<'a> {
         lines.pop();
     }
 
-    fn subsector(&mut self, lines: &[Line2f], id: uint) {
+    fn subsector(&mut self, lines: &[Line2f], id: usize) {
         let segs = self.level.ssector_segs(&self.level.subsectors[id]);
 
         // The vector contains all (2D) points which are part of the subsector:
@@ -390,7 +393,7 @@ impl<'a> VboBuilder<'a> {
             warn!("Degenerate cannonicalised polygon {} ({} vertices).",
                   id, points.len());
         } else {
-            self.flat_poly(self.level.seg_sector(&segs[0]), points[]);
+            self.flat_poly(self.level.seg_sector(&segs[0]), &points[]);
         }
     }
 
@@ -522,7 +525,7 @@ impl<'a> VboBuilder<'a> {
         if !is_sky_flat(floor_tex) {
             let floor_bounds = self.bounds.flats
                 .get(floor_tex)
-                .expect(format!("flat: No such floor {}.", floor_tex)[]);
+                .expect(&format!("flat: No such floor {}.", floor_tex)[]);
             for i in range(1, points.len()) {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
                 self.flat_vertex(&v0, floor_y, light_info, floor_bounds);
@@ -543,7 +546,7 @@ impl<'a> VboBuilder<'a> {
         if !is_sky_flat(ceil_tex) {
             let ceiling_bounds = self.bounds.flats
                 .get(ceil_tex)
-                .expect(format!("flat: No such ceiling {}.", ceil_tex)[]);
+                .expect(&format!("flat: No such ceiling {}.", ceil_tex)[]);
             for i in range(1, points.len()) {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
                 self.flat_vertex(&v2, ceil_y, light_info, ceiling_bounds);
@@ -582,8 +585,8 @@ impl<'a> VboBuilder<'a> {
     fn light_info(&self, sector: &WadSector) -> u16 {
         let light = sector.light;
         let sector_id = self.level.sector_id(sector);
-        let sync : u16 = (sector_id as uint * 1664525 + 1013904223) as u16;
-        let min_light_or = |if_same| {
+        let sync: u16 = (sector_id as usize * 1664525 + 1013904223) as u16;
+        let min_light_or = |&: if_same| {
             let min = self.level.sector_min_light(sector);
             if min == light { if_same } else { min }
         };
@@ -644,26 +647,34 @@ fn polygon_center(points: &[Vec2f]) -> Vec2f {
 
 fn points_to_polygon(points: &mut Vec<Vec2f>) {
     // Sort points in polygonal CCW order around their center.
-    let center = polygon_center(points[mut]);
+    let center = polygon_center(&mut points[]);
     points.sort_by(
         |a, b| {
             let ac = *a - center;
             let bc = *b - center;
             if ac.x >= 0.0 && bc.x < 0.0 {
-                return Less;
+                return Ordering::Less;
             }
             if ac.x < 0.0 && bc.x >= 0.0 {
-                return Greater;
+                return Ordering::Greater;
             }
             if ac.x == 0.0 && bc.x == 0.0 {
                 if ac.y >= 0.0 || bc.y >= 0.0 {
-                    return if a.y > b.y { Less } else { Greater }
+                    return if a.y > b.y {
+                        Ordering::Less
+                    } else {
+                        Ordering::Greater
+                    }
                 }
-                return if b.y > a.y { Less } else { Greater }
+                return if b.y > a.y {
+                    Ordering::Less
+                } else {
+                    Ordering::Greater
+                }
             }
 
-            if ac.cross(&bc) < 0.0 { Less }
-            else { Greater }
+            if ac.cross(&bc) < 0.0 { Ordering::Less }
+            else { Ordering::Greater }
         });
 
     // Remove duplicates.
@@ -690,7 +701,7 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
         simplified.pop();
     }
 
-    let center = polygon_center(simplified[]);
+    let center = polygon_center(&simplified[]);
     for point in simplified.iter_mut() {
         *point = *point + (*point - center).normalized() * POLY_BIAS;
     }

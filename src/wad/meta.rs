@@ -8,7 +8,7 @@ use toml::{DecodeError, ApplicationError, ExpectedField, ExpectedType,
            ExpectedMapElement, ExpectedMapKey, NoEnumVariants, NilTooLong};
 
 
-#[deriving(RustcDecodable, RustcEncodable)]
+#[derive(RustcDecodable, RustcEncodable)]
 pub struct SkyMetadata {
     pub texture_name: WadName,
     pub level_pattern: String,
@@ -16,14 +16,14 @@ pub struct SkyMetadata {
 }
 
 
-#[deriving(RustcDecodable, RustcEncodable)]
+#[derive(RustcDecodable, RustcEncodable)]
 pub struct AnimationMetadata {
     pub flats: Vec<Vec<WadName>>,
     pub walls: Vec<Vec<WadName>>,
 }
 
 
-#[deriving(RustcDecodable, RustcEncodable)]
+#[derive(RustcDecodable, RustcEncodable)]
 pub struct ThingMetadata {
     pub thing_type: ThingType,
     pub sprite: WadName,
@@ -31,13 +31,13 @@ pub struct ThingMetadata {
 }
 
 
-#[deriving(RustcDecodable, RustcEncodable)]
+#[derive(RustcDecodable, RustcEncodable)]
 pub struct ThingDirectoryMetadata {
     pub decoration: Vec<ThingMetadata>
 }
 
 
-#[deriving(RustcDecodable, RustcEncodable)]
+#[derive(RustcDecodable, RustcEncodable)]
 pub struct WadMetadata {
     pub sky: Vec<SkyMetadata>,
     pub animations: AnimationMetadata,
@@ -46,7 +46,7 @@ pub struct WadMetadata {
 impl WadMetadata {
     pub fn from_file(path: &Path) -> Result<WadMetadata, String> {
         base::read_utf8_file(path).and_then(
-            |contents| WadMetadata::from_text(contents[]))
+            |contents| WadMetadata::from_text(&contents[]))
     }
 
     pub fn from_text(text: &str) -> Result<WadMetadata, String> {
@@ -55,14 +55,14 @@ impl WadMetadata {
             Some(value) => rustc_serialize::Decodable::decode(
                     &mut toml::Decoder::new(toml::Value::Table(value)))
                 .map_err(|e| show_decode_err(e)),
-            None => Err(format!("Error parsing WadMetadata from TOML: {}",
+            None => Err(format!("Error parsing WadMetadata from TOML: {:?}",
                                 parser.errors))
         }
     }
 
     pub fn sky_for(&self, name: &WadName) -> &SkyMetadata {
         for sky in self.sky.iter() {
-            let regex = Regex::new(sky.level_pattern[]).unwrap();
+            let regex = Regex::new(&sky.level_pattern[]).unwrap();
             if regex.is_match(name.as_str()) {
                 return sky;
             }

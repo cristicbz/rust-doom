@@ -7,14 +7,14 @@ use types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg, WadSubsector,
 use util::from_wad_coords;
 
 
-const THINGS_OFFSET: uint = 1;
-const LINEDEFS_OFFSET: uint = 2;
-const SIDEDEFS_OFFSET: uint = 3;
-const VERTICES_OFFSET: uint = 4;
-const SEGS_OFFSET: uint = 5;
-const SSECTORS_OFFSET: uint = 6;
-const NODES_OFFSET: uint = 7;
-const SECTORS_OFFSET: uint = 8;
+const THINGS_OFFSET: usize = 1;
+const LINEDEFS_OFFSET: usize = 2;
+const SIDEDEFS_OFFSET: usize = 3;
+const VERTICES_OFFSET: usize = 4;
+const SEGS_OFFSET: usize = 5;
+const SSECTORS_OFFSET: usize = 6;
+const NODES_OFFSET: usize = 7;
+const SECTORS_OFFSET: usize = 8;
 
 pub struct Level {
     pub things: Vec<WadThing>,
@@ -28,7 +28,7 @@ pub struct Level {
 }
 
 impl Level {
-    pub fn from_archive(wad: &mut Archive, index: uint) -> Level {
+    pub fn from_archive(wad: &mut Archive, index: usize) -> Level {
         let name = *wad.get_level_name(index);
         info!("Reading level data for '{}'...", name);
         let start_index = wad.get_level_lump_index(index);
@@ -79,12 +79,12 @@ impl Level {
     }
 
     pub fn vertex(&self, id: VertexId) -> Vec2f {
-        from_wad_coords(self.vertices[id as uint].x,
-                        self.vertices[id as uint].y)
+        from_wad_coords(self.vertices[id as usize].x,
+                        self.vertices[id as usize].y)
     }
 
     pub fn seg_linedef(&self, seg: &WadSeg) -> &WadLinedef {
-        &self.linedefs[seg.linedef as uint]
+        &self.linedefs[seg.linedef as usize]
     }
 
     pub fn seg_vertices(&self, seg: &WadSeg) -> (Vec2f, Vec2f) {
@@ -114,30 +114,30 @@ impl Level {
     pub fn left_sidedef(&self, linedef: &WadLinedef) -> Option<&WadSidedef> {
         match linedef.left_side {
             -1 => None,
-            index => Some(&self.sidedefs[index as uint])
+            index => Some(&self.sidedefs[index as usize])
         }
     }
 
     pub fn right_sidedef(&self, linedef: &WadLinedef) -> Option<&WadSidedef> {
         match linedef.right_side {
             -1 => None,
-            index => Some(&self.sidedefs[index as uint])
+            index => Some(&self.sidedefs[index as usize])
         }
     }
 
     pub fn sidedef_sector(&self, sidedef: &WadSidedef) -> &WadSector {
-        &self.sectors[sidedef.sector as uint]
+        &self.sectors[sidedef.sector as usize]
     }
 
     pub fn ssector_segs(&self, ssector: &WadSubsector) -> &[WadSeg] {
-        let start = ssector.first_seg as uint;
-        let end = start + ssector.num_segs as uint;
-        self.segs[start .. end]
+        let start = ssector.first_seg as usize;
+        let end = start + ssector.num_segs as usize;
+        &self.segs[start .. end]
     }
 
     pub fn sector_id(&self, sector: &WadSector) -> SectorId {
         let sector_id =
-            (sector as *const _ as uint - self.sectors.as_ptr() as uint) /
+            (sector as *const _ as usize - self.sectors.as_ptr() as usize) /
             mem::size_of::<WadSector>();
         assert!(sector_id < self.sectors.len());
         return sector_id as SectorId;
@@ -154,9 +154,9 @@ impl Level {
                     Some(r) => r.sector, None => continue,
                  });
             let adjacent_light = if left == sector_id {
-                self.sectors[right as uint].light
+                self.sectors[right as usize].light
             } else if right == sector_id {
-                self.sectors[left as uint].light
+                self.sectors[left as usize].light
             } else {
                 continue;
             };

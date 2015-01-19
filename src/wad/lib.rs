@@ -1,16 +1,15 @@
-#![feature(macro_rules)]
-#![feature(phase)]
 #![feature(slicing_syntax)]
 
 extern crate base;
 extern crate gfx;
-#[phase(plugin, link)]
+#[macro_use]
 extern crate gl;
 extern crate math;
 
-#[phase(plugin, link)]
+#[macro_use]
 extern crate log;
-#[phase(plugin, link)]
+
+#[macro_use]
 extern crate regex;
 extern crate "rustc-serialize" as rustc_serialize;
 extern crate time;

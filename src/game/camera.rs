@@ -121,9 +121,9 @@ struct CachedTransform {
 }
 
 impl CachedTransform {
-    fn refresh(&mut self, compute_fresh: || -> Mat4) -> &Mat4 {
+    fn refresh<F: FnOnce() -> Mat4>(&mut self, compute_fresh: F) -> &Mat4 {
         if self.dirty {
-            self.matrix = compute_fresh();
+            self.matrix = (compute_fresh)();
             self.dirty = false;
         }
         &self.matrix

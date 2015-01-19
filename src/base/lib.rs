@@ -1,3 +1,5 @@
+#![allow(unstable)]
+
 use std::io::fs::File;
 use std::string::String;
 
@@ -10,4 +12,9 @@ pub fn read_utf8_file(path: &Path) -> Result<String, String> {
                 format!("File at '{}' is not valid UTF-8.", path.display())
             })
         })
+}
+
+pub fn vec_from_elem<T: Clone>(len: usize, elem: T) -> Vec<T> {
+    <Vec<T> as std::iter::FromIterator<T>>::from_iter(
+        std::iter::repeat(elem).take(len))
 }

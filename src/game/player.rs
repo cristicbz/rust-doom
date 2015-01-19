@@ -1,10 +1,10 @@
 use camera::Camera;
-use ctrl::GameController;
 use ctrl::{Analog2d, Gesture};
+use ctrl::GameController;
 use math::{Vec3, Vec3f, Vec2f, Numvec};
 use sdl2::scancode::ScanCode;
 use std::default::Default;
-use std::num::FloatMath;
+use std::num::Float;
 
 
 pub struct PlayerBindings {
@@ -74,7 +74,7 @@ impl Player {
                           (-3.14 / 2.0, 3.14 / 2.0));
 
         let displacement = self.movement_speed * delta_time;
-        let movement : Vec3f = Vec3::new(
+        let movement: Vec3f = Vec3::new(
             yaw.cos() * movement.x * displacement +
              yaw.sin() * movement.y * displacement * pitch.cos(),
             -pitch.sin() * movement.y * displacement,
@@ -98,7 +98,7 @@ impl Player {
     }
 }
 
-fn clamp<T : PartialOrd>(value: T, (limit_min, limit_max): (T, T)) -> T {
+fn clamp<T: PartialOrd>(value: T, (limit_min, limit_max): (T, T)) -> T {
     if value < limit_min { limit_min }
     else if value > limit_max { limit_max }
     else { value }

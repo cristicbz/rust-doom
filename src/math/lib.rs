@@ -1,4 +1,5 @@
 #![feature(slicing_syntax)]
+#![allow(unstable)]
 
 pub use line::Line2;
 pub use line::Line2f;

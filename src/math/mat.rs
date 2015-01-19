@@ -1,6 +1,6 @@
 use std::fmt;
+use std::num::Float;
 use std::ops::Mul;
-use std::num::FloatMath;
 
 use numvec::Vec3f;
 
@@ -17,16 +17,16 @@ pub type Scalar = f32;
 /// _Note:_ The 16 elements are stored in place, so copies are not cheap.
 #[packed]
 #[repr(C)]
-#[deriving(Copy)]
+#[derive(Copy)]
 pub struct Mat4 {
-    data : [Scalar, ..16]
+    data: [Scalar; 16]
 }
 
 impl Mat4 {
-    pub fn new(m00 : Scalar, m01 : Scalar, m02 : Scalar, m03 : Scalar,
-               m10 : Scalar, m11 : Scalar, m12 : Scalar, m13 : Scalar,
-               m20 : Scalar, m21 : Scalar, m22 : Scalar, m23 : Scalar,
-               m30 : Scalar, m31 : Scalar, m32 : Scalar, m33 : Scalar) -> Mat4 {
+    pub fn new(m00: Scalar, m01: Scalar, m02: Scalar, m03: Scalar,
+               m10: Scalar, m11: Scalar, m12: Scalar, m13: Scalar,
+               m20: Scalar, m21: Scalar, m22: Scalar, m23: Scalar,
+               m30: Scalar, m31: Scalar, m32: Scalar, m33: Scalar) -> Mat4 {
         // In my mind vectors are columns, hence matrices need to be transposed
         // to the OpenGL memory order.
         Mat4 { data: [m00, m10, m20, m30, m01, m11, m21, m31,
@@ -105,7 +105,7 @@ impl Mat4 {
                   m[12], m[13], m[14], m[15])
     }
 
-    pub fn get(&self, row: uint, column: uint) -> Scalar {
+    pub fn get(&self, row: usize, column: usize) -> Scalar {
         self.data[column * 4 + row]
     }
 
@@ -128,7 +128,9 @@ impl fmt::Show for Mat4 {
     }
 }
 
-impl Mul<Mat4, Mat4> for Mat4 {
+impl Mul for Mat4 {
+    type Output = Mat4;
+
     fn mul(self, rhs: Mat4) -> Mat4 {
         let l = &self.data;
         let r = &rhs.data;

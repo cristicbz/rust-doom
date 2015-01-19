@@ -3,7 +3,7 @@ use std::slice;
 use math::{Vec2, Vec2f};
 use super::types::{WadCoord, WadInfo, WadName, ChildId, WadNameCast};
 
-#[deriving(Copy)]
+#[derive(Copy)]
 pub enum WadType { Initial, Patch }
 
 
@@ -12,7 +12,7 @@ const PWAD_HEADER: &'static [u8] = b"PWAD";
 
 
 pub fn wad_type_from_info(wad_info: &WadInfo) -> Option<WadType> {
-    let id = wad_info.identifier[];
+    let id = &wad_info.identifier[];
     if id == IWAD_HEADER {
         Some(WadType::Initial)
     } else if id == PWAD_HEADER {
@@ -23,8 +23,8 @@ pub fn wad_type_from_info(wad_info: &WadInfo) -> Option<WadType> {
 }
 
 
-pub fn read_binary<T : Copy, R : Reader>(reader : &mut R) -> T {
-    let mut loaded : T = unsafe { mem::zeroed() };
+pub fn read_binary<T: Copy, R: Reader>(reader: &mut R) -> T {
+    let mut loaded: T = unsafe { mem::zeroed() };
     let size = mem::size_of::<T>();
     unsafe {
         reader.read_at_least(
@@ -54,6 +54,6 @@ pub fn from_wad_coords(x: WadCoord, y: WadCoord) -> Vec2f {
 }
 
 
-pub fn parse_child_id(id: ChildId) -> (uint, bool) {
-    ((id & 0x7fff) as uint, id & 0x8000 != 0)
+pub fn parse_child_id(id: ChildId) -> (usize, bool) {
+    ((id & 0x7fff) as usize, id & 0x8000 != 0)
 }

@@ -1,12 +1,14 @@
-#![feature(globs, macro_rules, phase, slicing_syntax)]
+#![feature(slicing_syntax)]
+#![allow(unstable)]
 
-#[phase(plugin, link)]
+#[macro_use]
 extern crate gl;
 extern crate math;
 extern crate base;
 
 extern crate libc;
-#[phase(plugin, link)]
+
+#[macro_use]
 extern crate log;
 
 pub use render::Renderer;

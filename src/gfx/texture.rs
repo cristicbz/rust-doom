@@ -7,8 +7,8 @@ use std::mem;
 pub struct Texture {
     target: GLenum,
     id: GLuint,
-    width: uint,
-    height: uint,
+    width: usize,
+    height: usize,
 }
 
 impl Texture {
@@ -34,8 +34,8 @@ impl Texture {
         self
     }
 
-    pub fn data_rgb_u8<T : Copy>(&mut self,
-                       level: uint, width: uint, height: uint, data: &[T])
+    pub fn data_rgb_u8<T: Copy>(&mut self,
+                       level: usize, width: usize, height: usize, data: &[T])
             -> &mut Texture {
         assert!(data.len() * mem::size_of::<T>() == (width * height * 3));
         check_gl_unsafe!(gl::TexImage2D(self.target,
@@ -49,8 +49,8 @@ impl Texture {
         self
     }
 
-    pub fn data_red_u8<T : Copy>(&mut self,
-                       level: uint, width: uint, height: uint, data: &[T])
+    pub fn data_red_u8<T: Copy>(&mut self,
+                       level: usize, width: usize, height: usize, data: &[T])
             -> &mut Texture {
         assert!(data.len() * mem::size_of::<T>() == width * height);
         check_gl_unsafe!(gl::TexImage2D(self.target,
@@ -64,8 +64,8 @@ impl Texture {
         self
     }
 
-    pub fn data_rg_u8<T : Copy>(&mut self,
-                       level: uint, width: uint, height: uint, data: &[T])
+    pub fn data_rg_u8<T: Copy>(&mut self,
+                       level: usize, width: usize, height: usize, data: &[T])
             -> &mut Texture {
         assert!(data.len() * mem::size_of::<T>() == (width * height * 2));
         check_gl_unsafe!(gl::TexImage2D(self.target,
@@ -89,8 +89,8 @@ impl Texture {
         check_gl_unsafe!(gl::BindTexture(self.target, 0));
     }
 
-    pub fn width(&self) -> uint { self.width }
-    pub fn height(&self) -> uint { self.height }
+    pub fn width(&self) -> usize { self.width }
+    pub fn height(&self) -> usize { self.height }
     pub fn size_as_vec(&self) -> Vec2f { Vec2::new(self.width as f32,
                                                    self.height as f32) }
 }

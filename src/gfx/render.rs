@@ -70,7 +70,7 @@ impl RenderStep {
     }
 
     pub fn add_shared_texture(&mut self, name: &str, texture: Rc<Texture>,
-                              unit: uint) -> &mut RenderStep {
+                              unit: usize) -> &mut RenderStep {
         let uniform = self.shader.expect_uniform(name);
         self.shader.bind_mut().set_uniform_i32(uniform, unit as i32).unbind();
         self.shared_tex.push((unit as GLenum + gl::TEXTURE0, texture));
@@ -78,7 +78,7 @@ impl RenderStep {
     }
 
     pub fn add_unique_texture(&mut self, name: &str, texture: Texture,
-                              unit: uint) -> &mut RenderStep {
+                              unit: usize) -> &mut RenderStep {
         let uniform = self.shader.expect_uniform(name);
         self.shader.bind_mut().set_uniform_i32(uniform, unit as i32).unbind();
         self.unique_tex.push((unit as GLenum + gl::TEXTURE0, texture));

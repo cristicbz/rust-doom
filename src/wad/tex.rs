@@ -1,31 +1,30 @@
+use archive::Archive;
+use base::vec_from_elem;
+use gfx::Texture;
+use gl;
+use image::Image;
+use math::{Vec2, Vec2f};
+use name::{WadName, WadNameCast};
 use std::collections::HashMap;
 use std::io::{BufReader, Reader, SeekSet};
 use std::mem;
 use std::num::Float;
-
-use archive::Archive;
-use image::Image;
-use util;
-use gfx::Texture;
-use types::{WadTextureHeader, WadTexturePatchRef};
-use name::{WadName, WadNameCast};
-
-use math::{Vec2, Vec2f};
-
-use gl;
 use time;
+use types::{WadTextureHeader, WadTexturePatchRef};
+use util;
 
 
-pub type Palette = [[u8, ..3], ..256];
-pub type Colormap = [u8, ..256];
+pub type Palette = [[u8; 3]; 256];
+pub type Colormap = [u8; 256];
 pub type Flat = Vec<u8>;
 
-#[deriving(Copy)]
+
+#[derive(Copy)]
 pub struct Bounds {
     pub pos: Vec2f,
     pub size: Vec2f,
-    pub num_frames: uint,
-    pub frame_offset: uint,
+    pub num_frames: usize,
+    pub frame_offset: usize,
 }
 
 pub type BoundsLookup = HashMap<WadName, Bounds>;
@@ -48,7 +47,7 @@ fn search_for_frame<'a>(search_for: &WadName, animations: &'a Vec<Vec<WadName>>)
         -> Option<&'a [WadName]> {
     for animation in animations.iter() {
         for frame in animation.iter() {
-            if search_for == frame { return Some(animation[]); }
+            if search_for == frame { return Some(&animation[]); }
         }
     }
     None
@@ -79,8 +78,8 @@ impl TextureDirectory {
                     continue
                 }
             };
-            let num_textures = try!(read_textures(wad.read_lump(lump_index)[],
-                                                  patches[], &mut textures));
+            let num_textures = try!(read_textures(&wad.read_lump(lump_index)[],
+                                                  &patches[], &mut textures));
             info!("  {:4} textures in {}", num_textures, lump_name);
         }
         let textures = textures;
@@ -121,31 +120,31 @@ impl TextureDirectory {
         }
     }
 
-    pub fn num_patches(&self) -> uint { self.patches.len() }
-    pub fn get_patch(&self, index: uint) -> Option<&Image> {
+    pub fn num_patches(&self) -> usize { self.patches.len() }
+    pub fn get_patch(&self, index: usize) -> Option<&Image> {
         self.patches[index].1.as_ref()
     }
 
-    pub fn num_palettes(&self) -> uint { self.palettes.len() }
-    pub fn get_palette(&self, index: uint) -> &Palette {
+    pub fn num_palettes(&self) -> usize { self.palettes.len() }
+    pub fn get_palette(&self, index: usize) -> &Palette {
         &self.palettes[index]
     }
 
-    pub fn num_colormaps(&self) -> uint { self.colormaps.len() }
-    pub fn get_colormap(&self, index: uint) -> &Colormap {
+    pub fn num_colormaps(&self) -> usize { self.colormaps.len() }
+    pub fn get_colormap(&self, index: usize) -> &Colormap {
         &self.colormaps[index]
     }
 
     pub fn build_palette_texture(&self,
-                                 palette: uint,
-                                 colormap_start: uint,
-                                 colormap_end: uint) -> Texture {
+                                 palette: usize,
+                                 colormap_start: usize,
+                                 colormap_end: usize) -> Texture {
         let num_colormaps = colormap_end - colormap_start;
-        let mut data = Vec::from_elem(256 * num_colormaps * 3, 0u8);
+        let mut data = vec_from_elem(256 * num_colormaps * 3, 0u8);
         let palette = &self.palettes[palette];
         for i_colormap in range(colormap_start, colormap_end) {
             for i_color in range(0, 256) {
-                let rgb = &palette[self.colormaps[i_colormap][i_color] as uint];
+                let rgb = &palette[self.colormaps[i_colormap][i_color] as usize];
                 data[0 + i_color * 3 + i_colormap * 256 * 3] = rgb[0];
                 data[1 + i_color * 3 + i_colormap * 256 * 3] = rgb[1];
                 data[2 + i_color * 3 + i_colormap * 256 * 3] = rgb[2];
@@ -156,7 +155,7 @@ impl TextureDirectory {
         palette_tex.bind(gl::TEXTURE0);
         palette_tex
             .set_filters_nearest()
-            .data_rgb_u8(0, 256, num_colormaps, data[])
+            .data_rgb_u8(0, 256, num_colormaps, &data[])
             .unbind(gl::TEXTURE0);
         palette_tex
     }
@@ -166,13 +165,13 @@ impl TextureDirectory {
         colormap_tex.bind(gl::TEXTURE0);
         colormap_tex
             .set_filters_nearest()
-            .data_red_u8(0, 256, self.colormaps.len(), self.colormaps[])
+            .data_red_u8(0, 256, self.colormaps.len(), &self.colormaps[])
             .unbind(gl::TEXTURE0);
         colormap_tex
     }
 
 
-    pub fn build_texture_atlas<'a, 'b, T: Iterator<&'b WadName>>(
+    pub fn build_texture_atlas<'a, T: Iterator<Item = &'a WadName>>(
             &'a self, names_iter: T) -> (Texture, BoundsLookup) {
         let images = get_ordered_atlas_entries(
             &self.animated_walls,
@@ -187,7 +186,7 @@ impl TextureDirectory {
         let min_atlas_height = 128;
         let max_size = 4096;
 
-        let next_size = |w: &mut uint, h: &mut uint| {
+        let next_size = |&: w: &mut usize, h: &mut usize| {
             loop {
                 if *w == *h {
                     if *w == max_size { panic!("Could not fit wall atlas."); }
@@ -198,8 +197,8 @@ impl TextureDirectory {
             }
         };
 
-        fn img_bound((x_offset, y_offset): (int, int), img: &Image,
-                     frame_offset: uint, num_frames: uint) -> Bounds {
+        fn img_bound((x_offset, y_offset): (isize, isize), img: &Image,
+                     frame_offset: usize, num_frames: usize) -> Bounds {
             Bounds { pos: Vec2::new(x_offset as f32, y_offset as f32),
                      size: Vec2::new(img.width() as f32, img.height() as f32),
                      num_frames: num_frames, frame_offset: frame_offset }
@@ -229,7 +228,7 @@ impl TextureDirectory {
                     failed = true;
                     break;
                 }
-                offsets.push((x_offset as int, y_offset as int));
+                offsets.push((x_offset as isize, y_offset as isize));
                 x_offset += width;
             }
 
@@ -259,7 +258,7 @@ impl TextureDirectory {
         let mut bound_map = HashMap::with_capacity(images.len());
         for (i, (name, image, frame_offset, num_frames)) in
                 images.into_iter().enumerate() {
-            atlas.blit(image, offsets[i].0, offsets[i].1 as int, true);
+            atlas.blit(image, offsets[i].0, offsets[i].1 as isize, true);
             bound_map.insert(*name, img_bound(offsets[i - frame_offset],
                                               image, frame_offset, num_frames));
         }
@@ -275,21 +274,21 @@ impl TextureDirectory {
         (tex, bound_map)
     }
 
-    pub fn build_flat_atlas<'a, 'b, T: Iterator<&'b WadName>>(
+    pub fn build_flat_atlas<'a, T: Iterator<Item = &'a WadName>>(
             &'a self, names_iter: T) -> (Texture, BoundsLookup) {
         let names = get_ordered_atlas_entries(
             &self.animated_flats, |n| -> &'a Flat { self.expect_flat(n) },
             names_iter);
         let num_names = names.len();
 
-        let width = next_pow2((num_names as f64).sqrt().ceil() as uint * 64);
+        let width = next_pow2((num_names as f64).sqrt().ceil() as usize * 64);
         let flats_per_row = width / 64;
 
-        let num_rows = (num_names as f64 / flats_per_row as f64).ceil() as uint;
+        let num_rows = (num_names as f64 / flats_per_row as f64).ceil() as usize;
         let height = next_pow2(num_rows * 64);
 
         let mut offsets = HashMap::with_capacity(num_names);
-        let mut data = Vec::from_elem(width * height, 255u8);
+        let mut data = vec_from_elem(width * height, 255u8);
         let (mut row, mut column) = (0, 0);
         info!("Flat atlas size: {}x{} ({}, {})", width, height, flats_per_row,
                                                  num_rows);
@@ -325,7 +324,7 @@ impl TextureDirectory {
         let mut tex = Texture::new(gl::TEXTURE_2D);
         tex.bind(gl::TEXTURE0);
         tex.set_filters_nearest()
-           .data_red_u8(0, width, height, data[])
+           .data_red_u8(0, width, height, &data[])
            .unbind(gl::TEXTURE0);
 
         (tex, offsets)
@@ -333,14 +332,14 @@ impl TextureDirectory {
 }
 
 
-fn next_pow2(x: uint) -> uint {
+fn next_pow2(x: usize) -> usize {
     let mut pow2 = 1;
     while pow2 < x { pow2 *= 2; }
     pow2
 }
 
 
-const TEXTURE_LUMP_NAMES: &'static [[u8, ..8]] =
+const TEXTURE_LUMP_NAMES: &'static [[u8; 8]] =
     &[[b'T', b'E', b'X', b'T', b'U', b'R', b'E', b'1'],
       [b'T', b'E', b'X', b'T', b'U', b'R', b'E', b'2']];
 
@@ -348,20 +347,20 @@ const TEXTURE_LUMP_NAMES: &'static [[u8, ..8]] =
 fn read_patches(wad: &mut Archive)
         -> Result<Vec<(WadName, Option<Image>)>, String> {
     let pnames_buffer = wad.read_lump_by_name(&b"PNAMES".to_wad_name());
-    let mut lump = BufReader::new(pnames_buffer[]);
+    let mut lump = BufReader::new(&pnames_buffer[]);
 
-    let num_patches = io_try!(lump.read_le_u32()) as uint;
+    let num_patches = io_try!(lump.read_le_u32()) as usize;
     let mut patches = Vec::with_capacity(num_patches);
 
     patches.reserve(num_patches);
-    let mut missing_patches = 0u;
+    let mut missing_patches = 0us;
     info!("Reading {} patches....", num_patches);
     let t0 = time::precise_time_s();
     for _ in range(0, num_patches) {
         let name = util::read_binary::<WadName, _>(&mut lump).into_canonical();
         let patch = wad.get_lump_index(&name).map(|index| {
             let patch_buffer = wad.read_lump(index);
-            Image::from_buffer(patch_buffer[])
+            Image::from_buffer(&patch_buffer[])
         });
         if patch.is_none() { missing_patches += 1; }
         patches.push((name, patch));
@@ -374,16 +373,16 @@ fn read_patches(wad: &mut Archive)
 
 fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
                  textures: &mut HashMap<WadName, Image>)
-        -> Result<uint, String> {
-    let mut lump = BufReader::new(lump_buffer[]);
-    let num_textures = io_try!(lump.read_le_u32()) as uint;
+        -> Result<usize, String> {
+    let mut lump = BufReader::new(&lump_buffer[]);
+    let num_textures = io_try!(lump.read_le_u32()) as usize;
     let current_num_textures = textures.len();
     textures.reserve(current_num_textures + num_textures);
 
     let mut offsets = BufReader::new({
-        let begin = io_try!(lump.tell()) as uint;
+        let begin = io_try!(lump.tell()) as usize;
         let size = num_textures * mem::size_of::<u32>();
-        lump_buffer[begin .. begin + size]
+        &lump_buffer[begin .. begin + size]
     });
 
     for _ in range(0, num_textures) {
@@ -395,8 +394,8 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
 
         for i_patch in range(0, header.num_patches) {
             let pref = util::read_binary::<WadTexturePatchRef, _>(&mut lump);
-            let (off_x, off_y) = (pref.origin_x as int, pref.origin_y as int);
-            match patches[pref.patch as uint] {
+            let (off_x, off_y) = (pref.origin_x as isize, pref.origin_y as isize);
+            match patches[pref.patch as usize] {
                 (_, Some(ref patch)) => {
                     image.blit(patch,
                                off_x, if off_y < 0 { 0 } else { off_y },
@@ -435,13 +434,14 @@ fn read_flats(wad: &mut Archive) -> Result<HashMap<WadName, Flat>, String> {
     Ok(flats)
 }
 
-pub fn get_ordered_atlas_entries<'b, 'a : 'b,
-                                 NameIteratorT: Iterator<&'a WadName>,
-                                 ImageT>(
+pub fn get_ordered_atlas_entries<'b, 'a: 'b,
+                                 NameIteratorT: Iterator<Item = &'a WadName>,
+                                 ImageT,
+                                 ImageLookupT: Fn(&WadName) -> &'b ImageT>(
             animations: &'b Vec<Vec<WadName>>,
-            image_lookup: |&WadName| -> &'b ImageT,
+            image_lookup: ImageLookupT,
             mut names_iter: NameIteratorT)
-        -> Vec<(&'b WadName, &'b ImageT, uint, uint)> {
+        -> Vec<(&'b WadName, &'b ImageT, usize, usize)> {
     let mut frames_by_first_frame = HashMap::new();
     for name in names_iter {
         let maybe_frames = search_for_frame(name, animations);

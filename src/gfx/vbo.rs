@@ -6,12 +6,12 @@ use std::mem;
 
 pub struct VertexBuffer {
     id: VboId,
-    length: uint,
+    length: usize,
     attributes: Vec<VertexAttribute>,
-    vertex_size: uint,
+    vertex_size: usize,
 }
 impl VertexBuffer {
-    fn new(vertex_size: uint, attributes: Vec<VertexAttribute>)
+    fn new(vertex_size: usize, attributes: Vec<VertexAttribute>)
             -> VertexBuffer {
         VertexBuffer {
             id: VboId::new_orphaned(),
@@ -23,14 +23,14 @@ impl VertexBuffer {
 
     pub fn draw_triangles(&self) -> &VertexBuffer {
         check_gl_unsafe!(gl::BindBuffer(gl::ARRAY_BUFFER, self.id.id()));
-        bind_attributes(self.vertex_size, self.attributes[]);
+        bind_attributes(self.vertex_size, &self.attributes[]);
         check_gl_unsafe!(gl::DrawArrays(gl::TRIANGLES, 0, self.length as i32));
-        unbind_attributes(self.attributes[]);
+        unbind_attributes(&self.attributes[]);
         check_gl_unsafe!(gl::BindBuffer(gl::ARRAY_BUFFER, 0));
         self
     }
 
-    pub fn len(&self) -> uint { self.length }
+    pub fn len(&self) -> usize { self.length }
 
     pub fn set_data<V: Copy> (&mut self, usage: GLenum, data: &[V])
             -> &mut VertexBuffer {
@@ -48,10 +48,10 @@ impl VertexBuffer {
 pub struct BufferBuilder<VertexType: Copy> {
     attributes: Vec<VertexAttribute>,
     used_layouts: Vec<bool>,
-    vertex_size: uint
+    vertex_size: usize
 }
 impl<VertexType: Copy>  BufferBuilder<VertexType> {
-    pub fn new(capacity: uint) -> BufferBuilder<VertexType> {
+    pub fn new(capacity: usize) -> BufferBuilder<VertexType> {
         BufferBuilder {
             attributes: Vec::with_capacity(capacity),
             used_layouts: Vec::with_capacity(capacity),
@@ -59,39 +59,39 @@ impl<VertexType: Copy>  BufferBuilder<VertexType> {
         }
     }
 
-    pub fn max_attribute_size_left(&self) -> uint {
+    pub fn max_attribute_size_left(&self) -> usize {
         let final_size = mem::size_of::<VertexType>();
         assert!(final_size >= self.vertex_size);
         final_size - self.vertex_size
     }
 
-    pub fn attribute_u8(&mut self, layout: uint, offset: *const c_void)
+    pub fn attribute_u8(&mut self, layout: usize, offset: *const c_void)
             -> &mut BufferBuilder<VertexType> {
         self.new_attribute(layout, gl::UNSIGNED_BYTE, 1, false, offset)
     }
 
-    pub fn attribute_u16(&mut self, layout: uint, offset: *const c_void)
+    pub fn attribute_u16(&mut self, layout: usize, offset: *const c_void)
             -> &mut BufferBuilder<VertexType> {
         self.new_attribute(layout, gl::UNSIGNED_SHORT, 1, false, offset)
     }
 
-    pub fn attribute_f32(&mut self, layout: uint, offset: *const c_void)
+    pub fn attribute_f32(&mut self, layout: usize, offset: *const c_void)
             -> &mut BufferBuilder<VertexType> {
         self.new_attribute(layout, gl::FLOAT, 1, false, offset)
     }
 
-    pub fn attribute_vec2f(&mut self, layout: uint, offset: *const c_void)
+    pub fn attribute_vec2f(&mut self, layout: usize, offset: *const c_void)
             -> &mut BufferBuilder<VertexType> {
         self.new_attribute(layout, gl::FLOAT, 2, false, offset)
     }
 
-    pub fn attribute_vec3f(&mut self, layout: uint, offset: *const c_void)
+    pub fn attribute_vec3f(&mut self, layout: usize, offset: *const c_void)
             -> &mut BufferBuilder<VertexType> {
         self.new_attribute(layout, gl::FLOAT, 3, false, offset)
     }
 
-    pub fn new_attribute(&mut self, layout: uint, gl_type: GLenum,
-                         size: uint, normalized: bool, offset: *const c_void)
+    pub fn new_attribute(&mut self, layout: usize, gl_type: GLenum,
+                         size: usize, normalized: bool, offset: *const c_void)
             -> &mut BufferBuilder<VertexType> {
         let attr_size = size * match gl_type {
             gl::FLOAT => mem::size_of::<f32>(),
@@ -128,8 +128,8 @@ impl<VertexType: Copy>  BufferBuilder<VertexType> {
 
 type IndexType = u16;
 
-#[allow(raw_pointer_deriving)]
-#[deriving(Clone)]
+#[allow(raw_pointer_derive)]
+#[derive(Clone)]
 struct VertexAttribute {
     layout: GLuint,
     gl_type: GLenum,
@@ -139,7 +139,7 @@ struct VertexAttribute {
 }
 
 
-fn bind_attributes(stride: uint, attributes: &[VertexAttribute]) {
+fn bind_attributes(stride: usize, attributes: &[VertexAttribute]) {
     let stride = stride as i32;
     for attr in attributes.iter() {
         check_gl_unsafe!(gl::EnableVertexAttribArray(attr.layout));

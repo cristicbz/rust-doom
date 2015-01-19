@@ -29,11 +29,11 @@ pub enum Analog2d {
     Gestures(Gesture, Gesture, Gesture, Gesture, Sensitivity),
 }
 
-#[deriving(Copy)]
+#[derive(Copy)]
 pub struct GameController {
     current_update_index: UpdateIndex,
 
-    keyboard_state: [ButtonState, ..NUM_SCAN_CODES],
+    keyboard_state: [ButtonState; NUM_SCAN_CODES],
     quit_requested_index: UpdateIndex,
 
     mouse_enabled: bool,
@@ -45,7 +45,7 @@ impl GameController {
         mouse::set_relative_mouse_mode(true);
         GameController {
             current_update_index: 1,
-            keyboard_state: [ButtonState::Up(0), ..NUM_SCAN_CODES],
+            keyboard_state: [ButtonState::Up(0); NUM_SCAN_CODES],
             quit_requested_index: 0,
             mouse_enabled: true,
             mouse_rel: Vec2::zero(),
@@ -69,11 +69,11 @@ impl GameController {
                     self.quit_requested_index = self.current_update_index;
                 },
                 Event::KeyDown(_, _, _, code, _, _) => {
-                    self.keyboard_state[code as uint] =
+                    self.keyboard_state[code as usize] =
                         ButtonState::Down(self.current_update_index);
                 },
                 Event::KeyUp(_, _, _, code, _, _) => {
-                    self.keyboard_state[code as uint] =
+                    self.keyboard_state[code as usize] =
                         ButtonState::Up(self.current_update_index);
                 },
                 Event::MouseMotion(_, _, _, _, _, _, xrel, yrel) => {
@@ -94,12 +94,12 @@ impl GameController {
             Gesture::QuitTrigger => {
                 self.quit_requested_index == self.current_update_index
             },
-            Gesture::KeyHold(code) => match self.keyboard_state[code as uint] {
+            Gesture::KeyHold(code) => match self.keyboard_state[code as usize] {
                 ButtonState::Down(_) => true,
                 _ => false
             },
             Gesture::KeyTrigger(code)
-                    => match self.keyboard_state[code as uint] {
+                    => match self.keyboard_state[code as usize] {
                 ButtonState::Down(index) => self.current_update_index == index,
                 _ => false
             },
@@ -143,11 +143,11 @@ impl GameController {
     }
 }
 
-const NUM_SCAN_CODES : uint = 512;
+const NUM_SCAN_CODES: usize = 512;
 
 type UpdateIndex = u32;
 
-#[deriving(Copy)]
+#[derive(Copy)]
 enum ButtonState {
     Up(UpdateIndex),
     Down(UpdateIndex),

@@ -1,15 +1,15 @@
-use std::num::{Float, FloatMath};
+use std::num::{Float, NumCast};
 use numvec::{Vec2, Numvec};
 
 
 pub type Line2f = Line2<f32>;
 
-#[deriving(Copy)]
-pub struct Line2<T: Float + FloatMath> {
+#[derive(Copy)]
+pub struct Line2<T: Float + NumCast> {
     origin: Vec2<T>,
     displace: Vec2<T>,
 }
-impl<T: Float + FloatMath> Line2<T> {
+impl<T: Float + NumCast> Line2<T> {
     pub fn from_origin_and_displace(origin: Vec2<T>,
                                     displace: Vec2<T>) -> Line2<T> {
         Line2 { origin: origin, displace: displace.normalized() }
@@ -29,7 +29,7 @@ impl<T: Float + FloatMath> Line2<T> {
 
     pub fn intersect_offset(&self, other: &Line2<T>) -> Option<T> {
         let numerator = self.displace.cross(&other.displace);
-        if numerator.abs() < Float::epsilon() {
+        if numerator.abs() < <T as NumCast>::from(1e-16).unwrap() {
             None
         } else {
             Some((other.origin - self.origin).cross(&other.displace) /
