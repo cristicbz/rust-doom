@@ -17,8 +17,8 @@ pub type LinedefId = u16;
 pub type ChildId = u16;
 
 
-#[repr(C)]
 #[repr(packed)]
+#[repr(C)]
 #[derive(Copy)]
 pub struct WadInfo {
     pub identifier       : [u8; 4],
@@ -27,8 +27,8 @@ pub struct WadInfo {
 }
 
 
-#[repr(C)]
 #[repr(packed)]
+#[repr(C)]
 #[derive(Copy)]
 pub struct WadLump {
     pub file_pos: i32,
@@ -142,8 +142,8 @@ pub struct WadNode {
 }
 
 
-#[repr(C)]
 #[repr(packed)]
+#[repr(C)]
 #[derive(Copy)]
 pub struct WadTextureHeader {
     pub name: WadName,

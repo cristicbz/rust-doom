@@ -3,10 +3,7 @@ use gl;
 use gl::types::{GLint, GLuint, GLchar};
 use math::{Mat4, Vec2f, Vec3f};
 use std::ffi::CString;
-use std::iter;
 use std::ptr;
-use std::string::String;
-use std::vec::Vec;
 
 #[derive(Copy)]
 pub struct Uniform {

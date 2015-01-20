@@ -1,4 +1,5 @@
 #![feature(slicing_syntax)]
+#![allow(unstable)]
 
 extern crate base;
 extern crate gfx;
