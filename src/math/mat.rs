@@ -114,7 +114,7 @@ impl Mat4 {
     }
 }
 
-impl fmt::Show for Mat4 {
+impl fmt::Debug for Mat4 {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter,
                "[{:10.3e} {:10.3e} {:10.3e} {:10.3e};\n \
