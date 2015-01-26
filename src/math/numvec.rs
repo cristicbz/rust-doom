@@ -1,7 +1,7 @@
 use std::num::{Float};
 use std::ops::{Add, Sub, Mul, Div, Neg};
 use std::fmt;
-use std::fmt::Show;
+use std::fmt::Debug;
 
 pub type Vec2f = Vec2<f32>;
 pub type Vec3f = Vec3<f32>;
@@ -90,7 +90,7 @@ impl<T: Float> Neg for Vec2<T> {
         return Vec2::new(-self.x, -self.y);
     }
 }
-impl<T: Float  + Show> Show for Vec2<T> {
+impl<T: Float  + Debug> Debug for Vec2<T> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter, "Vec2({:?}, {:?})", self.x, self.y)
     }
@@ -170,7 +170,7 @@ impl<T: Float> Neg for Vec3<T> {
         return Vec3::new(-self.x, -self.y, -self.z);
     }
 }
-impl<T: Float + Show> Show for Vec3<T> {
+impl<T: Float + Debug> Debug for Vec3<T> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter, "Vec3({:?}, {:?}, {:?})", self.x, self.y, self.z)
     }

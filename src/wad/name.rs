@@ -1,8 +1,8 @@
 use rustc_serialize::{Encoder, Encodable, Decoder, Decodable};
 use std::ascii::AsciiExt;
 use std::{fmt, mem, str};
-use std::fmt::Show;
-use std::fmt::String as FmtString;
+use std::fmt::Debug;
+use std::fmt::Display as FmtString;
 use std::string::String;
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -76,7 +76,7 @@ impl Decodable for WadName {
     }
 }
 
-pub trait WadNameCast : Show {
+pub trait WadNameCast : Debug {
     fn to_wad_name_opt(&self) -> Option<WadName>;
     fn to_wad_name(&self) -> WadName {
         match self.to_wad_name_opt() {
