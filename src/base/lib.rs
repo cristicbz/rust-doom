@@ -1,6 +1,6 @@
 #![allow(unstable)]
 
-use std::io::fs::File;
+use std::old_io::fs::File;
 use std::string::String;
 
 pub fn read_utf8_file(path: &Path) -> Result<String, String> {

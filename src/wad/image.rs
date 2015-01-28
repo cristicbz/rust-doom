@@ -1,7 +1,7 @@
 use base::vec_from_elem;
 use gfx::Texture;
 use gl;
-use std::io::BufReader;
+use std::old_io::BufReader;
 use std::ptr::copy_nonoverlapping_memory;
 use std::vec::Vec;
 use super::types::WadTextureHeader;

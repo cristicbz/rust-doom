@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::io::{File, SeekSet};
 use std::{mem, iter};
+use std::old_io::{File, SeekSet};
 use std::slice;
 use std::vec::Vec;
 
