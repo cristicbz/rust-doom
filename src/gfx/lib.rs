@@ -1,5 +1,4 @@
-#![feature(slicing_syntax)]
-#![allow(unstable)]
+#![feature(slicing_syntax, collections, std_misc, core, path, libc, path)]
 
 #[macro_use]
 extern crate gl;

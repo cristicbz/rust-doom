@@ -366,8 +366,8 @@ impl<'a> VboBuilder<'a> {
         // The convex polyon defined at the intersection of the partition lines,
         // intersected with the half-volumes of the segs form the 'implicit'
         // points.
-        for i_line in range(0, lines.len() - 1) {
-            for j_line in range(i_line + 1, lines.len()) {
+        for i_line in 0..(lines.len() - 1) {
+            for j_line in (i_line + 1)..lines.len() {
                 let (l1, l2) = (&(*lines)[i_line], &(*lines)[j_line]);
                 let point = match l1.intersect_point(l2) {
                     Some(p) => p,
@@ -526,7 +526,7 @@ impl<'a> VboBuilder<'a> {
             let floor_bounds = self.bounds.flats
                 .get(floor_tex)
                 .expect(&format!("flat: No such floor {}.", floor_tex)[]);
-            for i in range(1, points.len()) {
+            for i in 1..points.len() {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
                 self.flat_vertex(&v0, floor_y, light_info, floor_bounds);
                 self.flat_vertex(&v1, floor_y, light_info, floor_bounds);
@@ -534,7 +534,7 @@ impl<'a> VboBuilder<'a> {
             }
         } else {
             let min = from_wad_height(self.min_height);
-            for i in range(1, points.len()) {
+            for i in 1..points.len() {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
 
                 self.sky_vertex(&v0, min);
@@ -547,7 +547,7 @@ impl<'a> VboBuilder<'a> {
             let ceiling_bounds = self.bounds.flats
                 .get(ceil_tex)
                 .expect(&format!("flat: No such ceiling {}.", ceil_tex)[]);
-            for i in range(1, points.len()) {
+            for i in 1..points.len() {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
                 self.flat_vertex(&v2, ceil_y, light_info, ceiling_bounds);
                 self.flat_vertex(&v1, ceil_y, light_info, ceiling_bounds);
@@ -555,7 +555,7 @@ impl<'a> VboBuilder<'a> {
             }
         } else {
             let max = from_wad_height(self.max_height);
-            for i in range(1, points.len()) {
+            for i in 1..points.len() {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
 
                 self.sky_vertex(&v2, max);
@@ -682,7 +682,7 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
     simplified.push((*points)[0]);
     let mut current_point = (*points)[1];
     let mut area = 0.0;
-    for i_point in range(2, points.len()) {
+    for i_point in 2..points.len() {
         let next_point = (*points)[i_point];
         let prev_point = simplified[simplified.len() - 1];
         let new_area = (next_point - current_point)

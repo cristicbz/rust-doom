@@ -1,4 +1,6 @@
-#![allow(unstable)]
+#![feature(collections)]
+#![feature(core)]
+#![feature(io)]
 
 use std::old_io::fs::File;
 use std::string::String;

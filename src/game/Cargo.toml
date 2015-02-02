@@ -27,3 +27,4 @@ git = "https://github.com/rust-lang/time"
 
 [dependencies]
 log = "*"
+getopts = "*"

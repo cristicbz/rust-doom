@@ -1,5 +1,4 @@
-#![feature(slicing_syntax)]
-#![allow(unstable)]
+#![feature(slicing_syntax, io, core, std_misc, hash, path, collections)]
 
 extern crate base;
 extern crate gfx;

@@ -65,18 +65,18 @@ impl GameController {
         self.mouse_rel = Vec2::zero();
         loop {
             match event::poll_event() {
-                Event::Quit(_) => {
+                Event::Quit { .. } => {
                     self.quit_requested_index = self.current_update_index;
                 },
-                Event::KeyDown(_, _, _, code, _, _) => {
-                    self.keyboard_state[code as usize] =
+                Event::KeyDown{ scancode, .. } => {
+                    self.keyboard_state[scancode as usize] =
                         ButtonState::Down(self.current_update_index);
                 },
-                Event::KeyUp(_, _, _, code, _, _) => {
-                    self.keyboard_state[code as usize] =
+                Event::KeyUp { scancode, .. } => {
+                    self.keyboard_state[scancode as usize] =
                         ButtonState::Up(self.current_update_index);
                 },
-                Event::MouseMotion(_, _, _, _, _, _, xrel, yrel) => {
+                Event::MouseMotion { xrel, yrel, .. } => {
                     if self.mouse_enabled {
                         self.mouse_rel = Vec2::new(xrel as f32, -yrel as f32);
                     } else {

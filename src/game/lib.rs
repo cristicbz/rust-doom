@@ -1,5 +1,4 @@
-#![feature(slicing_syntax)]
-#![allow(unstable)]
+#![feature(slicing_syntax, libc, core, path, collections, os)]
 
 extern crate gfx;
 extern crate wad;
@@ -23,7 +22,7 @@ use libc::c_void;
 use math::{Mat4, Vec3};
 use player::Player;
 use sdl2::scancode::ScanCode;
-use sdl2::video::GLAttr;
+use sdl2::video::{GLAttr, GLProfile};
 use sdl2::video::WindowPos;
 use std::default::Default;
 use wad::TextureDirectory;
@@ -36,7 +35,7 @@ pub mod level;
 
 const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.7 - Toggle mouse with \
                                     backtick key (`))";
-const OPENGL_DEPTH_SIZE: isize = 24;
+const OPENGL_DEPTH_SIZE: i32 = 24;
 const SHADER_ROOT: &'static str = "src/shaders";
 
 
@@ -52,13 +51,12 @@ impl MainWindow {
                                       gl::platform::GL_MINOR_VERSION);
         sdl2::video::gl_set_attribute(GLAttr::GLDepthSize, OPENGL_DEPTH_SIZE);
         sdl2::video::gl_set_attribute(GLAttr::GLDoubleBuffer, 1);
-        sdl2::video::gl_set_attribute(
-            GLAttr::GLContextProfileMask,
-            sdl2::video::ll::SDL_GLprofile::SDL_GL_CONTEXT_PROFILE_CORE as isize);
+        sdl2::video::gl_set_attribute(GLAttr::GLContextProfileMask,
+                                      GLProfile::GLCoreProfile as i32);
 
         let window = sdl2::video::Window::new(
             WINDOW_TITLE, WindowPos::PosCentered, WindowPos::PosCentered,
-            width as isize, height as isize,
+            width as i32, height as i32,
             sdl2::video::OPENGL | sdl2::video::SHOWN).unwrap();
 
         let context = window.gl_create_context().unwrap();
@@ -190,29 +188,30 @@ impl Game {
 
 #[cfg(not(test))]
 pub fn run() {
-    use getopts::{optopt,optflag,getopts, usage};
+    use getopts::Options;
     use std::os;
 
     let args: Vec<String> = os::args();
-    let opts = [
-        optopt("i", "iwad",
-               "set initial wad file to use wad [default='doom1.wad']", "FILE"),
-        optopt("m", "metadata",
-               "path to toml toml metadata file [default='doom.toml']", "FILE"),
-        optopt("l", "level",
-               "the index of the level to render [default=0]", "N"),
-        optopt("f", "fov",
-               "horizontal field of view to please TotalHalibut [default=65]",
-               "FLOAT"),
-        optopt("r", "resolution",
-               "the resolution at which to render the game [default=1280x720]",
-               "WIDTHxHEIGHT"),
-        optflag("d", "dump-levels", "list all levels and exit."),
-        optflag("", "load-all", "loads all levels and exit; for debugging"),
-        optflag("h", "help", "print this help message and exit"),
-    ];
+    let mut opts = Options::new();
+    opts.optopt("i", "iwad",
+                "set initial wad file to use wad [default='doom1.wad']",
+                "FILE");
+    opts.optopt("m", "metadata",
+                "path to toml toml metadata file [default='doom.toml']",
+                "FILE");
+    opts.optopt("l", "level",
+                "the index of the level to render [default=0]", "N");
+    opts.optopt("f", "fov",
+                "horizontal field of view to please TotalHalibut [default=65]",
+                "FLOAT");
+    opts.optopt("r", "resolution",
+                "the resolution at which to render the game [default=1280x720]",
+                "WIDTHxHEIGHT");
+    opts.optflag("d", "dump-levels", "list all levels and exit.");
+    opts.optflag("", "load-all", "loads all levels and exit; for debugging");
+    opts.optflag("h", "help", "print this help message and exit");
 
-    let matches = match getopts(args.tail(), &opts) {
+    let matches = match opts.parse(args.tail()) {
         Ok(m) => m,
         Err(f) => panic!(f.to_string()),
     };
@@ -248,14 +247,14 @@ pub fn run() {
         .unwrap_or(65.0);
 
     if matches.opt_present("h") {
-        println!("{}", usage("A rust doom renderer.", &opts));
+        println!("{}", opts.usage("A rust doom renderer."));
         return;
     }
 
     if matches.opt_present("d") {
         let wad = wad::Archive::open(
             &Path::new(&wad_filename[]), &Path::new(&meta_filename[])).unwrap();
-        for i_level in range(0, wad.num_levels()) {
+        for i_level in 0..wad.num_levels() {
             println!("{:3} {:8}", i_level, wad.get_level_name(i_level));
         }
         return;
