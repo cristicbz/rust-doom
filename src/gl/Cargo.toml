@@ -16,3 +16,6 @@ git = "https://github.com/bjz/gl-rs.git"
 
 [dependencies.gl_common]
 git = "https://github.com/bjz/gl-rs.git"
+
+[dependencies]
+libc = "*"

@@ -1,6 +1,4 @@
-#![feature(collections)]
-#![feature(core)]
-#![feature(io)]
+#![feature(collections, io, path)]
 
 use std::old_io::fs::File;
 use std::string::String;

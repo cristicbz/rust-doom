@@ -29,8 +29,8 @@ pub fn read_binary<T: Copy, R: Reader>(reader: &mut R) -> T {
     unsafe {
         reader.read_at_least(
             size,
-            slice::from_raw_mut_buf(
-                &(&mut loaded as *mut _ as *mut u8),
+            slice::from_raw_parts_mut(
+                (&mut loaded as *mut _ as *mut u8),
                 size)).unwrap();
     }
     loaded

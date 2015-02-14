@@ -440,7 +440,7 @@ pub fn get_ordered_atlas_entries<'b, 'a: 'b,
                                  ImageLookupT: Fn(&WadName) -> &'b ImageT>(
             animations: &'b Vec<Vec<WadName>>,
             image_lookup: ImageLookupT,
-            mut names_iter: NameIteratorT)
+            names_iter: NameIteratorT)
         -> Vec<(&'b WadName, &'b ImageT, usize, usize)> {
     let mut frames_by_first_frame = HashMap::new();
     for name in names_iter {

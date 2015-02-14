@@ -108,8 +108,8 @@ impl Archive {
         unsafe {
             buf.set_len(num_elems);
             self.file.read_at_least(info.size,
-                    slice::from_raw_mut_buf(
-                        &(buf.as_mut_ptr() as *mut u8), info.size)).unwrap();
+                    slice::from_raw_parts_mut(
+                        (buf.as_mut_ptr() as *mut u8), info.size)).unwrap();
         }
         buf
     }

@@ -18,3 +18,4 @@ path = "../base"
 
 [dependencies]
 log = "*"
+libc = "*"

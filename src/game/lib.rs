@@ -1,4 +1,4 @@
-#![feature(slicing_syntax, libc, core, path, collections, os)]
+#![feature(slicing_syntax, core, path, collections, env)]
 
 extern crate gfx;
 extern crate wad;
@@ -33,8 +33,8 @@ pub mod player;
 pub mod level;
 
 
-const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.7 - Toggle mouse with \
-                                    backtick key (`))";
+const WINDOW_TITLE: &'static str =
+    "Rusty Doom v0.0.7 - Toggle mouse with backtick key (`))";
 const OPENGL_DEPTH_SIZE: i32 = 24;
 const SHADER_ROOT: &'static str = "src/shaders";
 
@@ -189,9 +189,9 @@ impl Game {
 #[cfg(not(test))]
 pub fn run() {
     use getopts::Options;
-    use std::os;
+    use std::env;
 
-    let args: Vec<String> = os::args();
+    let args = env::args().collect::<Vec<_>>();
     let mut opts = Options::new();
     opts.optopt("i", "iwad",
                 "set initial wad file to use wad [default='doom1.wad']",
@@ -237,12 +237,12 @@ pub fn run() {
         .unwrap_or((1280, 720));
     let level_index = matches
         .opt_str("l")
-        .map(|l| l[].parse()
+        .map(|l| l[].parse().ok()
                     .expect("Invalid value for --level. Expected integer."))
         .unwrap_or(0);
     let fov = matches
         .opt_str("f")
-        .map(|f| f[].parse()
+        .map(|f| f[].parse().ok()
                     .expect("Invalid value for --fov. Expected float."))
         .unwrap_or(65.0);
 
