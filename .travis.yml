@@ -1,0 +1,7 @@
+language: rust
+
+script:
+  - rustc --version
+  - cargo build
+  - make test
+
