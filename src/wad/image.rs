@@ -3,7 +3,6 @@ use gfx::Texture;
 use gl;
 use std::ptr::copy_nonoverlapping_memory;
 use std::vec::Vec;
-use std::io::Read;
 use super::types::WadTextureHeader;
 
 
@@ -42,63 +41,43 @@ impl Image {
         let y_offset = reader.read_le_i16().unwrap() as isize;
 
         let mut pixels = vec![-1; width * height];
-        for i_column in 0 .. width {
-            let column_offset = reader.read_le_u32().unwrap() as usize;
-            let mut column = buffer[column_offset..].iter().cloned();
-            loop {
-                let row_start = match column.next().unwrap() {
-                    255 => break,
-                    x => x,
-                };
+        // Sorry for the messy/unsafe code, but the array bounds checks in this
+        // tight loop make it 6x slower.
+        for i_column in range(0, width as isize) { unsafe {
+            // Each column is defined as a number of vertical `runs' which are
+            // defined starting at `offset' in the buffer.
+            let offset = reader.read_le_u32().unwrap() as isize;
+            let mut src_ptr = buffer.as_ptr().offset(offset);
+            'this_column: loop {
+                // The first byte contains the vertical coordinate of the run's
+                // start.
+                let row_start = *src_ptr as isize; src_ptr = src_ptr.offset(1);
 
-                let run_length = column.next().unwrap();
-                column.next().unwrap();
-                let mut dest_idx = row_start as usize * width + i_column;
-                for i in 0..run_length {
-                    pixels[dest_idx] = column.next().unwrap() as u16;
-                    dest_idx += width;
+                // Pointer to the beginning of the run in `pixels'.
+                let mut dest_ptr = pixels
+                    .as_mut_ptr().offset(row_start * width as isize + i_column);
+
+                // The special value of 255 means this is the last run in the
+                // column, so move on to the next one.
+                if row_start == 255 { break 'this_column; }
+
+                // The second byte is the length of this run. Skip an additional
+                // byte which is ignored for some reason.
+                let run_length = *src_ptr as isize; src_ptr = src_ptr.offset(2);
+
+                let src_end = src_ptr.offset(run_length);  // Ptr to end of run.
+                while src_ptr < src_end {
+                    // Copy one byte converting it into an opaque pixels (high
+                    // bits are zero) and advance the pointers.
+                    *dest_ptr = *src_ptr as u16;
+                    dest_ptr = dest_ptr.offset(width as isize);
+                    src_ptr = src_ptr.offset(1);
                 }
-                column.next().unwrap();
+                // And another ignored byte after the run.
+                src_ptr = src_ptr.offset(1);
             }
-        }
+        }}
         let pixels = pixels;
-        //// Sorry for the messy/unsafe code, but the array bounds checks in this
-        //// tight loop make it 6x slower.
-        //for i_column in range(0, width as isize) { unsafe {
-        //    // Each column is defined as a number of vertical `runs' which are
-        //    // defined starting at `offset' in the buffer.
-        //    let offset = buffer.read_le_u32().unwrap() as isize;
-        //    let mut src_ptr = buffer.as_ptr().offset(offset);
-        //    'this_column: loop {
-        //        // The first byte contains the vertical coordinate of the run's
-        //        // start.
-        //        let row_start = *src_ptr as isize; src_ptr = src_ptr.offset(1);
-
-        //        // Pointer to the beginning of the run in `pixels'.
-        //        let mut dest_ptr = pixels
-        //            .as_mut_ptr().offset(row_start * width as isize + i_column);
-
-        //        // The special value of 255 means this is the last run in the
-        //        // column, so move on to the next one.
-        //        if row_start == 255 { break 'this_column; }
-
-        //        // The second byte is the length of this run. Skip an additional
-        //        // byte which is ignored for some reason.
-        //        let run_length = *src_ptr as isize; src_ptr = src_ptr.offset(2);
-
-        //        let src_end = src_ptr.offset(run_length);  // Ptr to end of run.
-        //        while src_ptr < src_end {
-        //            // Copy one byte converting it into an opaque pixels (high
-        //            // bits are zero) and advance the pointers.
-        //            *dest_ptr = *src_ptr as u16;
-        //            dest_ptr = dest_ptr.offset(width as isize);
-        //            src_ptr = src_ptr.offset(1);
-        //        }
-        //        // And another ignored byte after the run.
-        //        src_ptr = src_ptr.offset(1);
-        //    }
-        //}}
-        //let pixels = pixels;
 
         Image { width: width,
                 height: height,
@@ -189,6 +168,5 @@ impl Image {
     pub fn num_pixels(&self) -> usize { self.pixels.len() }
 
     pub fn get_pixels(&self) -> &[u16] { &self.pixels }
-
 }
 
