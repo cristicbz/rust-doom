@@ -1,7 +1,8 @@
 use gl;
-use gl::types::{GLint, GLuint, GLenum, GLsizeiptr};
+use gl::types::*;
 use libc;
 use libc::c_void;
+use std::marker::PhantomData;
 use std::mem;
 
 pub struct VertexBuffer {
@@ -23,9 +24,9 @@ impl VertexBuffer {
 
     pub fn draw_triangles(&self) -> &VertexBuffer {
         check_gl_unsafe!(gl::BindBuffer(gl::ARRAY_BUFFER, self.id.id()));
-        bind_attributes(self.vertex_size, &self.attributes[]);
+        bind_attributes(self.vertex_size, &self.attributes);
         check_gl_unsafe!(gl::DrawArrays(gl::TRIANGLES, 0, self.length as i32));
-        unbind_attributes(&self.attributes[]);
+        unbind_attributes(&self.attributes);
         check_gl_unsafe!(gl::BindBuffer(gl::ARRAY_BUFFER, 0));
         self
     }
@@ -48,7 +49,8 @@ impl VertexBuffer {
 pub struct BufferBuilder<VertexType: Copy> {
     attributes: Vec<VertexAttribute>,
     used_layouts: Vec<bool>,
-    vertex_size: usize
+    vertex_size: usize,
+    _phantom: PhantomData<VertexType>,
 }
 impl<VertexType: Copy>  BufferBuilder<VertexType> {
     pub fn new(capacity: usize) -> BufferBuilder<VertexType> {
@@ -56,6 +58,7 @@ impl<VertexType: Copy>  BufferBuilder<VertexType> {
             attributes: Vec::with_capacity(capacity),
             used_layouts: Vec::with_capacity(capacity),
             vertex_size: 0,
+            _phantom: PhantomData,
         }
     }
 

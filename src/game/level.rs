@@ -279,15 +279,15 @@ impl<'a> VboBuilder<'a> {
         builder.node(&mut Vec::with_capacity(32), root_id);
 
         let mut vbo = VboBuilder::init_sky_buffer();
-        vbo.set_data(gl::STATIC_DRAW, &builder.sky[]);
+        vbo.set_data(gl::STATIC_DRAW, &builder.sky);
         steps.sky.add_static_vbo(vbo);
 
         let mut vbo = VboBuilder::init_flats_buffer();
-        vbo.set_data(gl::STATIC_DRAW, &builder.flats[]);
+        vbo.set_data(gl::STATIC_DRAW, &builder.flats);
         steps.flats.add_static_vbo(vbo);
 
         let mut vbo = VboBuilder::init_walls_buffer();
-        vbo.set_data(gl::STATIC_DRAW, &builder.walls[]);
+        vbo.set_data(gl::STATIC_DRAW, &builder.walls);
         steps.walls.add_static_vbo(vbo);
 
     }
@@ -327,7 +327,7 @@ impl<'a> VboBuilder<'a> {
     fn node(&mut self, lines: &mut Vec<Line2f>, id: ChildId) {
         let (id, is_leaf) = parse_child_id(id);
         if is_leaf {
-            self.subsector(&mut lines[], id);
+            self.subsector(lines, id);
             return;
         }
 
@@ -374,7 +374,7 @@ impl<'a> VboBuilder<'a> {
                     None => continue
                 };
 
-                let dist = |&: l: &Line2f| l.signed_distance(&point);
+                let dist = |l: &Line2f| l.signed_distance(&point);
 
                 // The intersection point must lie both within the BSP volume
                 // and the segs volume.
@@ -393,7 +393,7 @@ impl<'a> VboBuilder<'a> {
             warn!("Degenerate cannonicalised polygon {} ({} vertices).",
                   id, points.len());
         } else {
-            self.flat_poly(self.level.seg_sector(&segs[0]), &points[]);
+            self.flat_poly(self.level.seg_sector(&segs[0]), &points);
         }
     }
 
@@ -525,7 +525,7 @@ impl<'a> VboBuilder<'a> {
         if !is_sky_flat(floor_tex) {
             let floor_bounds = self.bounds.flats
                 .get(floor_tex)
-                .expect(&format!("flat: No such floor {}.", floor_tex)[]);
+                .expect(&format!("flat: No such floor {}.", floor_tex));
             for i in 1..points.len() {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
                 self.flat_vertex(&v0, floor_y, light_info, floor_bounds);
@@ -546,7 +546,7 @@ impl<'a> VboBuilder<'a> {
         if !is_sky_flat(ceil_tex) {
             let ceiling_bounds = self.bounds.flats
                 .get(ceil_tex)
-                .expect(&format!("flat: No such ceiling {}.", ceil_tex)[]);
+                .expect(&format!("flat: No such ceiling {}.", ceil_tex));
             for i in 1..points.len() {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
                 self.flat_vertex(&v2, ceil_y, light_info, ceiling_bounds);
@@ -586,7 +586,7 @@ impl<'a> VboBuilder<'a> {
         let light = sector.light;
         let sector_id = self.level.sector_id(sector);
         let sync: u16 = (sector_id as usize * 1664525 + 1013904223) as u16;
-        let min_light_or = |&: if_same| {
+        let min_light_or = |if_same| {
             let min = self.level.sector_min_light(sector);
             if min == light { if_same } else { min }
         };
@@ -647,7 +647,7 @@ fn polygon_center(points: &[Vec2f]) -> Vec2f {
 
 fn points_to_polygon(points: &mut Vec<Vec2f>) {
     // Sort points in polygonal CCW order around their center.
-    let center = polygon_center(&mut points[]);
+    let center = polygon_center(points);
     points.sort_by(
         |a, b| {
             let ac = *a - center;
@@ -701,7 +701,7 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
         simplified.pop();
     }
 
-    let center = polygon_center(&simplified[]);
+    let center = polygon_center(&simplified);
     for point in simplified.iter_mut() {
         *point = *point + (*point - center).normalized() * POLY_BIAS;
     }

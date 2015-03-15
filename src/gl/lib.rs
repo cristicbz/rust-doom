@@ -33,7 +33,7 @@ pub mod check {
 
     #[cfg(not(disable_gl_checks))]
     pub fn check_gl_helper(filename: &'static str,
-                           line: usize,
+                           line: u32,
                            function_call: &'static str) {
         let gl_error_code = unsafe { super::GetError() } ;
         if gl_error_code != super::NO_ERROR {
@@ -45,7 +45,7 @@ pub mod check {
 
     #[cfg(disable_gl_checks)]
     pub fn check_gl_helper(_filename: &'static str,
-                           _line: usize,
+                           _line: u32,
                            _function_call: &'static str) {}
 }
 

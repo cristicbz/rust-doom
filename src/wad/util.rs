@@ -1,7 +1,9 @@
 use std::mem;
 use std::slice;
+use std::io::Read;
 use math::{Vec2, Vec2f};
 use super::types::{WadCoord, WadInfo, WadName, ChildId, WadNameCast};
+use super::base::read_at_least;
 
 #[derive(Copy)]
 pub enum WadType { Initial, Patch }
@@ -12,7 +14,7 @@ const PWAD_HEADER: &'static [u8] = b"PWAD";
 
 
 pub fn wad_type_from_info(wad_info: &WadInfo) -> Option<WadType> {
-    let id = &wad_info.identifier[];
+    let id = &wad_info.identifier;
     if id == IWAD_HEADER {
         Some(WadType::Initial)
     } else if id == PWAD_HEADER {
@@ -23,15 +25,12 @@ pub fn wad_type_from_info(wad_info: &WadInfo) -> Option<WadType> {
 }
 
 
-pub fn read_binary<T: Copy, R: Reader>(reader: &mut R) -> T {
+pub fn read_binary<T: Copy, R: Read>(reader: &mut R) -> T {
     let mut loaded: T = unsafe { mem::zeroed() };
     let size = mem::size_of::<T>();
     unsafe {
-        reader.read_at_least(
-            size,
-            slice::from_raw_parts_mut(
-                (&mut loaded as *mut _ as *mut u8),
-                size)).unwrap();
+        read_at_least(reader, slice::from_raw_parts_mut(
+                (&mut loaded as *mut _ as *mut u8), size)).unwrap();
     }
     loaded
 }

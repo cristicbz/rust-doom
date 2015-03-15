@@ -1,8 +1,6 @@
 use math::{Vec2f, Vec2};
-use sdl2::event;
-use sdl2::event::Event;
-use sdl2::mouse;
-use sdl2::mouse::Mouse;
+use sdl2::event::{self, Event, EventPump};
+use sdl2::mouse::{self, Mouse};
 use sdl2::scancode::ScanCode;
 use std::vec::Vec;
 
@@ -29,8 +27,7 @@ pub enum Analog2d {
     Gestures(Gesture, Gesture, Gesture, Gesture, Sensitivity),
 }
 
-#[derive(Copy)]
-pub struct GameController {
+pub struct GameController<'sdl> {
     current_update_index: UpdateIndex,
 
     keyboard_state: [ButtonState; NUM_SCAN_CODES],
@@ -38,10 +35,12 @@ pub struct GameController {
 
     mouse_enabled: bool,
     mouse_rel: Vec2f,
+
+    pump: EventPump<'sdl>,
 }
 
-impl GameController {
-    pub fn new() -> GameController {
+impl<'sdl> GameController<'sdl> {
+    pub fn new(pump: EventPump<'sdl>) -> GameController<'sdl> {
         mouse::set_relative_mouse_mode(true);
         GameController {
             current_update_index: 1,
@@ -49,6 +48,7 @@ impl GameController {
             quit_requested_index: 0,
             mouse_enabled: true,
             mouse_rel: Vec2::zero(),
+            pump: pump,
         }
     }
 
@@ -63,8 +63,8 @@ impl GameController {
     pub fn update(&mut self) {
         self.current_update_index += 1;
         self.mouse_rel = Vec2::zero();
-        loop {
-            match event::poll_event() {
+        for event in self.pump.poll_iter() {
+            match event {
                 Event::Quit { .. } => {
                     self.quit_requested_index = self.current_update_index;
                 },
@@ -83,7 +83,6 @@ impl GameController {
                         self.mouse_rel = Vec2::zero();
                     }
                 },
-                Event::None => break,
                 _ => {}
             }
         }

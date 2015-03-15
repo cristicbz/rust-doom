@@ -4,6 +4,7 @@ use gl::types::{GLint, GLuint, GLchar};
 use math::{Mat4, Vec2f, Vec3f};
 use std::ffi::CString;
 use std::ptr;
+use std::path::PathBuf;
 
 #[derive(Copy)]
 pub struct Uniform {
@@ -12,11 +13,11 @@ pub struct Uniform {
 
 
 pub struct ShaderLoader {
-    root_path: Path,
+    root_path: PathBuf,
     version_directive: String,
 }
 impl ShaderLoader {
-    pub fn new(version: &str, root_path: Path) -> ShaderLoader {
+    pub fn new(version: &str, root_path: PathBuf) -> ShaderLoader {
         ShaderLoader {
             version_directive: format!("#version {}\n", version),
             root_path: root_path,
@@ -27,12 +28,12 @@ impl ShaderLoader {
         debug!("Loading shader: {}", name);
         let frag_src = self.version_directive.clone() +
             &try!(read_utf8_file(
-                    &self.root_path.join(name.to_string() + ".frag")))[];
+                    &self.root_path.join(&(name.to_string() + ".frag"))))[..];
         let vert_src = self.version_directive.clone() +
             &try!(read_utf8_file(
-                    &self.root_path.join(name.to_string() + ".vert")))[];
+                    &self.root_path.join(&(name.to_string() + ".vert"))))[..];
         debug!("Shader '{}' loaded successfully", name);
-        Shader::new_from_source(&vert_src[], &frag_src[])
+        Shader::new_from_source(&vert_src, &frag_src)
     }
 }
 
@@ -42,8 +43,8 @@ pub struct Shader {
 impl Shader {
     pub fn new_from_source(vertex_source: &str, fragment_source: &str)
             -> Result<Shader, String> {
-        let vertex = try!(VertexShader::compile(&vertex_source[]));
-        let fragment = try!(FragmentShader::compile(&fragment_source[]));
+        let vertex = try!(VertexShader::compile(&vertex_source));
+        let fragment = try!(FragmentShader::compile(&fragment_source));
         let program = try!(Program::link(vertex, fragment));
         Ok(Shader { program: program })
     }
@@ -64,7 +65,7 @@ impl Shader {
     }
 
     pub fn get_uniform(&self, name: &str) -> Option<Uniform> {
-        let c_str = CString::from_slice(name.as_bytes()).as_ptr();
+        let c_str = CString::new(name.as_bytes()).unwrap().as_ptr();
         match check_gl_unsafe!(gl::GetUniformLocation(self.program.id, c_str)) {
             -1 => None,
             id => Some(Uniform{id: id})
@@ -72,8 +73,7 @@ impl Shader {
     }
 
     pub fn expect_uniform(&self, name: &str) -> Uniform {
-        self.get_uniform(name).expect(
-            &format!("Expected uniform '{}'", name)[])
+        self.get_uniform(name).expect(&format!("Expected uniform '{}'", name))
     }
 
     pub fn set_uniform_i32(&self, uniform: Uniform, value: i32) -> &Shader {

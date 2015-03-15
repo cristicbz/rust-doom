@@ -1,16 +1,16 @@
 #![feature(slicing_syntax, core, path, collections, env)]
 
+#[macro_use] extern crate log;
+#[macro_use] extern crate gl;
+
 extern crate gfx;
 extern crate wad;
 extern crate math;
 
 extern crate getopts;
-#[macro_use]
-extern crate gl;
 extern crate libc;
 
-#[macro_use]
-extern crate log;
+extern crate env_logger;
 extern crate sdl2;
 extern crate time;
 
@@ -21,10 +21,12 @@ use level::Level;
 use libc::c_void;
 use math::{Mat4, Vec3};
 use player::Player;
+use sdl2::Sdl;
 use sdl2::scancode::ScanCode;
 use sdl2::video::{GLAttr, GLProfile};
 use sdl2::video::WindowPos;
 use std::default::Default;
+use std::path::PathBuf;
 use wad::TextureDirectory;
 
 pub mod camera;
@@ -75,7 +77,7 @@ impl MainWindow {
         check_gl_unsafe!(gl::BindVertexArray(vao_id));
         MainWindow {
            window: window,
-            _context: context,
+           _context: context,
         }
     }
 
@@ -103,11 +105,11 @@ pub struct Game {
 }
 impl Game {
     pub fn new(window: MainWindow, config: GameConfig) -> Game {
-        let mut wad = wad::Archive::open(&Path::new(config.wad),
-                                         &Path::new(config.metadata)).unwrap();
+        let mut wad = wad::Archive::open(
+                &config.wad, &config.metadata).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
-        let shader_loader = ShaderLoader::new(gl::platform::GLSL_VERSION_STRING,
-                                              Path::new(SHADER_ROOT));
+        let shader_loader = ShaderLoader::new(
+                gl::platform::GLSL_VERSION_STRING, PathBuf::new(SHADER_ROOT));
         let level = Level::new(&shader_loader,
                                &mut wad, &textures, config.level_index);
 
@@ -127,7 +129,7 @@ impl Game {
         }
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self, sdl: &Sdl) {
         let quit_gesture = Gesture::AnyOf(
             vec![Gesture::QuitTrigger,
                  Gesture::KeyTrigger(ScanCode::Escape)]);
@@ -137,7 +139,7 @@ impl Game {
         let mut cum_updates_time = 0.0;
         let mut num_frames = 0.0;
         let mut t0 = 0.0;
-        let mut control = GameController::new();
+        let mut control = GameController::new(sdl.event_pump());
         let mut mouse_grabbed = true;
         loop {
             check_gl_unsafe!(
@@ -185,11 +187,12 @@ impl Game {
     }
 }
 
-
 #[cfg(not(test))]
 pub fn run() {
     use getopts::Options;
     use std::env;
+
+    env_logger::init();
 
     let args = env::args().collect::<Vec<_>>();
     let mut opts = Options::new();
@@ -237,12 +240,12 @@ pub fn run() {
         .unwrap_or((1280, 720));
     let level_index = matches
         .opt_str("l")
-        .map(|l| l[].parse().ok()
-                    .expect("Invalid value for --level. Expected integer."))
+        .map(|l| l.parse().ok()
+                  .expect("Invalid value for --level. Expected integer."))
         .unwrap_or(0);
     let fov = matches
         .opt_str("f")
-        .map(|f| f[].parse().ok()
+        .map(|f| f.parse().ok()
                     .expect("Invalid value for --fov. Expected float."))
         .unwrap_or(65.0);
 
@@ -253,46 +256,41 @@ pub fn run() {
 
     if matches.opt_present("d") {
         let wad = wad::Archive::open(
-            &Path::new(&wad_filename[]), &Path::new(&meta_filename[])).unwrap();
+            &Path::new(&wad_filename), &Path::new(&meta_filename)).unwrap();
         for i_level in 0..wad.num_levels() {
             println!("{:3} {:8}", i_level, wad.get_level_name(i_level));
         }
         return;
     }
 
+    let sdl = sdl2::init(sdl2::INIT_VIDEO).unwrap();
+    let win = MainWindow::new(width, height);
+
     if matches.opt_present("load-all") {
-        if !sdl2::init(sdl2::INIT_VIDEO) {
-            panic!("main: sdl video init failed.");
-        }
-        let _win = MainWindow::new(width, height);
         let t0 = time::precise_time_s();
         let mut wad = wad::Archive::open(
-            &Path::new(&wad_filename[]), &Path::new(&meta_filename[])).unwrap();
+            &Path::new(&wad_filename), &Path::new(&meta_filename)).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
+        let shader_loader = ShaderLoader::new(
+            gl::platform::GLSL_VERSION_STRING, PathBuf::new(SHADER_ROOT));
         for level_index in range(0, wad.num_levels()) {
-            let shader_loader = ShaderLoader::new(
-                gl::platform::GLSL_VERSION_STRING, Path::new(SHADER_ROOT));
             Level::new(&shader_loader, &mut wad, &textures, level_index);
         }
         println!("Done, loaded all levels in {:.4}s. Shutting down...",
                  time::precise_time_s() - t0);
-        sdl2::quit();
+        drop(win);
         return;
     }
 
-    if !sdl2::init(sdl2::INIT_VIDEO) { panic!("main: sdl video init failed."); }
-
     let mut game = Game::new(
-        MainWindow::new(width, height),
+        win,
         GameConfig {
-            wad: &wad_filename[],
-            metadata: &meta_filename[],
+            wad: &wad_filename,
+            metadata: &meta_filename,
             level_index: level_index,
             fov: fov,
         });
-    game.run();
+    game.run(&sdl);
 
     info!("Shutting down.");
-    drop(game);
-    sdl2::quit();
 }

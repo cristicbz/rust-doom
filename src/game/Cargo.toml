@@ -27,5 +27,6 @@ git = "https://github.com/rust-lang/time"
 
 [dependencies]
 log = "*"
+env_logger = "*"
 getopts = "*"
 libc = "*"

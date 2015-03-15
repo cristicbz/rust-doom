@@ -87,7 +87,7 @@ pub trait WadNameCast : Debug {
 }
 impl<'a> WadNameCast for &'a [u8; 8] {
     fn to_wad_name_opt(&self) -> Option<WadName> {
-        (&self[]).to_wad_name_opt()
+        (&self[..]).to_wad_name_opt()
     }
 }
 impl<'a> WadNameCast for &'a [u8] {
