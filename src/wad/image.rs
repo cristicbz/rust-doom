@@ -1,8 +1,8 @@
-use base::vec_from_elem;
 use gfx::Texture;
 use gl;
-use std::ptr::copy_nonoverlapping_memory;
+use std::ptr::copy_nonoverlapping;
 use std::vec::Vec;
+use super::base::ReadExt;
 use super::types::WadTextureHeader;
 
 
@@ -22,11 +22,13 @@ macro_rules! io_try(
 
 impl Image {
     pub fn new(width: usize, height: usize) -> Image {
-        Image { width: width,
-                height: height,
-                x_offset: 0,
-                y_offset: 0,
-                pixels: vec_from_elem(width * height, 0xff00) }
+        Image {
+            width: width,
+            height: height,
+            x_offset: 0,
+            y_offset: 0,
+            pixels: vec![0xff00; width * height],
+        }
     }
 
     pub fn new_from_header(header: &WadTextureHeader) -> Image {
@@ -35,10 +37,10 @@ impl Image {
 
     pub fn from_buffer(buffer: &[u8]) -> Image {
         let mut reader = buffer;
-        let width = reader.read_le_u16().unwrap() as usize;
-        let height = reader.read_le_u16().unwrap() as usize;
-        let x_offset = reader.read_le_i16().unwrap() as isize;
-        let y_offset = reader.read_le_i16().unwrap() as isize;
+        let width = reader.read_binary::<u16>().unwrap() as usize;
+        let height = reader.read_binary::<u16>().unwrap() as usize;
+        let x_offset = reader.read_binary::<i16>().unwrap() as isize;
+        let y_offset = reader.read_binary::<i16>().unwrap() as isize;
 
         let mut pixels = vec![-1; width * height];
         // Sorry for the messy/unsafe code, but the array bounds checks in this
@@ -46,7 +48,7 @@ impl Image {
         for i_column in range(0, width as isize) { unsafe {
             // Each column is defined as a number of vertical `runs' which are
             // defined starting at `offset' in the buffer.
-            let offset = reader.read_le_u32().unwrap() as isize;
+            let offset = reader.read_binary::<u32>().unwrap() as isize;
             let mut src_ptr = buffer.as_ptr().offset(offset);
             'this_column: loop {
                 // The first byte contains the vertical coordinate of the run's
@@ -118,7 +120,7 @@ impl Image {
 
                 let src_end = src_ptr.offset(copy_height * src_pitch);
                 while src_ptr < src_end {
-                    copy_nonoverlapping_memory(dest_ptr, src_ptr, copy_width);
+                    copy_nonoverlapping(dest_ptr, src_ptr, copy_width);
                     src_ptr = src_ptr.offset(src_pitch);
                     dest_ptr = dest_ptr.offset(dest_pitch);
                 }

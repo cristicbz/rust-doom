@@ -1,4 +1,4 @@
-use base::{read_utf8_file, vec_from_elem};
+use base::read_utf8_file;
 use gl;
 use gl::types::{GLint, GLuint, GLchar};
 use math::{Mat4, Vec2f, Vec3f};
@@ -185,7 +185,7 @@ fn get_compilation_log(shader_id: GLuint) -> String {
     check_gl_unsafe!(gl::GetShaderiv(shader_id, gl::INFO_LOG_LENGTH,
                                      &mut log_length));
     assert!(log_length > 0);
-    let mut log_buffer = vec_from_elem(log_length as usize, 0u8);
+    let mut log_buffer = vec![0u8; log_length as usize];
     let log_buffer_ptr = log_buffer.as_mut_ptr() as *mut gl::types::GLchar;
     check_gl_unsafe!(gl::GetShaderInfoLog(
             shader_id, log_length, ptr::null_mut(), log_buffer_ptr));
@@ -205,7 +205,7 @@ fn get_link_log(shader_id: GLuint) -> String {
     check_gl_unsafe!(gl::GetProgramiv(shader_id, gl::INFO_LOG_LENGTH,
                                       &mut log_length));
     assert!(log_length > 0);
-    let mut log_buffer = vec_from_elem(log_length as usize, 0u8);
+    let mut log_buffer = vec![0u8; log_length as usize];
     let log_buffer_ptr = log_buffer.as_mut_ptr() as *mut gl::types::GLchar;
     check_gl_unsafe!(gl::GetProgramInfoLog(
             shader_id, log_length, ptr::null_mut(), log_buffer_ptr));

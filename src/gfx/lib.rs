@@ -1,4 +1,4 @@
-#![feature(core, path)]
+#![feature(core)]
 
 #[macro_use]
 extern crate gl;

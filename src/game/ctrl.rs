@@ -1,5 +1,5 @@
 use math::{Vec2f, Vec2};
-use sdl2::event::{self, Event, EventPump};
+use sdl2::event::{Event, EventPump};
 use sdl2::mouse::{self, Mouse};
 use sdl2::scancode::ScanCode;
 use std::vec::Vec;

@@ -1,4 +1,4 @@
-#![feature(slicing_syntax, core, path, collections, env)]
+#![feature(core, collections)]
 
 #[macro_use] extern crate log;
 #[macro_use] extern crate gl;
@@ -138,7 +138,7 @@ impl Game {
         let mut cum_time = 0.0;
         let mut cum_updates_time = 0.0;
         let mut num_frames = 0.0;
-        let mut t0 = 0.0;
+        let mut t0 = time::precise_time_s();
         let mut control = GameController::new(sdl.event_pump());
         let mut mouse_grabbed = true;
         loop {
@@ -192,7 +192,7 @@ pub fn run() {
     use getopts::Options;
     use std::env;
 
-    env_logger::init();
+    env_logger::init().unwrap();
 
     let args = env::args().collect::<Vec<_>>();
     let mut opts = Options::new();
@@ -255,8 +255,7 @@ pub fn run() {
     }
 
     if matches.opt_present("d") {
-        let wad = wad::Archive::open(
-            &Path::new(&wad_filename), &Path::new(&meta_filename)).unwrap();
+        let wad = wad::Archive::open(&wad_filename, &meta_filename).unwrap();
         for i_level in 0..wad.num_levels() {
             println!("{:3} {:8}", i_level, wad.get_level_name(i_level));
         }
@@ -269,7 +268,7 @@ pub fn run() {
     if matches.opt_present("load-all") {
         let t0 = time::precise_time_s();
         let mut wad = wad::Archive::open(
-            &Path::new(&wad_filename), &Path::new(&meta_filename)).unwrap();
+            &wad_filename, &meta_filename).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
         let shader_loader = ShaderLoader::new(
             gl::platform::GLSL_VERSION_STRING, PathBuf::new(SHADER_ROOT));

@@ -1,17 +1,16 @@
 use archive::Archive;
-use base::vec_from_elem;
 use gfx::Texture;
 use gl;
 use image::Image;
 use math::{Vec2, Vec2f};
 use name::{WadName, WadNameCast};
 use std::collections::HashMap;
+use std::error::Error;
 use std::mem;
 use std::num::Float;
-use std::io::{Read, SeekFrom};
 use time;
 use types::{WadTextureHeader, WadTexturePatchRef};
-use util;
+use super::base::ReadExt;
 
 
 pub type Palette = [[u8; 3]; 256];
@@ -40,7 +39,8 @@ pub struct TextureDirectory {
 }
 
 macro_rules! io_try(
-    ($e:expr) => (try!($e.map_err(|e| String::from_str(e.desc))))
+    ($e:expr) => (try!($e.map_err(
+                |e| String::from_str(Error::description(&e)))))
 );
 
 fn search_for_frame<'a>(search_for: &WadName, animations: &'a Vec<Vec<WadName>>)
@@ -140,7 +140,7 @@ impl TextureDirectory {
                                  colormap_start: usize,
                                  colormap_end: usize) -> Texture {
         let num_colormaps = colormap_end - colormap_start;
-        let mut data = vec_from_elem(256 * num_colormaps * 3, 0u8);
+        let mut data = vec![0u8; 256 * num_colormaps * 3];
         let palette = &self.palettes[palette];
         for i_colormap in range(colormap_start, colormap_end) {
             for i_color in range(0, 256) {
@@ -288,7 +288,7 @@ impl TextureDirectory {
         let height = next_pow2(num_rows * 64);
 
         let mut offsets = HashMap::with_capacity(num_names);
-        let mut data = vec_from_elem(width * height, 255u8);
+        let mut data = vec![255u8; width * height];
         let (mut row, mut column) = (0, 0);
         info!("Flat atlas size: {}x{} ({}, {})", width, height, flats_per_row,
                                                  num_rows);
@@ -346,10 +346,10 @@ const TEXTURE_LUMP_NAMES: &'static [[u8; 8]] =
 
 fn read_patches(wad: &mut Archive)
         -> Result<Vec<(WadName, Option<Image>)>, String> {
-    let mut pnames_buffer = wad.read_lump_by_name(&b"PNAMES".to_wad_name());
+    let pnames_buffer = wad.read_lump_by_name(&b"PNAMES".to_wad_name());
     let mut lump = &pnames_buffer[..];
 
-    let num_patches = io_try!(lump.read_le_u32()) as usize;
+    let num_patches = io_try!(lump.read_binary::<u32>()) as usize;
     let mut patches = Vec::with_capacity(num_patches);
 
     patches.reserve(num_patches);
@@ -357,8 +357,7 @@ fn read_patches(wad: &mut Archive)
     info!("Reading {} patches....", num_patches);
     let t0 = time::precise_time_s();
     for _ in range(0, num_patches) {
-        let name = util::read_binary::<WadName, _>(&mut lump)
-                .into_canonical();
+        let name = lump.read_binary::<WadName>().unwrap().into_canonical();
         let patch = wad.get_lump_index(&name).map(|index| {
             let patch_buffer = wad.read_lump(index);
             Image::from_buffer(&patch_buffer)
@@ -376,22 +375,23 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
                  textures: &mut HashMap<WadName, Image>)
         -> Result<usize, String> {
     let mut lump = lump_buffer;
-    let num_textures = io_try!(lump.read_le_u32()) as usize;
+    let num_textures = io_try!(lump.read_binary::<u32>()) as usize;
     let current_num_textures = textures.len();
     textures.reserve(current_num_textures + num_textures);
 
     let mut offsets = &lump[..num_textures * mem::size_of::<u32>()];
 
     for _ in range(0, num_textures) {
-        lump = &lump_buffer[io_try!(offsets.read_le_u32()) as usize..];
-        let mut header = util::read_binary::<WadTextureHeader, _>(&mut lump);
+        lump = &lump_buffer[io_try!(offsets.read_binary::<u32>()) as usize..];
+        let mut header = lump.read_binary::<WadTextureHeader>().unwrap();
         let mut image = Image::new_from_header(&header);
         header.name.canonicalise();
         let header = header;
 
         for i_patch in range(0, header.num_patches) {
-            let pref = util::read_binary::<WadTexturePatchRef, _>(&mut lump);
-            let (off_x, off_y) = (pref.origin_x as isize, pref.origin_y as isize);
+            let pref = lump.read_binary::<WadTexturePatchRef>().unwrap();
+            let (off_x, off_y) =
+                    (pref.origin_x as isize, pref.origin_y as isize);
             match patches[pref.patch as usize] {
                 (_, Some(ref patch)) => {
                     image.blit(patch,

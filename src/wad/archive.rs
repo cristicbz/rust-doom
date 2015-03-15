@@ -7,10 +7,10 @@ use std::path::AsPath;
 use std::slice;
 use std::vec::Vec;
 
-use super::base::read_at_least;
+use super::base::ReadExt;
 use super::meta::WadMetadata;
 use super::types::{WadLump, WadInfo, WadName, WadNameCast};
-use super::util::{wad_type_from_info, read_binary};
+use super::util::wad_type_from_info;
 
 pub struct Archive {
     file: File,
@@ -31,7 +31,7 @@ impl Archive {
         let mut file = try!(File::open(wad_path).map_err(|err| {
             format!("Could not open WAD file '{:?}': {}", wad_path, err)
         }));
-        let header = read_binary::<WadInfo, _>(&mut file);
+        let header = file.read_binary::<WadInfo>().unwrap();
         match wad_type_from_info(&header) {
             None =>
                 return Err(format!(
@@ -46,7 +46,7 @@ impl Archive {
 
         file.seek(SeekFrom::Start(header.info_table_offset as u64)).unwrap();
         for i_lump in iter::range(0, header.num_lumps) {
-            let mut fileinfo = read_binary::<WadLump, _>(&mut file);
+            let mut fileinfo = file.read_binary::<WadLump>().unwrap();
             fileinfo.name.canonicalise();
             let fileinfo = fileinfo;
             index_map.insert(fileinfo.name, lumps.len());
@@ -111,7 +111,7 @@ impl Archive {
         self.file.seek(SeekFrom::Start(info.offset)).unwrap();
         unsafe {
             buf.set_len(num_elems);
-            read_at_least(&mut self.file, slice::from_raw_parts_mut(
+            self.file.read_at_least(slice::from_raw_parts_mut(
                     (buf.as_mut_ptr() as *mut u8), info.size)).unwrap();
         }
         buf
@@ -121,7 +121,7 @@ impl Archive {
         let info = self.lumps[index];
         assert!(info.size == mem::size_of::<T>());
         self.file.seek(SeekFrom::Start(info.offset)).unwrap();
-        read_binary(&mut self.file)
+        self.file.read_binary().unwrap()
     }
 
     pub fn get_metadata(&self) -> &WadMetadata { &self.meta }

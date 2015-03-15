@@ -1,9 +1,5 @@
-use std::mem;
-use std::slice;
-use std::io::Read;
 use math::{Vec2, Vec2f};
 use super::types::{WadCoord, WadInfo, WadName, ChildId, WadNameCast};
-use super::base::read_at_least;
 
 #[derive(Copy)]
 pub enum WadType { Initial, Patch }
@@ -22,17 +18,6 @@ pub fn wad_type_from_info(wad_info: &WadInfo) -> Option<WadType> {
     } else {
         None
     }
-}
-
-
-pub fn read_binary<T: Copy, R: Read>(reader: &mut R) -> T {
-    let mut loaded: T = unsafe { mem::zeroed() };
-    let size = mem::size_of::<T>();
-    unsafe {
-        read_at_least(reader, slice::from_raw_parts_mut(
-                (&mut loaded as *mut _ as *mut u8), size)).unwrap();
-    }
-    loaded
 }
 
 
