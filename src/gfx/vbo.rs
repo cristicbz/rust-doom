@@ -108,7 +108,7 @@ impl<VertexType: Copy>  BufferBuilder<VertexType> {
             assert!(!self.used_layouts[layout]);
             self.used_layouts[layout] = true;
         } else {
-            for _ in range(0, layout - self.used_layouts.len()) {
+            for _ in 0..(layout - self.used_layouts.len()) {
                 self.used_layouts.push(false);
             }
             self.used_layouts.push(true);

@@ -272,7 +272,7 @@ pub fn run() {
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
         let shader_loader = ShaderLoader::new(
             gl::platform::GLSL_VERSION_STRING, PathBuf::new(SHADER_ROOT));
-        for level_index in range(0, wad.num_levels()) {
+        for level_index in 0 .. wad.num_levels() {
             Level::new(&shader_loader, &mut wad, &textures, level_index);
         }
         println!("Done, loaded all levels in {:.4}s. Shutting down...",

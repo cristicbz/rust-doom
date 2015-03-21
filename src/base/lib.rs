@@ -27,7 +27,7 @@ pub trait ReadExt: Read {
 impl<R: Read> ReadExt for R {}
 
 pub fn read_utf8_file<P: AsPath>(path: &P) -> Result<String, String> {
-    File::open(path)
+    File::open(path.as_path())
         .and_then(|mut file| {
             let mut buffer = vec![];
             file.read_to_end(&mut buffer).map(|_| buffer)

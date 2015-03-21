@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::{Seek, SeekFrom};
-use std::{mem, iter};
+use std::mem;
 use std::path::AsPath;
 use std::slice;
 use std::vec::Vec;
@@ -28,7 +28,7 @@ impl Archive {
         info!("Loading wad file '{:?}'...", wad_path);
 
         // Open file, read and check header.
-        let mut file = try!(File::open(wad_path).map_err(|err| {
+        let mut file = try!(File::open(wad_path.as_path()).map_err(|err| {
             format!("Could not open WAD file '{:?}': {}", wad_path, err)
         }));
         let header = file.read_binary::<WadInfo>().unwrap();
@@ -45,7 +45,7 @@ impl Archive {
         let mut index_map = HashMap::new();
 
         file.seek(SeekFrom::Start(header.info_table_offset as u64)).unwrap();
-        for i_lump in iter::range(0, header.num_lumps) {
+        for i_lump in 0 .. header.num_lumps {
             let mut fileinfo = file.read_binary::<WadLump>().unwrap();
             fileinfo.name.canonicalise();
             let fileinfo = fileinfo;

@@ -57,8 +57,8 @@ impl TextureDirectory {
     pub fn from_archive(wad: &mut Archive) -> Result<TextureDirectory, String> {
         info!("Reading texture directory...");
         // Read palettes & colormaps.
-        let palettes = wad.read_lump_by_name(&b"PLAYPAL".to_wad_name());
-        let colormaps = wad.read_lump_by_name(&b"COLORMAP".to_wad_name());
+        let palettes = wad.read_lump_by_name(&(&b"PLAYPAL"[..]).to_wad_name());
+        let colormaps = wad.read_lump_by_name(&(&b"COLORMAP"[..]).to_wad_name());
         info!("  {:4} palettes", palettes.len());
         info!("  {:4} colormaps", colormaps.len());
 
@@ -142,8 +142,8 @@ impl TextureDirectory {
         let num_colormaps = colormap_end - colormap_start;
         let mut data = vec![0u8; 256 * num_colormaps * 3];
         let palette = &self.palettes[palette];
-        for i_colormap in range(colormap_start, colormap_end) {
-            for i_color in range(0, 256) {
+        for i_colormap in colormap_start .. colormap_end {
+            for i_color in 0 .. 256 {
                 let rgb = &palette[self.colormaps[i_colormap][i_color] as usize];
                 data[0 + i_color * 3 + i_colormap * 256 * 3] = rgb[0];
                 data[1 + i_color * 3 + i_colormap * 256 * 3] = rgb[1];
@@ -307,8 +307,8 @@ impl TextureDirectory {
                 frame_offset: frame_offset
             });
 
-            for y in range(0, 64) {
-                for x in range(0, 64) {
+            for y in 0 .. 64 {
+                for x in 0 .. 64 {
                     data[x_offset + x + (y + y_offset) * width]
                         = flat[x + y * 64];
                 }
@@ -346,7 +346,7 @@ const TEXTURE_LUMP_NAMES: &'static [[u8; 8]] =
 
 fn read_patches(wad: &mut Archive)
         -> Result<Vec<(WadName, Option<Image>)>, String> {
-    let pnames_buffer = wad.read_lump_by_name(&b"PNAMES".to_wad_name());
+    let pnames_buffer = wad.read_lump_by_name(&(&b"PNAMES"[..]).to_wad_name());
     let mut lump = &pnames_buffer[..];
 
     let num_patches = io_try!(lump.read_binary::<u32>()) as usize;
@@ -356,7 +356,7 @@ fn read_patches(wad: &mut Archive)
     let mut missing_patches = 0usize;
     info!("Reading {} patches....", num_patches);
     let t0 = time::precise_time_s();
-    for _ in range(0, num_patches) {
+    for _ in 0 .. num_patches {
         let name = lump.read_binary::<WadName>().unwrap().into_canonical();
         let patch = wad.get_lump_index(&name).map(|index| {
             let patch_buffer = wad.read_lump(index);
@@ -381,14 +381,14 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
 
     let mut offsets = &lump[..num_textures * mem::size_of::<u32>()];
 
-    for _ in range(0, num_textures) {
+    for _ in 0 .. num_textures {
         lump = &lump_buffer[io_try!(offsets.read_binary::<u32>()) as usize..];
         let mut header = lump.read_binary::<WadTextureHeader>().unwrap();
         let mut image = Image::new_from_header(&header);
         header.name.canonicalise();
         let header = header;
 
-        for i_patch in range(0, header.num_patches) {
+        for i_patch in 0 .. header.num_patches {
             let pref = lump.read_binary::<WadTexturePatchRef>().unwrap();
             let (off_x, off_y) =
                     (pref.origin_x as isize, pref.origin_y as isize);
@@ -411,18 +411,18 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
 }
 
 fn read_flats(wad: &mut Archive) -> Result<HashMap<WadName, Flat>, String> {
-    let start = match wad.get_lump_index(&b"F_START".to_wad_name()) {
+    let start = match wad.get_lump_index(&(&b"F_START"[..]).to_wad_name()) {
         Some(index) => index + 1,
         None => return Err(String::from_str("Missing F_START."))
     };
 
-    let end = match wad.get_lump_index(&b"F_END".to_wad_name()) {
+    let end = match wad.get_lump_index(&(&b"F_END"[..]).to_wad_name()) {
         Some(index) => index,
         None => return Err(String::from_str("Missing F_END."))
     };
 
     let mut flats = HashMap::with_capacity(end - start);
-    for i_lump in range(start, end) {
+    for i_lump in start .. end {
         if wad.is_virtual_lump(i_lump) { continue; }
         let lump = wad.read_lump(i_lump);
         flats.insert(*wad.get_lump_name(i_lump), lump);

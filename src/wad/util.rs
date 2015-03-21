@@ -27,7 +27,9 @@ pub fn is_untextured(name: &WadName) -> bool {
 }
 
 
-pub fn is_sky_flat(name: &WadName) -> bool { name == &b"F_SKY1".to_wad_name() }
+pub fn is_sky_flat(name: &WadName) -> bool {
+    name == &(&b"F_SKY1"[..]).to_wad_name()
+}
 
 
 pub fn from_wad_height(x: WadCoord) -> f32 { (x as f32) / 100.0 }

@@ -45,7 +45,7 @@ impl Image {
         let mut pixels = vec![-1; width * height];
         // Sorry for the messy/unsafe code, but the array bounds checks in this
         // tight loop make it 6x slower.
-        for i_column in range(0, width as isize) { unsafe {
+        for i_column in 0 .. width as isize { unsafe {
             // Each column is defined as a number of vertical `runs' which are
             // defined starting at `offset' in the buffer.
             let offset = reader.read_binary::<u32>().unwrap() as isize;
@@ -129,9 +129,9 @@ impl Image {
             // Only copy pixels whose high bits are not set.
             let dest_ptr = self.pixels.as_mut_ptr();
             let src_ptr = source.pixels.as_ptr();
-            for src_y in range(y_start, y_end) {
+            for src_y in y_start .. y_end {
                 let dest_y = (src_y as isize + y_offset) as usize;
-                for src_x in range(x_start, x_end) {
+                for src_x in x_start .. x_end {
                     let dest_x = (src_x as isize + x_offset) as usize;
 
                     let (dest_x, dest_y) = (dest_x as usize, dest_y as usize);
