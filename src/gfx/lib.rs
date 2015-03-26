@@ -1,5 +1,3 @@
-#![feature(core)]
-
 #[macro_use]
 extern crate gl;
 extern crate math;

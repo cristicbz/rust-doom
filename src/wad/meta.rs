@@ -6,8 +6,7 @@ use super::types::ThingType;
 use toml;
 use toml::{DecodeError, ApplicationError, ExpectedField, ExpectedType,
            ExpectedMapElement, ExpectedMapKey, NoEnumVariants, NilTooLong};
-use std::path::AsPath;
-
+use std::path::Path;
 
 #[derive(RustcDecodable, RustcEncodable)]
 pub struct SkyMetadata {
@@ -45,7 +44,7 @@ pub struct WadMetadata {
     pub things: ThingDirectoryMetadata,
 }
 impl WadMetadata {
-    pub fn from_file<P: AsPath>(path: &P) -> Result<WadMetadata, String> {
+    pub fn from_file<P: AsRef<Path>>(path: &P) -> Result<WadMetadata, String> {
         base::read_utf8_file(path).and_then(
             |contents| WadMetadata::from_text(&contents))
     }

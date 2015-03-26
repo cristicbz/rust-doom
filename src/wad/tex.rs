@@ -258,7 +258,7 @@ impl TextureDirectory {
         let mut bound_map = HashMap::with_capacity(images.len());
         for (i, (name, image, frame_offset, num_frames)) in
                 images.into_iter().enumerate() {
-            atlas.blit(image, offsets[i].0, offsets[i].1 as isize, true);
+            atlas.blit(image, offsets[i].0, offsets[i].1, true);
             bound_map.insert(*name, img_bound(offsets[i - frame_offset],
                                               image, frame_offset, num_frames));
         }

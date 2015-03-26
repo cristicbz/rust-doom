@@ -1,4 +1,4 @@
-#![feature(core, collections, convert)]
+#![feature(collections, convert)]
 
 #[macro_use] extern crate log;
 #[macro_use] extern crate gl;

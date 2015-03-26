@@ -1,11 +1,11 @@
-#![feature(collections, std_misc, core)]
+#![feature(collections, convert)]
 
 use std::error::Error;
 use std::fs::File;
 use std::io::{self, Read};
 use std::mem;
-use std::path::AsPath;
 use std::slice;
+use std::path::Path;
 
 pub trait ReadExt: Read {
     fn read_at_least(&mut self, mut buf: &mut [u8]) -> io::Result<()> {
@@ -26,8 +26,8 @@ pub trait ReadExt: Read {
 
 impl<R: Read> ReadExt for R {}
 
-pub fn read_utf8_file<P: AsPath>(path: &P) -> Result<String, String> {
-    File::open(path.as_path())
+pub fn read_utf8_file<P: AsRef<Path>>(path: &P) -> Result<String, String> {
+    File::open(path.as_ref())
         .and_then(|mut file| {
             let mut buffer = vec![];
             file.read_to_end(&mut buffer).map(|_| buffer)
@@ -35,7 +35,7 @@ pub fn read_utf8_file<P: AsPath>(path: &P) -> Result<String, String> {
         .map_err(|e| String::from_str(Error::description(&e)))
         .and_then(|buffer| {
             String::from_utf8(buffer).map_err(|_| {
-                format!("File at '{:?}' is not valid UTF-8.", path.as_path())
+                format!("File at '{:?}' is not valid UTF-8.", path.as_ref())
             })
         })
 }

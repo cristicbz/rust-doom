@@ -1,4 +1,4 @@
-#![feature(io, core, std_misc, collections)]
+#![feature(io, core, collections, convert)]
 
 extern crate base;
 extern crate gfx;

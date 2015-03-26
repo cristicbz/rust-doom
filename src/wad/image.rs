@@ -134,7 +134,7 @@ impl Image {
                 for src_x in x_start .. x_end {
                     let dest_x = (src_x as isize + x_offset) as usize;
 
-                    let (dest_x, dest_y) = (dest_x as usize, dest_y as usize);
+                    let (dest_x, dest_y) = (dest_x, dest_y);
                     let dest_index = (dest_x + dest_y * self.width) as isize;
                     let src_index = (src_x + src_y * source.width) as isize;
 
@@ -143,7 +143,7 @@ impl Image {
                         // ops we can avoid branching.
                         let src_pixel = *src_ptr.offset(src_index);
                         let dest_pixel = dest_ptr.offset(dest_index);
-                        let blend = (0.wrapping_sub(src_pixel >> 15)) as u16;
+                        let blend = 0.wrapping_sub(src_pixel >> 15);
                         *dest_pixel = (src_pixel & !blend) |
                                       (*dest_pixel & blend);
                     }
