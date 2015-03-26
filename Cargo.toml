@@ -1,5 +1,5 @@
 [package]
-name = "rs-doom"
+name = "rs_doom"
 version = "0.0.7"
 authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 
