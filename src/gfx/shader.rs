@@ -88,13 +88,13 @@ impl Shader {
 
     pub fn set_uniform_vec2f(&self, uniform: Uniform, value: &Vec2f)
             -> &Shader {
-        check_gl_unsafe!(gl::Uniform2fv(uniform.id, 1, &value.x as *const f32));
+        check_gl_unsafe!(gl::Uniform2fv(uniform.id, 1, &value.x));
         self
     }
 
     pub fn set_uniform_vec3f(&self, uniform: Uniform, value: &Vec3f)
             -> &Shader {
-        check_gl_unsafe!(gl::Uniform3fv(uniform.id, 1, &value.x as *const f32));
+        check_gl_unsafe!(gl::Uniform3fv(uniform.id, 1, &value.x));
         self
     }
 

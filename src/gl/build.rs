@@ -1,3 +1,5 @@
+#![feature(convert)]
+
 extern crate gl_generator;
 extern crate khronos_api;
 
@@ -6,7 +8,7 @@ use std::fs::File;
 use std::path::PathBuf;
 
 fn main() {
-    let dest = PathBuf::new(&env::var("OUT_DIR").unwrap())
+    let dest = PathBuf::from(&env::var("OUT_DIR").unwrap())
         .join("gl_bindings.rs");
     let mut file = File::create(&dest).unwrap();
 

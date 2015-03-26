@@ -1,4 +1,4 @@
-#![feature(core, collections)]
+#![feature(core, collections, convert)]
 
 #[macro_use] extern crate log;
 #[macro_use] extern crate gl;
@@ -109,7 +109,7 @@ impl Game {
                 &config.wad, &config.metadata).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
         let shader_loader = ShaderLoader::new(
-                gl::platform::GLSL_VERSION_STRING, PathBuf::new(SHADER_ROOT));
+                gl::platform::GLSL_VERSION_STRING, PathBuf::from(SHADER_ROOT));
         let level = Level::new(&shader_loader,
                                &mut wad, &textures, config.level_index);
 
@@ -171,10 +171,10 @@ impl Game {
             cum_updates_time += updates_t1 - updates_t0;
 
             cum_time += delta as f64;
-            num_frames += 1.0 as f64;
+            num_frames += 1.0;
             if cum_time > 2.0 {
                 let fps = num_frames / cum_time;
-                let cpums = 1000.0 * cum_updates_time / num_frames as f64;
+                let cpums = 1000.0 * cum_updates_time / num_frames;
                 info!("Frame time: {:.2}ms ({:.2}ms cpu, FPS: {:.2})",
                       1000.0 / fps, cpums, fps);
                 cum_time = 0.0;
@@ -229,7 +229,7 @@ pub fn run() {
         .opt_str("r")
         .map(|r| {
             let r: Vec<&str> = r.splitn(1, 'x').collect();
-            match r.as_slice() {
+            match &r[..] {
                 [w, h] => (w.parse().unwrap(), h.parse().unwrap()),
                 _ => {
                     panic!("Invalid format for resolution, \
@@ -271,7 +271,7 @@ pub fn run() {
             &wad_filename, &meta_filename).unwrap();
         let textures = TextureDirectory::from_archive(&mut wad).unwrap();
         let shader_loader = ShaderLoader::new(
-            gl::platform::GLSL_VERSION_STRING, PathBuf::new(SHADER_ROOT));
+            gl::platform::GLSL_VERSION_STRING, PathBuf::from(SHADER_ROOT));
         for level_index in 0 .. wad.num_levels() {
             Level::new(&shader_loader, &mut wad, &textures, level_index);
         }

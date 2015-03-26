@@ -11,7 +11,7 @@ extern crate log;
 
 #[macro_use]
 extern crate regex;
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate rustc_serialize;
 extern crate time;
 extern crate toml;
 
