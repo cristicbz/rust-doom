@@ -7,9 +7,6 @@ authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 name = "game"
 path = "lib.rs"
 
-[dependencies.sdl2]
-git = "https://github.com/AngryLawyer/rust-sdl2"
-
 [dependencies.gfx]
 path = "../gfx"
 
@@ -22,10 +19,9 @@ path = "../math"
 [dependencies.wad]
 path = "../wad"
 
-[dependencies.time]
-git = "https://github.com/rust-lang/time"
-
 [dependencies]
+sdl2 = "*"
+time = "*"
 log = "*"
 env_logger = "*"
 getopts = "*"
