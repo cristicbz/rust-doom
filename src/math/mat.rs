@@ -182,7 +182,7 @@ mod test {
                                37.0,   114.0,    93.0,    82.0);
         let ab = a * b;
 
-        for i in range(0, 16) {
+        for i in 0..16 {
             if exp_ab.data[i] != ab.data[i] {
                 panic!(
                     "They differ at {} ({}):\nexpected=\n{:?}\n\nactual=\n{:?}",
