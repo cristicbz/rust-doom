@@ -4,7 +4,7 @@ version = "0.0.7"
 authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 
 [[bin]]
-name = "rs-doom"
+name = "rs_doom"
 
 [dependencies.game]
 path = "src/game"
