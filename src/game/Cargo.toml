@@ -19,10 +19,12 @@ path = "../math"
 [dependencies.wad]
 path = "../wad"
 
+[dependencies.getopts]
+git = "https://github.com/rust-lang/getopts"
+
 [dependencies]
 sdl2 = "*"
-time = "*"
 log = "*"
+time = "*"
 env_logger = "*"
-getopts = "*"
 libc = "*"
