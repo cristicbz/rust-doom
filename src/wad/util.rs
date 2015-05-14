@@ -1,7 +1,7 @@
 use math::{Vec2, Vec2f};
 use super::types::{WadCoord, WadInfo, WadName, ChildId, WadNameCast};
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub enum WadType { Initial, Patch }
 
 

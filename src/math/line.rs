@@ -1,10 +1,10 @@
-use std::num::{Float, NumCast};
+use num::{Float, NumCast};
 use numvec::{Vec2, Numvec};
 
 
 pub type Line2f = Line2<f32>;
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct Line2<T: Float + NumCast> {
     origin: Vec2<T>,
     displace: Vec2<T>,

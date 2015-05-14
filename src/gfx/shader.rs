@@ -6,7 +6,7 @@ use std::ffi::CString;
 use std::ptr;
 use std::path::PathBuf;
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct Uniform {
     id: GLint,
 }

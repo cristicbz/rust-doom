@@ -120,7 +120,7 @@ impl Image {
 
                 let src_end = src_ptr.offset(copy_height * src_pitch);
                 while src_ptr < src_end {
-                    copy_nonoverlapping(dest_ptr, src_ptr, copy_width);
+                    copy_nonoverlapping(src_ptr, dest_ptr, copy_width);
                     src_ptr = src_ptr.offset(src_pitch);
                     dest_ptr = dest_ptr.offset(dest_pitch);
                 }
@@ -143,7 +143,7 @@ impl Image {
                         // ops we can avoid branching.
                         let src_pixel = *src_ptr.offset(src_index);
                         let dest_pixel = dest_ptr.offset(dest_index);
-                        let blend = 0.wrapping_sub(src_pixel >> 15);
+                        let blend = 0u16.wrapping_sub(src_pixel >> 15);
                         *dest_pixel = (src_pixel & !blend) |
                                       (*dest_pixel & blend);
                     }

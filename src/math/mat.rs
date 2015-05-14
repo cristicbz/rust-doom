@@ -1,5 +1,5 @@
+use num::Float;
 use std::fmt;
-use std::num::Float;
 use std::ops::Mul;
 
 use numvec::Vec3f;
@@ -17,7 +17,7 @@ pub type Scalar = f32;
 /// _Note:_ The 16 elements are stored in place, so copies are not cheap.
 #[packed]
 #[repr(C)]
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct Mat4 {
     data: [Scalar; 16]
 }

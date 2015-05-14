@@ -146,7 +146,7 @@ const NUM_SCAN_CODES: usize = 512;
 
 type UpdateIndex = u32;
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 enum ButtonState {
     Up(UpdateIndex),
     Down(UpdateIndex),

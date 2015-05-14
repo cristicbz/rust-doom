@@ -1,4 +1,4 @@
-#![feature(core, std_misc)]
+extern crate num;
 
 pub use line::Line2;
 pub use line::Line2f;

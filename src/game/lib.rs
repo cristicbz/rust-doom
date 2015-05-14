@@ -1,5 +1,3 @@
-#![feature(collections, convert)]
-
 #[macro_use] extern crate log;
 #[macro_use] extern crate gl;
 
@@ -7,6 +5,7 @@ extern crate gfx;
 extern crate wad;
 extern crate math;
 
+extern crate num;
 extern crate getopts;
 extern crate libc;
 
@@ -43,10 +42,12 @@ const SHADER_ROOT: &'static str = "src/shaders";
 
 pub struct MainWindow {
     window: sdl2::video::Window,
+    width: usize,
+    height: usize,
     _context: sdl2::video::GLContext,
 }
 impl MainWindow {
-    pub fn new(width: usize, height: usize) -> MainWindow {
+    pub fn new(sdl: &Sdl, width: usize, height: usize) -> MainWindow {
         sdl2::video::gl_set_attribute(GLAttr::GLContextMajorVersion,
                                       gl::platform::GL_MAJOR_VERSION);
         sdl2::video::gl_set_attribute(GLAttr::GLContextMinorVersion,
@@ -57,7 +58,7 @@ impl MainWindow {
                                       GLProfile::GLCoreProfile as i32);
 
         let window = sdl2::video::Window::new(
-            WINDOW_TITLE, WindowPos::PosCentered, WindowPos::PosCentered,
+            sdl, WINDOW_TITLE, WindowPos::PosCentered, WindowPos::PosCentered,
             width as i32, height as i32,
             sdl2::video::OPENGL | sdl2::video::SHOWN).unwrap();
 
@@ -77,13 +78,14 @@ impl MainWindow {
         check_gl_unsafe!(gl::BindVertexArray(vao_id));
         MainWindow {
            window: window,
+           width: width,
+           height: height,
            _context: context,
         }
     }
 
     pub fn aspect_ratio(&self) -> f32 {
-        let (w, h) = self.window.get_size();
-        w as f32 / h as f32
+        self.width as f32 / self.height as f32
     }
 
     pub fn swap_buffers(&self) {
@@ -214,7 +216,7 @@ pub fn run() {
     opts.optflag("", "load-all", "loads all levels and exit; for debugging");
     opts.optflag("h", "help", "print this help message and exit");
 
-    let matches = match opts.parse(args.tail()) {
+    let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
         Err(f) => panic!(f.to_string()),
     };
@@ -228,9 +230,10 @@ pub fn run() {
     let (width, height) = matches
         .opt_str("r")
         .map(|r| {
-            let r: Vec<&str> = r.splitn(1, 'x').collect();
+            let r: Vec<&str> = r.splitn(2, 'x').collect();
             match &r[..] {
-                [w, h] => (w.parse().unwrap(), h.parse().unwrap()),
+                wh if wh.len() == 2 => (wh[0].parse().unwrap(),
+                                        wh[1].parse().unwrap()),
                 _ => {
                     panic!("Invalid format for resolution, \
                             please use WIDTHxHEIGHT.");
@@ -263,7 +266,7 @@ pub fn run() {
     }
 
     let sdl = sdl2::init(sdl2::INIT_VIDEO).unwrap();
-    let win = MainWindow::new(width, height);
+    let win = MainWindow::new(&sdl, width, height);
 
     if matches.opt_present("load-all") {
         let t0 = time::precise_time_s();

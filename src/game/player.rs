@@ -4,7 +4,7 @@ use ctrl::GameController;
 use math::{Vec3, Vec3f, Vec2f, Numvec};
 use sdl2::scancode::ScanCode;
 use std::default::Default;
-use std::num::Float;
+use num::Float;
 
 
 pub struct PlayerBindings {

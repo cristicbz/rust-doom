@@ -48,7 +48,7 @@ struct RenderSteps { sky: RenderStep, flats: RenderStep,
     walls: RenderStep,
 }
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 enum Peg {
     Top,
     Bottom,
@@ -58,7 +58,7 @@ enum Peg {
 }
 
 #[repr(packed)]
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 struct FlatVertex {
     _pos: Vec3f,
     _atlas_uv: Vec2f,
@@ -69,7 +69,7 @@ struct FlatVertex {
 
 
 #[repr(packed)]
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 struct WallVertex {
     _pos: Vec3f,
     _tile_uv: Vec2f,
@@ -83,7 +83,7 @@ struct WallVertex {
 
 
 #[repr(packed)]
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 struct SkyVertex {
     _pos: Vec3f,
 }

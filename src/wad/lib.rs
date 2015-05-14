@@ -1,16 +1,12 @@
-#![feature(io, core, collections, convert)]
+#[macro_use] extern crate gl;
+#[macro_use] extern crate log;
+#[macro_use] extern crate regex;
 
+extern crate num;
 extern crate base;
 extern crate gfx;
-#[macro_use]
-extern crate gl;
 extern crate math;
 
-#[macro_use]
-extern crate log;
-
-#[macro_use]
-extern crate regex;
 extern crate rustc_serialize;
 extern crate time;
 extern crate toml;

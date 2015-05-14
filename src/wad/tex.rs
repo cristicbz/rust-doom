@@ -1,3 +1,5 @@
+use num::Float;
+
 use archive::Archive;
 use gfx::Texture;
 use gl;
@@ -7,7 +9,6 @@ use name::{WadName, WadNameCast};
 use std::collections::HashMap;
 use std::error::Error;
 use std::mem;
-use std::num::Float;
 use time;
 use types::{WadTextureHeader, WadTexturePatchRef};
 use super::base::ReadExt;
@@ -18,7 +19,7 @@ pub type Colormap = [u8; 256];
 pub type Flat = Vec<u8>;
 
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct Bounds {
     pub pos: Vec2f,
     pub size: Vec2f,
@@ -40,7 +41,7 @@ pub struct TextureDirectory {
 
 macro_rules! io_try(
     ($e:expr) => (try!($e.map_err(
-                |e| String::from_str(Error::description(&e)))))
+                |e| Error::description(&e).to_owned())))
 );
 
 fn search_for_frame<'a>(search_for: &WadName, animations: &'a Vec<Vec<WadName>>)
@@ -413,12 +414,12 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
 fn read_flats(wad: &mut Archive) -> Result<HashMap<WadName, Flat>, String> {
     let start = match wad.get_lump_index(&(&b"F_START"[..]).to_wad_name()) {
         Some(index) => index + 1,
-        None => return Err(String::from_str("Missing F_START."))
+        None => return Err("Missing F_START.".to_owned())
     };
 
     let end = match wad.get_lump_index(&(&b"F_END"[..]).to_wad_name()) {
         Some(index) => index,
-        None => return Err(String::from_str("Missing F_END."))
+        None => return Err("Missing F_END.".to_owned())
     };
 
     let mut flats = HashMap::with_capacity(end - start);
