@@ -18,7 +18,7 @@ use ctrl::Gesture;
 use gfx::ShaderLoader;
 use level::Level;
 use libc::c_void;
-use math::{Mat4, Vec3};
+use math::Vec3;
 use player::Player;
 use sdl2::Sdl;
 use sdl2::scancode::ScanCode;
@@ -31,6 +31,7 @@ pub mod camera;
 pub mod ctrl;
 pub mod player;
 pub mod level;
+pub mod cached;
 
 
 const WINDOW_TITLE: &'static str =
@@ -158,10 +159,7 @@ impl Game {
             }
 
             self.player.update(delta, &control);
-            self.level.render(
-                delta,
-                &self.player.get_camera()
-                .multiply_transform(&Mat4::new_identity()));
+            self.level.render(delta, self.player.get_camera().transform());
 
             let updates_t1 = time::precise_time_s();
             cum_updates_time += updates_t1 - updates_t0;
