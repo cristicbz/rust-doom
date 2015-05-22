@@ -1,6 +1,5 @@
 use gfx::{BufferBuilder, Renderer, RenderStep, ShaderLoader, VertexBuffer};
 use gl;
-use libc::c_void;
 use math::{Mat4, Line2, Line2f, Vec2f, Vec2, Vec3f, Vec3, Numvec};
 use std::cmp::Ordering;
 use std::rc::Rc;
@@ -110,7 +109,7 @@ const ATLAS_UNIT: usize = 1;
 
 macro_rules! offset_of(
     ($T:ty, $m:ident) => (
-        unsafe { (&((*(0 as *const $T)).$m)) as *const _ as *const c_void }
+        unsafe { (&((*(0 as *const $T)).$m)) as *const _ as usize }
     )
 );
 
@@ -300,35 +299,32 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn init_sky_buffer() -> VertexBuffer {
-        let buffer = BufferBuilder::<SkyVertex>::new(2)
-            .attribute_vec3f(0, offset_of!(SkyVertex, _pos))
-            .build();
-        buffer
+        let mut buffer = BufferBuilder::<SkyVertex>::new(2);
+        buffer.attribute_vec3f(0, offset_of!(SkyVertex, _pos));
+        buffer.build()
     }
 
     fn init_flats_buffer() -> VertexBuffer {
-        let buffer = BufferBuilder::<FlatVertex>::new(4)
-            .attribute_vec3f(0, offset_of!(FlatVertex, _pos))
+        let mut buffer = BufferBuilder::<FlatVertex>::new(4);
+        buffer.attribute_vec3f(0, offset_of!(FlatVertex, _pos))
             .attribute_vec2f(1, offset_of!(FlatVertex, _atlas_uv))
             .attribute_u8(2, offset_of!(FlatVertex, _num_frames))
             .attribute_u8(3, offset_of!(FlatVertex, _frame_offset))
-            .attribute_u16(4, offset_of!(FlatVertex, _light))
-            .build();
-        buffer
+            .attribute_u16(4, offset_of!(FlatVertex, _light));
+        buffer.build()
     }
 
     fn init_walls_buffer() -> VertexBuffer {
-        let buffer = BufferBuilder::<WallVertex>::new(8)
-            .attribute_vec3f(0, offset_of!(WallVertex, _pos))
+        let mut buffer = BufferBuilder::<WallVertex>::new(8);
+        buffer.attribute_vec3f(0, offset_of!(WallVertex, _pos))
             .attribute_vec2f(1, offset_of!(WallVertex, _tile_uv))
             .attribute_vec2f(2, offset_of!(WallVertex, _atlas_uv))
             .attribute_f32(3, offset_of!(WallVertex, _tile_width))
             .attribute_f32(4, offset_of!(WallVertex, _scroll_rate))
             .attribute_u8(5, offset_of!(WallVertex, _num_frames))
             .attribute_u8(6, offset_of!(WallVertex, _frame_offset))
-            .attribute_u16(7, offset_of!(WallVertex, _light))
-            .build();
-        buffer
+            .attribute_u16(7, offset_of!(WallVertex, _light));
+        buffer.build()
     }
 
     fn node(&mut self, lines: &mut Vec<Line2f>, id: ChildId) {
