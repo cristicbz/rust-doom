@@ -1,5 +1,5 @@
 use gl;
-use gl::types::*;
+use gl::types::{GLuint, GLenum, GLint, GLsizei};
 use libc;
 use math::{Vec2f, Vec2};
 use std::mem;

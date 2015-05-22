@@ -1,5 +1,5 @@
 use gl;
-use gl::types::*;
+use gl::types::{GLuint, GLenum, GLint, GLsizeiptr};
 use libc;
 use libc::c_void;
 use std::marker::PhantomData;

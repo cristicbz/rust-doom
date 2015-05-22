@@ -8,7 +8,14 @@ use std::vec::Vec;
 use wad;
 use wad::SkyMetadata;
 use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
-use wad::types::*;
+use wad::types::{
+    WadSeg,
+    WadCoord,
+    WadSector,
+    WadSidedef,
+    WadName,
+    ChildId,
+};
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id,
                 is_sky_flat};
 
