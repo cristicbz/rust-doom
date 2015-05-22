@@ -23,7 +23,6 @@ use player::Player;
 use sdl2::Sdl;
 use sdl2::scancode::ScanCode;
 use sdl2::video::{GLAttr, GLProfile};
-use sdl2::video::WindowPos;
 use std::default::Default;
 use std::path::PathBuf;
 use wad::TextureDirectory;
@@ -57,21 +56,16 @@ impl MainWindow {
         sdl2::video::gl_set_attribute(GLAttr::GLContextProfileMask,
                                       GLProfile::GLCoreProfile as i32);
 
-        let window = sdl2::video::Window::new(
-            sdl, WINDOW_TITLE, WindowPos::PosCentered, WindowPos::PosCentered,
-            width as i32, height as i32,
-            sdl2::video::OPENGL | sdl2::video::SHOWN).unwrap();
+        let window = sdl.window(WINDOW_TITLE, width as u32, height as u32)
+            .position_centered()
+            .opengl()
+            .build()
+            .unwrap();
 
         let context = window.gl_create_context().unwrap();
         sdl2::clear_error();
         gl::load_with(|name| {
-            match sdl2::video::gl_get_proc_address(name) {
-                Some(glproc) => glproc as *const libc::c_void,
-                None => {
-                    warn!("missing GL function: {}", name);
-                    std::ptr::null()
-                }
-            }
+            sdl2::video::gl_get_proc_address(name) as *const libc::c_void
         });
         let mut vao_id = 0;
         check_gl_unsafe!(gl::GenVertexArrays(1, &mut vao_id));
@@ -265,7 +259,7 @@ pub fn run() {
         return;
     }
 
-    let sdl = sdl2::init(sdl2::INIT_VIDEO).unwrap();
+    let sdl = sdl2::init().video().unwrap();
     let win = MainWindow::new(&sdl, width, height);
 
     if matches.opt_present("load-all") {
