@@ -45,9 +45,7 @@ impl Camera {
     pub unsafe fn get_transform_ref(&self) -> &Mat4 {
         (*self.cache.get()).refresh(|| {
            self.projection
-               //* Mat4::new_euler_rotation(self.yaw, self.pitch, self.roll)
-               * Mat4::new_axis_rotation(&Vec3::x_axis(), self.pitch)
-               * Mat4::new_axis_rotation(&Vec3::y_axis(), self.yaw)
+               * Mat4::new_euler_rotation(self.yaw, self.pitch, self.roll)
                * Mat4::new_translation(-self.position)
         })
     }
