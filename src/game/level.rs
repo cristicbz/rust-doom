@@ -11,7 +11,6 @@ use wad::types::{
     WadSeg,
     WadCoord,
     WadSector,
-    WadSidedef,
     WadName,
     ChildId,
 };

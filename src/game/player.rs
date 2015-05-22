@@ -69,9 +69,8 @@ impl Player {
 
         if movement.norm() == 0.0 && look.norm() == 0.0 { return; }
 
-        let yaw = self.camera.get_yaw() + look.x;
-        let pitch = clamp(self.camera.get_pitch() - look.y,
-                          (-3.14 / 2.0, 3.14 / 2.0));
+        let yaw = self.camera.yaw() + look.x;
+        let pitch = clamp(self.camera.pitch() - look.y, (-3.14 / 2.0, 3.14 / 2.0));
 
         let displacement = self.movement_speed * delta_time;
         let movement: Vec3f = Vec3::new(
@@ -83,10 +82,6 @@ impl Player {
         self.camera.set_yaw(yaw);
         self.camera.set_pitch(pitch);
         self.camera.move_by(movement);
-
-        if movement.norm() > 0.0 {
-            //info!("Pos: {}", self.camera.get_position())
-        }
     }
 
     pub fn get_camera(&self) -> &Camera {
