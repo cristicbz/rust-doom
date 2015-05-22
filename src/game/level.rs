@@ -186,26 +186,10 @@ fn init_flats_step(shader_loader: &ShaderLoader) -> RenderStep {
 
 fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
-    struct SectorTexIter<'a> { sector: &'a WadSector, tex_index: usize }
-    impl<'a> SectorTexIter<'a> {
-        fn new(sector: &'a WadSector) -> SectorTexIter {
-            SectorTexIter { sector: sector, tex_index: 0 }
-        }
-    }
-    impl<'a> Iterator for SectorTexIter<'a> {
-        type Item = &'a WadName;
-        fn next(&mut self) -> Option<&'a WadName> {
-            self.tex_index += 1;
-            match self.tex_index {
-                1 => Some(&self.sector.floor_texture),
-                2 => Some(&self.sector.ceiling_texture),
-                _ => None
-            }
-        }
-    }
     let flat_name_iter = level.sectors
             .iter()
-            .flat_map(|s| SectorTexIter::new(s))
+            .flat_map(|s| Some(&s.floor_texture).into_iter()
+                            .chain(Some(&s.ceiling_texture).into_iter()))
             .filter(|name| !is_untextured(*name) && !is_sky_flat(*name));
     let (atlas, lookup) = textures.build_flat_atlas(flat_name_iter);
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
@@ -221,27 +205,11 @@ fn init_walls_step(shader_loader: &ShaderLoader) -> RenderStep {
 
 fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
-    struct SidedefTexIter<'a> { side: &'a WadSidedef, tex_index: usize }
-    impl<'a> SidedefTexIter<'a> {
-        fn new(side: &'a WadSidedef) -> SidedefTexIter {
-            SidedefTexIter { side: side, tex_index: 0 }
-        }
-    }
-    impl<'a> Iterator for SidedefTexIter<'a> {
-        type Item = &'a WadName;
-        fn next(&mut self) -> Option<&'a WadName> {
-            self.tex_index += 1;
-            match self.tex_index {
-                1 => Some(&self.side.upper_texture),
-                2 => Some(&self.side.lower_texture),
-                3 => Some(&self.side.middle_texture),
-                _ => None
-            }
-        }
-    }
     let tex_name_iter = level.sidedefs
             .iter()
-            .flat_map(|s| SidedefTexIter::new(s))
+            .flat_map(|s| Some(&s.upper_texture).into_iter()
+                          .chain(Some(&s.lower_texture).into_iter())
+                          .chain(Some(&s.middle_texture).into_iter()))
             .filter(|name| !is_untextured(*name));
     let (atlas, lookup) = textures.build_texture_atlas(tex_name_iter);
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
