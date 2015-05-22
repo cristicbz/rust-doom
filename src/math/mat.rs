@@ -74,16 +74,15 @@ impl Mat4 {
 
     /// Creates a rotation matrix from the three _Euler angles_.
     pub fn new_euler_rotation(yaw: f32, pitch: f32, roll: f32) -> Mat4 {
-        let (ca, sa) = (yaw.cos(), yaw.sin());
-        let (cb, sb) = (roll.cos(), roll.sin());
-        let (cc, sc) = (pitch.cos(), pitch.sin());
+        let (ca, sa) = (pitch.cos(), pitch.sin());
+        let (cb, sb) = (yaw.cos(), yaw.sin());
+        let (cc, sc) = (roll.cos(), roll.sin());
 
         Mat4::new(
-             ca*cb, sa*sc - ca*sb*cc,  ca*sb*sc + sa*cc, 0.0,
-                sb,          cb * cc,          -cb * sc, 0.0,
-            -sa*cb, sa*sb*cc + ca*sc, -sa*sb*sc + ca*cc, 0.0,
-               0.0,              0.0,               0.0, 1.0,
-        )
+             cb * cc,                -cb * sc,                 sb,      0.0,
+             sa * sb * cc + ca * sc, -sa * sb * sc + ca * cc, -sa * cb, 0.0,
+            -ca * sb * cc + sa * sc,  ca * sb * sc + sa * cc,  ca * cb, 0.0,
+             0.0,                     0.0,                     0.0,     1.0)
     }
 
     /// Creates a translation matrix which maps points `p` to `p + by`.
