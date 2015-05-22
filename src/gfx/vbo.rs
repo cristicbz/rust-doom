@@ -1,5 +1,5 @@
 use gl;
-use gl::types::*;
+use gl::types::{GLuint, GLenum, GLint, GLsizeiptr};
 use libc;
 use libc::c_void;
 use std::marker::PhantomData;
@@ -12,8 +12,7 @@ pub struct VertexBuffer {
     vertex_size: usize,
 }
 impl VertexBuffer {
-    fn new(vertex_size: usize, attributes: Vec<VertexAttribute>)
-            -> VertexBuffer {
+    fn new(vertex_size: usize, attributes: Vec<VertexAttribute>) -> VertexBuffer {
         VertexBuffer {
             id: VboId::new_orphaned(),
             length: 0,
@@ -68,33 +67,33 @@ impl<VertexType: Copy>  BufferBuilder<VertexType> {
         final_size - self.vertex_size
     }
 
-    pub fn attribute_u8(&mut self, layout: usize, offset: *const c_void)
+    pub fn attribute_u8(&mut self, layout: usize, offset: usize)
             -> &mut BufferBuilder<VertexType> {
         self.new_attribute(layout, gl::UNSIGNED_BYTE, 1, false, offset)
     }
 
-    pub fn attribute_u16(&mut self, layout: usize, offset: *const c_void)
+    pub fn attribute_u16(&mut self, layout: usize, offset: usize)
             -> &mut BufferBuilder<VertexType> {
         self.new_attribute(layout, gl::UNSIGNED_SHORT, 1, false, offset)
     }
 
-    pub fn attribute_f32(&mut self, layout: usize, offset: *const c_void)
+    pub fn attribute_f32(&mut self, layout: usize, offset: usize)
             -> &mut BufferBuilder<VertexType> {
         self.new_attribute(layout, gl::FLOAT, 1, false, offset)
     }
 
-    pub fn attribute_vec2f(&mut self, layout: usize, offset: *const c_void)
+    pub fn attribute_vec2f(&mut self, layout: usize, offset: usize)
             -> &mut BufferBuilder<VertexType> {
         self.new_attribute(layout, gl::FLOAT, 2, false, offset)
     }
 
-    pub fn attribute_vec3f(&mut self, layout: usize, offset: *const c_void)
+    pub fn attribute_vec3f(&mut self, layout: usize, offset: usize)
             -> &mut BufferBuilder<VertexType> {
         self.new_attribute(layout, gl::FLOAT, 3, false, offset)
     }
 
     pub fn new_attribute(&mut self, layout: usize, gl_type: GLenum,
-                         size: usize, normalized: bool, offset: *const c_void)
+                         size: usize, normalized: bool, offset: usize)
             -> &mut BufferBuilder<VertexType> {
         let attr_size = size * match gl_type {
             gl::FLOAT => mem::size_of::<f32>(),
@@ -123,22 +122,20 @@ impl<VertexType: Copy>  BufferBuilder<VertexType> {
         self
     }
 
-    pub fn build(&self) -> VertexBuffer {
+    pub fn build(self) -> VertexBuffer {
         assert_eq!(self.max_attribute_size_left(), 0);
-        VertexBuffer::new(self.vertex_size, self.attributes.clone())
+        VertexBuffer::new(self.vertex_size, self.attributes)
     }
 }
 
 type IndexType = u16;
 
-#[allow(raw_pointer_derive)]
-#[derive(Clone)]
 struct VertexAttribute {
     layout: GLuint,
     gl_type: GLenum,
     size: GLint,
     normalized: u8,
-    offset: *const c_void
+    offset: usize,
 }
 
 
@@ -149,10 +146,10 @@ fn bind_attributes(stride: usize, attributes: &[VertexAttribute]) {
         match attr.gl_type {
             gl::FLOAT => check_gl_unsafe!(gl::VertexAttribPointer(
                 attr.layout, attr.size, attr.gl_type, attr.normalized,
-                stride, attr.offset)),
+                stride, attr.offset as *const libc::c_void)),
             gl::UNSIGNED_BYTE |
             gl::UNSIGNED_SHORT => check_gl_unsafe!(gl::VertexAttribIPointer(
-                attr.layout, attr.size, attr.gl_type, stride, attr.offset)),
+                attr.layout, attr.size, attr.gl_type, stride, attr.offset as *const libc::c_void)),
             _ => panic!("Missing attribute type from attrib ptr.")
         }
     }

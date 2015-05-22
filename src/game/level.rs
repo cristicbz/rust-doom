@@ -1,6 +1,5 @@
 use gfx::{BufferBuilder, Renderer, RenderStep, ShaderLoader, VertexBuffer};
 use gl;
-use libc::c_void;
 use math::{Mat4, Line2, Line2f, Vec2f, Vec2, Vec3f, Vec3, Numvec};
 use std::cmp::Ordering;
 use std::rc::Rc;
@@ -8,7 +7,14 @@ use std::vec::Vec;
 use wad;
 use wad::SkyMetadata;
 use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
-use wad::types::*;
+use wad::types::{
+    WadSeg,
+    WadCoord,
+    WadSector,
+    WadSidedef,
+    WadName,
+    ChildId,
+};
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id,
                 is_sky_flat};
 
@@ -103,7 +109,7 @@ const ATLAS_UNIT: usize = 1;
 
 macro_rules! offset_of(
     ($T:ty, $m:ident) => (
-        unsafe { (&((*(0 as *const $T)).$m)) as *const _ as *const c_void }
+        unsafe { (&((*(0 as *const $T)).$m)) as *const _ as usize }
     )
 );
 
@@ -180,26 +186,10 @@ fn init_flats_step(shader_loader: &ShaderLoader) -> RenderStep {
 
 fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
-    struct SectorTexIter<'a> { sector: &'a WadSector, tex_index: usize }
-    impl<'a> SectorTexIter<'a> {
-        fn new(sector: &'a WadSector) -> SectorTexIter {
-            SectorTexIter { sector: sector, tex_index: 0 }
-        }
-    }
-    impl<'a> Iterator for SectorTexIter<'a> {
-        type Item = &'a WadName;
-        fn next(&mut self) -> Option<&'a WadName> {
-            self.tex_index += 1;
-            match self.tex_index {
-                1 => Some(&self.sector.floor_texture),
-                2 => Some(&self.sector.ceiling_texture),
-                _ => None
-            }
-        }
-    }
     let flat_name_iter = level.sectors
             .iter()
-            .flat_map(|s| SectorTexIter::new(s))
+            .flat_map(|s| Some(&s.floor_texture).into_iter()
+                            .chain(Some(&s.ceiling_texture).into_iter()))
             .filter(|name| !is_untextured(*name) && !is_sky_flat(*name));
     let (atlas, lookup) = textures.build_flat_atlas(flat_name_iter);
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
@@ -215,27 +205,11 @@ fn init_walls_step(shader_loader: &ShaderLoader) -> RenderStep {
 
 fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
-    struct SidedefTexIter<'a> { side: &'a WadSidedef, tex_index: usize }
-    impl<'a> SidedefTexIter<'a> {
-        fn new(side: &'a WadSidedef) -> SidedefTexIter {
-            SidedefTexIter { side: side, tex_index: 0 }
-        }
-    }
-    impl<'a> Iterator for SidedefTexIter<'a> {
-        type Item = &'a WadName;
-        fn next(&mut self) -> Option<&'a WadName> {
-            self.tex_index += 1;
-            match self.tex_index {
-                1 => Some(&self.side.upper_texture),
-                2 => Some(&self.side.lower_texture),
-                3 => Some(&self.side.middle_texture),
-                _ => None
-            }
-        }
-    }
     let tex_name_iter = level.sidedefs
             .iter()
-            .flat_map(|s| SidedefTexIter::new(s))
+            .flat_map(|s| Some(&s.upper_texture).into_iter()
+                          .chain(Some(&s.lower_texture).into_iter())
+                          .chain(Some(&s.middle_texture).into_iter()))
             .filter(|name| !is_untextured(*name));
     let (atlas, lookup) = textures.build_texture_atlas(tex_name_iter);
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
@@ -293,35 +267,32 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn init_sky_buffer() -> VertexBuffer {
-        let buffer = BufferBuilder::<SkyVertex>::new(2)
-            .attribute_vec3f(0, offset_of!(SkyVertex, _pos))
-            .build();
-        buffer
+        let mut buffer = BufferBuilder::<SkyVertex>::new(2);
+        buffer.attribute_vec3f(0, offset_of!(SkyVertex, _pos));
+        buffer.build()
     }
 
     fn init_flats_buffer() -> VertexBuffer {
-        let buffer = BufferBuilder::<FlatVertex>::new(4)
-            .attribute_vec3f(0, offset_of!(FlatVertex, _pos))
+        let mut buffer = BufferBuilder::<FlatVertex>::new(4);
+        buffer.attribute_vec3f(0, offset_of!(FlatVertex, _pos))
             .attribute_vec2f(1, offset_of!(FlatVertex, _atlas_uv))
             .attribute_u8(2, offset_of!(FlatVertex, _num_frames))
             .attribute_u8(3, offset_of!(FlatVertex, _frame_offset))
-            .attribute_u16(4, offset_of!(FlatVertex, _light))
-            .build();
-        buffer
+            .attribute_u16(4, offset_of!(FlatVertex, _light));
+        buffer.build()
     }
 
     fn init_walls_buffer() -> VertexBuffer {
-        let buffer = BufferBuilder::<WallVertex>::new(8)
-            .attribute_vec3f(0, offset_of!(WallVertex, _pos))
+        let mut buffer = BufferBuilder::<WallVertex>::new(8);
+        buffer.attribute_vec3f(0, offset_of!(WallVertex, _pos))
             .attribute_vec2f(1, offset_of!(WallVertex, _tile_uv))
             .attribute_vec2f(2, offset_of!(WallVertex, _atlas_uv))
             .attribute_f32(3, offset_of!(WallVertex, _tile_width))
             .attribute_f32(4, offset_of!(WallVertex, _scroll_rate))
             .attribute_u8(5, offset_of!(WallVertex, _num_frames))
             .attribute_u8(6, offset_of!(WallVertex, _frame_offset))
-            .attribute_u16(7, offset_of!(WallVertex, _light))
-            .build();
-        buffer
+            .attribute_u16(7, offset_of!(WallVertex, _light));
+        buffer.build()
     }
 
     fn node(&mut self, lines: &mut Vec<Line2f>, id: ChildId) {
