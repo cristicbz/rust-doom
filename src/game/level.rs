@@ -357,14 +357,10 @@ impl<'a> VboBuilder<'a> {
             Some(s) => s
         };
 
-        if is_sky_flat(&sector.ceiling_texture)
-                && !is_sky_flat(&back_sector.ceiling_texture)
-                && !is_untextured(&side.upper_texture) {
+        if is_sky_flat(&sector.ceiling_texture) && !is_sky_flat(&back_sector.ceiling_texture) {
             self.sky_quad(seg, (ceil, max));
         }
-        if is_sky_flat(&sector.floor_texture)
-                && !is_sky_flat(&back_sector.floor_texture)
-                && !is_untextured(&side.lower_texture) {
+        if is_sky_flat(&sector.floor_texture) && !is_sky_flat(&back_sector.floor_texture) {
             self.sky_quad(seg, (min, floor));
         }
 
@@ -388,8 +384,19 @@ impl<'a> VboBuilder<'a> {
             ceil
         };
         self.wall_quad(seg, (floor, ceil), &side.middle_texture,
-                       if unpeg_lower { Peg::TopFloat } else { Peg::BottomFloat });
-
+            if unpeg_lower {
+                if is_untextured(&side.upper_texture) {
+                    Peg::TopFloat
+                } else {
+                    Peg::Bottom
+                }
+            } else {
+                if is_untextured(&side.lower_texture) {
+                    Peg::BottomFloat
+                } else {
+                    Peg::Top
+                }
+            });
     }
 
     fn wall_quad(&mut self, seg: &WadSeg, (low, high): (WadCoord, WadCoord),
@@ -432,7 +439,7 @@ impl<'a> VboBuilder<'a> {
                                      sector.floor_height) as f32;
                 (bounds.size.y + sector_height,
                  bounds.size.y - height + sector_height)
-            }
+            },
             Peg::TopFloat | Peg::BottomFloat => {
                 (bounds.size.y, 0.0)
             }
