@@ -1,43 +1,82 @@
-use gfx::{BufferBuilder, Renderer, RenderStep, ShaderLoader, VertexBuffer};
+use gfx::{BufferBuilder, Renderer, RenderStep, ShaderLoader, VertexBuffer, StepId};
 use gl;
 use math::{Mat4, Line2, Line2f, Vec2f, Vec2, Vec3f, Vec3, Numvec};
+use lights::LightBuffer;
 use std::cmp::Ordering;
 use std::rc::Rc;
 use std::vec::Vec;
 use wad;
 use wad::SkyMetadata;
 use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
-use wad::types::{
-    WadSeg,
-    WadCoord,
-    WadSector,
-    WadName,
-    ChildId,
-};
-use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id,
-                is_sky_flat};
-
+use wad::types::{WadSeg, WadCoord, WadSector, WadName, ChildId};
+use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id, is_sky_flat};
 
 pub struct Level {
     start_pos: Vec2f,
     renderer: Renderer,
+    time: f32,
+    flats_step_id: StepId,
+    walls_step_id: StepId,
+    lights: LightBuffer,
 }
+
 impl Level {
     pub fn new(shader_loader: &ShaderLoader,
                wad: &mut wad::Archive,
                textures: &TextureDirectory,
                level_index: usize) -> Level {
-        let (renderer, start_pos) = build_level(shader_loader,
-                                                wad, textures, level_index);
+        let name = *wad.get_level_name(level_index);
+        info!("Building level {}...", name);
+        let level = wad::Level::from_archive(wad, level_index);
+
+        let mut steps = RenderSteps {
+            sky: init_sky_step(shader_loader, wad.get_metadata().sky_for(&name),
+                               textures),
+            flats: init_static_step(shader_loader),
+            walls: init_static_step(shader_loader),
+        };
+        build_palette(textures, &mut [&mut steps.flats,
+                                      &mut steps.sky,
+                                      &mut steps.walls]);
+
+        let texture_maps = TextureMaps {
+            flats: build_flats_atlas(&level, textures, &mut steps.flats),
+            walls: build_walls_atlas(&level, textures, &mut steps.walls),
+        };
+
+        let mut lights = LightBuffer::new();
+        VboBuilder::build(&level, &texture_maps, &mut lights, &mut steps);
+
+        let mut renderer = Renderer::new();
+        renderer.add_step(steps.sky);
+        let flats_step_id = renderer.add_step(steps.flats);
+        let walls_step_id = renderer.add_step(steps.walls);
+
+        let mut start_pos = Vec2::zero();
+        for thing in level.things.iter() {
+            if thing.thing_type == 1 {  // Player 1 start position.
+                start_pos = from_wad_coords(thing.x, thing.y);
+                info!("Player start position: {:?}.", start_pos);
+            }
+        }
+
         Level {
-            renderer: renderer,
             start_pos: start_pos,
+            renderer: renderer,
+            time: 0.0,
+            flats_step_id: flats_step_id,
+            walls_step_id: walls_step_id,
+            lights: lights,
         }
     }
 
     pub fn get_start_pos(&self) -> &Vec2f { &self.start_pos }
 
     pub fn render(&mut self, delta_time: f32, projection_view: &Mat4) {
+        self.time += delta_time;
+        let lights = self.lights.buffer_at(self.time);
+        self.renderer.step_mut(self.flats_step_id).add_constant_f32v("u_lights", lights);
+        self.renderer.step_mut(self.walls_step_id).add_constant_f32v("u_lights", lights);
         self.renderer.render(delta_time, projection_view);
     }
 }
@@ -64,26 +103,15 @@ enum Peg {
 
 #[repr(packed)]
 #[derive(Copy, Clone)]
-struct FlatVertex {
-    _pos: Vec3f,
-    _atlas_uv: Vec2f,
-    _num_frames: u8,
-    _frame_offset: u8,
-    _light: u16,
-}
-
-
-#[repr(packed)]
-#[derive(Copy, Clone)]
-struct WallVertex {
+struct StaticVertex {
     _pos: Vec3f,
     _tile_uv: Vec2f,
+    _tile_size: Vec2f,
     _atlas_uv: Vec2f,
-    _tile_width: f32,
     _scroll_rate: f32,
     _num_frames: u8,
     _frame_offset: u8,
-    _light: u16,
+    _light: u8,
 }
 
 
@@ -92,8 +120,6 @@ struct WallVertex {
 struct SkyVertex {
     _pos: Vec3f,
 }
-
-
 
 // Distance on the wrong side of a BSP and seg line allowed.
 const BSP_TOLERANCE: f32 = 1e-3;
@@ -111,50 +137,6 @@ macro_rules! offset_of(
         unsafe { (&((*(0 as *const $T)).$m)) as *const _ as usize }
     )
 );
-
-
-pub fn build_level(shader_loader: &ShaderLoader,
-                   wad: &mut wad::Archive,
-                   textures: &wad::TextureDirectory,
-                   level_index: usize)
-        -> (Renderer, Vec2f) {
-    let name = *wad.get_level_name(level_index);
-    info!("Building level {}...", name);
-    let level = wad::Level::from_archive(wad, level_index);
-
-    let mut steps = RenderSteps {
-        sky: init_sky_step(shader_loader, wad.get_metadata().sky_for(&name),
-                           textures),
-        flats: init_flats_step(shader_loader),
-        walls: init_walls_step(shader_loader),
-    };
-    build_palette(textures, &mut [&mut steps.flats,
-                                  &mut steps.sky,
-                                  &mut steps.walls]);
-
-    let texture_maps = TextureMaps {
-        flats: build_flats_atlas(&level, textures, &mut steps.flats),
-        walls: build_walls_atlas(&level, textures, &mut steps.walls),
-    };
-
-    VboBuilder::build(&level, &texture_maps, &mut steps);
-
-    let mut renderer = Renderer::new();
-    renderer
-        .add_step(steps.sky)
-        .add_step(steps.flats)
-        .add_step(steps.walls);
-
-    let mut start_pos = Vec2::zero();
-    for thing in level.things.iter() {
-        if thing.thing_type == 1 {  // Player 1 start position.
-            start_pos = from_wad_coords(thing.x, thing.y);
-            info!("Player start position: {:?}.", start_pos);
-        }
-    }
-    (renderer, start_pos)
-}
-
 
 fn build_palette(textures: &TextureDirectory, steps: &mut [&mut RenderStep]) {
     let palette = Rc::new(textures.build_palette_texture(0, 0, 32));
@@ -178,8 +160,10 @@ fn init_sky_step(shader_loader: &ShaderLoader,
 }
 
 
-fn init_flats_step(shader_loader: &ShaderLoader) -> RenderStep {
-    RenderStep::new(shader_loader.load("flat").unwrap())
+fn init_static_step(shader_loader: &ShaderLoader) -> RenderStep {
+    let mut step = RenderStep::new(shader_loader.load("static").unwrap());
+    step.add_constant_f32v("u_lights", &[0.0; 256]);
+    step
 }
 
 
@@ -196,12 +180,6 @@ fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
     lookup
 }
 
-
-fn init_walls_step(shader_loader: &ShaderLoader) -> RenderStep {
-    RenderStep::new(shader_loader.load("wall").unwrap())
-}
-
-
 fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
     let tex_name_iter = level.sidedefs
@@ -217,20 +195,19 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
     lookup
 }
 
-type LightInfo = u16;
-
 
 struct VboBuilder<'a> {
     level: &'a wad::Level,
     bounds: &'a TextureMaps,
+    lights: &'a mut LightBuffer,
     sky: Vec<SkyVertex>,
-    flats: Vec<FlatVertex>,
-    walls: Vec<WallVertex>,
+    flats: Vec<StaticVertex>,
+    walls: Vec<StaticVertex>,
     min_height: i16,
     max_height: i16,
 }
 impl<'a> VboBuilder<'a> {
-    fn build(level: &wad::Level, bounds: &TextureMaps,
+    fn build(level: &wad::Level, bounds: &TextureMaps, lights: &mut LightBuffer,
              steps: &mut RenderSteps) {
         let (min_height, max_height) = level.sectors
             .iter()
@@ -242,6 +219,7 @@ impl<'a> VboBuilder<'a> {
         let mut builder = VboBuilder {
             level: level,
             bounds: bounds,
+            lights: lights,
             flats: Vec::with_capacity(level.subsectors.len() * 4),
             walls: Vec::with_capacity(level.segs.len() * 2 * 4),
             sky: Vec::with_capacity(32),
@@ -255,11 +233,11 @@ impl<'a> VboBuilder<'a> {
         vbo.set_data(gl::STATIC_DRAW, &builder.sky);
         steps.sky.add_static_vbo(vbo);
 
-        let mut vbo = VboBuilder::init_flats_buffer();
+        let mut vbo = VboBuilder::init_static_buffer();
         vbo.set_data(gl::STATIC_DRAW, &builder.flats);
         steps.flats.add_static_vbo(vbo);
 
-        let mut vbo = VboBuilder::init_walls_buffer();
+        let mut vbo = VboBuilder::init_static_buffer();
         vbo.set_data(gl::STATIC_DRAW, &builder.walls);
         steps.walls.add_static_vbo(vbo);
 
@@ -271,26 +249,16 @@ impl<'a> VboBuilder<'a> {
         buffer.build()
     }
 
-    fn init_flats_buffer() -> VertexBuffer {
-        let mut buffer = BufferBuilder::<FlatVertex>::new(4);
-        buffer.attribute_vec3f(0, offset_of!(FlatVertex, _pos))
-            .attribute_vec2f(1, offset_of!(FlatVertex, _atlas_uv))
-            .attribute_u8(2, offset_of!(FlatVertex, _num_frames))
-            .attribute_u8(3, offset_of!(FlatVertex, _frame_offset))
-            .attribute_u16(4, offset_of!(FlatVertex, _light));
-        buffer.build()
-    }
-
-    fn init_walls_buffer() -> VertexBuffer {
-        let mut buffer = BufferBuilder::<WallVertex>::new(8);
-        buffer.attribute_vec3f(0, offset_of!(WallVertex, _pos))
-            .attribute_vec2f(1, offset_of!(WallVertex, _tile_uv))
-            .attribute_vec2f(2, offset_of!(WallVertex, _atlas_uv))
-            .attribute_f32(3, offset_of!(WallVertex, _tile_width))
-            .attribute_f32(4, offset_of!(WallVertex, _scroll_rate))
-            .attribute_u8(5, offset_of!(WallVertex, _num_frames))
-            .attribute_u8(6, offset_of!(WallVertex, _frame_offset))
-            .attribute_u16(7, offset_of!(WallVertex, _light));
+    fn init_static_buffer() -> VertexBuffer {
+        let mut buffer = BufferBuilder::<StaticVertex>::new(8);
+        buffer.attribute_vec3f(0, offset_of!(StaticVertex, _pos))
+            .attribute_vec2f(1, offset_of!(StaticVertex, _atlas_uv))
+            .attribute_vec2f(2, offset_of!(StaticVertex, _tile_uv))
+            .attribute_vec2f(3, offset_of!(StaticVertex, _tile_size))
+            .attribute_f32(4, offset_of!(StaticVertex, _scroll_rate))
+            .attribute_u8(5, offset_of!(StaticVertex, _num_frames))
+            .attribute_u8(6, offset_of!(StaticVertex, _frame_offset))
+            .attribute_u8(7, offset_of!(StaticVertex, _light));
         buffer.build()
     }
 
@@ -471,8 +439,7 @@ impl<'a> VboBuilder<'a> {
         };
         let (t1, t2) = (t1 + side.y_offset as f32, t2 + side.y_offset as f32);
 
-        let scroll = if line.special_type == 0x30 { 35.0 }
-                     else { 0.0 };
+        let scroll = if line.special_type == 0x30 { 35.0 } else { 0.0 };
 
         let (low, high) = (low - POLY_BIAS, high + POLY_BIAS);
         self.wall_vertex(&v1, low,  s1, t1, light_info, scroll, bounds);
@@ -551,29 +518,9 @@ impl<'a> VboBuilder<'a> {
         self.sky_vertex(&v1, high);
     }
 
-
-    fn light_info(&self, sector: &WadSector) -> u16 {
-        let light = sector.light;
-        let sector_id = self.level.sector_id(sector);
-        let sync: u16 = (sector_id as usize * 1664525 + 1013904223) as u16;
-        let min_light_or = |if_same| {
-            let min = self.level.sector_min_light(sector);
-            if min == light { if_same } else { min }
-        };
-        let (alt_light, light_type, sync) = match sector.sector_type {
-            1   => (min_light_or(0),     0, sync), // FLASH
-            2|4 => (min_light_or(0),     3, sync), // FAST STROBE
-            3   => (min_light_or(0),     1, sync), // SLOW STROBE
-            8   => (min_light_or(light), 4, 0),    // GLOW
-            12  => (min_light_or(0),     1, 0),    // SLOW STROBE SYNC
-            13  => (min_light_or(0),     3, 0),    // FAST STROBE SYNC
-            17  => (min_light_or(0),     2, sync), // FLICKER
-            _   => (light, 0, 0),
-        };
-        (((light as u16 >> 3) & 31) << 11) +
-        (((alt_light as u16 >> 3) & 31) << 6) +
-        (light_type << 3) +
-        (sync & 7)
+    fn light_info(&mut self, sector: &WadSector) -> u8 {
+        self.lights.push(sector.light, self.level.sector_min_light(sector),
+                         sector.sector_type, self.level.sector_id(sector))
     }
 
     fn sky_vertex(&mut self, xz: &Vec2f, y: f32) {
@@ -582,11 +529,14 @@ impl<'a> VboBuilder<'a> {
         });
     }
 
-    fn flat_vertex(&mut self, xz: &Vec2f, y: f32, light_info: u16,
+    fn flat_vertex(&mut self, xz: &Vec2f, y: f32, light_info: u8,
                    bounds: &Bounds) {
-        self.flats.push(FlatVertex {
+        self.flats.push(StaticVertex {
             _pos: Vec3::new(xz.x, y, xz.y),
             _atlas_uv: bounds.pos,
+            _tile_uv: -Vec2::new(xz.x, xz.y) * 100.0,
+            _tile_size: bounds.size,
+            _scroll_rate: 0.0,
             _num_frames: bounds.num_frames as u8,
             _frame_offset: bounds.frame_offset as u8,
             _light: light_info,
@@ -594,12 +544,12 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn wall_vertex(&mut self, xz: &Vec2f, y: f32, tile_u: f32, tile_v: f32,
-                   light_info: u16, scroll_rate: f32, bounds: &Bounds) {
-        self.walls.push(WallVertex {
+                   light_info: u8, scroll_rate: f32, bounds: &Bounds) {
+        self.walls.push(StaticVertex {
             _pos: Vec3::new(xz.x, y, xz.y),
-            _tile_uv: Vec2::new(tile_u, tile_v),
             _atlas_uv: bounds.pos,
-            _tile_width: bounds.size.x,
+            _tile_uv: Vec2::new(tile_u, tile_v),
+            _tile_size: bounds.size,
             _scroll_rate: scroll_rate,
             _num_frames: bounds.num_frames as u8,
             _frame_offset: bounds.frame_offset as u8,

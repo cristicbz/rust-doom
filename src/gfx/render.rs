@@ -7,6 +7,8 @@ use std::vec::Vec;
 use texture::Texture;
 use vbo::VertexBuffer;
 
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub struct StepId(usize);
 
 pub struct Renderer {
     steps: Vec<RenderStep>,
@@ -17,9 +19,13 @@ impl Renderer {
         Renderer { steps: Vec::new(), time: 0.0 }
     }
 
-    pub fn add_step(&mut self, step: RenderStep) -> &mut Renderer {
+    pub fn add_step(&mut self, step: RenderStep) -> StepId {
         self.steps.push(step);
-        self
+        StepId(self.steps.len() - 1)
+    }
+
+    pub fn step_mut(&mut self, id: StepId) -> &mut RenderStep {
+        &mut self.steps[id.0]
     }
 
     pub fn render(&mut self, delta_time: f32, transform: &Mat4) -> &Renderer {
@@ -55,15 +61,23 @@ impl RenderStep {
 
     pub fn shader(&mut self) -> &mut Shader { &mut self.shader }
 
-    pub fn add_constant_f32(&mut self, name: &str, value: f32)
-            -> &mut RenderStep {
+    //pub fn get_uniform(&self, name: &str) -> Option<Uniform> {
+    //    self.shader.get_uniform(name)
+    //}
+
+    pub fn add_constant_f32v(&mut self, name: &str, value: &[f32]) -> &mut RenderStep {
+        let uniform = self.shader.expect_uniform(name);
+        self.shader.bind_mut().set_uniform_f32v(uniform, value).unbind();
+        self
+    }
+
+    pub fn add_constant_f32(&mut self, name: &str, value: f32) -> &mut RenderStep {
         let uniform = self.shader.expect_uniform(name);
         self.shader.bind_mut().set_uniform_f32(uniform, value).unbind();
         self
     }
 
-    pub fn add_constant_vec2f(&mut self, name: &str, value: &Vec2f)
-            -> &mut RenderStep {
+    pub fn add_constant_vec2f(&mut self, name: &str, value: &Vec2f) -> &mut RenderStep {
         let uniform = self.shader.expect_uniform(name);
         self.shader.bind_mut().set_uniform_vec2f(uniform, value).unbind();
         self
