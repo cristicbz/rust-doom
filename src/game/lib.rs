@@ -32,6 +32,7 @@ pub mod ctrl;
 pub mod player;
 pub mod level;
 pub mod cached;
+pub mod lights;
 
 
 const WINDOW_TITLE: &'static str =

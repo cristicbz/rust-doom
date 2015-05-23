@@ -10,6 +10,7 @@ extern crate log;
 
 pub use render::Renderer;
 pub use render::RenderStep;
+pub use render::StepId;
 pub use shader::Shader;
 pub use shader::ShaderLoader;
 pub use shader::Uniform;

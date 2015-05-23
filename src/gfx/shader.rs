@@ -86,6 +86,11 @@ impl Shader {
         self
     }
 
+    pub fn set_uniform_f32v(&self, uniform: Uniform, value: &[f32]) -> &Shader {
+        check_gl_unsafe!(gl::Uniform1fv(uniform.id, value.len() as i32, value.as_ptr()));
+        self
+    }
+
     pub fn set_uniform_vec2f(&self, uniform: Uniform, value: &Vec2f)
             -> &Shader {
         check_gl_unsafe!(gl::Uniform2fv(uniform.id, 1, &value.x));
