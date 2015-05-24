@@ -219,12 +219,12 @@ impl TextureDirectory {
             let mut max_height = 0;
             for &(_, image, _, _) in images.iter() {
                 let (width, height) = (image.width(), image.height());
-                if height > max_height { max_height = height; }
                 if x_offset + width > atlas_width {
                     x_offset = 0;
                     y_offset += max_height;
                     max_height = 0;
                 }
+                if height > max_height { max_height = height; }
                 if y_offset + height > atlas_height {
                     failed = true;
                     break;
@@ -257,8 +257,7 @@ impl TextureDirectory {
         assert!(offsets.len() == images.len());
         let mut atlas = Image::new(atlas_width, atlas_height);
         let mut bound_map = HashMap::with_capacity(images.len());
-        for (i, (name, image, frame_offset, num_frames)) in
-                images.into_iter().enumerate() {
+        for (i, (name, image, frame_offset, num_frames)) in images.into_iter().enumerate() {
             atlas.blit(image, offsets[i].0, offsets[i].1, true);
             bound_map.insert(*name, img_bound(offsets[i - frame_offset],
                                               image, frame_offset, num_frames));
