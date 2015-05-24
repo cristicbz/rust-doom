@@ -1,6 +1,7 @@
 use camera::Camera;
 use ctrl::{Analog2d, Gesture};
 use ctrl::GameController;
+use level::Level;
 use math::{Vec3, Vec3f, Vec2f, Numvec};
 use sdl2::scancode::ScanCode;
 use std::default::Default;
@@ -63,7 +64,7 @@ impl Player {
         self
     }
 
-    pub fn update(&mut self, delta_time: f32, controller: &GameController) {
+    pub fn update(&mut self, delta_time: f32, controller: &GameController, level: &Level) {
         let movement = self.bindings.movement_vector(controller);
         let look = self.bindings.look_vector(controller);
 
@@ -82,6 +83,10 @@ impl Player {
         self.camera.set_yaw(yaw);
         self.camera.set_pitch(pitch);
         self.camera.move_by(movement);
+
+        let mut pos = *self.camera.position();
+        pos.y = level.floor_at(&Vec2f::new(pos.x, pos.z)) + 0.5;
+        self.camera.set_position(pos);
     }
 
     pub fn get_camera(&self) -> &Camera {

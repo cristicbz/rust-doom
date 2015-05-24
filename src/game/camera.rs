@@ -20,7 +20,7 @@ pub struct Camera {
     far: f32,           // Far plane Z.
     projection: Mat4,   // Projection matrix computed from parameters above.
 
-    transform: Cached<Mat4>,  // Combined projection*view transform.
+    modelview: Cached<Mat4>,  // Cached modelview transform.
 }
 
 impl Camera {
@@ -34,19 +34,19 @@ impl Camera {
             near: near, far: far,  // Whereeeever you are.
             projection: Mat4::new_perspective(fov, aspect_ratio, near, far),
 
-            transform: Cached::invalidated(Mat4::new_identity()),
+            modelview: Cached::invalidated(Mat4::new_identity()),
         };
         camera
     }
 
-    pub fn transform(&self) -> &Mat4 {
-        self.transform.get(|transform| {
-            *transform = self.projection
-               * Mat4::new_euler_rotation(self.yaw, self.pitch, self.roll)
-               * Mat4::new_translation(-self.position);
+    pub fn modelview(&self) -> &Mat4 {
+        self.modelview.get(|modelview| {
+            *modelview = Mat4::new_euler_rotation(self.yaw, self.pitch, self.roll)
+                       * Mat4::new_translation(-self.position);
         })
     }
 
+    pub fn projection(&self) -> &Mat4 { &self.projection }
     pub fn position(&self) -> &Vec3f { &self.position }
     pub fn yaw(&self) -> f32 { self.yaw }
     pub fn pitch(&self) -> f32 { self.pitch }
@@ -54,33 +54,33 @@ impl Camera {
 
     pub fn set_yaw(&mut self, value: f32) -> &mut Camera {
         self.yaw = value;
-        self.transform.invalidate();
+        self.modelview.invalidate();
         self
     }
 
     pub fn set_pitch(&mut self, value: f32) -> &mut Camera {
         self.pitch = value;
-        self.transform.invalidate();
+        self.modelview.invalidate();
         self
     }
 
     pub fn set_roll(&mut self, value: f32) -> &mut Camera {
         self.roll = value;
-        self.transform.invalidate();
+        self.modelview.invalidate();
         self
     }
 
     /// Moves the camera with to an absolute position.
     pub fn set_position(&mut self, value: Vec3f) -> &mut Camera {
         self.position = value;
-        self.transform.invalidate();
+        self.modelview.invalidate();
         self
     }
 
     /// Moves the camera with a relative vector.
     pub fn move_by(&mut self, by: Vec3f) -> &mut Camera {
         self.position = self.position + by;
-        self.transform.invalidate();
+        self.modelview.invalidate();
         self
     }
 
@@ -98,7 +98,6 @@ impl Camera {
 
         self.projection = Mat4::new_perspective(
             self.fov, self.aspect_ratio, self.near, self.far);
-        self.transform.invalidate();
         self
     }
 }

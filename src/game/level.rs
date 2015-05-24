@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use std::rc::Rc;
 use std::vec::Vec;
 use wad;
-use wad::SkyMetadata;
+use wad::{WadMetadata, SkyMetadata};
 use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
 use wad::types::{WadSeg, WadCoord, WadSector, WadName, ChildId};
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id, is_sky_flat};
@@ -18,6 +18,7 @@ pub struct Level {
     flats_step_id: StepId,
     walls_step_id: StepId,
     lights: LightBuffer,
+    volume: WorldVolume,
 }
 
 impl Level {
@@ -34,6 +35,7 @@ impl Level {
                                textures),
             flats: init_static_step(shader_loader),
             walls: init_static_step(shader_loader),
+            decors: init_decor_step(shader_loader),
         };
         build_palette(textures, &mut [&mut steps.flats,
                                       &mut steps.sky,
@@ -44,13 +46,16 @@ impl Level {
             walls: build_walls_atlas(&level, textures, &mut steps.walls),
         };
 
+        let mut volume = WorldVolume::new();
         let mut lights = LightBuffer::new();
-        VboBuilder::build(&level, &texture_maps, &mut lights, &mut steps);
+        VboBuilder::build(&level, &wad.get_metadata(),
+                          &texture_maps, &mut lights, &mut volume, &mut steps);
 
         let mut renderer = Renderer::new();
         renderer.add_step(steps.sky);
         let flats_step_id = renderer.add_step(steps.flats);
         let walls_step_id = renderer.add_step(steps.walls);
+        renderer.add_step(steps.decors);
 
         let mut start_pos = Vec2::zero();
         for thing in level.things.iter() {
@@ -67,17 +72,22 @@ impl Level {
             flats_step_id: flats_step_id,
             walls_step_id: walls_step_id,
             lights: lights,
+            volume: volume,
         }
     }
 
     pub fn get_start_pos(&self) -> &Vec2f { &self.start_pos }
 
-    pub fn render(&mut self, delta_time: f32, projection_view: &Mat4) {
+    pub fn floor_at(&self, pos: &Vec2f) -> f32 {
+        self.volume.floor_at(pos).unwrap_or(0.0)
+    }
+
+    pub fn render(&mut self, delta_time: f32, projection: &Mat4, modelview: &Mat4) {
         self.time += delta_time;
         let lights = self.lights.buffer_at(self.time);
         self.renderer.step_mut(self.flats_step_id).add_constant_f32v("u_lights", lights);
         self.renderer.step_mut(self.walls_step_id).add_constant_f32v("u_lights", lights);
-        self.renderer.render(delta_time, projection_view);
+        self.renderer.render(delta_time, projection, modelview);
     }
 }
 
@@ -88,8 +98,11 @@ struct TextureMaps {
 }
 
 
-struct RenderSteps { sky: RenderStep, flats: RenderStep,
+struct RenderSteps {
+    sky: RenderStep,
+    flats: RenderStep,
     walls: RenderStep,
+    decors: RenderStep,
 }
 
 #[derive(Copy, Clone)]
@@ -113,6 +126,20 @@ struct StaticVertex {
     _frame_offset: u8,
     _light: u8,
 }
+
+#[repr(packed)]
+#[derive(Copy, Clone)]
+struct SpriteVertex {
+    _pos: Vec3f,
+    _local_x: f32,
+    _tile_uv: Vec2f,
+    _tile_size: Vec2f,
+    _atlas_uv: Vec2f,
+    _num_frames: u8,
+    _frame_offset: u8,
+    _light: u8,
+}
+
 
 
 #[repr(packed)]
@@ -166,6 +193,12 @@ fn init_static_step(shader_loader: &ShaderLoader) -> RenderStep {
     step
 }
 
+fn init_decor_step(shader_loader: &ShaderLoader) -> RenderStep {
+    let mut step = RenderStep::new(shader_loader.load("sprite").unwrap());
+    step.add_constant_f32v("u_lights", &[0.0; 256]);
+    step
+}
+
 
 fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                      step: &mut RenderStep) -> BoundsLookup {
@@ -195,20 +228,66 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
     lookup
 }
 
+pub struct FlatPoly {
+    floor: f32,
+    ceil: f32,
+    poly: Vec<Vec2f>,
+}
+
+impl FlatPoly {
+    pub fn contains(&self, point: &Vec2f) -> bool {
+        self.poly.iter()
+            .zip(self.poly[1..].iter().chain(Some(&self.poly[0]).into_iter()))
+            .map(|(a, b)| Line2::from_two_points(*a, *b))
+            .all(|l| l.signed_distance(point) >= 0.0)
+    }
+}
+
+pub struct WorldVolume {
+    flats: Vec<FlatPoly>,
+}
+impl WorldVolume {
+    pub fn new() -> WorldVolume {
+        WorldVolume {
+            flats: vec![],
+        }
+    }
+
+    pub fn push_flat(&mut self, floor: f32, ceil: f32, points: Vec<Vec2f>) {
+        self.flats.push(FlatPoly {
+            floor: floor,
+            ceil: ceil,
+            poly: points,
+        });
+    }
+
+    pub fn floor_at(&self, position: &Vec2f) -> Option<f32> {
+        self.flats.iter().find(|poly| poly.contains(position)).map(|poly| poly.floor)
+    }
+
+    pub fn ceil_at(&self, position: &Vec2f) -> Option<f32> {
+        self.flats.iter().find(|poly| poly.contains(position)).map(|poly| poly.ceil)
+    }
+}
+
 
 struct VboBuilder<'a> {
     level: &'a wad::Level,
+    meta: &'a WadMetadata,
     bounds: &'a TextureMaps,
     lights: &'a mut LightBuffer,
+    volume: &'a mut WorldVolume,
     sky: Vec<SkyVertex>,
     flats: Vec<StaticVertex>,
     walls: Vec<StaticVertex>,
+    decors: Vec<SpriteVertex>,
     min_height: i16,
     max_height: i16,
 }
 impl<'a> VboBuilder<'a> {
-    fn build(level: &wad::Level, bounds: &TextureMaps, lights: &mut LightBuffer,
-             steps: &mut RenderSteps) {
+    fn build(level: &wad::Level, meta: &WadMetadata,
+             bounds: &TextureMaps, lights: &mut LightBuffer,
+             volume: &mut WorldVolume, steps: &mut RenderSteps) {
         let (min_height, max_height) = level.sectors
             .iter()
             .map(|s| (s.floor_height, s.ceiling_height))
@@ -218,16 +297,21 @@ impl<'a> VboBuilder<'a> {
 
         let mut builder = VboBuilder {
             level: level,
+            meta: meta,
             bounds: bounds,
             lights: lights,
+            volume: volume,
             flats: Vec::with_capacity(level.subsectors.len() * 4),
             walls: Vec::with_capacity(level.segs.len() * 2 * 4),
             sky: Vec::with_capacity(32),
+            decors: Vec::with_capacity(256),
             min_height: min_height,
             max_height: max_height,
         };
         let root_id = (level.nodes.len() - 1) as ChildId;
         builder.node(&mut Vec::with_capacity(32), root_id);
+
+        builder.things();
 
         let mut vbo = VboBuilder::init_sky_buffer();
         vbo.set_data(gl::STATIC_DRAW, &builder.sky);
@@ -241,6 +325,9 @@ impl<'a> VboBuilder<'a> {
         vbo.set_data(gl::STATIC_DRAW, &builder.walls);
         steps.walls.add_static_vbo(vbo);
 
+        let mut vbo = VboBuilder::init_sprite_buffer();
+        vbo.set_data(gl::STATIC_DRAW, &builder.decors);
+        steps.decors.add_static_vbo(vbo);
     }
 
     fn init_sky_buffer() -> VertexBuffer {
@@ -260,6 +347,40 @@ impl<'a> VboBuilder<'a> {
             .attribute_u8(6, offset_of!(StaticVertex, _frame_offset))
             .attribute_u8(7, offset_of!(StaticVertex, _light));
         buffer.build()
+    }
+
+    fn init_sprite_buffer() -> VertexBuffer {
+        let mut buffer = BufferBuilder::<SpriteVertex>::new(8);
+        buffer.attribute_vec3f(0, offset_of!(SpriteVertex, _pos))
+            .attribute_f32(1, offset_of!(SpriteVertex, _local_x))
+            .attribute_vec2f(2, offset_of!(SpriteVertex, _atlas_uv))
+            .attribute_vec2f(3, offset_of!(SpriteVertex, _tile_uv))
+            .attribute_vec2f(4, offset_of!(SpriteVertex, _tile_size))
+            .attribute_u8(5, offset_of!(SpriteVertex, _num_frames))
+            .attribute_u8(6, offset_of!(SpriteVertex, _frame_offset))
+            .attribute_u8(7, offset_of!(SpriteVertex, _light));
+        buffer.build()
+    }
+
+    fn things(&mut self) {
+        for thing in self.level.things.iter() {
+            let pos = from_wad_coords(thing.x, thing.y);
+            let floor = self.volume.floor_at(&pos).unwrap_or(0.0);
+            self.decor(&pos, 0.2, (floor, floor + 0.2));
+        }
+    }
+
+    fn decor(&mut self, pos: &Vec2f, width: f32, (low, high): (f32, f32)) {
+        let low = Vec3f::new(pos.x, low, pos.y);
+        let high = Vec3f::new(pos.x, high, pos.y);
+
+        self.decor_vertex(&low, -width / 2.0);
+        self.decor_vertex(&low, width / 2.0);
+        self.decor_vertex(&high, width / 2.0);
+
+        self.decor_vertex(&high, width / 2.0);
+        self.decor_vertex(&high, -width / 2.0);
+        self.decor_vertex(&low, -width / 2.0);
     }
 
     fn node(&mut self, lines: &mut Vec<Line2f>, id: ChildId) {
@@ -465,6 +586,8 @@ impl<'a> VboBuilder<'a> {
         let ceil_y = from_wad_height(sector.ceiling_height);
         let ceil_tex = &sector.ceiling_texture;
 
+        self.volume.push_flat(floor_y, ceil_y, points.to_owned());
+
         let v0 = points[0];
         if !is_sky_flat(floor_tex) {
             let floor_bounds = self.bounds.flats
@@ -561,6 +684,19 @@ impl<'a> VboBuilder<'a> {
             _num_frames: bounds.num_frames as u8,
             _frame_offset: bounds.frame_offset as u8,
             _light: light_info,
+        });
+    }
+
+    fn decor_vertex(&mut self, pos: &Vec3f, local_x: f32) {
+        self.decors.push(SpriteVertex {
+            _pos: *pos,
+            _local_x: local_x,
+            _atlas_uv: Vec2::new(0.0, 0.0),
+            _tile_uv: Vec2::new(0.0, 0.0),
+            _tile_size: Vec2::new(0.0, 0.0),
+            _num_frames: 1,
+            _frame_offset: 0,
+            _light: 0,
         });
     }
 }

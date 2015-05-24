@@ -159,8 +159,10 @@ impl Game {
                 control.set_cursor_grabbed(mouse_grabbed);
             }
 
-            self.player.update(delta, &control);
-            self.level.render(delta, self.player.get_camera().transform());
+            self.player.update(delta, &control, &self.level);
+            self.level.render(delta,
+                              self.player.get_camera().projection(),
+                              self.player.get_camera().modelview());
 
             let updates_t1 = time::precise_time_s();
             cum_updates_time += updates_t1 - updates_t0;

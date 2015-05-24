@@ -1,5 +1,6 @@
+uniform mat4 u_projection;
+uniform mat4 u_modelview;
 
-uniform mat4 u_transform;
 uniform vec2 u_atlas_size;
 uniform float u_time;
 uniform float u_lights[256];
@@ -40,7 +41,7 @@ void main() {
         v_atlas_uv = vec2(atlas_u, atlas_v);
     }
     v_tile_size = a_tile_size;
-    vec4 projected_pos = u_transform * vec4(a_pos, 1);
+    vec4 projected_pos = u_projection * u_modelview * vec4(a_pos, 1);
     v_dist = projected_pos.w;
     v_light = u_lights[a_light];
     gl_Position = projected_pos;

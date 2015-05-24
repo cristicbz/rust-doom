@@ -28,11 +28,12 @@ impl Renderer {
         &mut self.steps[id.0]
     }
 
-    pub fn render(&mut self, delta_time: f32, transform: &Mat4) -> &Renderer {
+    pub fn render(&mut self, delta_time: f32, projection: &Mat4, modelview: &Mat4)
+            -> &Renderer {
         check_gl_unsafe!(gl::Enable(gl::CULL_FACE));
         self.time += delta_time;
         for step in self.steps.iter() {
-            step.render_setup(transform, self.time).render_done();
+            step.render_setup(projection, modelview, self.time).render_done();
         }
         self
     }
@@ -44,13 +45,15 @@ pub struct RenderStep {
     shared_tex: Vec<SharedTextureBinding>,
     unique_tex: Vec<TextureBinding>,
     static_vbos: Vec<VertexBuffer>,
-    u_transform: Option<Uniform>,
+    u_modelview: Option<Uniform>,
+    u_projection: Option<Uniform>,
     u_time: Option<Uniform>,
 }
 impl RenderStep {
     pub fn new(shader: Shader) -> RenderStep {
         RenderStep {
-            u_transform: shader.get_uniform("u_transform"),
+            u_modelview: shader.get_uniform("u_modelview"),
+            u_projection: shader.get_uniform("u_projection"),
             u_time: shader.get_uniform("u_time"),
             shader: shader,
             shared_tex: Vec::new(),
@@ -104,10 +107,11 @@ impl RenderStep {
         self
     }
 
-    fn render_setup(&self, transform: &Mat4, time: f32)
+    fn render_setup(&self, projection: &Mat4, modelview: &Mat4, time: f32)
            -> &RenderStep {
         self.shader.bind();
-        self.u_transform.map(|u| self.shader.set_uniform_mat4(u, transform));
+        self.u_modelview.map(|u| self.shader.set_uniform_mat4(u, modelview));
+        self.u_projection.map(|u| self.shader.set_uniform_mat4(u, projection));
         self.u_time.map(|u| self.shader.set_uniform_f32(u, time));
 
         for &(unit, ref texture) in self.shared_tex.iter() {
