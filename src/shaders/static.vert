@@ -30,7 +30,13 @@ void main() {
         frame_index = floor(mod(frame_index, float(a_num_frames)));
 
         float atlas_u = a_atlas_uv.x + frame_index * a_tile_size.x;
-        float atlas_v = a_atlas_uv.y + floor(atlas_u / u_atlas_size.x) * a_tile_size.y;
+        float n_rows_down = ceil((atlas_u + a_tile_size.x) / u_atlas_size.x) - 1.0;
+        atlas_u += mod(u_atlas_size.x - a_atlas_uv.x, a_tile_size.x) * n_rows_down;
+
+        // TODO(cristicbz): * a_tile_size.y below isn't quite correct if the tile is smaller in
+        // height than the row size. As it happens, all animated tiles happen to be 128.0 so this
+        // works...
+        float atlas_v = a_atlas_uv.y + n_rows_down * a_tile_size.y;
         v_atlas_uv = vec2(atlas_u, atlas_v);
     }
     v_tile_size = a_tile_size;
