@@ -28,6 +28,7 @@ pub struct ThingMetadata {
     pub thing_type: ThingType,
     pub sprite: String,
     pub sequence: String,
+    pub hanging: bool,
 }
 
 

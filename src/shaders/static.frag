@@ -19,12 +19,12 @@ const float LIGHT_BIAS = 1e-4;
 void main() {
     vec2 uv = mod(v_tile_uv, v_tile_size) + v_atlas_uv;
     vec2 palette_index = texture(u_atlas, uv / u_atlas_size).rg;
-    /*if (palette_index.g > .5) {  // Transparent pixel.*/
-    /*    discard;*/
-    /*} else {*/
+    if (palette_index.g > .5) {  // Transparent pixel.
+        discard;
+    } else {
         float dist_term = min(1.0, 1.0 - DIST_SCALE / (v_dist + DIST_SCALE));
         float light = min(v_light, v_light * LIGHT_SCALE - dist_term);
         light = clamp(1.0 - light, LIGHT_BIAS, 1.0 - LIGHT_BIAS);
         color = texture(u_palette, vec2(palette_index.r, light)).rgb;
-    /*}*/
+    }
 }
