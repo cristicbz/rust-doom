@@ -16,7 +16,7 @@ pub use image::Image;
 pub use level::Level;
 pub use meta::WadMetadata;
 pub use meta::SkyMetadata;
-pub use name::WadName;
+pub use name::{WadName, WadNameCast};
 pub use tex::TextureDirectory;
 
 mod name;

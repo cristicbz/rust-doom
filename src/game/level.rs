@@ -6,6 +6,7 @@ use std::cmp::Ordering;
 use std::rc::Rc;
 use std::vec::Vec;
 use wad;
+use wad::WadNameCast;
 use wad::{WadMetadata, SkyMetadata};
 use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
 use wad::types::{WadSeg, WadCoord, WadSector, WadName, ChildId};
@@ -44,6 +45,7 @@ impl Level {
         let texture_maps = TextureMaps {
             flats: build_flats_atlas(&level, textures, &mut steps.flats),
             walls: build_walls_atlas(&level, textures, &mut steps.walls),
+            decors: build_decor_atlas(&level, wad, textures, &mut steps.decors),
         };
 
         let mut volume = WorldVolume::new();
@@ -95,6 +97,7 @@ impl Level {
 struct TextureMaps {
     flats: BoundsLookup,
     walls: BoundsLookup,
+    decors: BoundsLookup,
 }
 
 
@@ -225,6 +228,30 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
     step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
         .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
 
+    lookup
+}
+
+fn build_decor_atlas(level: &wad::Level,
+                     archive: &wad::Archive,
+                     textures: &wad::TextureDirectory,
+                     step: &mut RenderStep) -> BoundsLookup {
+    let tex_names = level.things
+            .iter()
+            .filter_map(|t| {
+                archive.get_metadata().things.decoration.iter()
+                    .find(|d| d.thing_type == t.thing_type)
+            })
+            .map(|d| {
+                let mut s = d.sprite.as_bytes().to_owned();
+                s.push(d.sequence.as_bytes()[0]);
+                s.push(b'0');
+                (&s[..]).to_wad_name()
+            })
+            .filter(|name| !is_untextured(&name))
+            .collect::<Vec<_>>();
+    let (atlas, lookup) = textures.build_texture_atlas(tex_names.iter());
+    step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
+        .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
     lookup
 }
 

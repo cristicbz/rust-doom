@@ -26,7 +26,7 @@ pub struct AnimationMetadata {
 #[derive(RustcDecodable, RustcEncodable)]
 pub struct ThingMetadata {
     pub thing_type: ThingType,
-    pub sprite: WadName,
+    pub sprite: String,
     pub sequence: String,
 }
 

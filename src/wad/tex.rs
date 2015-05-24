@@ -83,13 +83,14 @@ impl TextureDirectory {
                                                   &patches, &mut textures));
             info!("  {:4} textures in {}", num_textures, lump_name);
         }
-        let textures = textures;
         info!("Done in {:.4}s.", time::precise_time_s() - t0);
 
         // Read flats.
         let flats = try!(read_flats(wad));
         info!("  {:4} flats", flats.len());
 
+        // Read sprites
+        info!("  {:4} sprites", read_sprites(wad, &mut textures));
 
         Ok(TextureDirectory {
             patches: patches,
@@ -366,10 +367,23 @@ fn read_patches(wad: &mut Archive)
         patches.push((name, patch));
     }
     let time = time::precise_time_s() - t0;
-    warn!("Done in {:.4}s; {} missing patches.", time, missing_patches);
+    info!("Done in {:.4}s; {} missing patches.", time, missing_patches);
     Ok(patches)
 }
 
+
+fn read_sprites(wad: &mut Archive, textures: &mut HashMap<WadName, Image>) -> usize {
+    let start_index = wad.get_lump_index(&(&b"S_START"[..]).to_wad_name()).unwrap() + 1;
+    let end_index = wad.get_lump_index(&(&b"S_END"[..]).to_wad_name()).unwrap();
+    info!("Reading {} sprites....", end_index - start_index);
+    let t0 = time::precise_time_s();
+    for index in start_index .. end_index {
+        textures.insert(*wad.get_lump_name(index), Image::from_buffer(&wad.read_lump(index)));
+    }
+    let time = time::precise_time_s() - t0;
+    info!("Done in {:.4}s.", time);
+    end_index - start_index
+}
 
 fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
                  textures: &mut HashMap<WadName, Image>)
