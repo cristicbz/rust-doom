@@ -102,7 +102,7 @@
 
 ### Thing Directory ###
 #   Thing types to sprites and behaviour were again hardcoded in the original
-# game. We provide these by category (decoration etc.) each with their own
+# game. We provide these by category (decorations etc.) each with their own
 # properties.
 [things]
     ### Decorations ###
@@ -111,465 +111,977 @@
     # true) some to the floor.
 
     # Bloody mess (an exploded player)
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 10
         sprite = "PLAY"
         sequence = "W"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Same bloody mess.
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 12
         sprite = "PLAY"
         sequence = "W"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Pool of blood and flesh
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 24
         sprite = "POL5"
         sequence = "A"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Pool of blood
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 79
         sprite = "POB1"
         sequence = "A"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Pool of blood
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 80
         sprite = "POB2"
         sequence = "A"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Pool of brains
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 81
         sprite = "BRS1"
         sequence = "A"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Dead player
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 15
         sprite = "PLAY"
         sequence = "N"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Dead former human
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 18
         sprite = "POSS"
         sequence = "L"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Dead former sergeant
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 19
         sprite = "SPOS"
         sequence = "L"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Dead imp
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 20
         sprite = "TROO"
         sequence = "M"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Dead demon
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 21
         sprite = "SARG"
         sequence = "N"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Dead cacodemon
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 22
         sprite = "HEAD"
         sequence = "L"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Dead lost soul, invisible
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 23
         sprite = "SKUL"
         sequence = "K"
         obstacle = false
         hanging = false
+        radius = 20
 
     # Tall, techno pillar
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 48
         sprite = "ELEC"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Tall green pillar
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 30
         sprite = "COL1"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Tall red pillar
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 32
         sprite = "COL3"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Short green pillar
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 31
         sprite = "COL2"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Short green pillar with beating heart
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 36
         sprite = "COL5"
         sequence = "AB"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Short red pillar
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 33
         sprite = "COL4"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Short red pillar with skull
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 37
         sprite = "COL6"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Stalagmite.
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 47
         sprite = "SMIT"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Burnt tree: gray tree
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 43
         sprite = "TRE1"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Large brown tree
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 54
         sprite = "TRE2"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Floor lamp
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 2028
         sprite = "COLU"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Tall techno floor lamp
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 85
         sprite = "TLMP"
         sequence = "ABCD"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Short techno floor lamp
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 86
         sprite = "TLP2"
         sequence = "ABCD"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Candle
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 34
         sprite = "CAND"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Candelabra
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 35
         sprite = "CBRA"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Tall blue firestick
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 44
         sprite = "TBLU"
         sequence = "ABCD"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Tall green firestick
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 45
         sprite = "TGRE"
         sequence = "ABCD"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Tall red firestick
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 46
         sprite = "TRED"
         sequence = "ABCD"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Short blue firestick
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 55
         sprite = "SMBT"
         sequence = "ABCD"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Short green firestick
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 56
         sprite = "SMGT"
         sequence = "ABCD"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Short red firestick
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 57
         sprite = "SMRT"
         sequence = "ABCD"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Burning barrel
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 70
         sprite = "FCAN"
         sequence = "ABC"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Evil Eye: floating eye in symbol, over candle
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 41
         sprite = "CEYE"
         sequence = "ABCB"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Floating Skull: flaming skull-rock
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 42
         sprite = "FSKU"
         sequence = "ABC"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Hanging victim, twitching
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 49
         sprite = "GOR1"
         sequence = "ABCB"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging victim, twitching
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 63
         sprite = "GOR1"
         sequence = "ABCB"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging victim, arms out
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 50
         sprite = "GOR2"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging victim, arms out
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 59
         sprite = "GOR2"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging pair of legs
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 52
         sprite = "GOR4"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging pair of legs
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 60
         sprite = "GOR4"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging victim, 1-legged
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 51
         sprite = "GOR3"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging victim, 1-legged
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 61
         sprite = "GOR3"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging leg
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 53
         sprite = "GOR5"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging leg
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 62
         sprite = "GOR5"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging victim, guts removed
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 73
         sprite = "HDB1"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging victim, guts and brain removed
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 74
         sprite = "HDB2"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging torso, looking down
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 75
         sprite = "HDB3"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging torso, open skull
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 76
         sprite = "HDB4"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging torso, looking up
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 77
         sprite = "HDB5"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Hanging torso, brain removed
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 78
         sprite = "HDB6"
         sequence = "A"
         obstacle = true
         hanging = true
+        radius = 20
 
     # Impaled human
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 25
         sprite = "POL1"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Twitching impaled human
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 26
         sprite = "POL6"
         sequence = "AB"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Skull on a pole
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 27
         sprite = "POL4"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # 5 skulls shish kebob
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 28
         sprite = "POL2"
         sequence = "A"
         obstacle = true
         hanging = false
+        radius = 20
 
     # Pile of skulls and candles
-    [[things.decoration]]
+    [[things.decorations]]
         thing_type = 29
         sprite = "POL3"
         sequence = "AB"
         obstacle = true
+        hanging = false
+        radius = 20
+
+    [[things.decorations]]
+        # Boss Brain
+        thing_type = 88
+        radius = 16
+        sprite = "BBRN"
+        sequence = "A"
+        hanging = false
+
+
+    [[things.powerups]]
+        # Backpack
+        thing_type = 8
+        radius = 20
+        sprite = "BPAK"
+        sequence = "A"
+        hanging = false
+
+    [[things.powerups]]
+        # Blue armor
+        thing_type = 2019
+        radius = 20
+        sprite = "ARM2"
+        sequence = "AB"
+        hanging = false
+
+    [[things.powerups]]
+        # Green armor
+        thing_type = 2018
+        radius = 20
+        sprite = "ARM1"
+        sequence = "AB"
+        hanging = false
+
+    [[things.powerups]]
+        # Medikit
+        thing_type = 2012
+        radius = 20
+        sprite = "MEDI"
+        sequence = "A"
+        hanging = false
+
+    [[things.powerups]]
+        # Radiation suit
+        thing_type = 2025
+        radius = 20
+        sprite = "SUIT"
+        sequence = "A"
+        hanging = false
+
+    [[things.powerups]]
+        # Stimpack
+        thing_type = 2011
+        radius = 20
+        sprite = "STIM"
+        sequence = "A"
+        hanging = false
+
+    [[things.weapons]]
+        # BFG 9000
+        thing_type = 2006
+        radius = 20
+        sprite = "BFUG"
+        sequence = "A"
+        hanging = false
+
+    [[things.weapons]]
+        # Chaingun
+        thing_type = 2002
+        radius = 20
+        sprite = "MGUN"
+        sequence = "A"
+        hanging = false
+
+    [[things.weapons]]
+        # Chainsaw
+        thing_type = 2005
+        radius = 20
+        sprite = "CSAW"
+        sequence = "A"
+        hanging = false
+
+    [[things.weapons]]
+        # Shotgun
+        thing_type = 2001
+        radius = 20
+        sprite = "SHOT"
+        sequence = "A"
+        hanging = false
+
+    [[things.weapons]]
+        # Plasma rifle
+        thing_type = 2004
+        radius = 20
+        sprite = "PLAS"
+        sequence = "A"
+        hanging = false
+
+    [[things.weapons]]
+        # Rocket launcher
+        thing_type = 2003
+        radius = 20
+        sprite = "LAUN"
+        sequence = "A"
+        hanging = false
+
+    [[things.weapons]]
+        # Super shotgun
+        sequence = "A"
+        thing_type = 82
+        radius = 20
+        sprite = "SGN2"
+        hanging = false
+
+    [[things.artifacts]]
+        # Berserk
+        thing_type = 2023
+        radius = 20
+        sprite = "PSTR"
+        sequence = "A"
+        hanging = false
+
+    [[things.artifacts]]
+        # Computer map
+        thing_type = 2026
+        radius = 20
+        sprite = "PMAP"
+        sequence = "ABCDCB"
+        hanging = false
+
+    [[things.artifacts]]
+        # Health potion
+        thing_type = 2014
+        radius = 20
+        sprite = "BON1"
+        sequence = "ABCDCB"
+        hanging = false
+
+    [[things.artifacts]]
+        # Invisibility
+        thing_type = 2024
+        radius = 20
+        sprite = "PINS"
+        sequence = "ABCD"
+        hanging = false
+
+    [[things.artifacts]]
+        # Invulnerability
+        thing_type = 2022
+        radius = 20
+        sprite = "PINV"
+        sequence = "ABCD"
+        hanging = false
+
+
+    [[things.artifacts]]
+        # Light amplification visor
+        thing_type = 2045
+        radius = 20
+        sprite = "PVIS"
+        sequence = "AB"
+        hanging = false
+
+
+    [[things.artifacts]]
+        # Megasphere
+        thing_type = 83
+        radius = 20
+        sprite = "MEGA"
+        sequence = "ABCD"
+        hanging = false
+
+
+    [[things.artifacts]]
+        # Soul sphere
+        thing_type = 2013
+        radius = 20
+        sprite = "SOUL"
+        sequence = "ABCDCB"
+        hanging = false
+
+
+    [[things.artifacts]]
+        # Spiritual armor
+        thing_type = 2015
+        radius = 20
+        sprite = "BON2"
+        sequence = "ABCDCB"
+        hanging = false
+
+    [[things.ammo]]
+        # Ammo clip
+        thing_type = 2007
+        radius = 20
+        sprite = "CLIP"
+        sequence = "A"
+        hanging = false
+
+    [[things.ammo]]
+        # Box of ammo
+        thing_type = 2048
+        radius = 20
+        sprite = "AMMO"
+        sequence = "A"
+        hanging = false
+
+    [[things.ammo]]
+        # Box of rockets
+        thing_type = 2046
+        radius = 20
+        sprite = "BROK"
+        sequence = "A"
+        hanging = false
+
+    [[things.ammo]]
+        # Box of shells
+        thing_type = 2049
+        radius = 20
+        sprite = "SBOX"
+        sequence = "A"
+        hanging = false
+
+    [[things.ammo]]
+        # Cell charge
+        thing_type = 2047
+        radius = 20
+        sprite = "CELL"
+        sequence = "A"
+        hanging = false
+
+    [[things.ammo]]
+        # Cell charge pack
+        thing_type = 17
+        radius = 20
+        sprite = "CELP"
+        sequence = "A"
+        hanging = false
+
+    [[things.ammo]]
+        # Rocket
+        thing_type = 2010
+        radius = 20
+        sprite = "ROCK"
+        sequence = "A"
+        hanging = false
+
+    [[things.ammo]]
+        # Shotgun shells
+        thing_type = 2008
+        radius = 20
+        sprite = "SHEL"
+        sequence = "A"
+        hanging = false
+
+    [[things.keys]]
+        # Blue keycard
+        thing_type = 5
+        radius = 20
+        sprite = "BKEY"
+        sequence = "AB"
+        hanging = false
+
+    [[things.keys]]
+        # Blue skull key
+        thing_type = 40
+        radius = 20
+        sprite = "BSKU"
+        sequence = "AB"
+        hanging = false
+
+    [[things.keys]]
+        # Red keycard
+        thing_type = 13
+        radius = 20
+        sprite = "RKEY"
+        sequence = "AB"
+        hanging = false
+
+    [[things.keys]]
+        # Red skull key
+        thing_type = 38
+        radius = 20
+        sprite = "RSKU"
+        sequence = "AB"
+        hanging = false
+
+    [[things.keys]]
+        # Yellow keycard
+        thing_type = 6
+        radius = 20
+        sprite = "YKEY"
+        sequence = "AB"
+        hanging = false
+
+    [[things.keys]]
+        # Yellow skull key
+        thing_type = 39
+        radius = 20
+        sprite = "YSKU"
+        sequence = "AB"
+        hanging = false
+
+
+    [[things.monsters]]
+        # Arachnotron
+        thing_type = 68
+        radius = 64
+        sprite = "BSPI"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Arch-Vile
+        thing_type = 64
+        radius = 20
+        sprite = "VILE"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Baron of Hell
+        thing_type = 3003
+        radius = 24
+        sprite = "BOSS"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Cacodemon
+        thing_type = 3005
+        radius = 31
+        sprite = "HEAD"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Chaingunner
+        thing_type = 65
+        radius = 20
+        sprite = "CPOS"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Commander Keen
+        thing_type = 72
+        radius = 16
+        sprite = "KEEN"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Cyberdemon
+        thing_type = 16
+        radius = 40
+        sprite = "CYBR"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Demon
+        thing_type = 3002
+        radius = 30
+        sprite = "SARG"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Former Human Trooper
+        thing_type = 3004
+        radius = 20
+        sprite = "POSS"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Former Human Sergeant
+        thing_type = 9
+        radius = 20
+        sprite = "SPOS"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Hell Knight
+        thing_type = 69
+        radius = 24
+        sprite = "BOS2"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Imp
+        thing_type = 3001
+        radius = 20
+        sprite = "TROO"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Lost Soul
+        thing_type = 3006
+        radius = 16
+        sprite = "SKUL"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Mancubus
+        thing_type = 67
+        radius = 48
+        sprite = "FATT"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Pain Elemental
+        thing_type = 71
+        radius = 31
+        sprite = "PAIN"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Revenant
+        thing_type = 66
+        radius = 20
+        sprite = "SKEL"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Spectre
+        thing_type = 58
+        radius = 30
+        sprite = "SARG"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Spider Mastermind
+        thing_type = 7
+        radius = 128
+        sprite = "SPID"
+        sequence = "A"
+        hanging = false
+
+    [[things.monsters]]
+        # Wolfenstein SS
+        thing_type = 84
+        radius = 20
+        sprite = "SSWV"
+        sequence = "A"
         hanging = false

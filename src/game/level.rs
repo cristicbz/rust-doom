@@ -7,9 +7,9 @@ use std::rc::Rc;
 use std::vec::Vec;
 use wad;
 use wad::WadNameCast;
-use wad::{WadMetadata, SkyMetadata};
+use wad::{WadMetadata, SkyMetadata, ThingMetadata};
 use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
-use wad::types::{WadSeg, WadCoord, WadSector, WadName, WadThing, ChildId};
+use wad::types::{WadSeg, WadCoord, WadSector, WadName, WadThing, ChildId, ThingType};
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id, is_sky_flat};
 
 pub struct Level {
@@ -84,7 +84,7 @@ impl Level {
     pub fn get_start_pos(&self) -> &Vec2f { &self.start_pos }
 
     pub fn floor_at(&self, pos: &Vec2f) -> Option<f32> {
-        self.volume.floor_at(pos)
+        self.volume.sector_at(pos).map(|s| s.floor)
     }
 
     pub fn render(&mut self, delta_time: f32, projection: &Mat4, modelview: &Mat4) {
@@ -164,6 +164,16 @@ const PALETTE_UNIT: usize = 0;
 const ATLAS_UNIT: usize = 1;
 
 
+pub fn find_thing(meta: &WadMetadata, thing_type: ThingType) -> Option<&ThingMetadata> {
+    meta.things.decorations.iter().find(|t| t.thing_type == thing_type)
+        .or_else(|| meta.things.weapons.iter().find(|t| t.thing_type == thing_type))
+        .or_else(|| meta.things.powerups.iter().find(|t| t.thing_type == thing_type))
+        .or_else(|| meta.things.artifacts.iter().find(|t| t.thing_type == thing_type))
+        .or_else(|| meta.things.ammo.iter().find(|t| t.thing_type == thing_type))
+        .or_else(|| meta.things.keys.iter().find(|t| t.thing_type == thing_type))
+        .or_else(|| meta.things.monsters.iter().find(|t| t.thing_type == thing_type))
+}
+
 macro_rules! offset_of(
     ($T:ty, $m:ident) => (
         unsafe { (&((*(0 as *const $T)).$m)) as *const _ as usize }
@@ -239,15 +249,16 @@ fn build_decor_atlas(level: &wad::Level,
                      step: &mut RenderStep) -> BoundsLookup {
     let tex_names = level.things
             .iter()
-            .filter_map(|t| {
-                archive.get_metadata().things.decoration.iter()
-                    .find(|d| d.thing_type == t.thing_type)
-            })
-            .map(|d| {
+            .filter_map(|t| find_thing(archive.get_metadata(), t.thing_type))
+            .flat_map(|d| {
                 let mut s = d.sprite.as_bytes().to_owned();
                 s.push(d.sequence.as_bytes()[0]);
                 s.push(b'0');
-                (&s[..]).to_wad_name()
+                let n1 = (&s[..]).to_wad_name();
+                s.pop();
+                s.push(b'1');
+                let n2 = (&s[..]).to_wad_name();
+                Some(n1).into_iter().chain(Some(n2).into_iter())
             })
             .filter(|name| !is_untextured(&name))
             .collect::<Vec<_>>();
@@ -257,13 +268,20 @@ fn build_decor_atlas(level: &wad::Level,
     lookup
 }
 
-pub struct FlatPoly {
-    floor: f32,
-    ceil: f32,
+pub struct Poly {
+    sector: usize,
     poly: Vec<Vec2f>,
 }
 
-impl FlatPoly {
+#[derive(Copy, Clone)]
+pub struct Sector {
+    floor: f32,
+    ceil: f32,
+    light_info: u8,
+}
+
+
+impl Poly {
     pub fn contains(&self, point: &Vec2f) -> bool {
         self.poly.iter()
             .zip(self.poly[1..].iter().chain(Some(&self.poly[0]).into_iter()))
@@ -273,29 +291,42 @@ impl FlatPoly {
 }
 
 pub struct WorldVolume {
-    flats: Vec<FlatPoly>,
+    polys: Vec<Poly>,
+    sectors: Vec<Option<Sector>>,
 }
 impl WorldVolume {
     pub fn new() -> WorldVolume {
         WorldVolume {
-            flats: vec![],
+            polys: vec![],
+            sectors: vec![],
         }
     }
 
-    pub fn push_flat(&mut self, floor: f32, ceil: f32, points: Vec<Vec2f>) {
-        self.flats.push(FlatPoly {
-            floor: floor,
-            ceil: ceil,
+    pub fn get_sector(&self, index: usize) -> Option<&Sector> {
+        match self.sectors.get(index) {
+            Some(sector) => sector.as_ref(),
+            None => None,
+        }
+    }
+
+    pub fn insert_sector(&mut self, index: usize, sector: Sector) {
+        while self.sectors.len() <= index {
+            self.sectors.push(None);
+        }
+        self.sectors[index] = Some(sector);
+    }
+
+    pub fn push_poly(&mut self, points: Vec<Vec2f>, sector_index: usize) {
+        self.polys.push(Poly {
             poly: points,
+            sector: sector_index,
         });
     }
 
-    pub fn floor_at(&self, position: &Vec2f) -> Option<f32> {
-        self.flats.iter().find(|poly| poly.contains(position)).map(|poly| poly.floor)
-    }
-
-    pub fn ceil_at(&self, position: &Vec2f) -> Option<f32> {
-        self.flats.iter().find(|poly| poly.contains(position)).map(|poly| poly.ceil)
+    pub fn sector_at(&self, position: &Vec2f) -> Option<&Sector> {
+        self.polys.iter()
+            .find(|poly| poly.contains(position))
+            .and_then(|poly| self.get_sector(poly.sector))
     }
 }
 
@@ -394,54 +425,51 @@ impl<'a> VboBuilder<'a> {
     fn things(&mut self) {
         for thing in self.level.things.iter() {
             let pos = from_wad_coords(thing.x, thing.y);
-            let floor = self.volume.floor_at(&pos).unwrap_or(0.0);
-            let ceil = self.volume.ceil_at(&pos).unwrap_or(0.0);
-            self.decor(thing, &pos, floor, ceil);
+            if let Some(s) = self.volume.sector_at(&pos).map(|x| *x) {
+                self.decor(thing, &pos, &s);
+            }
         }
     }
 
-    fn decor(&mut self, thing: &WadThing, pos: &Vec2f, floor: f32, ceil: f32) {
-        let meta = match self.meta.things.decoration.iter()
-                .find(|t| t.thing_type == thing.thing_type) {
+    fn decor(&mut self, thing: &WadThing, pos: &Vec2f, sector: &Sector) {
+        let meta = match find_thing(self.meta, thing.thing_type) {
             Some(m) => m,
             None => return,
         };
-        let name = {
-            let mut name = meta.sprite.as_bytes().to_owned();
-            name.push(meta.sequence.as_bytes()[0]);
-            name.push(b'0');
-            (&name[..]).to_wad_name()
+        let (name1, name2) = {
+            let mut s = meta.sprite.as_bytes().to_owned();
+            s.push(meta.sequence.as_bytes()[0]);
+            s.push(b'0');
+            let n1 = (&s[..]).to_wad_name();
+            s.pop();
+            s.push(b'1');
+            let n2 = (&s[..]).to_wad_name();
+            (n1, n2)
         };
-        let bounds = if let Some(bounds) = self.bounds.decors.get(&name) {
+        let bounds = if let Some(bounds) = self.bounds.decors.get(&name1)
+                .or(self.bounds.decors.get(&name2)) {
             bounds
         } else {
             return;
         };
 
         let (low, high) = if meta.hanging {
-            (Vec3f::new(pos.x, ceil - bounds.size.y / 100.0, pos.y),
-             Vec3f::new(pos.x, ceil, pos.y))
+            (Vec3f::new(pos.x, sector.ceil - bounds.size.y / 100.0, pos.y),
+             Vec3f::new(pos.x, sector.ceil, pos.y))
         } else {
-            (Vec3f::new(pos.x, floor, pos.y),
-             Vec3f::new(pos.x, floor + bounds.size.y / 100.0, pos.y))
+            (Vec3f::new(pos.x, sector.floor, pos.y),
+             Vec3f::new(pos.x, sector.floor + bounds.size.y / 100.0, pos.y))
         };
         let half_width = bounds.size.x / 100.0 * 0.5;
 
-        self.decor_vertex(&low,  -half_width,            0.0, bounds.size.y, bounds);
-        self.decor_vertex(&low,   half_width,  bounds.size.x, bounds.size.y, bounds);
-        self.decor_vertex(&high, -half_width,            0.0,           0.0, bounds);
-
-        self.decor_vertex(&low,   half_width,  bounds.size.x, bounds.size.y, bounds);
-        self.decor_vertex(&high,  half_width,  bounds.size.x,           0.0, bounds);
-        self.decor_vertex(&high, -half_width,            0.0,           0.0, bounds);
-
-        //self.wall_vertex(&v1, low,  s1, t1, light_info, scroll, bounds);
-        //self.wall_vertex(&v2, low,  s2, t1, light_info, scroll, bounds);
-        //self.wall_vertex(&v1, high, s1, t2, light_info, scroll, bounds);
-
-        //self.wall_vertex(&v2, low,  s2, t1, light_info, scroll, bounds);
-        //self.wall_vertex(&v2, high, s2, t2, light_info, scroll, bounds);
-        //self.wall_vertex(&v1, high, s1, t2, light_info, scroll, bounds);
+        self.decor_vertex(&low, -half_width, 0.0, bounds.size.y, bounds, sector.light_info);
+        self.decor_vertex(&low, half_width, bounds.size.x, bounds.size.y, bounds,
+                          sector.light_info);
+        self.decor_vertex(&high, -half_width, 0.0, 0.0, bounds, sector.light_info);
+        self.decor_vertex(&low, half_width, bounds.size.x, bounds.size.y, bounds,
+                          sector.light_info);
+        self.decor_vertex(&high, half_width, bounds.size.x, 0.0, bounds, sector.light_info);
+        self.decor_vertex(&high, -half_width, 0.0, 0.0, bounds, sector.light_info);
     }
 
     fn node(&mut self, lines: &mut Vec<Line2f>, id: ChildId) {
@@ -647,7 +675,16 @@ impl<'a> VboBuilder<'a> {
         let ceil_y = from_wad_height(sector.ceiling_height);
         let ceil_tex = &sector.ceiling_texture;
 
-        self.volume.push_flat(floor_y, ceil_y, points.to_owned());
+        let sector_id = self.level.sector_id(sector) as usize;
+        if let None = self.volume.get_sector(sector_id) {
+            self.volume.insert_sector(sector_id, Sector {
+                floor: floor_y,
+                ceil: ceil_y,
+                light_info: light_info,
+            });
+        }
+
+        self.volume.push_poly(points.to_owned(), sector_id);
 
         let v0 = points[0];
         if !is_sky_flat(floor_tex) {
@@ -749,7 +786,7 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn decor_vertex(&mut self, pos: &Vec3f, local_x: f32,
-                    tile_u: f32, tile_v: f32, bounds: &Bounds) {
+                    tile_u: f32, tile_v: f32, bounds: &Bounds, light_info: u8) {
         let v = SpriteVertex {
             _pos: *pos,
             _local_x: local_x,
@@ -758,7 +795,7 @@ impl<'a> VboBuilder<'a> {
             _tile_size: bounds.size,
             _num_frames: 1,
             _frame_offset: 0,
-            _light: 0,
+            _light: light_info,
         };
         self.decors.push(v);
     }
