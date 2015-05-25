@@ -2,7 +2,7 @@ use rustc_serialize::{Encoder, Encodable, Decoder, Decodable};
 use std::ascii::AsciiExt;
 use std::{fmt, mem, str};
 use std::fmt::Debug;
-use std::fmt::Display as FmtString;
+use std::fmt::Display;
 use std::string::String;
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -41,7 +41,7 @@ impl WadName {
         self
     }
 }
-impl FmtString for WadName {
+impl Display for WadName {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match self.as_str_opt() {
             Some(s) => write!(formatter, "{}", s),
@@ -51,6 +51,11 @@ impl FmtString for WadName {
                            self.as_bytes()[4], self.as_bytes()[5],
                            self.as_bytes()[6], self.as_bytes()[7])
         }
+    }
+}
+impl Debug for WadName {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "{}", self)
     }
 }
 impl Encodable for WadName {

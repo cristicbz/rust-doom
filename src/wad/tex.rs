@@ -19,7 +19,7 @@ pub type Colormap = [u8; 256];
 pub type Flat = Vec<u8>;
 
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Bounds {
     pub pos: Vec2f,
     pub size: Vec2f,
@@ -83,13 +83,14 @@ impl TextureDirectory {
                                                   &patches, &mut textures));
             info!("  {:4} textures in {}", num_textures, lump_name);
         }
-        let textures = textures;
         info!("Done in {:.4}s.", time::precise_time_s() - t0);
 
         // Read flats.
         let flats = try!(read_flats(wad));
         info!("  {:4} flats", flats.len());
 
+        // Read sprites
+        info!("  {:4} sprites", read_sprites(wad, &mut textures));
 
         Ok(TextureDirectory {
             patches: patches,
@@ -105,20 +106,8 @@ impl TextureDirectory {
     pub fn get_texture(&self, name: &WadName) -> Option<&Image> {
         self.textures.get(name)
     }
-    pub fn expect_texture(&self, name: &WadName) -> &Image {
-        match self.get_texture(name) {
-            Some(t) => t,
-            None => panic!("Texture {} missing.", name),
-        }
-    }
     pub fn get_flat(&self, name: &WadName) -> Option<&Flat> {
         self.flats.get(name)
-    }
-    pub fn expect_flat(&self, name: &WadName) -> &Flat {
-        match self.get_flat(name) {
-            Some(t) => t,
-            None => panic!("Flat {} missing.", name),
-        }
     }
 
     pub fn num_patches(&self) -> usize { self.patches.len() }
@@ -176,14 +165,18 @@ impl TextureDirectory {
             &'a self, names_iter: T) -> (Texture, BoundsLookup) {
         let images = get_ordered_atlas_entries(
             &self.animated_walls,
-            |n| -> &'a Image { self.expect_texture(n) },
+            |n| { self.get_texture(n) },
             names_iter);
-        assert!(images.len() > 0, "No images in wall atlas.");
+        if images.len() == 0 {
+            return (Texture::new(gl::TEXTURE_2D), BoundsLookup::new());
+        }
 
         let num_pixels = images
             .iter().map(|t| t.1.num_pixels()).fold(0, |x, y| x + y);
-        let min_atlas_width = images
-            .iter().map(|t| t.1.width()).max().unwrap();
+        let min_atlas_width = match next_pow2(images.iter().map(|t| t.1.width()).max().unwrap()) {
+            w if w < 64 => 64,
+            w => w,
+        };
         let min_atlas_height = 128;
         let max_size = 4096;
 
@@ -277,7 +270,7 @@ impl TextureDirectory {
     pub fn build_flat_atlas<'a, T: Iterator<Item = &'a WadName>>(
             &'a self, names_iter: T) -> (Texture, BoundsLookup) {
         let names = get_ordered_atlas_entries(
-            &self.animated_flats, |n| -> &'a Flat { self.expect_flat(n) },
+            &self.animated_flats, |n| { self.get_flat(n) },
             names_iter);
         let num_names = names.len();
 
@@ -366,10 +359,23 @@ fn read_patches(wad: &mut Archive)
         patches.push((name, patch));
     }
     let time = time::precise_time_s() - t0;
-    warn!("Done in {:.4}s; {} missing patches.", time, missing_patches);
+    info!("Done in {:.4}s; {} missing patches.", time, missing_patches);
     Ok(patches)
 }
 
+
+fn read_sprites(wad: &mut Archive, textures: &mut HashMap<WadName, Image>) -> usize {
+    let start_index = wad.get_lump_index(&(&b"S_START"[..]).to_wad_name()).unwrap() + 1;
+    let end_index = wad.get_lump_index(&(&b"S_END"[..]).to_wad_name()).unwrap();
+    info!("Reading {} sprites....", end_index - start_index);
+    let t0 = time::precise_time_s();
+    for index in start_index .. end_index {
+        textures.insert(*wad.get_lump_name(index), Image::from_buffer(&wad.read_lump(index)));
+    }
+    let time = time::precise_time_s() - t0;
+    info!("Done in {:.4}s.", time);
+    end_index - start_index
+}
 
 fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
                  textures: &mut HashMap<WadName, Image>)
@@ -434,7 +440,7 @@ fn read_flats(wad: &mut Archive) -> Result<HashMap<WadName, Flat>, String> {
 pub fn get_ordered_atlas_entries<'b, 'a: 'b,
                                  NameIteratorT: Iterator<Item = &'a WadName>,
                                  ImageT,
-                                 ImageLookupT: Fn(&WadName) -> &'b ImageT>(
+                                 ImageLookupT: Fn(&WadName) -> Option<&'b ImageT>>(
             animations: &'b Vec<Vec<WadName>>,
             image_lookup: ImageLookupT,
             names_iter: NameIteratorT)
@@ -450,10 +456,16 @@ pub fn get_ordered_atlas_entries<'b, 'a: 'b,
         match maybe_frames {
             Some(frames) =>
                 for (offset, frame) in frames.iter().enumerate() {
-                    names.push(
-                        (frame, image_lookup(frame), offset, frames.len()));
+                    if let Some(image) = image_lookup(frame) {
+                        names.push(
+                            (frame, image, offset, frames.len()));
+                    }
                 },
-            None => names.push((name, image_lookup(name), 0, 1)),
+            None => {
+                if let Some(image) = image_lookup(name) {
+                    names.push((name, image, 0, 1))
+                }
+            },
         }
     }
     names

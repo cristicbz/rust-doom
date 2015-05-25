@@ -26,14 +26,22 @@ pub struct AnimationMetadata {
 #[derive(RustcDecodable, RustcEncodable)]
 pub struct ThingMetadata {
     pub thing_type: ThingType,
-    pub sprite: WadName,
+    pub sprite: String,
     pub sequence: String,
+    pub hanging: bool,
+    pub radius: u32,
 }
 
 
 #[derive(RustcDecodable, RustcEncodable)]
 pub struct ThingDirectoryMetadata {
-    pub decoration: Vec<ThingMetadata>
+    pub decorations: Vec<ThingMetadata>,
+    pub weapons: Vec<ThingMetadata>,
+    pub powerups: Vec<ThingMetadata>,
+    pub artifacts: Vec<ThingMetadata>,
+    pub ammo: Vec<ThingMetadata>,
+    pub keys: Vec<ThingMetadata>,
+    pub monsters: Vec<ThingMetadata>,
 }
 
 
