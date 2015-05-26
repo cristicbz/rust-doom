@@ -48,7 +48,6 @@ impl Archive {
         for i_lump in 0 .. header.num_lumps {
             let mut fileinfo = file.read_binary::<WadLump>().unwrap();
             fileinfo.name.canonicalise();
-            println!("{}", fileinfo.name);
             let fileinfo = fileinfo;
             index_map.insert(fileinfo.name, lumps.len());
             lumps.push(LumpInfo { name: fileinfo.name,

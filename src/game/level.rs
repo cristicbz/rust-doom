@@ -83,8 +83,8 @@ impl Level {
 
     pub fn get_start_pos(&self) -> &Vec2f { &self.start_pos }
 
-    pub fn floor_at(&self, pos: &Vec2f) -> Option<f32> {
-        self.volume.sector_at(pos).map(|s| s.floor)
+    pub fn heights_at(&self, pos: &Vec2f) -> Option<(f32, f32)> {
+        self.volume.sector_at(pos).map(|s| (s.floor, s.ceil))
     }
 
     pub fn render(&mut self, delta_time: f32, projection: &Mat4, modelview: &Mat4) {

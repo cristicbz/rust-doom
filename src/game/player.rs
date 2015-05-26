@@ -11,6 +11,7 @@ use num::Float;
 pub struct PlayerBindings {
     pub movement: Analog2d,
     pub look: Analog2d,
+    pub jump: Gesture,
 }
 
 
@@ -18,8 +19,13 @@ impl PlayerBindings {
     pub fn look_vector(&self, controller: &GameController) -> Vec2f {
         controller.poll_analog2d(&self.look)
     }
+
     pub fn movement_vector(&self, controller: &GameController) -> Vec2f {
         controller.poll_analog2d(&self.movement)
+    }
+
+    pub fn jump(&self, controller: &GameController) -> bool {
+        controller.poll_gesture(&self.jump)
     }
 }
 
@@ -37,7 +43,8 @@ impl Default for PlayerBindings {
                 Gesture::AnyOf(vec![Gesture::KeyHold(ScanCode::S),
                                     Gesture::KeyHold(ScanCode::Down)]),
                 1.0),
-            look: Analog2d::Mouse(0.002)
+            look: Analog2d::Mouse(0.002),
+            jump: Gesture::KeyTrigger(ScanCode::Space),
         }
     }
 }
@@ -46,9 +53,11 @@ impl Default for PlayerBindings {
 pub struct Player {
     bindings: PlayerBindings,
     camera: Camera,
-    movement_speed: f32,
-    target_height: f32,
+    move_accel: f32,
+    floor_height: f32,
+    ceil_height: f32,
     vertical_speed: f32,
+    horizontal_speed: Vec2f,
 }
 
 
@@ -61,9 +70,11 @@ impl Player {
         Player {
             bindings: bindings,
             camera: camera,
-            movement_speed: 5.0,
-            target_height: 0.0,
+            move_accel: 10.0,
+            floor_height: 0.0,
+            ceil_height: 100.0,
             vertical_speed: 0.0,
+            horizontal_speed: Vec2f::zero(),
         }
     }
 
@@ -73,51 +84,70 @@ impl Player {
     }
 
     pub fn update(&mut self, delta_time: f32, controller: &GameController, level: &Level) {
+        let mut pos = *self.camera.position();
+        let old_pos = pos;
+
+        pos.x += self.horizontal_speed.x * delta_time;
+        pos.z += self.horizontal_speed.y * delta_time;
+        pos.y += self.vertical_speed * delta_time;
+        level.heights_at(&Vec2f::new(pos.x, pos.z)).map(|(floor, ceil)| {
+            self.floor_height = floor + 50.0 / 100.0;
+            self.ceil_height = ceil - 1.0 / 100.0;
+        });
+
+
+        let floor_dist = (pos.y - self.floor_height).abs();
+        let in_control = self.vertical_speed.abs() < 0.5 && floor_dist < 1e-1;
+        let floored = floor_dist < 1e-2;
+
+        if floored {
+            self.horizontal_speed = self.horizontal_speed * 0.7;
+        } else {
+            self.horizontal_speed = self.horizontal_speed * 0.97;
+        }
+
+        if old_pos.y < self.floor_height && pos.y > self.floor_height
+                || old_pos.y > self.floor_height && pos.y < self.floor_height
+                || floor_dist <= 1e-3 {
+            self.vertical_speed = 0.0;
+            pos.y = self.floor_height;
+        } else if pos.y > self.ceil_height {
+            self.vertical_speed = 0.0;
+            pos.y = self.ceil_height;
+        } else {
+            if pos.y < self.floor_height {
+                if self.floor_height - pos.y > 1.0 {
+                    pos.y = self.floor_height;
+                } else {
+                    self.vertical_speed += 1.0 * delta_time;
+                    pos.y = (pos.y + self.floor_height + 0.1)/2.0;
+                }
+            } else {
+                self.vertical_speed -= 17.0 * delta_time;
+            }
+        }
+
         let movement = self.bindings.movement_vector(controller);
         let look = self.bindings.look_vector(controller);
-
         if movement.norm() != 0.0 || look.norm() != 0.0 {
             let yaw = self.camera.yaw() + look.x;
             let pitch = clamp(self.camera.pitch() - look.y, (-3.14 / 2.0, 3.14 / 2.0));
-
-            let displacement = self.movement_speed * delta_time;
-            //let movement: Vec3f = Vec3::new(
-            //    yaw.cos() * movement.x * displacement +
-            //     yaw.sin() * movement.y * displacement * pitch.cos(),
-            //    -pitch.sin() * movement.y * displacement,
-            //    -yaw.cos() * movement.y * displacement * pitch.cos()
-            //     + yaw.sin() * movement.x * displacement);
-            let movement: Vec3f = Vec3::new(
-                yaw.cos() * movement.x * displacement + yaw.sin() * movement.y * displacement,
-                0.0,
-                -yaw.cos() * movement.y * displacement + yaw.sin() * movement.x * displacement);
             self.camera.set_yaw(yaw);
             self.camera.set_pitch(pitch);
-            self.camera.move_by(movement);
+
+            let movement = Vec2f::new(
+                yaw.cos() * movement.x + yaw.sin() * movement.y,
+                -yaw.cos() * movement.y + yaw.sin() * movement.x) * self.move_accel;
+            let mut displacement = self.move_accel * delta_time;
+            if !floored {
+                displacement *= 0.05;
+            }
+            self.horizontal_speed = self.horizontal_speed + movement * displacement;
         }
 
-        let mut pos = *self.camera.position();
-        level.floor_at(&Vec2f::new(pos.x, pos.z)).map(|floor| {
-            self.target_height = floor + 50.0 / 100.0;
-        });
-
-        let old_y = pos.y;
-        pos.y += self.vertical_speed * delta_time;
-        if old_y < self.target_height && pos.y > self.target_height
-                || old_y > self.target_height && pos.y < self.target_height {
-            self.vertical_speed = 0.0;
-            pos.y = self.target_height;
-        } else if (pos.y - self.target_height).abs() > 1e-3 {
-            if pos.y < self.target_height {
-                if self.target_height - pos.y > 1.0 {
-                    pos.y = self.target_height;
-                } else {
-                    self.vertical_speed += 1.0 * delta_time;
-                    pos.y = (pos.y + self.target_height + 0.1)/2.0;
-                }
-            } else {
-                self.vertical_speed -= 20.0 * delta_time;
-            }
+        let jump = self.bindings.jump(controller);
+        if jump && in_control {
+            self.vertical_speed = 5.0;
         }
         self.camera.set_position(pos);
     }
