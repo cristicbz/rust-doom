@@ -172,21 +172,21 @@ impl Image {
     pub fn get_pixels(&self) -> &[u16] { &self.pixels }
 
     // Commented out due to a bug in SDL2.
-    //pub fn save_bmp(&self, palette: &[[u8; 3]; 256]) {
-    //    use ::sdl2::surface::Surface;
-    //    let mut pixels = vec![0u8; 3 * self.width * self.height];
-    //    for (index, pixel) in self.pixels.iter().enumerate() {
-    //        let pixel = palette[(pixel & 0xff) as usize];
-    //        pixels[index * 3] = pixel[2];
-    //        pixels[index * 3 + 1] = pixel[1];
-    //        pixels[index * 3 + 2] = pixel[0];
-    //    }
-    //    Surface::from_data(&mut pixels[..], self.width as i32, self.height as i32,
-    //                       24, self.width as i32 * 3,
-    //                       0xff0000, 0x00ff00, 0x0000ff, 0x0)
-    //        .unwrap()
-    //        .save_bmp("/home/cristi/temp.bmp".as_ref())
-    //        .unwrap();
-    //}
+    pub fn save_bmp(&self, palette: &[[u8; 3]; 256]) {
+        use ::sdl2::surface::Surface;
+        let mut pixels = vec![0u8; 3 * self.width * self.height];
+        for (index, pixel) in self.pixels.iter().enumerate() {
+            let pixel = palette[(pixel & 0xff) as usize];
+            pixels[index * 3] = pixel[2];
+            pixels[index * 3 + 1] = pixel[1];
+            pixels[index * 3 + 2] = pixel[0];
+        }
+        Surface::from_data(&mut pixels[..], self.width as i32, self.height as i32,
+                           24, self.width as i32 * 3,
+                           0xff0000, 0x00ff00, 0x0000ff, 0x0)
+            .unwrap()
+            .save_bmp("/home/cristi/temp.bmp".as_ref())
+            .unwrap();
+    }
 }
 

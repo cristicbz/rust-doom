@@ -6,6 +6,7 @@ extern crate num;
 extern crate base;
 extern crate gfx;
 extern crate math;
+extern crate sdl2;
 
 extern crate rustc_serialize;
 extern crate time;
