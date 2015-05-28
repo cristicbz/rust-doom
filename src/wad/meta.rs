@@ -8,7 +8,7 @@ use toml::{DecodeError, ApplicationError, ExpectedField, ExpectedType,
            ExpectedMapElement, ExpectedMapKey, NoEnumVariants, NilTooLong};
 use std::path::Path;
 
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(Debug, RustcDecodable, RustcEncodable)]
 pub struct SkyMetadata {
     pub texture_name: WadName,
     pub level_pattern: String,
@@ -16,14 +16,14 @@ pub struct SkyMetadata {
 }
 
 
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(Debug, RustcDecodable, RustcEncodable)]
 pub struct AnimationMetadata {
     pub flats: Vec<Vec<WadName>>,
     pub walls: Vec<Vec<WadName>>,
 }
 
 
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(Debug, RustcDecodable, RustcEncodable)]
 pub struct ThingMetadata {
     pub thing_type: ThingType,
     pub sprite: String,
@@ -33,7 +33,7 @@ pub struct ThingMetadata {
 }
 
 
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(Debug, RustcDecodable, RustcEncodable)]
 pub struct ThingDirectoryMetadata {
     pub decorations: Vec<ThingMetadata>,
     pub weapons: Vec<ThingMetadata>,
@@ -45,7 +45,7 @@ pub struct ThingDirectoryMetadata {
 }
 
 
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(Debug, RustcDecodable, RustcEncodable)]
 pub struct WadMetadata {
     pub sky: Vec<SkyMetadata>,
     pub animations: AnimationMetadata,
