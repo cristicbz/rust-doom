@@ -9,6 +9,7 @@ use name::{WadName, WadNameCast};
 use std::collections::HashMap;
 use std::error::Error;
 use std::mem;
+use std::cmp;
 use time;
 use types::{WadTextureHeader, WadTexturePatchRef};
 use super::base::ReadExt;
@@ -173,16 +174,14 @@ impl TextureDirectory {
 
         let num_pixels = images
             .iter().map(|t| t.1.num_pixels()).fold(0, |x, y| x + y);
-        let min_atlas_width = match next_pow2(images.iter().map(|t| t.1.width()).max().unwrap()) {
-            w if w < 64 => 64,
-            w => w,
-        };
+        let min_atlas_width = cmp::min(
+            128, next_pow2(images.iter().map(|t| t.1.width()).max().unwrap()));
         let min_atlas_height = 128;
         let max_size = 4096;
 
         let next_size = |w: &mut usize, h: &mut usize| {
             loop {
-                if *w == *h {
+                if *w < *h {
                     if *w == max_size { panic!("Could not fit wall atlas."); }
                     *w *= 2; *h = min_atlas_height;
                 } else { *h *= 2; }
@@ -230,9 +229,7 @@ impl TextureDirectory {
                 offsets.clear();
 
                 // Try swapping width and height to see if it fits that way.
-                let aux = atlas_width;
-                atlas_width = atlas_height;
-                atlas_height = aux;
+                mem::swap(&mut atlas_width, &mut atlas_height);
                 transposed = !transposed;
                 if transposed && atlas_width != atlas_height {
                     continue;
@@ -459,6 +456,8 @@ pub fn get_ordered_atlas_entries<'b, 'a: 'b,
                     if let Some(image) = image_lookup(frame) {
                         names.push(
                             (frame, image, offset, frames.len()));
+                    } else {
+                        warn!("Unable to find texture/sprite: {}", frame);
                     }
                 },
             None => {
