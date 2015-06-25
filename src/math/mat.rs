@@ -15,7 +15,7 @@ pub type Scalar = f32;
 /// are currently supported (and not super-efficiently implemented).
 ///
 /// _Note:_ The 16 elements are stored in place, so copies are not cheap.
-#[packed]
+#[repr(packed)]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Mat4 {
