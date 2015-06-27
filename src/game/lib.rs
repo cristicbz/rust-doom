@@ -21,8 +21,8 @@ use libc::c_void;
 use math::Vec3;
 use player::Player;
 use sdl2::Sdl;
-use sdl2::scancode::ScanCode;
-use sdl2::video::{GLAttr, GLProfile};
+use sdl2::keyboard::Scancode;
+use sdl2::video::{gl_attr, GLProfile};
 use std::default::Default;
 use std::path::PathBuf;
 use wad::TextureDirectory;
@@ -37,7 +37,7 @@ pub mod lights;
 
 const WINDOW_TITLE: &'static str =
     "Rusty Doom v0.0.7 - Toggle mouse with backtick key (`))";
-const OPENGL_DEPTH_SIZE: i32 = 24;
+const OPENGL_DEPTH_SIZE: u8 = 24;
 const SHADER_ROOT: &'static str = "src/shaders";
 
 
@@ -49,14 +49,11 @@ pub struct MainWindow {
 }
 impl MainWindow {
     pub fn new(sdl: &Sdl, width: usize, height: usize) -> MainWindow {
-        sdl2::video::gl_set_attribute(GLAttr::GLContextMajorVersion,
-                                      gl::platform::GL_MAJOR_VERSION);
-        sdl2::video::gl_set_attribute(GLAttr::GLContextMinorVersion,
-                                      gl::platform::GL_MINOR_VERSION);
-        sdl2::video::gl_set_attribute(GLAttr::GLDepthSize, OPENGL_DEPTH_SIZE);
-        sdl2::video::gl_set_attribute(GLAttr::GLDoubleBuffer, 1);
-        sdl2::video::gl_set_attribute(GLAttr::GLContextProfileMask,
-                                      GLProfile::GLCoreProfile as i32);
+        gl_attr::set_context_profile(GLProfile::Core);
+        gl_attr::set_context_major_version(gl::platform::GL_MAJOR_VERSION);
+        gl_attr::set_context_minor_version(gl::platform::GL_MINOR_VERSION);
+        gl_attr::set_depth_size(OPENGL_DEPTH_SIZE);
+        gl_attr::set_double_buffer(true);
 
         let window = sdl.window(WINDOW_TITLE, width as u32, height as u32)
             .position_centered()
@@ -127,11 +124,11 @@ impl Game {
         }
     }
 
-    pub fn run(&mut self, sdl: &Sdl) {
+    pub fn run(&mut self, sdl: &mut Sdl) {
         let quit_gesture = Gesture::AnyOf(
             vec![Gesture::QuitTrigger,
-                 Gesture::KeyTrigger(ScanCode::Escape)]);
-        let grab_toggle_gesture = Gesture::KeyTrigger(ScanCode::Grave);
+                 Gesture::KeyTrigger(Scancode::Escape)]);
+        let grab_toggle_gesture = Gesture::KeyTrigger(Scancode::Grave);
 
         let mut cum_time = 0.0;
         let mut cum_updates_time = 0.0;
@@ -260,7 +257,7 @@ pub fn run() {
         return;
     }
 
-    let sdl = sdl2::init().video().unwrap();
+    let mut sdl = sdl2::init().video().unwrap();
     let win = MainWindow::new(&sdl, width, height);
 
     if matches.opt_present("load-all") {
@@ -287,7 +284,7 @@ pub fn run() {
             level_index: level_index,
             fov: fov,
         });
-    game.run(&sdl);
+    game.run(&mut sdl);
 
     info!("Shutting down.");
 }

@@ -3,7 +3,7 @@ use ctrl::{Analog2d, Gesture};
 use ctrl::GameController;
 use level::Level;
 use math::{Vec3f, Vec2f, Numvec};
-use sdl2::scancode::ScanCode;
+use sdl2::keyboard::Scancode;
 use std::default::Default;
 use num::Float;
 
@@ -34,17 +34,17 @@ impl Default for PlayerBindings {
     fn default() -> PlayerBindings {
         PlayerBindings {
             movement: Analog2d::Gestures(
-                Gesture::AnyOf(vec![Gesture::KeyHold(ScanCode::D),
-                                    Gesture::KeyHold(ScanCode::Right)]),
-                Gesture::AnyOf(vec![Gesture::KeyHold(ScanCode::A),
-                                    Gesture::KeyHold(ScanCode::Left)]),
-                Gesture::AnyOf(vec![Gesture::KeyHold(ScanCode::W),
-                                    Gesture::KeyHold(ScanCode::Up)]),
-                Gesture::AnyOf(vec![Gesture::KeyHold(ScanCode::S),
-                                    Gesture::KeyHold(ScanCode::Down)]),
+                Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::D),
+                                    Gesture::KeyHold(Scancode::Right)]),
+                Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::A),
+                                    Gesture::KeyHold(Scancode::Left)]),
+                Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::W),
+                                    Gesture::KeyHold(Scancode::Up)]),
+                Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::S),
+                                    Gesture::KeyHold(Scancode::Down)]),
                 1.0),
             look: Analog2d::Mouse(0.002),
-            jump: Gesture::KeyTrigger(ScanCode::Space),
+            jump: Gesture::KeyTrigger(Scancode::Space),
         }
     }
 }
