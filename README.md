@@ -7,9 +7,11 @@ A little Doom 1 & 2 Renderer written in [Rust](https://github.com/rust-lang/rust
 
 The code is mostly based on the endlessly useful [Doom Wiki](http://doomwiki.org) and the [Unofficial Doom Specs](http://aiforge.net/test/wadview/dmspec16.txt). It is **not** a port of the original Doom C source code into Rust; I'm doing my best to make the code as idiomatic as possible and have not looked at the original in a long time.
 
+*Note: You need a WAD file to try this. Get a [shareware one](http://distro.ibiblio.org/pub/linux/distributions/slitaz/sources/packages/d/doom1.wad) if you don't own the game.*
+
 ## Screenshots
-![Zig-zag Screenshot](screenshots/readme1.png)
-![Doom 2 Screenshot](screenshots/readme2.png)
+![Zig-zag Screenshot](screenshots/readme2.png)
+![Doom 2 Screenshot](screenshots/readme1.png)
 
 ### Build Instructions
 I build against nightlies; I pull rustc every few days or so. Give me a shout (submit an issue) if it doesn't build on the most recent nightly and I'll fix it ASAP.
@@ -56,8 +58,10 @@ A `Makefile` is provided for convenient testing, please run `make test` to ensur
 * [x] Animated walls.
 * [x] Lighting effects (flickering, flashing, glow etc.)
 * [x] Sky rendering.
-* [ ] BSP frustum culling.
-* [ ] Sprite rendering.
-* [ ] Camera-world collisions.
-* [ ] Correct player movement (falling etc.)
+* [x] Sprite rendering.
+* [x] Correct player movement (falling etc.)
+* [x] Player-flat collisions.
+* [ ] Player-wall collisions.
 * [ ] Sprite-player and sprite-sprite collisions.
+* [ ] Sprite animations.
+* [ ] BSP frustum culling.
