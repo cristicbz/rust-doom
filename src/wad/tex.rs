@@ -181,7 +181,7 @@ impl TextureDirectory {
 
         let next_size = |w: &mut usize, h: &mut usize| {
             loop {
-                if *w < *h {
+                if *w <= *h {
                     if *w == max_size { panic!("Could not fit wall atlas."); }
                     *w *= 2; *h = min_atlas_height;
                 } else { *h *= 2; }

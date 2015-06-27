@@ -354,6 +354,7 @@ impl<'a> VboBuilder<'a> {
             .fold((32767, -32768),
                   |(min, max), (f, c)| (if f < min { f } else { min },
                                         if c > max { c } else { max }));
+        let max_height = max_height + 32;
 
         let mut builder = VboBuilder {
             level: level,
@@ -679,7 +680,8 @@ impl<'a> VboBuilder<'a> {
         if let None = self.volume.get_sector(sector_id) {
             self.volume.insert_sector(sector_id, Sector {
                 floor: floor_y,
-                ceil: ceil_y,
+                ceil: if is_sky_flat(ceil_tex) { from_wad_height(self.max_height) }
+                      else { ceil_y },
                 light_info: light_info,
             });
         }
