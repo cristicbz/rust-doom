@@ -1,15 +1,15 @@
 use math::{Vec2f, Vec2};
 use sdl2::event::{Event, EventPump};
 use sdl2::mouse::{self, Mouse};
-use sdl2::scancode::ScanCode;
+use sdl2::keyboard::Scancode;
 use std::vec::Vec;
 
 pub type Sensitivity = f32;
 
 pub enum Gesture {
     NoGesture,
-    KeyHold(ScanCode),
-    KeyTrigger(ScanCode),
+    KeyHold(Scancode),
+    KeyTrigger(Scancode),
     ButtonHold(Mouse),
     ButtonTrigger(Mouse),
     AnyOf(Vec<Gesture>),
@@ -68,11 +68,11 @@ impl<'sdl> GameController<'sdl> {
                 Event::Quit { .. } => {
                     self.quit_requested_index = self.current_update_index;
                 },
-                Event::KeyDown{ scancode, .. } => {
+                Event::KeyDown{ scancode: Some(scancode), .. } => {
                     self.keyboard_state[scancode as usize] =
                         ButtonState::Down(self.current_update_index);
                 },
-                Event::KeyUp { scancode, .. } => {
+                Event::KeyUp { scancode: Some(scancode), .. } => {
                     self.keyboard_state[scancode as usize] =
                         ButtonState::Up(self.current_update_index);
                 },

@@ -4,8 +4,7 @@ use rustc_serialize;
 use super::name::WadName;
 use super::types::ThingType;
 use toml;
-use toml::{DecodeError, ApplicationError, ExpectedField, ExpectedType,
-           ExpectedMapElement, ExpectedMapKey, NoEnumVariants, NilTooLong};
+use toml::DecodeError;
 use std::path::Path;
 
 #[derive(Debug, RustcDecodable, RustcEncodable)]
@@ -80,15 +79,18 @@ impl WadMetadata {
 }
 
 fn show_decode_err(err: DecodeError) -> String {
+    use toml::DecodeErrorKind::*;
+
     format!("Error decoding WadMetadata: in field '{}': {}",
             err.field.unwrap_or("none".to_string()),
             match err.kind {
                 ApplicationError(msg) => msg,
-                ExpectedField(e) => format!("expected field '{}'", e),
-                ExpectedType(e, f) => format!("expected type '{}', found '{}'",
-                                              e, f),
+                ExpectedField(e) => format!("expected field '{}'", e.unwrap_or("none")),
+                ExpectedType(e, f) => format!("expected type '{}', found '{}'", e, f),
                 ExpectedMapKey(e) => format!("map key '{}' expected", e),
                 ExpectedMapElement(e) => format!("map value '{}' expected", e),
+                SyntaxError => format!("syntax error"),
+                EndOfStream => format!("end of stream"),
                 NoEnumVariants => format!("no enum variants"),
                 NilTooLong => format!("non-empty string for nil type")
             })

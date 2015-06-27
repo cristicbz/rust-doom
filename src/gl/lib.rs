@@ -5,16 +5,16 @@ include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 
 #[cfg(target_os = "linux")]
 pub mod platform {
-    pub const GL_MAJOR_VERSION: i32 = 3;
-    pub const GL_MINOR_VERSION: i32 = 0;
+    pub const GL_MAJOR_VERSION: u8 = 3;
+    pub const GL_MINOR_VERSION: u8 = 0;
     pub const GLSL_VERSION_STRING: &'static str = "300 es";
 }
 
 #[cfg(not(target_os = "linux"))]
 pub mod platform {
     pub const GLSL_VERSION_STRING: &'static str = "330 core";
-    pub const GL_MAJOR_VERSION: i32 = 3;
-    pub const GL_MINOR_VERSION: i32 = 3;
+    pub const GL_MAJOR_VERSION: u8 = 3;
+    pub const GL_MINOR_VERSION: u8 = 3;
 }
 
 pub mod check {
