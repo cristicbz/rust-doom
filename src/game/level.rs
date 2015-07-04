@@ -1,7 +1,7 @@
 use gfx::{BufferBuilder, Renderer, RenderStep, ShaderLoader, VertexBuffer, StepId};
 use gl;
 use math::{Mat4, Line2, Line2f, Vec2f, Vec2, Vec3f, Vec3, Numvec};
-use lights::LightBuffer;
+use lights::{LightBuffer, FakeContrast};
 use std::cmp::Ordering;
 use std::rc::Rc;
 use std::vec::Vec;
@@ -637,7 +637,14 @@ impl<'a> VboBuilder<'a> {
             _ => (from_wad_height(low), from_wad_height(high))
         };
 
-        let light_info = self.light_info(sector);
+        let fake_contrast = if v1.x == v2.x {
+            FakeContrast::Brighten
+        } else if v1.y == v2.y {
+            FakeContrast::Darken
+        } else {
+            FakeContrast::None
+        };
+        let light_info = self.light_info(sector, fake_contrast);
         let height = (high - low) * 100.0;
         let s1 = seg.offset as f32 + side.x_offset as f32;
         let s2 = s1 + (v2 - v1).norm() * 100.0;
@@ -670,7 +677,7 @@ impl<'a> VboBuilder<'a> {
     }
 
     fn flat_poly(&mut self, sector: &WadSector, points: &[Vec2f]) {
-        let light_info = self.light_info(sector);
+        let light_info = self.light_info(sector, FakeContrast::None);
         let floor_y = from_wad_height(sector.floor_height);
         let floor_tex = &sector.floor_texture;
         let ceil_y = from_wad_height(sector.ceiling_height);
@@ -748,9 +755,10 @@ impl<'a> VboBuilder<'a> {
         self.sky_vertex(&v1, high);
     }
 
-    fn light_info(&mut self, sector: &WadSector) -> u8 {
+    fn light_info(&mut self, sector: &WadSector, fake_contrast: FakeContrast) -> u8 {
         self.lights.push(sector.light, self.level.sector_min_light(sector),
-                         sector.sector_type, self.level.sector_id(sector))
+                         sector.sector_type, self.level.sector_id(sector),
+                         fake_contrast)
     }
 
     fn sky_vertex(&mut self, xz: &Vec2f, y: f32) {
