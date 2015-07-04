@@ -1,6 +1,6 @@
 use wad::types::{LightLevel, SectorType, SectorId};
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum LightEffect {
     Flash,
     FastStrobe,
@@ -9,6 +9,30 @@ pub enum LightEffect {
     Flicker,
     Constant,
 }
+
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub enum FakeContrast {
+    None,
+    Darken,
+    Brighten,
+}
+trait ApplyContrast {
+    fn apply_contrast(self, fake_contrast: FakeContrast) -> Self;
+}
+impl ApplyContrast for LightLevel {
+    fn apply_contrast(self, fake_contrast: FakeContrast) -> LightLevel {
+        match fake_contrast {
+            FakeContrast::Darken => if self <= 16 { 0 } else { self - 16 },
+            FakeContrast::Brighten => if self >= LightLevel::max_value() - 16 {
+                LightLevel::max_value()
+            } else {
+                self + 16
+            },
+            _ => self,
+        }
+    }
+}
+
 
 pub struct LightBuffer {
     lights: Vec<Light>,
@@ -25,9 +49,10 @@ impl LightBuffer {
 
     pub fn push(&mut self,
             sector_light: LightLevel, alt_light: LightLevel,
-            sector_type: SectorType, sector_id: SectorId) -> u8 {
+            sector_type: SectorType, sector_id: SectorId,
+            fake_contrast: FakeContrast) -> u8 {
         assert!(self.lights.len() < 256);
-        let new_light = Light::new(sector_light, alt_light, sector_type, sector_id);
+        let new_light = Light::new(sector_light, alt_light, sector_type, sector_id, fake_contrast);
         let existing_index = self.lights
             .iter()
             .enumerate()
@@ -82,10 +107,10 @@ struct Light {
 }
 
 impl Light {
-    fn new(level0: LightLevel, level1: LightLevel, sector_type: SectorType, sector_id: SectorId)
-            -> Light {
-        let level0 = (level0 >> 3) as f32 / 31.0;
-        let level1 = (level1 >> 3) as f32 / 31.0;
+    fn new(level0: LightLevel, level1: LightLevel, sector_type: SectorType, sector_id: SectorId,
+           fake_contrast: FakeContrast) -> Light {
+        let level0 = (level0.apply_contrast(fake_contrast) >> 3) as f32 / 31.0;
+        let level1 = (level1.apply_contrast(fake_contrast) >> 3) as f32 / 31.0;
         let effect = sector_type.into();
         if effect == LightEffect::Constant
                 || (effect == LightEffect::Glow && level0 == level1) {
