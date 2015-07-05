@@ -91,12 +91,14 @@ impl Player {
         pos.z += self.horizontal_speed.y * delta_time;
         pos.y += self.vertical_speed * delta_time;
         level.heights_at(&Vec2f::new(pos.x, pos.z)).map(|(floor, ceil)| {
-            self.floor_height = floor + 50.0 / 100.0;
-            self.ceil_height = ceil - 1.0 / 100.0;
+            let (floor, ceil) = (floor + 50.0 / 100.0, ceil - 1.0 / 100.0);
+            let ceil = if ceil < floor { floor } else { ceil };
+            self.floor_height = floor;
+            self.ceil_height = ceil;
         });
 
 
-        let floor_dist = (pos.y - self.floor_height).abs();
+        let floor_dist = pos.y - self.floor_height;
         let in_control = self.vertical_speed.abs() < 0.5 && floor_dist < 1e-1;
         let floored = floor_dist < 1e-2;
 
@@ -108,7 +110,7 @@ impl Player {
 
         if old_pos.y < self.floor_height && pos.y > self.floor_height
                 || old_pos.y > self.floor_height && pos.y < self.floor_height
-                || floor_dist <= 1e-3 {
+                || floor_dist.abs() <= 1e-3 {
             self.vertical_speed = 0.0;
             pos.y = self.floor_height;
         } else if pos.y > self.ceil_height {
@@ -119,8 +121,8 @@ impl Player {
                 if self.floor_height - pos.y > 1.0 {
                     pos.y = self.floor_height;
                 } else {
-                    self.vertical_speed += 1.0 * delta_time;
-                    pos.y = (pos.y + self.floor_height + 0.1)/2.0;
+                    self.vertical_speed += 10.0 * delta_time;
+                    pos.y = pos.y * 0.7 + self.floor_height * 0.3;
                 }
             } else {
                 self.vertical_speed -= 17.0 * delta_time;
