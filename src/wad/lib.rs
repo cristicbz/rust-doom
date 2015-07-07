@@ -20,11 +20,13 @@ pub use meta::SkyMetadata;
 pub use meta::ThingMetadata;
 pub use name::{WadName, WadNameCast};
 pub use tex::TextureDirectory;
+pub use error::{Result, Error};
 
 mod name;
 mod archive;
 mod level;
 mod image;
+mod error;
 pub mod types;
 pub mod util;
 pub mod tex;

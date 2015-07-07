@@ -52,9 +52,9 @@ pub struct RenderStep {
 impl RenderStep {
     pub fn new(shader: Shader) -> RenderStep {
         RenderStep {
-            u_modelview: shader.get_uniform("u_modelview"),
-            u_projection: shader.get_uniform("u_projection"),
-            u_time: shader.get_uniform("u_time"),
+            u_modelview: shader.uniform("u_modelview"),
+            u_projection: shader.uniform("u_projection"),
+            u_time: shader.uniform("u_time"),
             shader: shader,
             shared_tex: Vec::new(),
             unique_tex: Vec::new(),
@@ -64,8 +64,8 @@ impl RenderStep {
 
     pub fn shader(&mut self) -> &mut Shader { &mut self.shader }
 
-    //pub fn get_uniform(&self, name: &str) -> Option<Uniform> {
-    //    self.shader.get_uniform(name)
+    //pub fn uniform(&self, name: &str) -> Option<Uniform> {
+    //    self.shader.uniform(name)
     //}
 
     pub fn add_constant_f32v(&mut self, name: &str, value: &[f32]) -> &mut RenderStep {

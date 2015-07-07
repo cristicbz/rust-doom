@@ -1,16 +1,17 @@
-use base::read_utf8_file;
+use error::{Error, Result};
 use gl;
 use gl::types::{GLint, GLuint, GLchar};
 use math::{Mat4, Vec2f, Vec3f};
 use std::ffi::CString;
+use std::fs::File;
+use std::io::Read;
+use std::io::Result as IoResult;
+use std::path::{Path, PathBuf};
 use std::ptr;
-use std::path::PathBuf;
+use std::result::Result as StdResult;
 
 #[derive(Copy, Clone)]
-pub struct Uniform {
-    id: GLint,
-}
-
+pub struct Uniform(GLint);
 
 pub struct ShaderLoader {
     root_path: PathBuf,
@@ -24,14 +25,12 @@ impl ShaderLoader {
         }
     }
 
-    pub fn load(&self, name: &str) -> Result<Shader, String> {
+    pub fn load(&self, name: &str) -> Result<Shader> {
         debug!("Loading shader: {}", name);
         let frag_src = self.version_directive.clone() +
-            &try!(read_utf8_file(
-                    &self.root_path.join(&(name.to_string() + ".frag"))))[..];
+            &try!(read_utf8_file(&self.root_path.join(&(name.to_string() + ".frag"))))[..];
         let vert_src = self.version_directive.clone() +
-            &try!(read_utf8_file(
-                    &self.root_path.join(&(name.to_string() + ".vert"))))[..];
+            &try!(read_utf8_file(&self.root_path.join(&(name.to_string() + ".vert"))))[..];
         debug!("Shader '{}' loaded successfully", name);
         Shader::new_from_source(&vert_src, &frag_src)
     }
@@ -40,9 +39,9 @@ impl ShaderLoader {
 pub struct Shader {
     program: Program,
 }
+
 impl Shader {
-    pub fn new_from_source(vertex_source: &str, fragment_source: &str)
-            -> Result<Shader, String> {
+    pub fn new_from_source(vertex_source: &str, fragment_source: &str) -> Result<Shader> {
         let vertex = try!(VertexShader::compile(&vertex_source));
         let fragment = try!(FragmentShader::compile(&fragment_source));
         let program = try!(Program::link(vertex, fragment));
@@ -50,7 +49,7 @@ impl Shader {
     }
 
     pub fn bind(&self) -> &Shader {
-        check_gl_unsafe!(gl::UseProgram(self.program.id));
+        check_gl_unsafe!(gl::UseProgram(self.program.0));
         self
     }
 
@@ -64,99 +63,99 @@ impl Shader {
         self
     }
 
-    pub fn get_uniform(&self, name: &str) -> Option<Uniform> {
+    pub fn uniform(&self, name: &str) -> Option<Uniform> {
         let c_str = CString::new(name.as_bytes()).unwrap().as_ptr();
-        match check_gl_unsafe!(gl::GetUniformLocation(self.program.id, c_str)) {
+        match check_gl_unsafe!(gl::GetUniformLocation(self.program.0, c_str)) {
             -1 => None,
-            id => Some(Uniform{id: id})
+            id => Some(Uniform(id)),
         }
     }
 
     pub fn expect_uniform(&self, name: &str) -> Uniform {
-        self.get_uniform(name).expect(&format!("Expected uniform '{}'", name))
+        self.uniform(name).expect(&format!("Expected uniform '{}'", name))
     }
 
     pub fn set_uniform_i32(&self, uniform: Uniform, value: i32) -> &Shader {
-        check_gl_unsafe!(gl::Uniform1i(uniform.id, value));
+        check_gl_unsafe!(gl::Uniform1i(uniform.0, value));
         self
     }
 
     pub fn set_uniform_f32(&self, uniform: Uniform, value: f32) -> &Shader {
-        check_gl_unsafe!(gl::Uniform1f(uniform.id, value));
+        check_gl_unsafe!(gl::Uniform1f(uniform.0, value));
         self
     }
 
     pub fn set_uniform_f32v(&self, uniform: Uniform, value: &[f32]) -> &Shader {
-        check_gl_unsafe!(gl::Uniform1fv(uniform.id, value.len() as i32, value.as_ptr()));
+        check_gl_unsafe!(gl::Uniform1fv(uniform.0, value.len() as i32, value.as_ptr()));
         self
     }
 
     pub fn set_uniform_vec2f(&self, uniform: Uniform, value: &Vec2f)
             -> &Shader {
-        check_gl_unsafe!(gl::Uniform2fv(uniform.id, 1, &value.x));
+        check_gl_unsafe!(gl::Uniform2fv(uniform.0, 1, &value.x));
         self
     }
 
     pub fn set_uniform_vec3f(&self, uniform: Uniform, value: &Vec3f)
             -> &Shader {
-        check_gl_unsafe!(gl::Uniform3fv(uniform.id, 1, &value.x));
+        check_gl_unsafe!(gl::Uniform3fv(uniform.0, 1, &value.x));
         self
     }
 
     pub fn set_uniform_mat4(&self, uniform: Uniform, value: &Mat4)
             -> &Shader {
         check_gl_unsafe!(gl::UniformMatrix4fv(
-            uniform.id, 1, 0u8, value.as_scalar_ptr()));
+            uniform.0, 1, 0u8, value.as_scalar_ptr()));
         self
     }
 }
 
-struct VertexShader { id: GLuint }
+struct VertexShader(GLuint);
 impl VertexShader {
-    fn compile(source: &str) -> Result<VertexShader, String> {
+    fn compile(source: &str) -> Result<VertexShader> {
         compile_any(gl::VERTEX_SHADER, source)
-            .map(|id| VertexShader{ id: id })
+            .map(|id| VertexShader(id))
+            .map_err(|log| Error::VertexCompile(log))
     }
 }
 impl Drop for VertexShader {
-    fn drop(&mut self) { check_gl_unsafe!(gl::DeleteShader(self.id)); }
+    fn drop(&mut self) { check_gl_unsafe!(gl::DeleteShader(self.0)); }
 }
 
 
-struct FragmentShader { id: GLuint }
+struct FragmentShader(GLuint);
 impl FragmentShader {
-    fn compile(source: &str) -> Result<FragmentShader, String> {
+    fn compile(source: &str) -> Result<FragmentShader> {
         compile_any(gl::FRAGMENT_SHADER, source)
-            .map(|id| FragmentShader{ id: id })
+            .map(|id| FragmentShader(id))
+            .map_err(|log| Error::FragmentCompile(log))
     }
 }
 impl Drop for FragmentShader {
-    fn drop(&mut self) { check_gl_unsafe!(gl::DeleteShader(self.id)); }
+    fn drop(&mut self) { check_gl_unsafe!(gl::DeleteShader(self.0)); }
 }
 
 
-struct Program { id: GLuint }
+struct Program(GLuint);
 impl Program {
-    fn link(vertex: VertexShader, fragment: FragmentShader)
-            -> Result<Program, String> {
-        let program = Program{ id: check_gl_unsafe!(gl::CreateProgram()) };
-        check_gl_unsafe!(gl::AttachShader(program.id, vertex.id));
-        check_gl_unsafe!(gl::AttachShader(program.id, fragment.id));
-        check_gl_unsafe!(gl::LinkProgram(program.id));
-        if link_succeeded(program.id) {
+    fn link(vertex: VertexShader, fragment: FragmentShader) -> Result<Program> {
+        let program = Program(check_gl_unsafe!(gl::CreateProgram()));
+        check_gl_unsafe!(gl::AttachShader(program.0, vertex.0));
+        check_gl_unsafe!(gl::AttachShader(program.0, fragment.0));
+        check_gl_unsafe!(gl::LinkProgram(program.0));
+        if link_succeeded(program.0) {
             Ok(program)
         } else {
-            let log = get_link_log(program.id);
-            Err(format!("Shader linking failed:\n{}", log))
+            Err(Error::Link(link_log(program.0)))
         }
     }
 }
 impl Drop for Program {
-    fn drop(&mut self) { unsafe { gl::DeleteProgram(self.id); } }
+    fn drop(&mut self) { unsafe { gl::DeleteProgram(self.0); } }
 }
 
 
-fn compile_any(shader_type: u32, source: &str) -> Result<GLuint, String> {
+fn compile_any(shader_type: u32, source: &str) -> StdResult<GLuint, String> {
     let id = check_gl_unsafe!(gl::CreateShader(shader_type));
     let source_len = source.len() as i32;
     let source = source.as_bytes().as_ptr() as *const i8;
@@ -167,7 +166,7 @@ fn compile_any(shader_type: u32, source: &str) -> Result<GLuint, String> {
     if compilation_succeeded(id) {
         Ok(id)
     } else {
-        let log = get_compilation_log(id);;
+        let log = compilation_log(id);;
         check_gl_unsafe!(gl::DeleteShader(id));
         if shader_type == gl::VERTEX_SHADER {
             Err(format!("Vertex shader compilation failed:\n{}", log))
@@ -185,7 +184,7 @@ fn compilation_succeeded(id: GLuint) -> bool {
 }
 
 
-fn get_compilation_log(shader_id: GLuint) -> String {
+fn compilation_log(shader_id: GLuint) -> String {
     let mut log_length = 0;
     check_gl_unsafe!(gl::GetShaderiv(shader_id, gl::INFO_LOG_LENGTH,
                                      &mut log_length));
@@ -205,7 +204,7 @@ fn link_succeeded(id: GLuint) -> bool {
 }
 
 
-fn get_link_log(shader_id: GLuint) -> String {
+fn link_log(shader_id: GLuint) -> String {
     let mut log_length = 0;
     check_gl_unsafe!(gl::GetProgramiv(shader_id, gl::INFO_LOG_LENGTH,
                                       &mut log_length));
@@ -215,4 +214,9 @@ fn get_link_log(shader_id: GLuint) -> String {
     check_gl_unsafe!(gl::GetProgramInfoLog(
             shader_id, log_length, ptr::null_mut(), log_buffer_ptr));
     String::from_utf8(log_buffer).unwrap()
+}
+
+fn read_utf8_file(path: &Path) -> IoResult<String> {
+    let mut result = String::new();
+    try!(File::open(path)).read_to_string(&mut result).map(|_| result)
 }

@@ -133,7 +133,7 @@ impl Player {
         let look = self.bindings.look_vector(controller);
         if movement.norm() != 0.0 || look.norm() != 0.0 {
             let yaw = self.camera.yaw() + look.x;
-            let pitch = clamp(self.camera.pitch() - look.y, (-3.14 / 2.0, 3.14 / 2.0));
+            let pitch = clamp(self.camera.pitch() + look.y, (-3.14 / 2.0, 3.14 / 2.0));
             self.camera.set_yaw(yaw);
             self.camera.set_pitch(pitch);
 
@@ -154,11 +154,11 @@ impl Player {
         self.camera.set_position(pos);
     }
 
-    pub fn get_camera(&self) -> &Camera {
+    pub fn camera(&self) -> &Camera {
         &self.camera
     }
 
-    pub fn get_camera_mut(&mut self) -> &mut Camera {
+    pub fn camera_mut(&mut self) -> &mut Camera {
         &mut self.camera
     }
 }

@@ -17,8 +17,10 @@ pub use shader::Uniform;
 pub use texture::Texture;
 pub use vbo::BufferBuilder;
 pub use vbo::VertexBuffer;
+pub use error::{Result, Error};
 
 mod render;
 mod shader;
 mod texture;
 mod vbo;
+mod error;

@@ -1,9 +1,6 @@
-use std::error::Error;
-use std::fs::File;
 use std::io::{self, Read};
 use std::mem;
 use std::slice;
-use std::path::Path;
 
 pub trait ReadExt: Read {
     fn read_at_least(&mut self, mut buf: &mut [u8]) -> io::Result<()> {
@@ -22,19 +19,4 @@ pub trait ReadExt: Read {
     }
 }
 
-impl<R: Read> ReadExt for R {}
-
-pub fn read_utf8_file<P: AsRef<Path>>(path: &P) -> Result<String, String> {
-    File::open(path.as_ref())
-        .and_then(|mut file| {
-            let mut buffer = vec![];
-            file.read_to_end(&mut buffer).map(|_| buffer)
-        })
-        .map_err(|e| Error::description(&e).to_owned())
-        .and_then(|buffer| {
-            String::from_utf8(buffer).map_err(|_| {
-                format!("File at '{:?}' is not valid UTF-8.", path.as_ref())
-            })
-        })
-}
-
+impl<T: Read> ReadExt for T {}

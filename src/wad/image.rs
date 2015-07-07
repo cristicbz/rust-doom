@@ -1,10 +1,9 @@
+use base::ReadExt;
 use gfx::Texture;
 use gl;
 use std::ptr::copy_nonoverlapping;
 use std::vec::Vec;
-use super::base::ReadExt;
-use super::types::WadTextureHeader;
-
+use types::WadTextureHeader;
 
 pub struct Image {
     width: usize,
@@ -13,12 +12,6 @@ pub struct Image {
     y_offset: isize,
     pixels: Vec<u16>,
 }
-
-
-macro_rules! io_try(
-    ($e:expr) => (try!($e.map_err(|e| String::from_str(e.desc))))
-);
-
 
 impl Image {
     pub fn new(width: usize, height: usize) -> Image {
@@ -169,7 +162,7 @@ impl Image {
 
     pub fn num_pixels(&self) -> usize { self.pixels.len() }
 
-    pub fn get_pixels(&self) -> &[u16] { &self.pixels }
+    pub fn pixels(&self) -> &[u16] { &self.pixels }
 
     // Commented out due to a bug in SDL2.
     //pub fn save_bmp(&self, palette: &[[u8; 3]; 256]) {

@@ -5,6 +5,7 @@ use archive::Archive;
 use types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg, WadSubsector,
             WadNode, WadSector, VertexId, LightLevel, SectorId};
 use util::from_wad_coords;
+use error::Result;
 
 
 const THINGS_OFFSET: usize = 1;
@@ -28,19 +29,18 @@ pub struct Level {
 }
 
 impl Level {
-    pub fn from_archive(wad: &mut Archive, index: usize) -> Level {
-        let name = *wad.get_level_name(index);
+    pub fn from_archive(wad: &Archive, index: usize) -> Result<Level> {
+        let name = *wad.level_name(index);
         info!("Reading level data for '{}'...", name);
-        let start_index = wad.get_level_lump_index(index);
-        let things = wad.read_lump(start_index + THINGS_OFFSET);
-        let linedefs = wad.read_lump(start_index + LINEDEFS_OFFSET);
-        let vertices = wad.read_lump(start_index + VERTICES_OFFSET);
-        let segs = wad.read_lump(start_index + SEGS_OFFSET);
-        let subsectors = wad.read_lump(start_index + SSECTORS_OFFSET);
-        let nodes = wad.read_lump(start_index + NODES_OFFSET);
+        let start_index = wad.level_lump_index(index);
+        let things = try!(wad.read_lump(start_index + THINGS_OFFSET));
+        let linedefs = try!(wad.read_lump(start_index + LINEDEFS_OFFSET));
+        let vertices = try!(wad.read_lump(start_index + VERTICES_OFFSET));
+        let segs = try!(wad.read_lump(start_index + SEGS_OFFSET));
+        let subsectors = try!(wad.read_lump(start_index + SSECTORS_OFFSET));
+        let nodes = try!(wad.read_lump(start_index + NODES_OFFSET));
 
-        let mut sidedefs = wad.read_lump::<WadSidedef>(
-                start_index + SIDEDEFS_OFFSET);
+        let mut sidedefs = try!(wad.read_lump::<WadSidedef>(start_index + SIDEDEFS_OFFSET));
         for side in sidedefs.iter_mut() {
             side.upper_texture.canonicalise();
             side.lower_texture.canonicalise();
@@ -48,8 +48,7 @@ impl Level {
         }
         let sidedefs = sidedefs;
 
-        let mut sectors = wad.read_lump::<WadSector>(
-                start_index + SECTORS_OFFSET);
+        let mut sectors = try!(wad.read_lump::<WadSector>(start_index + SECTORS_OFFSET));
         for sector in sectors.iter_mut() {
             sector.floor_texture.canonicalise();
             sector.ceiling_texture.canonicalise();
@@ -66,7 +65,7 @@ impl Level {
         info!("    {:4} nodes", nodes.len());
         info!("    {:4} sectors", sectors.len());
 
-        Level {
+        Ok(Level {
             things: things,
             linedefs: linedefs,
             sidedefs: sidedefs,
@@ -75,7 +74,7 @@ impl Level {
             subsectors: subsectors,
             nodes: nodes,
             sectors: sectors,
-        }
+        })
     }
 
     pub fn vertex(&self, id: VertexId) -> Vec2f {

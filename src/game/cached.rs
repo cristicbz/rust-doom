@@ -28,14 +28,17 @@ use std::cell::{UnsafeCell, Cell};
 ///
 /// impl StatsVec {
 ///     fn stats(&self) -> &Stats {
-///         self.stats.get(|stats| {
+///         self.stats.get(|| {
 ///             // Only executed if push() has been called since last time stats() was called.
 ///             let num_elems = self.elems.len() as f32;
-///             stats.mean = self.elems.iter().fold(0.0, |a, x| a + x) / num_elems;
-///             stats.stddev = (self.elems.iter()
-///                 .map(|&x| x - stats.mean)
-///                 .map(|x| x * x)
-///                 .fold(0.0, |a, x| a + x) / (num_elems - 1.0)).sqrt();
+///             let mean = self.elems.iter().fold(0.0, |a, x| a + x) / num_elems;
+///             Stats {
+///                 mean: mean,
+///                 stddev: (self.elems.iter()
+///                     .map(|&x| x - mean)
+///                     .map(|x| x * x)
+///                     .fold(0.0, |a, x| a + x) / (num_elems - 1.0)).sqrt(),
+///             }
 ///         })
 ///     }
 ///
@@ -73,20 +76,24 @@ impl<T> Cached<T> {
         self.invalidated.set(true);
     }
 
-    /// Retrieves a reference to the value contained. The `refresh_with` closure gets called if
-    /// `invalidate` was called since the last call to `get`.
+    /// Retrieves a reference to the contained value.
+    ///
+    /// If the cache was invalidated since the last call to ```get```, the ```refresh_with``` is
+    /// called to obtain and replace the contained value.
+    ///
+    /// Note: if ```get``` is called inside the ```refresh_with``` closure, it will return the
+    /// *old* contained value. This is memory safe, but potentially counterintuitive.
     pub fn get<F>(&self, refresh_with: F) -> &T
-            where F: FnOnce(&mut T) {
+            where F: FnOnce() -> T {
         if self.invalidated.get() {
             self.invalidated.set(false);
-            // We now there is a single mutable reference because:
-            //  1. Dirty is now false, so a nested .get() call will not trigger another refresh.
-            //  2. To set invalidated back to true, a mutable self reference would be needed, which
-            //     is impossible while the &self in this function is still active.
-            refresh_with(unsafe { &mut *self.value.get() });
+            // We know there is a single mutable reference because invalidated is now false, so a
+            // recursive .get() call will harmlessly return the old value.
+            let new_value = refresh_with();
+            *unsafe { &mut *self.value.get() } = new_value;
         }
         // It's safe to return an immutable reference to the value since the borrow will prevent a
-        // call to invalidate and thus any refresh.
+        // call to invalidate and thus any subsequent refresh.
         unsafe { &*self.value.get() }
     }
 }
@@ -97,24 +104,24 @@ mod test {
     #[test]
     fn new_doesnt_call_refresh() {
         let cache = Cached::new(0);
-        assert_eq!(cache.get(|x| *x = 1), &0);
-        assert_eq!(cache.get(|x| *x = 1), &0);
+        assert_eq!(cache.get(|| 1), &0);
+        assert_eq!(cache.get(|| 1), &0);
     }
 
     #[test]
     fn invalidated_calls_refresh() {
         let cache = Cached::invalidated(0);
-        assert_eq!(cache.get(|x| *x = 1), &1);
-        assert_eq!(cache.get(|x| *x = 2), &1);
+        assert_eq!(cache.get(|| 1), &1);
+        assert_eq!(cache.get(|| 2), &1);
     }
 
     #[test]
     fn invalidate_causes_refresh() {
         let mut cache = Cached::new(0);
         cache.invalidate();
-        assert_eq!(cache.get(|x| *x = 1), &1);
-        assert_eq!(cache.get(|x| *x = 2), &1);
+        assert_eq!(cache.get(|| 1), &1);
+        assert_eq!(cache.get(|| 2), &1);
         cache.invalidate();
-        assert_eq!(cache.get(|x| *x = 2), &2);
+        assert_eq!(cache.get(|| 2), &2);
     }
 }
