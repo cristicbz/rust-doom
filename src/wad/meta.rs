@@ -1,11 +1,13 @@
-use base;
+use error::{Result, InFile};
+use error::ErrorKind::BadMetadataSyntax;
+use name::WadName;
 use regex::Regex;
-use rustc_serialize;
-use super::name::WadName;
-use super::types::ThingType;
-use toml;
-use toml::DecodeError;
+use rustc_serialize::{Encodable, Decodable};
+use std::fs::File;
+use std::io::Read;
 use std::path::Path;
+use toml::{Decoder, Value, Parser};
+use types::ThingType;
 
 #[derive(Debug, RustcDecodable, RustcEncodable)]
 pub struct SkyMetadata {
@@ -51,20 +53,20 @@ pub struct WadMetadata {
     pub things: ThingDirectoryMetadata,
 }
 impl WadMetadata {
-    pub fn from_file<P: AsRef<Path>>(path: &P) -> Result<WadMetadata, String> {
-        base::read_utf8_file(path).and_then(
-            |contents| WadMetadata::from_text(&contents))
+    pub fn from_file<P: AsRef<Path>>(path: &P) -> Result<WadMetadata> {
+        let mut contents = String::new();
+        let path = path.as_ref();
+        try!(try!(File::open(path)).read_to_string(&mut contents));
+        WadMetadata::from_text(&contents).in_file(path)
     }
 
-    pub fn from_text(text: &str) -> Result<WadMetadata, String> {
-        let mut parser = toml::Parser::new(text);
-        match parser.parse() {
-            Some(value) => rustc_serialize::Decodable::decode(
-                    &mut toml::Decoder::new(toml::Value::Table(value)))
-                .map_err(|e| show_decode_err(e)),
-            None => Err(format!("Error parsing WadMetadata from TOML: {:?}",
-                                parser.errors))
-        }
+    pub fn from_text(text: &str) -> Result<WadMetadata> {
+        let mut parser = Parser::new(text);
+        parser.parse()
+            .ok_or_else(move || BadMetadataSyntax(parser.errors).into())
+            .and_then(|value| {
+                Decodable::decode(&mut Decoder::new(Value::Table(value))).map_err(|e| e.into())
+            })
     }
 
     pub fn sky_for(&self, name: &WadName) -> &SkyMetadata {
@@ -76,24 +78,6 @@ impl WadMetadata {
         }
         &self.sky[0]
     }
-}
-
-fn show_decode_err(err: DecodeError) -> String {
-    use toml::DecodeErrorKind::*;
-
-    format!("Error decoding WadMetadata: in field '{}': {}",
-            err.field.unwrap_or("none".to_string()),
-            match err.kind {
-                ApplicationError(msg) => msg,
-                ExpectedField(e) => format!("expected field '{}'", e.unwrap_or("none")),
-                ExpectedType(e, f) => format!("expected type '{}', found '{}'", e, f),
-                ExpectedMapKey(e) => format!("map key '{}' expected", e),
-                ExpectedMapElement(e) => format!("map value '{}' expected", e),
-                SyntaxError => format!("syntax error"),
-                EndOfStream => format!("end of stream"),
-                NoEnumVariants => format!("no enum variants"),
-                NilTooLong => format!("non-empty string for nil type")
-            })
 }
 
 #[cfg(test)]

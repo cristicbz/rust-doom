@@ -20,12 +20,15 @@ use level::Level;
 use libc::c_void;
 use math::Vec3;
 use player::Player;
-use sdl2::Sdl;
 use sdl2::keyboard::Scancode;
+use sdl2::Sdl;
 use sdl2::video::{gl_attr, GLProfile};
 use std::default::Default;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
+use std::fmt::Result as FmtResult;
 use std::path::PathBuf;
-use wad::TextureDirectory;
+use wad::{Archive, TextureDirectory};
 
 pub mod camera;
 pub mod ctrl;
@@ -41,6 +44,23 @@ const OPENGL_DEPTH_SIZE: u8 = 24;
 const SHADER_ROOT: &'static str = "src/shaders";
 
 
+#[derive(Debug)]
+pub struct GeneralError(String);
+impl Error for GeneralError {
+    fn description(&self) -> &str { &self.0[..] }
+}
+impl From<String> for GeneralError {
+    fn from(message: String) -> GeneralError { GeneralError(message) }
+}
+impl<'a> From<&'a str> for GeneralError {
+    fn from(message: &'a str) -> GeneralError { GeneralError(message.to_owned()) }
+}
+impl Display for GeneralError {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        write!(fmt, "{}", self.0)
+    }
+}
+
 pub struct MainWindow {
     window: sdl2::video::Window,
     width: usize,
@@ -48,20 +68,20 @@ pub struct MainWindow {
     _context: sdl2::video::GLContext,
 }
 impl MainWindow {
-    pub fn new(sdl: &Sdl, width: usize, height: usize) -> MainWindow {
+    pub fn new(sdl: &Sdl, width: usize, height: usize) -> Result<MainWindow, Box<Error>> {
         gl_attr::set_context_profile(GLProfile::Core);
         gl_attr::set_context_major_version(gl::platform::GL_MAJOR_VERSION);
         gl_attr::set_context_minor_version(gl::platform::GL_MINOR_VERSION);
         gl_attr::set_depth_size(OPENGL_DEPTH_SIZE);
         gl_attr::set_double_buffer(true);
 
-        let window = sdl.window(WINDOW_TITLE, width as u32, height as u32)
+        let window = try!(sdl.window(WINDOW_TITLE, width as u32, height as u32)
             .position_centered()
             .opengl()
             .build()
-            .unwrap();
+            .map_err(GeneralError));
 
-        let context = window.gl_create_context().unwrap();
+        let context = try!(window.gl_create_context().map_err(GeneralError));
         sdl2::clear_error();
         gl::load_with(|name| {
             sdl2::video::gl_get_proc_address(name) as *const libc::c_void
@@ -69,12 +89,12 @@ impl MainWindow {
         let mut vao_id = 0;
         check_gl_unsafe!(gl::GenVertexArrays(1, &mut vao_id));
         check_gl_unsafe!(gl::BindVertexArray(vao_id));
-        MainWindow {
+        Ok(MainWindow {
            window: window,
            width: width,
            height: height,
            _context: context,
-        }
+        })
     }
 
     pub fn aspect_ratio(&self) -> f32 {
@@ -99,29 +119,26 @@ pub struct Game {
     level: Level,
 }
 impl Game {
-    pub fn new(window: MainWindow, config: GameConfig) -> Game {
-        let mut wad = wad::Archive::open(
-                &config.wad, &config.metadata).unwrap();
-        let textures = TextureDirectory::from_archive(&mut wad).unwrap();
-        let shader_loader = ShaderLoader::new(
-                gl::platform::GLSL_VERSION_STRING, PathBuf::from(SHADER_ROOT));
-        let level = Level::new(&shader_loader,
-                               &mut wad, &textures, config.level_index);
+    pub fn new(window: MainWindow, config: GameConfig) -> Result<Game, Box<Error>> {
+        let mut wad = try!(Archive::open(&config.wad, &config.metadata));
+        let textures = try!(TextureDirectory::from_archive(&mut wad));
+        let shader_loader = ShaderLoader::new(gl::platform::GLSL_VERSION_STRING,
+                                              PathBuf::from(SHADER_ROOT));
+        let level = try!(Level::new(&shader_loader, &mut wad, &textures, config.level_index));
 
         check_gl_unsafe!(gl::ClearColor(0.06, 0.07, 0.09, 0.0));
         check_gl_unsafe!(gl::Enable(gl::DEPTH_TEST));
         check_gl_unsafe!(gl::DepthFunc(gl::LESS));
 
-        let start = *level.get_start_pos();
-        let mut player = Player::new(config.fov, window.aspect_ratio(),
-                                     Default::default());
+        let start = *level.start_pos();
+        let mut player = Player::new(config.fov, window.aspect_ratio(), Default::default());
         player.set_position(&Vec3::new(start.x, 0.3, start.y));
 
-        Game {
+        Ok(Game {
             window: window,
             player: player,
             level: level
-        }
+        })
     }
 
     pub fn run(&mut self, sdl: &mut Sdl) {
@@ -158,8 +175,7 @@ impl Game {
 
             self.player.update(delta, &control, &self.level);
             self.level.render(delta,
-                              self.player.get_camera().projection(),
-                              self.player.get_camera().modelview());
+                              self.player.camera().projection(), self.player.camera().modelview());
 
             let updates_t1 = time::precise_time_s();
             cum_updates_time += updates_t1 - updates_t0;
@@ -182,11 +198,11 @@ impl Game {
 }
 
 #[cfg(not(test))]
-pub fn run() {
+pub fn run() -> Result<(), Box<Error>> {
     use getopts::Options;
     use std::env;
 
-    env_logger::init().unwrap();
+    try!(env_logger::init());
 
     let args = env::args().collect::<Vec<_>>();
     let mut opts = Options::new();
@@ -224,8 +240,7 @@ pub fn run() {
         .map(|r| {
             let r: Vec<&str> = r.splitn(2, 'x').collect();
             match &r[..] {
-                wh if wh.len() == 2 => (wh[0].parse().unwrap(),
-                                        wh[1].parse().unwrap()),
+                wh if wh.len() == 2 => (wh[0].parse().unwrap(), wh[1].parse().unwrap()),
                 _ => {
                     panic!("Invalid format for resolution, \
                             please use WIDTHxHEIGHT.");
@@ -246,45 +261,45 @@ pub fn run() {
 
     if matches.opt_present("h") {
         println!("{}", opts.usage("A rust doom renderer."));
-        return;
+        return Ok(());
     }
 
     if matches.opt_present("d") {
-        let wad = wad::Archive::open(&wad_filename, &meta_filename).unwrap();
+        let wad = try!(Archive::open(&wad_filename, &meta_filename));
         for i_level in 0..wad.num_levels() {
-            println!("{:3} {:8}", i_level, wad.get_level_name(i_level));
+            println!("{:3} {:8}", i_level, wad.level_name(i_level));
         }
-        return;
+        return Ok(());
     }
 
-    let mut sdl = sdl2::init().video().unwrap();
-    let win = MainWindow::new(&sdl, width, height);
+    let mut sdl = try!(sdl2::init().video().build().map_err(GeneralError));
+    let win = try!(MainWindow::new(&sdl, width, height));
 
     if matches.opt_present("load-all") {
         let t0 = time::precise_time_s();
-        let mut wad = wad::Archive::open(
-            &wad_filename, &meta_filename).unwrap();
-        let textures = TextureDirectory::from_archive(&mut wad).unwrap();
+        let mut wad = try!(Archive::open(&wad_filename, &meta_filename));
+        let textures = try!(TextureDirectory::from_archive(&mut wad));
         let shader_loader = ShaderLoader::new(
             gl::platform::GLSL_VERSION_STRING, PathBuf::from(SHADER_ROOT));
         for level_index in 0 .. wad.num_levels() {
-            Level::new(&shader_loader, &mut wad, &textures, level_index);
+            try!(Level::new(&shader_loader, &mut wad, &textures, level_index));
         }
         println!("Done, loaded all levels in {:.4}s. Shutting down...",
                  time::precise_time_s() - t0);
         drop(win);
-        return;
+        return Ok(());
     }
 
-    let mut game = Game::new(
+    let mut game = try!(Game::new(
         win,
         GameConfig {
             wad: &wad_filename,
             metadata: &meta_filename,
             level_index: level_index,
             fov: fov,
-        });
+        }));
     game.run(&mut sdl);
 
     info!("Shutting down.");
+    Ok(())
 }

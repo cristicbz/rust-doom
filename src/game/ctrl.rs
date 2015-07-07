@@ -78,7 +78,7 @@ impl<'sdl> GameController<'sdl> {
                 },
                 Event::MouseMotion { xrel, yrel, .. } => {
                     if self.mouse_enabled {
-                        self.mouse_rel = Vec2::new(xrel as f32, -yrel as f32);
+                        self.mouse_rel = Vec2::new(xrel as f32, yrel as f32);
                     } else {
                         self.mouse_rel = Vec2::zero();
                     }

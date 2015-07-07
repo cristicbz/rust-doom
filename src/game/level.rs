@@ -11,6 +11,7 @@ use wad::{WadMetadata, SkyMetadata, ThingMetadata};
 use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
 use wad::types::{WadSeg, WadCoord, WadSector, WadName, WadThing, ChildId, ThingType};
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id, is_sky_flat};
+use std::error::Error;
 
 pub struct Level {
     start_pos: Vec2f,
@@ -27,13 +28,13 @@ impl Level {
     pub fn new(shader_loader: &ShaderLoader,
                wad: &mut wad::Archive,
                textures: &TextureDirectory,
-               level_index: usize) -> Level {
-        let name = *wad.get_level_name(level_index);
+               level_index: usize) -> Result<Level, Box<Error>> {
+        let name = *wad.level_name(level_index);
         info!("Building level {}...", name);
-        let level = wad::Level::from_archive(wad, level_index);
+        let level = try!(wad::Level::from_archive(wad, level_index));
 
         let mut steps = RenderSteps {
-            sky: init_sky_step(shader_loader, wad.get_metadata().sky_for(&name),
+            sky: init_sky_step(shader_loader, wad.metadata().sky_for(&name),
                                textures),
             flats: init_static_step(shader_loader),
             walls: init_static_step(shader_loader),
@@ -52,7 +53,7 @@ impl Level {
 
         let mut volume = WorldVolume::new();
         let mut lights = LightBuffer::new();
-        VboBuilder::build(&level, &wad.get_metadata(),
+        VboBuilder::build(&level, &wad.metadata(),
                           &texture_maps, &mut lights, &mut volume, &mut steps);
 
         let mut renderer = Renderer::new();
@@ -69,7 +70,7 @@ impl Level {
             }
         }
 
-        Level {
+        Ok(Level {
             start_pos: start_pos,
             renderer: renderer,
             time: 0.0,
@@ -78,10 +79,10 @@ impl Level {
             decor_step_id: decor_step_id,
             lights: lights,
             volume: volume,
-        }
+        })
     }
 
-    pub fn get_start_pos(&self) -> &Vec2f { &self.start_pos }
+    pub fn start_pos(&self) -> &Vec2f { &self.start_pos }
 
     pub fn heights_at(&self, pos: &Vec2f) -> Option<(f32, f32)> {
         self.volume.sector_at(pos).map(|s| (s.floor, s.ceil))
@@ -194,7 +195,7 @@ fn init_sky_step(shader_loader: &ShaderLoader,
     step.add_constant_f32("u_tiled_band_size", meta.tiled_band_size)
         .add_unique_texture("u_texture",
                             textures
-                                .get_texture(&meta.texture_name)
+                                .texture(&meta.texture_name)
                                 .expect("init_sky_step: Missing sky texture.")
                                 .to_texture(),
                             ATLAS_UNIT);
@@ -249,7 +250,7 @@ fn build_decor_atlas(level: &wad::Level,
                      step: &mut RenderStep) -> BoundsLookup {
     let tex_names = level.things
             .iter()
-            .filter_map(|t| find_thing(archive.get_metadata(), t.thing_type))
+            .filter_map(|t| find_thing(archive.metadata(), t.thing_type))
             .flat_map(|d| {
                 let mut s = d.sprite.as_bytes().to_owned();
                 s.push(d.sequence.as_bytes()[0]);
@@ -302,7 +303,7 @@ impl WorldVolume {
         }
     }
 
-    pub fn get_sector(&self, index: usize) -> Option<&Sector> {
+    pub fn sector(&self, index: usize) -> Option<&Sector> {
         match self.sectors.get(index) {
             Some(sector) => sector.as_ref(),
             None => None,
@@ -326,7 +327,7 @@ impl WorldVolume {
     pub fn sector_at(&self, position: &Vec2f) -> Option<&Sector> {
         self.polys.iter()
             .find(|poly| poly.contains(position))
-            .and_then(|poly| self.get_sector(poly.sector))
+            .and_then(|poly| self.sector(poly.sector))
     }
 }
 
@@ -684,7 +685,7 @@ impl<'a> VboBuilder<'a> {
         let ceil_tex = &sector.ceiling_texture;
 
         let sector_id = self.level.sector_id(sector) as usize;
-        if let None = self.volume.get_sector(sector_id) {
+        if let None = self.volume.sector(sector_id) {
             self.volume.insert_sector(sector_id, Sector {
                 floor: floor_y,
                 ceil: if is_sky_flat(ceil_tex) { from_wad_height(self.max_height) }
