@@ -42,7 +42,9 @@ impl Game {
         let textures = try!(TextureDirectory::from_archive(&mut wad));
         let level = try!(Level::new(&shader_loader, &mut wad, &textures, config.level_index));
 
-        let mut player = Player::new(config.fov, window.aspect_ratio(), Default::default());
+        let mut player = Player::new(config.fov,
+                                     window.aspect_ratio(),
+                                     Default::default());
         player.set_position(level.start_pos());
 
         Ok(Game {
