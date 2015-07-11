@@ -2,7 +2,7 @@ all:
 	@cargo build
 
 test:
-	@cargo test -p base
+	@cargo test -p common
 	@cargo test -p gl
 	@cargo test -p gfx
 	@cargo test -p math
@@ -10,7 +10,7 @@ test:
 	@cargo test
 
 update:
-	@cargo update -p base
+	@cargo update -p common
 	@cargo update -p gl
 	@cargo update -p gfx
 	@cargo update -p math
@@ -18,7 +18,7 @@ update:
 	@cargo update
 
 clean:
-	@cargo clean -p base
+	@cargo clean -p common
 	@cargo clean -p gl
 	@cargo clean -p gfx
 	@cargo clean -p math

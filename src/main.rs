@@ -1,4 +1,142 @@
+#[macro_use] extern crate log;
+
+extern crate common;
+extern crate env_logger;
 extern crate game;
+extern crate getopts;
+extern crate gfx;
+extern crate sdl2;
+extern crate time;
+extern crate wad;
+
+use common::GeneralError;
+use getopts::Options;
+use std::path::PathBuf;
+use std::error::Error;
+
+use gfx::ShaderLoader;
+use wad::{Archive, TextureDirectory};
+use gfx::Window;
+use game::SHADER_ROOT;
+use game::{Level, Game, GameConfig};
+
+pub enum RunMode {
+    DisplayHelp(String),
+    Check {
+        wad_file: PathBuf,
+        metadata_file: PathBuf,
+    },
+    ListLevelNames {
+        wad_file: PathBuf,
+        metadata_file: PathBuf,
+    },
+    Play(GameConfig),
+}
+
+impl RunMode {
+    pub fn from_args(args: &[String]) -> Result<RunMode, Box<Error>> {
+        let mut opts = Options::new();
+        opts.optopt("i", "iwad", "initial WAD file to use [default='doom1.wad']", "FILE");
+        opts.optopt("m", "metadata", "path to TOML metadata file [default='doom.toml']", "FILE");
+        opts.optopt("r", "resolution",
+                    "the size of the game window [default=1280x720]", "WIDTHxHEIGHT");
+        opts.optopt("l", "level", "the index of the level to render [default=0]", "N");
+        opts.optopt("f", "fov", "horizontal field of view to please TotalBiscuit [default=65]",
+                    "FOV");
+        opts.optflag("", "check", "load metadata and all levels in WAD, then exit");
+        opts.optflag("", "list-levels",
+                     "list the names and indices of all the levels in the WAD, then exit");
+        opts.optflag("h", "help", "print this help message and exit");
+        let matches = try!(opts.parse(&args[1..]).map_err(|e| GeneralError(e.to_string())));
+
+        if matches.opt_present("h") {
+            return Ok(RunMode::DisplayHelp(
+                    opts.usage("rs_doom 0.0.7: A Rust Doom I/II Renderer.")))
+        }
+
+
+        let wad = matches.opt_str("iwad").unwrap_or("doom1.wad".to_owned()).into();
+        let metadata = matches.opt_str("metadata").unwrap_or("doom.toml".to_owned()).into();
+
+        Ok(if matches.opt_present("check") {
+            RunMode::Check {
+                wad_file: wad,
+                metadata_file: metadata,
+            }
+        } else if matches.opt_present("list-levels") {
+            RunMode::ListLevelNames {
+                wad_file: wad,
+                metadata_file: metadata,
+            }
+        } else {
+            let size_str = matches.opt_str("resolution").unwrap_or("1280x720".to_owned());
+            let (width, height) = try!(size_str.find('x')
+                .and_then(|x| {
+                    if x == 0 || x == size_str.len() - 1 {
+                        None
+                    } else {
+                        Some((&size_str[..x], &size_str[x + 1..]))
+                    }
+                })
+                .map(|size| (size.0.parse::<u32>(), size.1.parse::<u32>()))
+                .and_then(|size| match size {
+                    (Ok(width), Ok(height)) => Some((width, height)),
+                    _ => None
+                })
+                .ok_or_else(|| GeneralError("invalid window size (WIDTHxHEIGHT)".to_owned())));
+            let fov = try!(matches.opt_str("fov").unwrap_or("65".to_owned()).parse::<f32>()
+                .map_err(|_| GeneralError("invalid value for fov".to_owned())));
+            let level = try!(matches.opt_str("level").unwrap_or("0".to_owned()).parse::<usize>()
+                .map_err(|_| GeneralError("invalid value for fov".to_owned())));
+
+            RunMode::Play(GameConfig {
+                wad_file: wad,
+                metadata_file: metadata,
+                fov: fov,
+                width: width,
+                height: height,
+                level_index: level,
+            })
+        })
+    }
+}
+
+#[cfg(not(test))]
+pub fn run(args: &[String]) -> Result<(), Box<Error>> {
+    try!(env_logger::init());
+
+    match try!(RunMode::from_args(args)) {
+        RunMode::ListLevelNames { wad_file, metadata_file } => {
+            let wad = try!(Archive::open(&wad_file, &metadata_file));
+            for i_level in 0..wad.num_levels() {
+                println!("{:3} {:8}", i_level, wad.level_name(i_level));
+            }
+        },
+        RunMode::Check { wad_file, metadata_file } => {
+            let sdl = try!(sdl2::init().video().build().map_err(GeneralError));
+            let _win = try!(Window::new(&sdl, 128, 128));
+
+            info!("Loading all levels...");
+            let t0 = time::precise_time_s();
+            let mut wad = try!(Archive::open(&wad_file, &metadata_file));
+            let textures = try!(TextureDirectory::from_archive(&mut wad));
+            let shader_loader = ShaderLoader::new(PathBuf::from(SHADER_ROOT));
+            for level_index in 0 .. wad.num_levels() {
+                try!(Level::new(&shader_loader, &mut wad, &textures, level_index));
+            }
+            info!("Done loading all levels in {:.4}s. Shutting down...",
+                  time::precise_time_s() - t0);
+        },
+        RunMode::DisplayHelp(help) => {
+            println!("{}", help);
+        },
+        RunMode::Play(config) => {
+            try!(Game::new(config)).run();
+            info!("Game main loop ended, shutting down.");
+        }
+    }
+    Ok(())
+}
 
 #[cfg(not(test))]
 fn main() {
@@ -7,9 +145,11 @@ fn main() {
     use std::env;
     use std::path::Path;
 
-    if let Err(error) = game::run() {
+    let args = env::args().collect::<Vec<_>>();
+
+    if let Err(error) = run(&args) {
         writeln!(io::stderr(), "{}: {}",
-                 Path::new(&env::args().next().unwrap()).file_name().unwrap().to_string_lossy(),
+                 Path::new(&args[0]).file_name().unwrap().to_string_lossy(),
                  error).unwrap()
     };
 }

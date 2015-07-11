@@ -8,3 +8,19 @@ name = "rs_doom"
 
 [dependencies.game]
 path = "src/game"
+
+[dependencies.gfx]
+path = "src/gfx"
+
+[dependencies.wad]
+path = "src/gfx"
+
+[dependencies.common]
+path = "src/common"
+
+[dependencies]
+sdl2 = "*"
+getopts = "*"
+time = "*"
+env_logger = "*"
+log = "*"

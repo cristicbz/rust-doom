@@ -7,8 +7,8 @@ authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 name = "wad"
 path = "lib.rs"
 
-[dependencies.base]
-path = "../base"
+[dependencies.common]
+path = "../common"
 
 [dependencies.gfx]
 path = "../gfx"

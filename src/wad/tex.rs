@@ -1,5 +1,5 @@
 use archive::{Archive, InArchive};
-use base::ReadExt;
+use common::ReadExt;
 use error::Result;
 use error::ErrorKind::MissingRequiredPatch;
 use gfx::Texture;

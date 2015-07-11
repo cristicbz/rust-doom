@@ -10,7 +10,7 @@ use std::slice;
 use std::vec::Vec;
 use std::result::Result as StdResult;
 
-use base::ReadExt;
+use common::ReadExt;
 use meta::WadMetadata;
 use types::{WadLump, WadInfo, WadName, WadNameCast};
 use util::wad_type_from_info;

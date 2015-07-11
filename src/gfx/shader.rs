@@ -1,4 +1,5 @@
 use error::{Error, Result};
+use error::Error::NoSuchUniform;
 use gl;
 use gl::types::{GLint, GLuint, GLchar};
 use math::{Mat4, Vec2f, Vec3f};
@@ -18,34 +19,39 @@ pub struct ShaderLoader {
     version_directive: String,
 }
 impl ShaderLoader {
-    pub fn new(version: &str, root_path: PathBuf) -> ShaderLoader {
+    pub fn new(root_path: PathBuf) -> ShaderLoader {
         ShaderLoader {
-            version_directive: format!("#version {}\n", version),
+            version_directive: format!("#version {}\n", gl::platform::GLSL_VERSION_STRING),
             root_path: root_path,
         }
     }
 
-    pub fn load(&self, name: &str) -> Result<Shader> {
+    pub fn load(&self, name: String) -> Result<Shader> {
         debug!("Loading shader: {}", name);
         let frag_src = self.version_directive.clone() +
             &try!(read_utf8_file(&self.root_path.join(&(name.to_string() + ".frag"))))[..];
         let vert_src = self.version_directive.clone() +
             &try!(read_utf8_file(&self.root_path.join(&(name.to_string() + ".vert"))))[..];
         debug!("Shader '{}' loaded successfully", name);
-        Shader::new_from_source(&vert_src, &frag_src)
+        Shader::new_from_source(name, &vert_src, &frag_src)
     }
 }
 
 pub struct Shader {
     program: Program,
+    name: String,
 }
 
 impl Shader {
-    pub fn new_from_source(vertex_source: &str, fragment_source: &str) -> Result<Shader> {
-        let vertex = try!(VertexShader::compile(&vertex_source));
-        let fragment = try!(FragmentShader::compile(&fragment_source));
-        let program = try!(Program::link(vertex, fragment));
-        Ok(Shader { program: program })
+    pub fn new_from_source(name: String, vertex_source: &str, fragment_source: &str)
+            -> Result<Shader> {
+        let vertex = try!(VertexShader::compile(&name, &vertex_source));
+        let fragment = try!(FragmentShader::compile(&name, &fragment_source));
+        let program = try!(Program::link(&name, vertex, fragment));
+        Ok(Shader {
+            program: program,
+            name: name,
+        })
     }
 
     pub fn bind(&self) -> &Shader {
@@ -71,8 +77,13 @@ impl Shader {
         }
     }
 
-    pub fn expect_uniform(&self, name: &str) -> Uniform {
-        self.uniform(name).expect(&format!("Expected uniform '{}'", name))
+    pub fn expect_uniform(&self, name: &str) -> Result<Uniform> {
+        self.uniform(name).ok_or_else(|| {
+            NoSuchUniform {
+                shader: self.name.clone(),
+                uniform: name.to_owned(),
+            }
+        })
     }
 
     pub fn set_uniform_i32(&self, uniform: Uniform, value: i32) -> &Shader {
@@ -90,32 +101,28 @@ impl Shader {
         self
     }
 
-    pub fn set_uniform_vec2f(&self, uniform: Uniform, value: &Vec2f)
-            -> &Shader {
+    pub fn set_uniform_vec2f(&self, uniform: Uniform, value: &Vec2f) -> &Shader {
         check_gl_unsafe!(gl::Uniform2fv(uniform.0, 1, &value.x));
         self
     }
 
-    pub fn set_uniform_vec3f(&self, uniform: Uniform, value: &Vec3f)
-            -> &Shader {
+    pub fn set_uniform_vec3f(&self, uniform: Uniform, value: &Vec3f) -> &Shader {
         check_gl_unsafe!(gl::Uniform3fv(uniform.0, 1, &value.x));
         self
     }
 
-    pub fn set_uniform_mat4(&self, uniform: Uniform, value: &Mat4)
-            -> &Shader {
-        check_gl_unsafe!(gl::UniformMatrix4fv(
-            uniform.0, 1, 0u8, value.as_scalar_ptr()));
+    pub fn set_uniform_mat4(&self, uniform: Uniform, value: &Mat4) -> &Shader {
+        check_gl_unsafe!(gl::UniformMatrix4fv(uniform.0, 1, 0u8, value.as_scalar_ptr()));
         self
     }
 }
 
 struct VertexShader(GLuint);
 impl VertexShader {
-    fn compile(source: &str) -> Result<VertexShader> {
+    fn compile(name: &str, source: &str) -> Result<VertexShader> {
         compile_any(gl::VERTEX_SHADER, source)
             .map(|id| VertexShader(id))
-            .map_err(|log| Error::VertexCompile(log))
+            .map_err(|log| Error::VertexCompile { shader: name.to_owned(), log: log })
     }
 }
 impl Drop for VertexShader {
@@ -125,10 +132,10 @@ impl Drop for VertexShader {
 
 struct FragmentShader(GLuint);
 impl FragmentShader {
-    fn compile(source: &str) -> Result<FragmentShader> {
+    fn compile(name: &str, source: &str) -> Result<FragmentShader> {
         compile_any(gl::FRAGMENT_SHADER, source)
             .map(|id| FragmentShader(id))
-            .map_err(|log| Error::FragmentCompile(log))
+            .map_err(|log| Error::FragmentCompile { shader: name.to_owned(), log: log })
     }
 }
 impl Drop for FragmentShader {
@@ -138,7 +145,7 @@ impl Drop for FragmentShader {
 
 struct Program(GLuint);
 impl Program {
-    fn link(vertex: VertexShader, fragment: FragmentShader) -> Result<Program> {
+    fn link(name: &str, vertex: VertexShader, fragment: FragmentShader) -> Result<Program> {
         let program = Program(check_gl_unsafe!(gl::CreateProgram()));
         check_gl_unsafe!(gl::AttachShader(program.0, vertex.0));
         check_gl_unsafe!(gl::AttachShader(program.0, fragment.0));
@@ -146,7 +153,7 @@ impl Program {
         if link_succeeded(program.0) {
             Ok(program)
         } else {
-            Err(Error::Link(link_log(program.0)))
+            Err(Error::Link { shader: name.to_owned(), log: link_log(program.0) })
         }
     }
 }
@@ -193,7 +200,7 @@ fn compilation_log(shader_id: GLuint) -> String {
     let log_buffer_ptr = log_buffer.as_mut_ptr() as *mut gl::types::GLchar;
     check_gl_unsafe!(gl::GetShaderInfoLog(
             shader_id, log_length, ptr::null_mut(), log_buffer_ptr));
-    String::from_utf8(log_buffer).unwrap()
+    String::from_utf8_lossy(&log_buffer).into_owned()
 }
 
 
@@ -213,7 +220,7 @@ fn link_log(shader_id: GLuint) -> String {
     let log_buffer_ptr = log_buffer.as_mut_ptr() as *mut gl::types::GLchar;
     check_gl_unsafe!(gl::GetProgramInfoLog(
             shader_id, log_length, ptr::null_mut(), log_buffer_ptr));
-    String::from_utf8(log_buffer).unwrap()
+    String::from_utf8_lossy(&log_buffer).into_owned()
 }
 
 fn read_utf8_file(path: &Path) -> IoResult<String> {
