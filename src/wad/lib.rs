@@ -3,7 +3,7 @@
 #[macro_use] extern crate regex;
 
 extern crate num;
-extern crate base;
+extern crate common;
 extern crate gfx;
 extern crate math;
 extern crate sdl2;

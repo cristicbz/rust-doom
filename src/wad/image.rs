@@ -1,4 +1,4 @@
-use base::ReadExt;
+use common::ReadExt;
 use gfx::Texture;
 use gl;
 use std::ptr::copy_nonoverlapping;

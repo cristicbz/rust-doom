@@ -19,11 +19,11 @@ path = "../math"
 [dependencies.wad]
 path = "../wad"
 
+[dependencies.common]
+path = "../common"
+
 [dependencies]
 sdl2 = "*"
 log = "*"
 time = "*"
-env_logger = "*"
-libc = "*"
-getopts = "*"
 num = "*"

@@ -13,9 +13,10 @@ path = "../gl"
 [dependencies.math]
 path = "../math"
 
-[dependencies.base]
-path = "../base"
+[dependencies.common]
+path = "../common"
 
 [dependencies]
 log = "*"
 libc = "*"
+sdl2 = "*"

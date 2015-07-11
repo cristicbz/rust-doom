@@ -6,6 +6,7 @@ use std::rc::Rc;
 use std::vec::Vec;
 use texture::Texture;
 use vbo::VertexBuffer;
+use error::Result;
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub struct StepId(usize);
@@ -68,38 +69,38 @@ impl RenderStep {
     //    self.shader.uniform(name)
     //}
 
-    pub fn add_constant_f32v(&mut self, name: &str, value: &[f32]) -> &mut RenderStep {
-        let uniform = self.shader.expect_uniform(name);
+    pub fn add_constant_f32v(&mut self, name: &str, value: &[f32]) -> Result<&mut RenderStep> {
+        let uniform = try!(self.shader.expect_uniform(name));
         self.shader.bind_mut().set_uniform_f32v(uniform, value).unbind();
-        self
+        Ok(self)
     }
 
-    pub fn add_constant_f32(&mut self, name: &str, value: f32) -> &mut RenderStep {
-        let uniform = self.shader.expect_uniform(name);
+    pub fn add_constant_f32(&mut self, name: &str, value: f32) -> Result<&mut RenderStep> {
+        let uniform = try!(self.shader.expect_uniform(name));
         self.shader.bind_mut().set_uniform_f32(uniform, value).unbind();
-        self
+        Ok(self)
     }
 
-    pub fn add_constant_vec2f(&mut self, name: &str, value: &Vec2f) -> &mut RenderStep {
-        let uniform = self.shader.expect_uniform(name);
+    pub fn add_constant_vec2f(&mut self, name: &str, value: &Vec2f) -> Result<&mut RenderStep> {
+        let uniform = try!(self.shader.expect_uniform(name));
         self.shader.bind_mut().set_uniform_vec2f(uniform, value).unbind();
-        self
+        Ok(self)
     }
 
-    pub fn add_shared_texture(&mut self, name: &str, texture: Rc<Texture>,
-                              unit: usize) -> &mut RenderStep {
-        let uniform = self.shader.expect_uniform(name);
+    pub fn add_shared_texture(&mut self, name: &str, texture: Rc<Texture>, unit: usize)
+            -> Result<&mut RenderStep> {
+        let uniform = try!(self.shader.expect_uniform(name));
         self.shader.bind_mut().set_uniform_i32(uniform, unit as i32).unbind();
         self.shared_tex.push((unit as GLenum + gl::TEXTURE0, texture));
-        self
+        Ok(self)
     }
 
-    pub fn add_unique_texture(&mut self, name: &str, texture: Texture,
-                              unit: usize) -> &mut RenderStep {
-        let uniform = self.shader.expect_uniform(name);
+    pub fn add_unique_texture(&mut self, name: &str, texture: Texture, unit: usize)
+            -> Result<&mut RenderStep> {
+        let uniform = try!(self.shader.expect_uniform(name));
         self.shader.bind_mut().set_uniform_i32(uniform, unit as i32).unbind();
         self.unique_tex.push((unit as GLenum + gl::TEXTURE0, texture));
-        self
+        Ok(self)
     }
 
     pub fn add_static_vbo(&mut self, vbo: VertexBuffer) -> &mut RenderStep {
@@ -107,8 +108,7 @@ impl RenderStep {
         self
     }
 
-    fn render_setup(&self, projection: &Mat4, modelview: &Mat4, time: f32)
-           -> &RenderStep {
+    fn render_setup(&self, projection: &Mat4, modelview: &Mat4, time: f32) -> &RenderStep {
         self.shader.bind();
         self.u_modelview.map(|u| self.shader.set_uniform_mat4(u, modelview));
         self.u_projection.map(|u| self.shader.set_uniform_mat4(u, projection));
@@ -120,8 +120,9 @@ impl RenderStep {
         for &(unit, ref texture) in self.unique_tex.iter() {
             texture.bind(unit);
         }
-
-        for vbo in self.static_vbos.iter() { vbo.draw_triangles(); }
+        for vbo in self.static_vbos.iter() {
+            vbo.draw_triangles();
+        }
         self
     }
 

@@ -14,7 +14,7 @@ use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id,
 use std::error::Error;
 
 pub struct Level {
-    start_pos: Vec2f,
+    start_pos: Vec3f,
     renderer: Renderer,
     time: f32,
     flats_step_id: StepId,
@@ -34,21 +34,20 @@ impl Level {
         let level = try!(wad::Level::from_archive(wad, level_index));
 
         let mut steps = RenderSteps {
-            sky: init_sky_step(shader_loader, wad.metadata().sky_for(&name),
-                               textures),
-            flats: init_static_step(shader_loader),
-            walls: init_static_step(shader_loader),
-            decors: init_decor_step(shader_loader),
+            sky: try!(init_sky_step(shader_loader, wad.metadata().sky_for(&name), textures)),
+            flats: try!(init_static_step(shader_loader)),
+            walls: try!(init_static_step(shader_loader)),
+            decors: try!(init_decor_step(shader_loader)),
         };
-        build_palette(textures, &mut [&mut steps.flats,
-                                      &mut steps.sky,
-                                      &mut steps.walls,
-                                      &mut steps.decors]);
+        try!(build_palette(textures, &mut [&mut steps.flats,
+                                           &mut steps.sky,
+                                           &mut steps.walls,
+                                           &mut steps.decors]));
 
         let texture_maps = TextureMaps {
-            flats: build_flats_atlas(&level, textures, &mut steps.flats),
-            walls: build_walls_atlas(&level, textures, &mut steps.walls),
-            decors: build_decor_atlas(&level, wad, textures, &mut steps.decors),
+            flats: try!(build_flats_atlas(&level, textures, &mut steps.flats)),
+            walls: try!(build_walls_atlas(&level, textures, &mut steps.walls)),
+            decors: try!(build_decor_atlas(&level, wad, textures, &mut steps.decors)),
         };
 
         let mut volume = WorldVolume::new();
@@ -62,13 +61,16 @@ impl Level {
         let walls_step_id = renderer.add_step(steps.walls);
         renderer.add_step(steps.sky);
 
-        let mut start_pos = Vec2::zero();
-        for thing in level.things.iter() {
-            if thing.thing_type == 1 {  // Player 1 start position.
-                start_pos = from_wad_coords(thing.x, thing.y);
-                info!("Player start position: {:?}.", start_pos);
-            }
-        }
+        let start_pos = level.things.iter()
+            .find(|thing| thing.thing_type == 1)
+            .map(|thing| from_wad_coords(thing.x, thing.y))
+            .map(|pos| {
+                let height = 0.5 + volume.sector_at(&pos)
+                    .map(|sector| sector.floor)
+                    .unwrap_or(0.0);
+                Vec3::new(pos.x, height, pos.y)
+            })
+            .unwrap_or(Vec3::zero());
 
         Ok(Level {
             start_pos: start_pos,
@@ -82,7 +84,7 @@ impl Level {
         })
     }
 
-    pub fn start_pos(&self) -> &Vec2f { &self.start_pos }
+    pub fn start_pos(&self) -> &Vec3f { &self.start_pos }
 
     pub fn heights_at(&self, pos: &Vec2f) -> Option<(f32, f32)> {
         self.volume.sector_at(pos).map(|s| (s.floor, s.ceil))
@@ -91,9 +93,9 @@ impl Level {
     pub fn render(&mut self, delta_time: f32, projection: &Mat4, modelview: &Mat4) {
         self.time += delta_time;
         let lights = self.lights.buffer_at(self.time);
-        self.renderer.step_mut(self.flats_step_id).add_constant_f32v("u_lights", lights);
-        self.renderer.step_mut(self.walls_step_id).add_constant_f32v("u_lights", lights);
-        self.renderer.step_mut(self.decor_step_id).add_constant_f32v("u_lights", lights);
+        self.renderer.step_mut(self.flats_step_id).add_constant_f32v("u_lights", lights).unwrap();
+        self.renderer.step_mut(self.walls_step_id).add_constant_f32v("u_lights", lights).unwrap();
+        self.renderer.step_mut(self.decor_step_id).add_constant_f32v("u_lights", lights).unwrap();
         self.renderer.render(delta_time, projection, modelview);
     }
 }
@@ -181,56 +183,60 @@ macro_rules! offset_of(
     )
 );
 
-fn build_palette(textures: &TextureDirectory, steps: &mut [&mut RenderStep]) {
+fn build_palette(textures: &TextureDirectory, steps: &mut [&mut RenderStep])
+        -> Result<(), Box<Error>> {
     let palette = Rc::new(textures.build_palette_texture(0, 0, 32));
     for step in steps.iter_mut() {
-        step.add_shared_texture("u_palette", palette.clone(), PALETTE_UNIT);
+        try!(step.add_shared_texture("u_palette", palette.clone(), PALETTE_UNIT));
     }
+    Ok(())
 }
 
 fn init_sky_step(shader_loader: &ShaderLoader,
                  meta: &wad::SkyMetadata, textures: &wad::TextureDirectory)
-        -> RenderStep {
-    let mut step = RenderStep::new(shader_loader.load("sky").unwrap());
-    step.add_constant_f32("u_tiled_band_size", meta.tiled_band_size)
+        -> Result<RenderStep, Box<Error>> {
+    let mut step = RenderStep::new(try!(shader_loader.load("sky".to_owned())));
+    try!(try!(step
+        .add_constant_f32("u_tiled_band_size", meta.tiled_band_size))
         .add_unique_texture("u_texture",
                             textures
                                 .texture(&meta.texture_name)
                                 .expect("init_sky_step: Missing sky texture.")
                                 .to_texture(),
-                            ATLAS_UNIT);
-    step
+                            ATLAS_UNIT));
+    Ok(step)
 }
 
 
-fn init_static_step(shader_loader: &ShaderLoader) -> RenderStep {
-    let mut step = RenderStep::new(shader_loader.load("static").unwrap());
-    step.add_constant_f32v("u_lights", &[0.0; 256]);
-    step
+fn init_static_step(shader_loader: &ShaderLoader) -> Result<RenderStep, Box<Error>> {
+    let mut step = RenderStep::new(try!(shader_loader.load("static".to_owned())));
+    try!(step.add_constant_f32v("u_lights", &[0.0; 256]));
+    Ok(step)
 }
 
-fn init_decor_step(shader_loader: &ShaderLoader) -> RenderStep {
-    let mut step = RenderStep::new(shader_loader.load("sprite").unwrap());
-    step.add_constant_f32v("u_lights", &[0.0; 256]);
-    step
+fn init_decor_step(shader_loader: &ShaderLoader) -> Result<RenderStep, Box<Error>> {
+    let mut step = RenderStep::new(try!(shader_loader.load("sprite".to_owned())));
+    try!(step.add_constant_f32v("u_lights", &[0.0; 256]));
+    Ok(step)
 }
 
 
-fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
-                     step: &mut RenderStep) -> BoundsLookup {
+fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory, step: &mut RenderStep)
+        -> Result<BoundsLookup, Box<Error>> {
     let flat_name_iter = level.sectors
             .iter()
             .flat_map(|s| Some(&s.floor_texture).into_iter()
                             .chain(Some(&s.ceiling_texture).into_iter()))
             .filter(|name| !is_untextured(*name) && !is_sky_flat(*name));
     let (atlas, lookup) = textures.build_flat_atlas(flat_name_iter);
-    step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
-        .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
-    lookup
+    try!(try!(step
+        .add_constant_vec2f("u_atlas_size", &atlas.size_as_vec()))
+        .add_unique_texture("u_atlas", atlas, ATLAS_UNIT));
+    Ok(lookup)
 }
 
-fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
-                     step: &mut RenderStep) -> BoundsLookup {
+fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory, step: &mut RenderStep)
+        -> Result<BoundsLookup, Box<Error>> {
     let tex_name_iter = level.sidedefs
             .iter()
             .flat_map(|s| Some(&s.upper_texture).into_iter()
@@ -238,16 +244,17 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory,
                           .chain(Some(&s.middle_texture).into_iter()))
             .filter(|name| !is_untextured(*name));
     let (atlas, lookup) = textures.build_texture_atlas(tex_name_iter);
-    step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
-        .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
+    try!(try!(step
+        .add_constant_vec2f("u_atlas_size", &atlas.size_as_vec()))
+        .add_unique_texture("u_atlas", atlas, ATLAS_UNIT));
 
-    lookup
+    Ok(lookup)
 }
 
 fn build_decor_atlas(level: &wad::Level,
                      archive: &wad::Archive,
                      textures: &wad::TextureDirectory,
-                     step: &mut RenderStep) -> BoundsLookup {
+                     step: &mut RenderStep) -> Result<BoundsLookup, Box<Error>> {
     let tex_names = level.things
             .iter()
             .filter_map(|t| find_thing(archive.metadata(), t.thing_type))
@@ -264,9 +271,10 @@ fn build_decor_atlas(level: &wad::Level,
             .filter(|name| !is_untextured(&name))
             .collect::<Vec<_>>();
     let (atlas, lookup) = textures.build_texture_atlas(tex_names.iter());
-    step.add_constant_vec2f("u_atlas_size", &atlas.size_as_vec())
-        .add_unique_texture("u_atlas", atlas, ATLAS_UNIT);
-    lookup
+    try!(try!(step
+        .add_constant_vec2f("u_atlas_size", &atlas.size_as_vec()))
+        .add_unique_texture("u_atlas", atlas, ATLAS_UNIT));
+    Ok(lookup)
 }
 
 pub struct Poly {
