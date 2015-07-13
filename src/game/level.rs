@@ -1,5 +1,4 @@
 use gfx::{BufferBuilder, Renderer, RenderStep, ShaderLoader, VertexBuffer, StepId};
-use gl;
 use math::{Mat4, Line2, Line2f, Vec2f, Vec2, Vec3f, Vec3, Numvec};
 use lights::{LightBuffer, FakeContrast};
 use std::cmp::Ordering;
@@ -383,19 +382,19 @@ impl<'a> VboBuilder<'a> {
         builder.things();
 
         let mut vbo = VboBuilder::init_sky_buffer();
-        vbo.set_data(gl::STATIC_DRAW, &builder.sky);
+        vbo.set_static_data(&builder.sky);
         steps.sky.add_static_vbo(vbo);
 
         let mut vbo = VboBuilder::init_static_buffer();
-        vbo.set_data(gl::STATIC_DRAW, &builder.flats);
+        vbo.set_static_data(&builder.flats);
         steps.flats.add_static_vbo(vbo);
 
         let mut vbo = VboBuilder::init_sprite_buffer();
-        vbo.set_data(gl::STATIC_DRAW, &builder.decors);
+        vbo.set_static_data(&builder.decors);
         steps.decors.add_static_vbo(vbo);
 
         let mut vbo = VboBuilder::init_static_buffer();
-        vbo.set_data(gl::STATIC_DRAW, &builder.walls);
+        vbo.set_static_data(&builder.walls);
         steps.walls.add_static_vbo(vbo);
 
     }

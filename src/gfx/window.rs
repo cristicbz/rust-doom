@@ -3,8 +3,7 @@ use error::Error::Sdl as SdlError;
 use sdl2::Sdl;
 use sdl2::video::Window as SdlWindow;
 use sdl2::video::{GLProfile, GLContext};
-use libc::c_void;
-use gl;
+use platform;
 use sdl2;
 
 
@@ -24,8 +23,8 @@ impl Window {
         let video = try!(sdl.video());
         let gl_attr = video.gl_attr();
         gl_attr.set_context_profile(GLProfile::Core);
-        gl_attr.set_context_major_version(gl::platform::GL_MAJOR_VERSION);
-        gl_attr.set_context_minor_version(gl::platform::GL_MINOR_VERSION);
+        gl_attr.set_context_major_version(platform::GL_MAJOR_VERSION);
+        gl_attr.set_context_minor_version(platform::GL_MINOR_VERSION);
         gl_attr.set_depth_size(OPENGL_DEPTH_SIZE);
         gl_attr.set_double_buffer(true);
 
@@ -36,15 +35,15 @@ impl Window {
 
         let context = try!(window.gl_create_context().map_err(SdlError));
         sdl2::clear_error();
-        gl::load_with(|name| {
-            video.gl_get_proc_address(name) as *const c_void
-        });
-        let mut vao_id = 0;
-        check_gl_unsafe!(gl::GenVertexArrays(1, &mut vao_id));
-        check_gl_unsafe!(gl::BindVertexArray(vao_id));
-        check_gl_unsafe!(gl::ClearColor(0.06, 0.07, 0.09, 0.0));
-        check_gl_unsafe!(gl::Enable(gl::DEPTH_TEST));
-        check_gl_unsafe!(gl::DepthFunc(gl::LESS));
+        // gl::load_with(|name| {
+        //     video.gl_get_proc_address(name) as *const c_void
+        // });
+        // let mut vao_id = 0;
+        // check_gl_unsafe!(gl::GenVertexArrays(1, &mut vao_id));
+        // check_gl_unsafe!(gl::BindVertexArray(vao_id));
+        // check_gl_unsafe!(gl::ClearColor(0.06, 0.07, 0.09, 0.0));
+        // check_gl_unsafe!(gl::Enable(gl::DEPTH_TEST));
+        // check_gl_unsafe!(gl::DepthFunc(gl::LESS));
         Ok(Window {
            window: window,
            width: width,
@@ -62,7 +61,7 @@ impl Window {
     }
 
     pub fn clear(&self) {
-        check_gl_unsafe!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
+        // check_gl_unsafe!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
     }
 }
 

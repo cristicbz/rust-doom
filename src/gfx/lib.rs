@@ -1,5 +1,4 @@
 #[macro_use] extern crate log;
-#[macro_use] extern crate gl;
 
 extern crate common;
 extern crate math;
@@ -18,9 +17,11 @@ pub use vbo::VertexBuffer;
 pub use error::{Result, Error};
 pub use window::Window;
 
+mod error;
+mod gl;
+mod platform;
 mod render;
 mod shader;
 mod texture;
 mod vbo;
-mod error;
 mod window;

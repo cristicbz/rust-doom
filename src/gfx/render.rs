@@ -1,4 +1,3 @@
-use gl;
 use gl::types::GLenum;
 use math::{Mat4, Vec2f};
 use shader::{Shader, Uniform};
@@ -31,7 +30,7 @@ impl Renderer {
 
     pub fn render(&mut self, delta_time: f32, projection: &Mat4, modelview: &Mat4)
             -> &Renderer {
-        check_gl_unsafe!(gl::Enable(gl::CULL_FACE));
+        // check_gl_unsafe!(gl::Enable(gl::CULL_FACE));
         self.time += delta_time;
         for step in self.steps.iter() {
             step.render_setup(projection, modelview, self.time).render_done();
