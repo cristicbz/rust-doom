@@ -12,10 +12,10 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(target: GLenum) -> Texture {
+    pub fn new_2d() -> Texture {
         let mut result = 0;
         check_gl_unsafe!(gl::GenTextures(1, &mut result));
-        Texture { id: result, target: target, width: 0, height: 0}
+        Texture { id: result, target: gl::TEXTURE_2D, width: 0, height: 0}
     }
 
     pub fn set_filters_nearest(&mut self) -> &mut Texture {
@@ -79,13 +79,13 @@ impl Texture {
         self
     }
 
-    pub fn bind(&self, unit: GLenum) {
-        check_gl_unsafe!(gl::ActiveTexture(unit));
+    pub fn bind(&self, unit: u32) {
+        check_gl_unsafe!(gl::ActiveTexture(gl::TEXTURE0 + unit));
         check_gl_unsafe!(gl::BindTexture(self.target, self.id));
     }
 
-    pub fn unbind(&self, unit: GLenum) {
-        check_gl_unsafe!(gl::ActiveTexture(unit));
+    pub fn unbind(&self, unit: u32) {
+        check_gl_unsafe!(gl::ActiveTexture(gl::TEXTURE0 + unit));
         check_gl_unsafe!(gl::BindTexture(self.target, 0));
     }
 

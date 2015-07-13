@@ -3,7 +3,6 @@ use common::ReadExt;
 use error::Result;
 use error::ErrorKind::MissingRequiredPatch;
 use gfx::Texture;
-use gl;
 use image::Image;
 use math::{Vec2, Vec2f};
 use name::{WadName, WadNameCast};
@@ -139,22 +138,22 @@ impl TextureDirectory {
             }
         }
 
-        let mut palette_tex = Texture::new(gl::TEXTURE_2D);
-        palette_tex.bind(gl::TEXTURE0);
+        let mut palette_tex = Texture::new_2d();
+        palette_tex.bind(0);
         palette_tex
             .set_filters_nearest()
             .data_rgb_u8(0, 256, num_colormaps, &data)
-            .unbind(gl::TEXTURE0);
+            .unbind(0);
         palette_tex
     }
 
     pub fn build_colormap_texture(&self) -> Texture {
-        let mut colormap_tex = Texture::new(gl::TEXTURE_2D);
-        colormap_tex.bind(gl::TEXTURE0);
+        let mut colormap_tex = Texture::new_2d();
+        colormap_tex.bind(0);
         colormap_tex
             .set_filters_nearest()
             .data_red_u8(0, 256, self.colormaps.len(), &self.colormaps)
-            .unbind(gl::TEXTURE0);
+            .unbind(0);
         colormap_tex
     }
 
@@ -166,7 +165,7 @@ impl TextureDirectory {
             |n| { self.texture(n) },
             names_iter);
         if images.len() == 0 {
-            return (Texture::new(gl::TEXTURE_2D), BoundsLookup::new());
+            return (Texture::new_2d(), BoundsLookup::new());
         }
 
         let num_pixels = images
@@ -251,11 +250,11 @@ impl TextureDirectory {
         }
         drop(offsets);
 
-        let mut tex = Texture::new(gl::TEXTURE_2D);
-        tex.bind(gl::TEXTURE0);
+        let mut tex = Texture::new_2d();
+        tex.bind(0);
         tex.set_filters_nearest()
            .data_rg_u8(0, atlas_width, atlas_height, atlas.pixels())
-           .unbind(gl::TEXTURE0);
+           .unbind(0);
 
         info!("Wall texture atlas size: {}x{}", atlas_width, atlas_height);
         (tex, bound_map)
@@ -308,11 +307,11 @@ impl TextureDirectory {
             }
         }
 
-        let mut tex = Texture::new(gl::TEXTURE_2D);
-        tex.bind(gl::TEXTURE0);
+        let mut tex = Texture::new_2d();
+        tex.bind(0);
         tex.set_filters_nearest()
            .data_red_u8(0, width, height, &data)
-           .unbind(gl::TEXTURE0);
+           .unbind(0);
 
         (tex, offsets)
     }

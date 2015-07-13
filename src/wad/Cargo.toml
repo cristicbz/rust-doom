@@ -13,9 +13,6 @@ path = "../common"
 [dependencies.gfx]
 path = "../gfx"
 
-[dependencies.gl]
-path = "../gl"
-
 [dependencies.math]
 path = "../math"
 
@@ -26,4 +23,3 @@ rustc-serialize = "*"
 log = "*"
 regex = "*"
 num = "*"
-sdl2 = "*"

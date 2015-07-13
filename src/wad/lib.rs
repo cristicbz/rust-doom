@@ -1,4 +1,3 @@
-#[macro_use] extern crate gl;
 #[macro_use] extern crate log;
 #[macro_use] extern crate regex;
 
@@ -6,7 +5,6 @@ extern crate num;
 extern crate common;
 extern crate gfx;
 extern crate math;
-extern crate sdl2;
 
 extern crate rustc_serialize;
 extern crate time;

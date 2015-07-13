@@ -91,7 +91,7 @@ impl RenderStep {
             -> Result<&mut RenderStep> {
         let uniform = try!(self.shader.expect_uniform(name));
         self.shader.bind_mut().set_uniform_i32(uniform, unit as i32).unbind();
-        self.shared_tex.push((unit as GLenum + gl::TEXTURE0, texture));
+        self.shared_tex.push((unit as GLenum, texture));
         Ok(self)
     }
 
@@ -99,7 +99,7 @@ impl RenderStep {
             -> Result<&mut RenderStep> {
         let uniform = try!(self.shader.expect_uniform(name));
         self.shader.bind_mut().set_uniform_i32(uniform, unit as i32).unbind();
-        self.unique_tex.push((unit as GLenum + gl::TEXTURE0, texture));
+        self.unique_tex.push((unit as GLenum, texture));
         Ok(self)
     }
 
