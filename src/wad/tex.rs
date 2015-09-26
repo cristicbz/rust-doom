@@ -87,7 +87,8 @@ impl TextureDirectory {
         info!("  {:4} flats", flats.len());
 
         // Read sprites
-        info!("  {:4} sprites", try!(read_sprites(wad, &mut textures)));
+        let num_sprites = try!(read_sprites(wad, &mut textures));
+        info!("  {:4} sprites", num_sprites);
 
         Ok(TextureDirectory {
             patches: patches,

@@ -2,7 +2,7 @@ use error::Result;
 use error::Error::Sdl as SdlError;
 use sdl2::Sdl;
 use sdl2::video::Window as SdlWindow;
-use sdl2::video::{gl_attr, GLProfile, GLContext};
+use sdl2::video::{GLProfile, GLContext};
 use libc::c_void;
 use gl;
 use sdl2;
@@ -21,22 +21,23 @@ pub struct Window {
 
 impl Window {
     pub fn new(sdl: &Sdl, width: u32, height: u32) -> Result<Window> {
-        gl_attr::set_context_profile(GLProfile::Core);
-        gl_attr::set_context_major_version(gl::platform::GL_MAJOR_VERSION);
-        gl_attr::set_context_minor_version(gl::platform::GL_MINOR_VERSION);
-        gl_attr::set_depth_size(OPENGL_DEPTH_SIZE);
-        gl_attr::set_double_buffer(true);
+        let video = try!(sdl.video());
+        let gl_attr = video.gl_attr();
+        gl_attr.set_context_profile(GLProfile::Core);
+        gl_attr.set_context_major_version(gl::platform::GL_MAJOR_VERSION);
+        gl_attr.set_context_minor_version(gl::platform::GL_MINOR_VERSION);
+        gl_attr.set_depth_size(OPENGL_DEPTH_SIZE);
+        gl_attr.set_double_buffer(true);
 
-        let window = try!(sdl.window(WINDOW_TITLE, width as u32, height as u32)
+        let window = try!(video.window(WINDOW_TITLE, width as u32, height as u32)
             .position_centered()
             .opengl()
-            .build()
-            .map_err(SdlError));
+            .build());
 
         let context = try!(window.gl_create_context().map_err(SdlError));
         sdl2::clear_error();
         gl::load_with(|name| {
-            sdl2::video::gl_get_proc_address(name) as *const c_void
+            video.gl_get_proc_address(name) as *const c_void
         });
         let mut vao_id = 0;
         check_gl_unsafe!(gl::GenVertexArrays(1, &mut vao_id));

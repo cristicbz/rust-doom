@@ -113,7 +113,7 @@ pub fn run(args: &[String]) -> Result<(), Box<Error>> {
             }
         },
         RunMode::Check { wad_file, metadata_file } => {
-            let sdl = try!(sdl2::init().video().build().map_err(GeneralError));
+            let sdl = try!(sdl2::init().map_err(|e| GeneralError(e.0)));
             let _win = try!(Window::new(&sdl, 128, 128));
 
             info!("Loading all levels...");

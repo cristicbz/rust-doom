@@ -152,11 +152,11 @@ mod test {
         assert_eq!("-".to_wad_name().as_str(), "-\0\0\0\0\0\0\0");
         assert_eq!("_".to_wad_name().as_str(), "_\0\0\0\0\0\0\0");
 
-        assert!(b"123456789".to_wad_name_opt().is_none());
-        assert!(b"1234\xfb".to_wad_name_opt().is_none());
-        assert!(b"\xff123".to_wad_name_opt().is_none());
-        assert!(b"$$ASDF_".to_wad_name_opt().is_none());
-        assert!(b"123456789\0".to_wad_name_opt().is_none());
+        assert!((&b"123456789"[..]).to_wad_name_opt().is_none());
+        assert!((&b"1234\xfb"[..]).to_wad_name_opt().is_none());
+        assert!((&b"\xff123"[..]).to_wad_name_opt().is_none());
+        assert!((&b"$$ASDF_"[..]).to_wad_name_opt().is_none());
+        assert!((&b"123456789\0"[..]).to_wad_name_opt().is_none());
     }
 }
 

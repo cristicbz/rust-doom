@@ -28,12 +28,13 @@ pub struct Game {
     window: Window,
     player: Player,
     level: Level,
-    sdl: Sdl,
+    _sdl: Sdl,
+    control: GameController,
 }
 
 impl Game {
     pub fn new(config: GameConfig) -> Result<Game, Box<Error>> {
-        let sdl = try!(sdl2::init().video().build().map_err(GeneralError));
+        let sdl = try!(sdl2::init().map_err(|e| GeneralError(e.0)));
         let window = try!(Window::new(&sdl, config.width, config.height));
 
         let shader_loader = ShaderLoader::new(PathBuf::from(SHADER_ROOT));
@@ -47,11 +48,15 @@ impl Game {
                                      Default::default());
         player.set_position(level.start_pos());
 
+        let control = GameController::new(
+            &sdl, try!(sdl.event_pump().map_err(|e| GeneralError(e.0))));
+
         Ok(Game {
             window: window,
             player: player,
             level: level,
-            sdl: sdl,
+            _sdl: sdl,
+            control: control,
         })
     }
 
@@ -65,7 +70,6 @@ impl Game {
         let mut cum_updates_time = 0.0;
         let mut num_frames = 0.0;
         let mut t0 = time::precise_time_s();
-        let mut control = GameController::new(self.sdl.event_pump());
         let mut mouse_grabbed = true;
         loop {
             self.window.clear();
@@ -77,16 +81,16 @@ impl Game {
 
             let updates_t0 = time::precise_time_s();
 
-            control.update();
-            if control.poll_gesture(&quit_gesture) {
+            self.control.update();
+            if self.control.poll_gesture(&quit_gesture) {
                 break;
-            } else if control.poll_gesture(&grab_toggle_gesture) {
+            } else if self.control.poll_gesture(&grab_toggle_gesture) {
                 mouse_grabbed = !mouse_grabbed;
-                control.set_mouse_enabled(mouse_grabbed);
-                control.set_cursor_grabbed(mouse_grabbed);
+                self.control.set_mouse_enabled(mouse_grabbed);
+                self.control.set_cursor_grabbed(mouse_grabbed);
             }
 
-            self.player.update(delta, &control, &self.level);
+            self.player.update(delta, &self.control, &self.level);
             self.level.render(delta,
                               self.player.camera().projection(), self.player.camera().modelview());
 

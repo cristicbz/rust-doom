@@ -1,6 +1,7 @@
 use math::{Vec2f, Vec2};
-use sdl2::event::{Event, EventPump};
-use sdl2::mouse::{self, Mouse};
+use sdl2::{Sdl, EventPump};
+use sdl2::event::Event;
+use sdl2::mouse::{Mouse, MouseUtil};
 use sdl2::keyboard::Scancode;
 use std::vec::Vec;
 
@@ -27,7 +28,7 @@ pub enum Analog2d {
     Gestures(Gesture, Gesture, Gesture, Gesture, Sensitivity),
 }
 
-pub struct GameController<'sdl> {
+pub struct GameController {
     current_update_index: UpdateIndex,
 
     keyboard_state: [ButtonState; NUM_SCAN_CODES],
@@ -35,17 +36,20 @@ pub struct GameController<'sdl> {
 
     mouse_enabled: bool,
     mouse_rel: Vec2f,
+    mouse_util: MouseUtil,
 
-    pump: EventPump<'sdl>,
+    pump: EventPump,
 }
 
-impl<'sdl> GameController<'sdl> {
-    pub fn new(pump: EventPump<'sdl>) -> GameController<'sdl> {
-        mouse::set_relative_mouse_mode(true);
+impl GameController {
+    pub fn new(sdl: &Sdl, pump: EventPump) -> GameController {
+        let mouse_util = sdl.mouse();
+        mouse_util.set_relative_mouse_mode(true);
         GameController {
             current_update_index: 1,
             keyboard_state: [ButtonState::Up(0); NUM_SCAN_CODES],
             quit_requested_index: 0,
+            mouse_util: mouse_util,
             mouse_enabled: true,
             mouse_rel: Vec2::zero(),
             pump: pump,
@@ -53,7 +57,7 @@ impl<'sdl> GameController<'sdl> {
     }
 
     pub fn set_cursor_grabbed(&mut self, grabbed: bool) {
-        mouse::set_relative_mouse_mode(grabbed);
+        self.mouse_util.set_relative_mouse_mode(grabbed);
     }
 
     pub fn set_mouse_enabled(&mut self, enable: bool) {

@@ -35,7 +35,7 @@ impl Image {
         let x_offset = reader.read_binary::<i16>().unwrap() as isize;
         let y_offset = reader.read_binary::<i16>().unwrap() as isize;
 
-        let mut pixels = vec![-1; width * height];
+        let mut pixels = vec![!0; width * height];
         // Sorry for the messy/unsafe code, but the array bounds checks in this
         // tight loop make it 6x slower.
         for i_column in 0 .. width as isize { unsafe {

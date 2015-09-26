@@ -3,13 +3,14 @@ use std::fmt::{Formatter, Display};
 use std::fmt::Result as FmtResult;
 use std::io::Error as IoError;
 use std::result::Result as StdResult;
+use sdl2::ErrorMessage as SdlError;
 
 pub type Result<T> = StdResult<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
     Io(IoError),
-    Sdl(String),
+    Sdl(SdlError),
     VertexCompile {
         shader: String,
         log: String,
@@ -32,7 +33,7 @@ impl StdError for Error {
     fn description(&self) -> &str {
         match *self {
             Error::Io(ref inner) => inner.description(),
-            Error::Sdl(ref inner) => &inner[..],
+            Error::Sdl(ref inner) => &inner.0[..],
             Error::VertexCompile { .. } => "vertex shader compilation error",
             Error::FragmentCompile { .. } => "fragment shader compilation error",
             Error::Link { .. } => "shader linking error",
@@ -50,6 +51,10 @@ impl StdError for Error {
 
 impl From<IoError> for Error {
     fn from(err: IoError) -> Error { Error::Io(err) }
+}
+
+impl From<SdlError> for Error {
+    fn from(err: SdlError) -> Error { Error::Sdl(err) }
 }
 
 impl Display for Error {
