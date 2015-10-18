@@ -24,7 +24,7 @@ pub trait Numvec<T: Float + Copy>
     }
 }
 
-#[repr(C, packed)]
+#[repr(packed)]
 #[derive(PartialEq, Copy, Clone)]
 pub struct Vec2<T: Float + Sized + PartialEq> {
     pub x: T,
@@ -96,7 +96,7 @@ impl<T: Float  + Debug> Debug for Vec2<T> {
 }
 
 
-#[repr(C, packed)]
+#[repr(packed)]
 #[derive(PartialEq, Copy, Clone)]
 pub struct Vec3<T: Float + Sized + PartialEq> {
     pub x: T,
@@ -175,7 +175,7 @@ impl<T: Float + Debug> Debug for Vec3<T> {
 }
 
 
-#[repr(C, packed)]
+#[repr(packed)]
 #[derive(PartialEq, Copy, Clone)]
 pub struct Vec4<T: Float + Sized + PartialEq> {
     pub x: T,

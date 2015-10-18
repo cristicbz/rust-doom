@@ -124,7 +124,7 @@ enum Peg {
     BottomFloat
 }
 
-#[repr(C, packed)]
+#[repr(packed)]
 #[derive(Copy, Clone)]
 struct StaticVertex {
     _pos: Vec3f,
@@ -132,12 +132,12 @@ struct StaticVertex {
     _tile_uv: Vec2f,
     _tile_size: Vec2f,
     _scroll_rate: f32,
+    _row_height: f32,
     _num_frames: u8,
-    _frame_offset: u8,
     _light: u8,
 }
 
-#[repr(C, packed)]
+#[repr(packed)]
 #[derive(Copy, Clone)]
 struct SpriteVertex {
     _pos: Vec3f,
@@ -146,11 +146,10 @@ struct SpriteVertex {
     _tile_size: Vec2f,
     _local_x: f32,
     _num_frames: u8,
-    _frame_offset: u8,
     _light: u8,
 }
 
-#[repr(C, packed)]
+#[repr(packed)]
 #[derive(Copy, Clone)]
 struct SkyVertex {
     _pos: Vec3f,
