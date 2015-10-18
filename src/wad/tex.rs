@@ -24,7 +24,7 @@ pub struct Bounds {
     pub pos: Vec2f,
     pub size: Vec2f,
     pub num_frames: usize,
-    pub frame_offset: usize,
+    pub row_height: usize,
 }
 
 pub type BoundsLookup = BTreeMap<WadName, Bounds>;
@@ -187,11 +187,16 @@ impl TextureDirectory {
             }
         };
 
-        fn img_bound((x_offset, y_offset): (isize, isize), img: &Image,
-                     frame_offset: usize, num_frames: usize) -> Bounds {
-            Bounds { pos: Vec2::new(x_offset as f32, y_offset as f32),
-                     size: Vec2::new(img.width() as f32, img.height() as f32),
-                     num_frames: num_frames, frame_offset: frame_offset }
+        fn img_bound((x_offset, y_offset, row_height): (isize, isize, usize),
+                     img: &Image,
+                     num_frames: usize)
+                    -> Bounds {
+            Bounds {
+                pos: Vec2::new(x_offset as f32, y_offset as f32),
+                size: Vec2::new(img.width() as f32, img.height() as f32),
+                num_frames: num_frames,
+                row_height: row_height
+            }
         }
 
 
@@ -218,7 +223,7 @@ impl TextureDirectory {
                     failed = true;
                     break;
                 }
-                offsets.push((x_offset as isize, y_offset as isize));
+                offsets.push((x_offset as isize, y_offset as isize, max_height as usize));
                 x_offset += width;
             }
 
@@ -246,8 +251,10 @@ impl TextureDirectory {
         let mut bound_map = BTreeMap::new();
         for (i, (name, image, frame_offset, num_frames)) in images.into_iter().enumerate() {
             atlas.blit(image, offsets[i].0, offsets[i].1, true);
-            bound_map.insert(*name, img_bound(offsets[i - frame_offset],
-                                              image, frame_offset, num_frames));
+            bound_map.insert(*name,
+                             img_bound(offsets[i - frame_offset],
+                                       image,
+                                       num_frames));
         }
 
         let mut tex = Texture::new(gl::TEXTURE_2D);
@@ -290,7 +297,7 @@ impl TextureDirectory {
                 pos: anim_start_pos,
                 size: Vec2::new(64.0, 64.0),
                 num_frames: num_frames,
-                frame_offset: frame_offset
+                row_height: 64,
             });
 
             for y in 0 .. 64 {

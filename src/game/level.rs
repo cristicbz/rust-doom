@@ -412,8 +412,8 @@ impl<'a> VboBuilder<'a> {
             .attribute_vec2f(2, offset_of!(StaticVertex, _tile_uv))
             .attribute_vec2f(3, offset_of!(StaticVertex, _tile_size))
             .attribute_f32(4, offset_of!(StaticVertex, _scroll_rate))
-            .attribute_u8(5, offset_of!(StaticVertex, _num_frames))
-            .attribute_u8(6, offset_of!(StaticVertex, _frame_offset))
+            .attribute_f32(5, offset_of!(StaticVertex, _row_height))
+            .attribute_u8(6, offset_of!(StaticVertex, _num_frames))
             .attribute_u8(7, offset_of!(StaticVertex, _light));
         buffer.build()
     }
@@ -426,8 +426,7 @@ impl<'a> VboBuilder<'a> {
             .attribute_vec2f(3, offset_of!(SpriteVertex, _tile_size))
             .attribute_f32(4, offset_of!(SpriteVertex, _local_x))
             .attribute_u8(5, offset_of!(SpriteVertex, _num_frames))
-            .attribute_u8(6, offset_of!(SpriteVertex, _frame_offset))
-            .attribute_u8(7, offset_of!(SpriteVertex, _light));
+            .attribute_u8(6, offset_of!(SpriteVertex, _light));
         buffer.build()
     }
 
@@ -784,7 +783,7 @@ impl<'a> VboBuilder<'a> {
             _tile_size: bounds.size,
             _scroll_rate: 0.0,
             _num_frames: bounds.num_frames as u8,
-            _frame_offset: bounds.frame_offset as u8,
+            _row_height: bounds.row_height as f32,
             _light: light_info,
         });
     }
@@ -798,7 +797,7 @@ impl<'a> VboBuilder<'a> {
             _tile_size: bounds.size,
             _scroll_rate: scroll_rate,
             _num_frames: bounds.num_frames as u8,
-            _frame_offset: bounds.frame_offset as u8,
+            _row_height: bounds.row_height as f32,
             _light: light_info,
         });
     }
@@ -812,7 +811,6 @@ impl<'a> VboBuilder<'a> {
             _tile_uv: Vec2::new(tile_u, tile_v),
             _tile_size: bounds.size,
             _num_frames: 1,
-            _frame_offset: 0,
             _light: light_info,
         };
         self.decors.push(v);
