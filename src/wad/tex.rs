@@ -9,7 +9,7 @@ use math::{Vec2, Vec2f};
 use name::{WadName, WadNameCast};
 use num::Float;
 use std::cmp;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::mem;
 use time;
 use types::{WadTextureHeader, WadTexturePatchRef};
@@ -27,14 +27,14 @@ pub struct Bounds {
     pub frame_offset: usize,
 }
 
-pub type BoundsLookup = HashMap<WadName, Bounds>;
+pub type BoundsLookup = BTreeMap<WadName, Bounds>;
 
 pub struct TextureDirectory {
-    textures: HashMap<WadName, Image>,
+    textures: BTreeMap<WadName, Image>,
     patches: Vec<(WadName, Option<Image>)>,
     palettes: Vec<Palette>,
     colormaps: Vec<Colormap>,
-    flats: HashMap<WadName, Flat>,
+    flats: BTreeMap<WadName, Flat>,
     animated_walls: Vec<Vec<WadName>>,
     animated_flats: Vec<Vec<WadName>>,
 }
@@ -67,7 +67,7 @@ impl TextureDirectory {
         // Read textures.
         let t0 = time::precise_time_s();
         info!("Reading & assembling textures...");
-        let mut textures = HashMap::new();
+        let mut textures = BTreeMap::new();
         for lump_name in TEXTURE_LUMP_NAMES.iter().map(|b| b.to_wad_name()) {
             let lump_index = match wad.named_lump_index(&lump_name) {
                 Some(i) => i,
@@ -163,7 +163,7 @@ impl TextureDirectory {
             &'a self, names_iter: T) -> (Texture, BoundsLookup) {
         let images = ordered_atlas_entries(
             &self.animated_walls,
-            |n| { self.texture(n) },
+            |n| self.texture(n),
             names_iter);
         if images.len() == 0 {
             return (Texture::new(gl::TEXTURE_2D), BoundsLookup::new());
@@ -243,13 +243,12 @@ impl TextureDirectory {
 
         assert!(offsets.len() == images.len());
         let mut atlas = Image::new(atlas_width, atlas_height);
-        let mut bound_map = HashMap::with_capacity(images.len());
+        let mut bound_map = BTreeMap::new();
         for (i, (name, image, frame_offset, num_frames)) in images.into_iter().enumerate() {
             atlas.blit(image, offsets[i].0, offsets[i].1, true);
             bound_map.insert(*name, img_bound(offsets[i - frame_offset],
                                               image, frame_offset, num_frames));
         }
-        drop(offsets);
 
         let mut tex = Texture::new(gl::TEXTURE_2D);
         tex.bind(gl::TEXTURE0);
@@ -264,7 +263,7 @@ impl TextureDirectory {
     pub fn build_flat_atlas<'a, T: Iterator<Item = &'a WadName>>(
             &'a self, names_iter: T) -> (Texture, BoundsLookup) {
         let names = ordered_atlas_entries(
-            &self.animated_flats, |n| { self.flat(n) },
+            &self.animated_flats, |n| self.flat(n),
             names_iter);
         let num_names = names.len();
 
@@ -274,7 +273,7 @@ impl TextureDirectory {
         let num_rows = (num_names as f64 / flats_per_row as f64).ceil() as usize;
         let height = next_pow2(num_rows * 64);
 
-        let mut offsets = HashMap::with_capacity(num_names);
+        let mut offsets = BTreeMap::new();
         let mut data = vec![255u8; width * height];
         let (mut row, mut column) = (0, 0);
         info!("Flat atlas size: {}x{} ({}, {})", width, height, flats_per_row,
@@ -360,7 +359,7 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
 }
 
 
-fn read_sprites(wad: &Archive, textures: &mut HashMap<WadName, Image>) -> Result<usize> {
+fn read_sprites(wad: &Archive, textures: &mut BTreeMap<WadName, Image>) -> Result<usize> {
     let start_index = try!(wad.required_named_lump_index(&(&b"S_START"[..]).to_wad_name())) + 1;
     let end_index = try!(wad.required_named_lump_index(&(&b"S_END"[..]).to_wad_name()));
     info!("Reading {} sprites....", end_index - start_index);
@@ -374,12 +373,10 @@ fn read_sprites(wad: &Archive, textures: &mut HashMap<WadName, Image>) -> Result
 }
 
 fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
-                 textures: &mut HashMap<WadName, Image>)
+                 textures: &mut BTreeMap<WadName, Image>)
         -> Result<usize> {
     let mut lump = lump_buffer;
     let num_textures = try!(lump.read_binary::<u32>()) as usize;
-    let current_num_textures = textures.len();
-    textures.reserve(current_num_textures + num_textures);
 
     let mut offsets = &lump[..num_textures * mem::size_of::<u32>()];
 
@@ -411,10 +408,10 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
     Ok(num_textures)
 }
 
-fn read_flats(wad: &Archive) -> Result<HashMap<WadName, Flat>> {
+fn read_flats(wad: &Archive) -> Result<BTreeMap<WadName, Flat>> {
     let start = try!(wad.required_named_lump_index(&(&b"F_START"[..]).to_wad_name()));
     let end = try!(wad.required_named_lump_index(&(&b"F_END"[..]).to_wad_name()));
-    let mut flats = HashMap::with_capacity(end - start);
+    let mut flats = BTreeMap::new();
     for i_lump in start .. end {
         if wad.is_virtual_lump(i_lump) {
             continue;
@@ -434,7 +431,7 @@ pub fn ordered_atlas_entries<'b, 'a: 'b,
             image_lookup: ImageLookupT,
             names_iter: NameIteratorT)
         -> Vec<(&'b WadName, &'b ImageT, usize, usize)> {
-    let mut frames_by_first_frame = HashMap::new();
+    let mut frames_by_first_frame = BTreeMap::new();
     for name in names_iter {
         let maybe_frames = search_for_frame(name, animations);
         let first_frame = maybe_frames.map(|f| &f[0]).unwrap_or(name);
