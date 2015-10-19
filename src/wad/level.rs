@@ -39,21 +39,8 @@ impl Level {
         let segs = try!(wad.read_lump(start_index + SEGS_OFFSET));
         let subsectors = try!(wad.read_lump(start_index + SSECTORS_OFFSET));
         let nodes = try!(wad.read_lump(start_index + NODES_OFFSET));
-
-        let mut sidedefs = try!(wad.read_lump::<WadSidedef>(start_index + SIDEDEFS_OFFSET));
-        for side in sidedefs.iter_mut() {
-            side.upper_texture.canonicalise();
-            side.lower_texture.canonicalise();
-            side.middle_texture.canonicalise();
-        }
-        let sidedefs = sidedefs;
-
-        let mut sectors = try!(wad.read_lump::<WadSector>(start_index + SECTORS_OFFSET));
-        for sector in sectors.iter_mut() {
-            sector.floor_texture.canonicalise();
-            sector.ceiling_texture.canonicalise();
-        }
-        let sectors = sectors;
+        let sidedefs = try!(wad.read_lump::<WadSidedef>(start_index + SIDEDEFS_OFFSET));
+        let sectors = try!(wad.read_lump::<WadSector>(start_index + SECTORS_OFFSET));
 
         info!("Loaded level '{}':", name);
         info!("    {:4} things", things.len());

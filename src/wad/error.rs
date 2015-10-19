@@ -1,3 +1,4 @@
+use byteorder::Error as ByteOrderError;
 use std::error::Error as StdError;
 use std::io::Error as IoError;
 use std::path::{PathBuf, Path};
@@ -32,7 +33,9 @@ impl Display for Error {
 #[derive(Debug)]
 pub enum ErrorKind {
     Io(IoError),
+    ByteOrder(ByteOrderError),
     BadWadHeader,
+    BadWadName(Vec<u8>),
     MissingRequiredLump(WadName),
     MissingRequiredPatch(WadName, WadName),
     BadMetadataSchema(TomlDecodeError),
@@ -43,7 +46,9 @@ impl ErrorKind {
     fn description(&self) -> &str {
         match *self {
             ErrorKind::Io(ref inner) => inner.description(),
+            ErrorKind::ByteOrder(ref inner) => inner.description(),
             ErrorKind::BadWadHeader(..) => "invalid header",
+            ErrorKind::BadWadName(..) => "invalid wad name",
             ErrorKind::MissingRequiredLump(..) => "missing required lump",
             ErrorKind::MissingRequiredPatch(..) => "missing required patch",
             ErrorKind::BadMetadataSchema(..) => "invalid data in metadata",
@@ -57,7 +62,9 @@ impl Display for ErrorKind {
         let desc = self.description();
         match *self {
             ErrorKind::Io(ref inner) => write!(fmt, "{}", inner),
+            ErrorKind::ByteOrder(ref inner) => write!(fmt, "{}", inner),
             ErrorKind::BadWadHeader => write!(fmt, "{}", desc),
+            ErrorKind::BadWadName(ref name) => write!(fmt, "{} ({:?})", desc, name),
             ErrorKind::MissingRequiredLump(ref name) => {
                 write!(fmt, "{} ({})", desc, name)
             },
@@ -77,6 +84,12 @@ impl Display for ErrorKind {
 impl From<IoError> for Error {
     fn from(cause: IoError) -> Error {
         ErrorKind::Io(cause).into()
+    }
+}
+
+impl From<ByteOrderError> for Error {
+    fn from(cause: ByteOrderError) -> Error {
+        ErrorKind::ByteOrder(cause).into()
     }
 }
 

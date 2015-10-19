@@ -1,5 +1,5 @@
 use math::{Vec2, Vec2f};
-use types::{WadCoord, WadInfo, WadName, ChildId, WadNameCast};
+use types::{WadCoord, WadInfo, WadName, ChildId};
 
 #[derive(Copy, Clone)]
 pub enum WadType { Initial, Patch }
@@ -24,7 +24,7 @@ pub fn is_untextured(name: &WadName) -> bool {
 }
 
 pub fn is_sky_flat(name: &WadName) -> bool {
-    name == &(&b"F_SKY1"[..]).to_wad_name()
+    name.as_bytes() == b"F_SKY1\0\0"
 }
 
 pub fn from_wad_height(x: WadCoord) -> f32 { (x as f32) / 100.0 }

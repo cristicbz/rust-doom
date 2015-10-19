@@ -1,24 +1,22 @@
+use error::ErrorKind::{BadWadHeader, MissingRequiredLump};
+use error::{Result, Error, ErrorKind, InFile};
+use meta::WadMetadata;
+use read::{WadRead, WadReadFrom};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
-use std::io::{Seek, SeekFrom};
+use std::io::{Seek, SeekFrom, BufReader};
 use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
-use std::slice;
-use std::vec::Vec;
 use std::result::Result as StdResult;
-
-use common::ReadExt;
-use meta::WadMetadata;
-use types::{WadLump, WadInfo, WadName, WadNameCast};
+use std::vec::Vec;
+use types::{WadLump, WadInfo, WadName};
 use util::wad_type_from_info;
-use error::{Result, Error, ErrorKind, InFile};
-use error::ErrorKind::{BadWadHeader, MissingRequiredLump};
 
 pub struct Archive {
-    file: RefCell<File>,
+    file: RefCell<BufReader<File>>,
     index_map: HashMap<WadName, usize>,
     lumps: Vec<LumpInfo>,
     levels: Vec<usize>,
@@ -34,8 +32,8 @@ impl Archive {
         info!("Loading wad file '{:?}'...", wad_path);
 
         // Open file, read and check header.
-        let mut file = try!(File::open(&wad_path).in_file(&wad_path));
-        let header = try!(file.read_binary::<WadInfo>().in_file(&wad_path));
+        let mut file = BufReader::new(try!(File::open(&wad_path).in_file(&wad_path)));
+        let header = try!(file.wad_read::<WadInfo>().in_file(&wad_path));
         try!(wad_type_from_info(&header).ok_or_else(|| BadWadHeader.in_file(&wad_path)));
 
         // Read lump info.
@@ -45,15 +43,16 @@ impl Archive {
 
         try!(file.seek(SeekFrom::Start(header.info_table_offset as u64)).in_file(&wad_path));
         for i_lump in 0 .. header.num_lumps {
-            let mut fileinfo = try!(file.read_binary::<WadLump>().in_file(&wad_path));
-            fileinfo.name.canonicalise();
+            let fileinfo = try!(file.wad_read::<WadLump>().in_file(&wad_path));
             index_map.insert(fileinfo.name, lumps.len());
-            lumps.push(LumpInfo { name: fileinfo.name,
-                                  offset: fileinfo.file_pos as u64,
-                                  size: fileinfo.size as usize });
+            lumps.push(LumpInfo {
+                           name: fileinfo.name,
+                           offset: fileinfo.file_pos as u64,
+                           size: fileinfo.size as usize,
+                       });
 
             // Our heuristic for level lumps is that they are preceeded by the "THINGS" lump.
-            if fileinfo.name == b"THINGS\0\0".to_wad_name() {
+            if fileinfo.name == WadName::from_bytes(b"THINGS\0\0").unwrap() {
                 assert!(i_lump > 0);
                 levels.push((i_lump - 1) as usize);
             }
@@ -100,37 +99,31 @@ impl Archive {
         self.lumps[lump_index].size == 0
     }
 
-    pub fn read_required_named_lump<T: Copy>(&self, name: &WadName) -> Result<Vec<T>> {
+    pub fn read_required_named_lump<T: WadReadFrom>(&self, name: &WadName) -> Result<Vec<T>> {
         self.read_named_lump(name)
             .unwrap_or_else(|| Err(MissingRequiredLump(*name).in_archive(self)))
     }
 
-    pub fn read_named_lump<T: Copy>(&self, name: &WadName) -> Option<Result<Vec<T>>> {
+    pub fn read_named_lump<T: WadReadFrom>(&self, name: &WadName) -> Option<Result<Vec<T>>> {
         self.named_lump_index(name).map(|index| self.read_lump(index))
     }
 
-    pub fn read_lump<T: Copy>(&self, index: usize) -> Result<Vec<T>> {
+    pub fn read_lump<T: WadReadFrom>(&self, index: usize) -> Result<Vec<T>> {
         let mut file = self.file.borrow_mut();
-        let info = self.lumps[index];
+        let info = &self.lumps[index];
         assert!(info.size > 0);
         assert!(info.size % mem::size_of::<T>() == 0);
         let num_elems = info.size / mem::size_of::<T>();
-        let mut buf = Vec::with_capacity(num_elems);
         try!(file.seek(SeekFrom::Start(info.offset)).in_archive(self));
-        unsafe {
-            buf.set_len(num_elems);
-            try!(file.read_at_least(slice::from_raw_parts_mut(
-                    (buf.as_mut_ptr() as *mut u8), info.size)).in_archive(self))
-        }
-        Ok(buf)
+        Ok(try!(file.wad_read_many(num_elems).in_archive(self)))
     }
 
-    pub fn read_lump_single<T: Copy>(&self, index: usize) -> Result<T> {
+    pub fn read_lump_single<T: WadReadFrom>(&self, index: usize) -> Result<T> {
         let mut file = self.file.borrow_mut();
-        let info = self.lumps[index];
+        let info = &self.lumps[index];
         assert!(info.size == mem::size_of::<T>());
         try!(file.seek(SeekFrom::Start(info.offset)).in_archive(self));
-        Ok(try!(file.read_binary().in_archive(self)))
+        Ok(try!(file.wad_read().in_archive(self)))
     }
 
     pub fn metadata(&self) -> &WadMetadata { &self.meta }
