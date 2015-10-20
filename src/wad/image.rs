@@ -1,9 +1,8 @@
-use common::ReadExt;
 use gfx::Texture;
 use gl;
-use std::ptr::copy_nonoverlapping;
 use std::vec::Vec;
 use types::WadTextureHeader;
+use byteorder::{LittleEndian, ByteOrder, ReadBytesExt};
 use sdl2::pixels::PixelFormatEnum;
 use std::path::Path;
 
@@ -32,55 +31,56 @@ impl Image {
 
     pub fn from_buffer(buffer: &[u8]) -> Image {
         let mut reader = buffer;
-        let width = reader.read_binary::<u16>().unwrap() as usize;
-        let height = reader.read_binary::<u16>().unwrap() as usize;
-        let x_offset = reader.read_binary::<i16>().unwrap() as isize;
-        let y_offset = reader.read_binary::<i16>().unwrap() as isize;
+        let width = reader.read_u16::<LittleEndian>().unwrap() as usize;
+        let height = reader.read_u16::<LittleEndian>().unwrap() as usize;
+        let x_offset = reader.read_i16::<LittleEndian>().unwrap() as isize;
+        let y_offset = reader.read_i16::<LittleEndian>().unwrap() as isize;
 
         let mut pixels = vec![!0; width * height];
-        // Sorry for the messy/unsafe code, but the array bounds checks in this
-        // tight loop make it 6x slower.
-        for i_column in 0 .. width as isize { unsafe {
+
+        // Process each column of the image.
+        for i_column in 0 .. width {
             // Each column is defined as a number of vertical `runs' which are
             // defined starting at `offset' in the buffer.
-            let offset = reader.read_binary::<u32>().unwrap() as isize;
-            let mut src_ptr = buffer.as_ptr().offset(offset);
-            'this_column: loop {
+            let offset = reader.read_u32::<LittleEndian>().unwrap() as isize;
+            let mut source = buffer[offset as usize..].iter();
+            loop {
                 // The first byte contains the vertical coordinate of the run's
                 // start.
-                let row_start = *src_ptr as isize; src_ptr = src_ptr.offset(1);
-
-                // Pointer to the beginning of the run in `pixels'.
-                let mut dest_ptr = pixels
-                    .as_mut_ptr().offset(row_start * width as isize + i_column);
+                let row_start = *source.next().unwrap() as usize;
 
                 // The special value of 255 means this is the last run in the
                 // column, so move on to the next one.
-                if row_start == 255 { break 'this_column; }
+                if row_start == 255 {
+                    break;
+                }
 
                 // The second byte is the length of this run. Skip an additional
                 // byte which is ignored for some reason.
-                let run_length = *src_ptr as isize; src_ptr = src_ptr.offset(2);
+                let run_length = *source.next().unwrap() as usize;
+                source.next().unwrap();
 
-                let src_end = src_ptr.offset(run_length);  // Ptr to end of run.
-                while src_ptr < src_end {
-                    // Copy one byte converting it into an opaque pixels (high
-                    // bits are zero) and advance the pointers.
-                    *dest_ptr = *src_ptr as u16;
-                    dest_ptr = dest_ptr.offset(width as isize);
-                    src_ptr = src_ptr.offset(1);
+                // Iterator to the beginning of the run in `pixels`.
+                let mut destination = pixels[row_start * width + i_column..]
+                    .chunks_mut(width)
+                    .map(|row| &mut row[0])
+                    .take(run_length);
+
+                while let Some(dest_pixel) = destination.next() {
+                    *dest_pixel = *source.next().unwrap() as u16;
                 }
                 // And another ignored byte after the run.
-                src_ptr = src_ptr.offset(1);
+                source.next().unwrap();
             }
-        }}
-        let pixels = pixels;
+        }
 
-        Image { width: width,
-                height: height,
-                x_offset: x_offset,
-                y_offset: y_offset,
-                pixels: pixels }
+        Image {
+            width: width,
+            height: height,
+            x_offset: x_offset,
+            y_offset: y_offset,
+            pixels: pixels
+        }
     }
 
     pub fn blit(&mut self, source: &Image, x_offset: isize, y_offset: isize,
@@ -100,48 +100,37 @@ impl Image {
             (self.width as isize - x_offset) as usize
         };
 
-        if ignore_transparency {
-            // If we don't care about transparency we can memcpy row by row.
-            let src_pitch = source.width as isize;
-            let dest_pitch = self.width as isize;
-            let copy_width = x_end - x_start;
-            let copy_height = (y_end - y_start) as isize;
-            let (x_start, y_start) = (x_start as isize, y_start as isize);
-            unsafe {
-                let mut src_ptr = source.pixels.as_ptr().offset(
-                    x_start + y_start * src_pitch);
-                let mut dest_ptr = self.pixels.as_mut_ptr().offset(
-                    x_start + x_offset + (y_start + y_offset) * dest_pitch);
+        let src_pitch = source.width as usize;
+        let dest_pitch = self.width as usize;
+        let copy_width = x_end - x_start;
+        let copy_height = (y_end - y_start) as usize;
+        let (x_start, y_start) = (x_start as usize, y_start as usize);
 
-                let src_end = src_ptr.offset(copy_height * src_pitch);
-                while src_ptr < src_end {
-                    copy_nonoverlapping(src_ptr, dest_ptr, copy_width);
-                    src_ptr = src_ptr.offset(src_pitch);
-                    dest_ptr = dest_ptr.offset(dest_pitch);
+        let source_rows = source.pixels[x_start + y_start * src_pitch..]
+                                .chunks(src_pitch)
+                                .take(copy_height)
+                                .map(|row| &row[..copy_width]);
+        let dest_rows = self.pixels[(x_start as isize + x_offset) as usize
+                                    + (y_start as isize + y_offset) as usize * dest_pitch..]
+                            .chunks_mut(dest_pitch)
+                            .take(copy_height)
+                            .map(|row| &mut row[..copy_width]);
+
+        if ignore_transparency {
+            // If we don't care about transparency we can copy row by row.
+            for (dest_row, source_row) in dest_rows.zip(source_rows) {
+                for (dest_pixel, &source_pixel) in dest_row.iter_mut().zip(source_row.iter()) {
+                    *dest_pixel = source_pixel;
                 }
             }
         } else {
             // Only copy pixels whose high bits are not set.
-            let dest_ptr = self.pixels.as_mut_ptr();
-            let src_ptr = source.pixels.as_ptr();
-            for src_y in y_start .. y_end {
-                let dest_y = (src_y as isize + y_offset) as usize;
-                for src_x in x_start .. x_end {
-                    let dest_x = (src_x as isize + x_offset) as usize;
-
-                    let (dest_x, dest_y) = (dest_x, dest_y);
-                    let dest_index = (dest_x + dest_y * self.width) as isize;
-                    let src_index = (src_x + src_y * source.width) as isize;
-
-                    unsafe {
-                        // `Blending' is a simple copy/no copy, but using bit
-                        // ops we can avoid branching.
-                        let src_pixel = *src_ptr.offset(src_index);
-                        let dest_pixel = dest_ptr.offset(dest_index);
-                        let blend = 0u16.wrapping_sub(src_pixel >> 15);
-                        *dest_pixel = (src_pixel & !blend) |
-                                      (*dest_pixel & blend);
-                    }
+            for (dest_row, source_row) in dest_rows.zip(source_rows) {
+                for (dest_pixel, &source_pixel) in dest_row.iter_mut().zip(source_row.iter()) {
+                    // `Blending' is a simple copy/no copy, but using bit ops we can avoid
+                    // branching.
+                    let blend = 0u16.wrapping_sub(source_pixel >> 15);
+                    *dest_pixel = (source_pixel & !blend) | (*dest_pixel & blend);
                 }
             }
         }

@@ -1,20 +1,20 @@
 use archive::{Archive, InArchive};
-use common::ReadExt;
-use error::Result;
 use error::ErrorKind::MissingRequiredPatch;
+use error::Result;
 use gfx::Texture;
 use gl;
 use image::Image;
 use math::{Vec2, Vec2f};
-use name::{WadName, WadNameCast};
+use name::WadName;
 use num::Float;
+use read::WadRead;
 use std::cmp;
 use std::collections::BTreeMap;
 use std::mem;
 use time;
 use types::{WadTextureHeader, WadTexturePatchRef};
 
-pub type Palette = [[u8; 3]; 256];
+pub type Palette = [u8; 256 * 3];
 pub type Colormap = [u8; 256];
 pub type Flat = Vec<u8>;
 
@@ -55,8 +55,8 @@ impl TextureDirectory {
         info!("Reading texture directory...");
 
         // Read palettes & colormaps.
-        let palettes = try!(wad.read_required_named_lump(&(&b"PLAYPAL"[..]).to_wad_name()));
-        let colormaps = try!(wad.read_required_named_lump(&(&b"COLORMAP"[..]).to_wad_name()));
+        let palettes = try!(wad.read_required_named_lump(b"PLAYPAL\0"));
+        let colormaps = try!(wad.read_required_named_lump(b"COLORMAP"));
         info!("  {:4} palettes", palettes.len());
         info!("  {:4} colormaps", colormaps.len());
 
@@ -68,17 +68,17 @@ impl TextureDirectory {
         let t0 = time::precise_time_s();
         info!("Reading & assembling textures...");
         let mut textures = BTreeMap::new();
-        for lump_name in TEXTURE_LUMP_NAMES.iter().map(|b| b.to_wad_name()) {
-            let lump_index = match wad.named_lump_index(&lump_name) {
+        for lump_name in TEXTURE_LUMP_NAMES.iter() {
+            let lump_index = match wad.named_lump_index(lump_name) {
                 Some(i) => i,
                 None => {
-                    info!("     0 textures in {}", lump_name);
+                    info!("     0 textures in {}", String::from_utf8_lossy(lump_name));
                     continue
                 }
             };
             let num_textures = try!(read_textures(
                     &try!(wad.read_lump(lump_index)), &patches, &mut textures).in_archive(wad));
-            info!("  {:4} textures in {}", num_textures, lump_name);
+            info!("  {:4} textures in {}", num_textures, String::from_utf8_lossy(lump_name));
         }
         info!("Done in {:.4}s.", time::precise_time_s() - t0);
 
@@ -132,7 +132,7 @@ impl TextureDirectory {
         let palette = &self.palettes[palette];
         for i_colormap in colormap_start .. colormap_end {
             for i_color in 0 .. 256 {
-                let rgb = &palette[self.colormaps[i_colormap][i_color] as usize];
+                let rgb = &palette[self.colormaps[i_colormap][i_color] as usize * 3..][..3];
                 data[0 + i_color * 3 + i_colormap * 256 * 3] = rgb[0];
                 data[1 + i_color * 3 + i_colormap * 256 * 3] = rgb[1];
                 data[2 + i_color * 3 + i_colormap * 256 * 3] = rgb[2];
@@ -338,10 +338,10 @@ const TEXTURE_LUMP_NAMES: &'static [[u8; 8]] =
 
 
 fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
-    let pnames_buffer = try!(wad.read_required_named_lump(&(&b"PNAMES"[..]).to_wad_name()));
+    let pnames_buffer = try!(wad.read_required_named_lump(b"PNAMES\0\0"));
     let mut lump = &pnames_buffer[..];
 
-    let num_patches = try!(lump.read_binary::<u32>()) as usize;
+    let num_patches = try!(lump.wad_read::<u32>()) as usize;
     let mut patches = Vec::with_capacity(num_patches);
 
     patches.reserve(num_patches);
@@ -349,7 +349,7 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     info!("Reading {} patches....", num_patches);
     let t0 = time::precise_time_s();
     for _ in 0 .. num_patches {
-        let name = try!(lump.read_binary::<WadName>()).into_canonical();
+        let name = try!(lump.wad_read::<WadName>());
         match wad.named_lump_index(&name) {
             Some(index) => {
                 patches.push((name, Some(Image::from_buffer(&try!(wad.read_lump(index))))));
@@ -367,8 +367,9 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
 
 
 fn read_sprites(wad: &Archive, textures: &mut BTreeMap<WadName, Image>) -> Result<usize> {
-    let start_index = try!(wad.required_named_lump_index(&(&b"S_START"[..]).to_wad_name())) + 1;
-    let end_index = try!(wad.required_named_lump_index(&(&b"S_END"[..]).to_wad_name()));
+    let start_index =
+        try!(wad.required_named_lump_index(b"S_START\0")) + 1;
+    let end_index = try!(wad.required_named_lump_index(b"S_END\0\0\0"));
     info!("Reading {} sprites....", end_index - start_index);
     let t0 = time::precise_time_s();
     for index in start_index .. end_index {
@@ -383,19 +384,17 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
                  textures: &mut BTreeMap<WadName, Image>)
         -> Result<usize> {
     let mut lump = lump_buffer;
-    let num_textures = try!(lump.read_binary::<u32>()) as usize;
+    let num_textures = try!(lump.wad_read::<u32>()) as usize;
 
     let mut offsets = &lump[..num_textures * mem::size_of::<u32>()];
 
     for _ in 0 .. num_textures {
-        lump = &lump_buffer[try!(offsets.read_binary::<u32>()) as usize..];
-        let mut header = try!(lump.read_binary::<WadTextureHeader>());
+        lump = &lump_buffer[try!(offsets.wad_read::<u32>()) as usize..];
+        let header = try!(lump.wad_read::<WadTextureHeader>());
         let mut image = Image::new_from_header(&header);
-        header.name.canonicalise();
-        let header = header;
 
         for i_patch in 0 .. header.num_patches {
-            let pref = try!(lump.read_binary::<WadTexturePatchRef>());
+            let pref = try!(lump.wad_read::<WadTexturePatchRef>());
             let (off_x, off_y) =
                     (pref.origin_x as isize, pref.origin_y as isize);
             match patches[pref.patch as usize] {
@@ -416,8 +415,8 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
 }
 
 fn read_flats(wad: &Archive) -> Result<BTreeMap<WadName, Flat>> {
-    let start = try!(wad.required_named_lump_index(&(&b"F_START"[..]).to_wad_name()));
-    let end = try!(wad.required_named_lump_index(&(&b"F_END"[..]).to_wad_name()));
+    let start = try!(wad.required_named_lump_index(b"F_START\0"));
+    let end = try!(wad.required_named_lump_index(b"F_END\0\0\0"));
     let mut flats = BTreeMap::new();
     for i_lump in start .. end {
         if wad.is_virtual_lump(i_lump) {

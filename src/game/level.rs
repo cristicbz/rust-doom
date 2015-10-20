@@ -6,7 +6,6 @@ use std::cmp::Ordering;
 use std::rc::Rc;
 use std::vec::Vec;
 use wad;
-use wad::WadNameCast;
 use wad::{WadMetadata, SkyMetadata, ThingMetadata};
 use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
 use wad::types::{WadSeg, WadCoord, WadSector, WadName, WadThing, ChildId, ThingType};
@@ -261,10 +260,10 @@ fn build_decor_atlas(level: &wad::Level,
                 let mut s = d.sprite.as_bytes().to_owned();
                 s.push(d.sequence.as_bytes()[0]);
                 s.push(b'0');
-                let n1 = (&s[..]).to_wad_name();
+                let n1 = WadName::from_bytes(&s).unwrap();
                 s.pop();
                 s.push(b'1');
-                let n2 = (&s[..]).to_wad_name();
+                let n2 = WadName::from_bytes(&s).unwrap();
                 Some(n1).into_iter().chain(Some(n2).into_iter())
             })
             .filter(|name| !is_untextured(&name))
@@ -448,10 +447,10 @@ impl<'a> VboBuilder<'a> {
             let mut s = meta.sprite.as_bytes().to_owned();
             s.push(meta.sequence.as_bytes()[0]);
             s.push(b'0');
-            let n1 = (&s[..]).to_wad_name();
+            let n1 = WadName::from_bytes(&s).unwrap();
             s.pop();
             s.push(b'1');
-            let n2 = (&s[..]).to_wad_name();
+            let n2 = WadName::from_bytes(&s).unwrap();
             (n1, n2)
         };
         let bounds = if let Some(bounds) = self.bounds.decors.get(&name1)
