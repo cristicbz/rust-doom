@@ -1,7 +1,9 @@
 use byteorder::{LittleEndian, ByteOrder, ReadBytesExt};
 use error::Result;
 use std::io::Read;
-use std::io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult};
+use std::io::Error as IoError;
+use std::io::ErrorKind as IoErrorKind;
+use std::io::Result as IoResult;
 
 
 pub trait WadReadFrom: Sized {
