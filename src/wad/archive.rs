@@ -12,6 +12,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::result::Result as StdResult;
 use std::vec::Vec;
+use std::borrow::Borrow;
+use std::hash::Hash;
 use types::{WadLump, WadInfo, WadName};
 use util::wad_type_from_info;
 
@@ -52,7 +54,7 @@ impl Archive {
                        });
 
             // Our heuristic for level lumps is that they are preceeded by the "THINGS" lump.
-            if fileinfo.name == WadName::from_bytes(b"THINGS\0\0").unwrap() {
+            if &fileinfo.name == b"THINGS\0\0" {
                 assert!(i_lump > 0);
                 levels.push((i_lump - 1) as usize);
             }
@@ -83,12 +85,16 @@ impl Archive {
 
     pub fn num_lumps(&self) -> usize { self.lumps.len() }
 
-    pub fn named_lump_index(&self, name: &WadName) -> Option<usize> {
+    pub fn named_lump_index<Q>(&self, name: &Q) -> Option<usize>
+            where WadName: Borrow<Q>, Q: Hash + Eq {
         self.index_map.get(name).map(|x| *x)
     }
 
-    pub fn required_named_lump_index(&self, name: &WadName) -> Result<usize> {
-        self.named_lump_index(name).ok_or(MissingRequiredLump(*name)).in_archive(self)
+    pub fn required_named_lump_index<Q>(&self, name: &Q) -> Result<usize>
+            where WadName: Borrow<Q>, Q: Hash + Eq + Debug {
+        self.named_lump_index(name)
+            .ok_or(MissingRequiredLump(format!("{:?}", name)))
+            .in_archive(self)
     }
 
     pub fn lump_name(&self, lump_index: usize) -> &WadName {
@@ -99,12 +105,14 @@ impl Archive {
         self.lumps[lump_index].size == 0
     }
 
-    pub fn read_required_named_lump<T: WadReadFrom>(&self, name: &WadName) -> Result<Vec<T>> {
+    pub fn read_required_named_lump<Q, T>(&self, name: &Q) -> Result<Vec<T>>
+            where WadName: Borrow<Q>, T: WadReadFrom, Q: Hash + Eq + Debug {
         self.read_named_lump(name)
-            .unwrap_or_else(|| Err(MissingRequiredLump(*name).in_archive(self)))
+            .unwrap_or_else(|| Err(MissingRequiredLump(format!("{:?}", name)).in_archive(self)))
     }
 
-    pub fn read_named_lump<T: WadReadFrom>(&self, name: &WadName) -> Option<Result<Vec<T>>> {
+    pub fn read_named_lump<Q, T>(&self, name: &Q) -> Option<Result<Vec<T>>>
+            where WadName: Borrow<Q>, T: WadReadFrom, Q: Hash + Eq {
         self.named_lump_index(name).map(|index| self.read_lump(index))
     }
 

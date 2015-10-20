@@ -1,11 +1,12 @@
-use error::{Result, InFile};
 use error::ErrorKind::BadMetadataSyntax;
+use error::{Result, InFile};
 use name::WadName;
 use regex::Regex;
 use rustc_serialize::{Encodable, Decodable};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use std::str;
 use toml::{Decoder, Value, Parser};
 use types::ThingType;
 
@@ -71,7 +72,10 @@ impl WadMetadata {
 
     pub fn sky_for(&self, name: &WadName) -> &SkyMetadata {
         self.sky.iter()
-                .find(|sky| Regex::new(&sky.level_pattern).unwrap().is_match(name))
+                .find(|sky| {
+                    Regex::new(&sky.level_pattern).unwrap()
+                        .is_match(str::from_utf8(&name[..]).unwrap())
+                })
                 .unwrap_or(&self.sky[0])
     }
 }

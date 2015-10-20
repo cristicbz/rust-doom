@@ -10,14 +10,15 @@ use std::io::Read;
 use std::str;
 use std::error::Error;
 use std::ops::Deref;
+use std::borrow::Borrow;
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct WadName([u8; 8]);
 
 impl Deref for WadName {
-    type Target = str;
-    fn deref(&self) -> &str {
-        str::from_utf8(&self.0).unwrap()  // Guaranteed by construction invariants.
+    type Target = [u8; 8];
+    fn deref(&self) -> &[u8; 8] {
+        &self.0
     }
 }
 
@@ -62,17 +63,17 @@ impl WadName {
 
 impl Display for WadName {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "{}", self.deref())
+        write!(formatter, "{}", str::from_utf8(&self[..]).unwrap())
     }
 }
 impl Debug for WadName {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "WadName({:?})", self.deref())
+        write!(formatter, "WadName({:?})", str::from_utf8(&self[..]).unwrap())
     }
 }
 impl Encodable for WadName {
     fn encode<S: Encoder>(&self, encoder: &mut S) -> StdResult<(), <S as Encoder>::Error> {
-        self.deref().encode(encoder)
+        str::from_utf8(&self[..]).unwrap().encode(encoder)
     }
 }
 
@@ -96,9 +97,15 @@ impl WadReadFrom for WadName {
     }
 }
 
-impl PartialEq<str> for WadName {
-    fn eq(&self, rhs: &str) -> bool {
+impl PartialEq<[u8; 8]> for WadName {
+    fn eq(&self, rhs: &[u8; 8]) -> bool {
         self.deref() == rhs
+    }
+}
+
+impl Borrow<[u8; 8]> for WadName {
+    fn borrow(&self) -> &[u8; 8] {
+        self.deref()
     }
 }
 
@@ -108,16 +115,16 @@ mod test {
 
     #[test]
     fn test_wad_name() {
-        assert_eq!(&WadName::from_str("").unwrap(), "\0\0\0\0\0\0\0\0");
-        assert_eq!(&WadName::from_str("\0").unwrap(), "\0\0\0\0\0\0\0\0");
-        assert_eq!(&WadName::from_str("\01234567").unwrap(), "\0\0\0\0\0\0\0\0");
-        assert_eq!(&WadName::from_str("A").unwrap(), "A\0\0\0\0\0\0\0");
-        assert_eq!(&WadName::from_str("1234567").unwrap(), "1234567\0");
-        assert_eq!(&WadName::from_str("12345678").unwrap(), "12345678");
-        assert_eq!(&WadName::from_str("123\05678").unwrap(), "123\0\0\0\0\0");
-        assert_eq!(&WadName::from_str("SKY1").unwrap(), "SKY1\0\0\0\0");
-        assert_eq!(&WadName::from_str("-").unwrap(), "-\0\0\0\0\0\0\0");
-        assert_eq!(&WadName::from_str("_").unwrap(), "_\0\0\0\0\0\0\0");
+        assert_eq!(&WadName::from_str("").unwrap(), b"\0\0\0\0\0\0\0\0");
+        assert_eq!(&WadName::from_str("\0").unwrap(), b"\0\0\0\0\0\0\0\0");
+        assert_eq!(&WadName::from_str("\01234567").unwrap(), b"\0\0\0\0\0\0\0\0");
+        assert_eq!(&WadName::from_str("A").unwrap(), b"A\0\0\0\0\0\0\0");
+        assert_eq!(&WadName::from_str("1234567").unwrap(), b"1234567\0");
+        assert_eq!(&WadName::from_str("12345678").unwrap(), b"12345678");
+        assert_eq!(&WadName::from_str("123\05678").unwrap(), b"123\0\0\0\0\0");
+        assert_eq!(&WadName::from_str("SKY1").unwrap(), b"SKY1\0\0\0\0");
+        assert_eq!(&WadName::from_str("-").unwrap(), b"-\0\0\0\0\0\0\0");
+        assert_eq!(&WadName::from_str("_").unwrap(), b"_\0\0\0\0\0\0\0");
 
         assert!(WadName::from_bytes(b"123456789").is_err());
         assert!(WadName::from_bytes(b"1234\xfb").is_err());

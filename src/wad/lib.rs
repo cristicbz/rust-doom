@@ -2,7 +2,6 @@
 #[macro_use] extern crate log;
 #[macro_use] extern crate regex;
 
-extern crate bincode;
 extern crate byteorder;
 extern crate common;
 extern crate gfx;

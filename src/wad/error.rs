@@ -36,7 +36,7 @@ pub enum ErrorKind {
     ByteOrder(ByteOrderError),
     BadWadHeader,
     BadWadName(Vec<u8>),
-    MissingRequiredLump(WadName),
+    MissingRequiredLump(String),
     MissingRequiredPatch(WadName, WadName),
     BadMetadataSchema(TomlDecodeError),
     BadMetadataSyntax(Vec<TomlParserError>),

@@ -19,12 +19,11 @@ pub fn wad_type_from_info(wad_info: &WadInfo) -> Option<WadType> {
 }
 
 pub fn is_untextured(name: &WadName) -> bool {
-    let bytes = name.as_bytes();
-    bytes[0] == b'-' && bytes[1] == 0
+    name[0] == b'-' && name[1] == b'\0'
 }
 
 pub fn is_sky_flat(name: &WadName) -> bool {
-    name.as_bytes() == b"F_SKY1\0\0"
+    name == b"F_SKY1\0\0"
 }
 
 pub fn from_wad_height(x: WadCoord) -> f32 { (x as f32) / 100.0 }
