@@ -9,7 +9,7 @@ dependencies = [
  "gfx 0.0.1",
  "log 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "sdl2 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "time 0.1.32 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.1.33 (registry+https://github.com/rust-lang/crates.io-index)",
  "wad 0.0.1",
 ]
 
@@ -24,21 +24,10 @@ dependencies = [
 
 [[package]]
 name = "aho-corasick"
-version = "0.3.2"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "memchr 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "bincode"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "byteorder 0.3.13 (registry+https://github.com/rust-lang/crates.io-index)",
- "num 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
- "rustc-serialize 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -75,7 +64,7 @@ dependencies = [
  "math 0.0.1",
  "num 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "sdl2 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "time 0.1.32 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.1.33 (registry+https://github.com/rust-lang/crates.io-index)",
  "wad 0.0.1",
 ]
 
@@ -100,24 +89,24 @@ dependencies = [
 name = "gl"
 version = "0.0.1"
 dependencies = [
- "gl_common 0.0.4 (git+https://github.com/bjz/gl-rs.git)",
- "gl_generator 0.0.28 (git+https://github.com/bjz/gl-rs.git)",
+ "gl_common 0.1.0 (git+https://github.com/bjz/gl-rs.git)",
+ "gl_generator 0.1.0 (git+https://github.com/bjz/gl-rs.git)",
  "khronos_api 0.0.8 (git+https://github.com/bjz/gl-rs.git)",
  "libc 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "gl_common"
-version = "0.0.4"
-source = "git+https://github.com/bjz/gl-rs.git#969ba52058be47a77245afdd2a73c777c4918854"
+version = "0.1.0"
+source = "git+https://github.com/bjz/gl-rs.git#36d93dc93d56c24f66ad71d02c4ccc635e3d50c1"
 dependencies = [
  "libc 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "gl_generator"
-version = "0.0.28"
-source = "git+https://github.com/bjz/gl-rs.git#969ba52058be47a77245afdd2a73c777c4918854"
+version = "0.1.0"
+source = "git+https://github.com/bjz/gl-rs.git#36d93dc93d56c24f66ad71d02c4ccc635e3d50c1"
 dependencies = [
  "khronos_api 0.0.8 (git+https://github.com/bjz/gl-rs.git)",
  "log 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -136,7 +125,7 @@ dependencies = [
 [[package]]
 name = "khronos_api"
 version = "0.0.8"
-source = "git+https://github.com/bjz/gl-rs.git#969ba52058be47a77245afdd2a73c777c4918854"
+source = "git+https://github.com/bjz/gl-rs.git#36d93dc93d56c24f66ad71d02c4ccc635e3d50c1"
 
 [[package]]
 name = "libc"
@@ -190,7 +179,7 @@ name = "regex"
 version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "aho-corasick 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "aho-corasick 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "memchr 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex-syntax 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -227,16 +216,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "num 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "time"
-version = "0.1.32"
+version = "0.1.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "kernel32-sys 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -246,7 +227,7 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.1.22"
+version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "rustc-serialize 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -256,7 +237,6 @@ dependencies = [
 name = "wad"
 version = "0.0.1"
 dependencies = [
- "bincode 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 0.3.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "common 0.0.1",
  "gfx 0.0.1",
@@ -267,8 +247,8 @@ dependencies = [
  "regex 0.1.41 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "sdl2 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "time 0.1.32 (registry+https://github.com/rust-lang/crates.io-index)",
- "toml 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.1.33 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toml 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
