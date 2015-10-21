@@ -1,9 +1,20 @@
 language: rust
 
-install:
-  - sudo add-apt-repository ppa:team-xbmc/ppa -y
-  - sudo apt-get update -q
-  - sudo apt-get install libsdl2-dev
+sudo: false
+
+cache:
+  directories:
+    - $HOME/SDL2
+
+before_install:
+  - if [ ! -d "$HOME/SDL2/lib" ]; then wget https://www.libsdl.org/release/SDL2-2.0.3.tar.gz -O ~/SDL2.tar.gz && tar -xzvf ~/SDL2.tar.gz -C ~/ && mkdir ~/sdl-build && cd ~/sdl-build && ~/SDL2-2.0.3/configure --prefix=$HOME/SDL2 && make && make install; else echo 'Using cached SDL2 build directory.'; fi
+  - export "LIBRARY_PATH=$LIBRARY_PATH:$HOME/SDL2/lib"
+  - export "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/SDL2/lib"
+
+rust:
+  - stable
+  - beta
+  - nightly
 
 script:
   - rustc --version
