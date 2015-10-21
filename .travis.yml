@@ -17,6 +17,7 @@ rust:
   - nightly
 
 script:
+  - cd $TRAVIS_BUILD_DIR
   - rustc --version
   - cargo build
   - make test
