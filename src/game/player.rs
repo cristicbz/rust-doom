@@ -2,10 +2,10 @@ use camera::Camera;
 use ctrl::{Analog2d, Gesture};
 use ctrl::GameController;
 use level::Level;
-use math::{Vec3f, Vec2f, Numvec};
+use math::{Vec3f, Vec2f, Vector};
 use sdl2::keyboard::Scancode;
 use std::default::Default;
-use num::Float;
+use num::{Float, Zero};
 
 
 pub struct PlayerBindings {
@@ -87,10 +87,10 @@ impl Player {
         let mut pos = *self.camera.position();
         let old_pos = pos;
 
-        pos.x += self.horizontal_speed.x * delta_time;
-        pos.z += self.horizontal_speed.y * delta_time;
-        pos.y += self.vertical_speed * delta_time;
-        level.heights_at(&Vec2f::new(pos.x, pos.z)).map(|(floor, ceil)| {
+        pos[0] += self.horizontal_speed[0] * delta_time;
+        pos[2] += self.horizontal_speed[1] * delta_time;
+        pos[1] += self.vertical_speed * delta_time;
+        level.heights_at(&Vec2f::new(pos[0], pos[2])).map(|(floor, ceil)| {
             let (floor, ceil) = (floor + 50.0 / 100.0, ceil - 1.0 / 100.0);
             let ceil = if ceil < floor { floor } else { ceil };
             self.floor_height = floor;
@@ -98,7 +98,7 @@ impl Player {
         });
 
 
-        let floor_dist = pos.y - self.floor_height;
+        let floor_dist = pos[1] - self.floor_height;
         let in_control = self.vertical_speed.abs() < 0.5 && floor_dist < 1e-1;
         let floored = floor_dist < 1e-2;
 
@@ -108,21 +108,21 @@ impl Player {
             self.horizontal_speed = self.horizontal_speed * 0.97;
         }
 
-        if old_pos.y < self.floor_height && pos.y > self.floor_height
-                || old_pos.y > self.floor_height && pos.y < self.floor_height
+        if old_pos[1] < self.floor_height && pos[1] > self.floor_height
+                || old_pos[1] > self.floor_height && pos[1] < self.floor_height
                 || floor_dist.abs() <= 1e-3 {
             self.vertical_speed = 0.0;
-            pos.y = self.floor_height;
-        } else if pos.y > self.ceil_height {
+            pos[1] = self.floor_height;
+        } else if pos[1] > self.ceil_height {
             self.vertical_speed = 0.0;
-            pos.y = self.ceil_height;
+            pos[1] = self.ceil_height;
         } else {
-            if pos.y < self.floor_height {
-                if self.floor_height - pos.y > 1.0 {
-                    pos.y = self.floor_height;
+            if pos[1] < self.floor_height {
+                if self.floor_height - pos[1] > 1.0 {
+                    pos[1] = self.floor_height;
                 } else {
                     self.vertical_speed += 10.0 * delta_time;
-                    pos.y = pos.y * 0.7 + self.floor_height * 0.3;
+                    pos[1] = pos[1] * 0.7 + self.floor_height * 0.3;
                 }
             } else {
                 self.vertical_speed -= 17.0 * delta_time;
@@ -132,14 +132,14 @@ impl Player {
         let movement = self.bindings.movement_vector(controller);
         let look = self.bindings.look_vector(controller);
         if movement.norm() != 0.0 || look.norm() != 0.0 {
-            let yaw = self.camera.yaw() + look.x;
-            let pitch = clamp(self.camera.pitch() + look.y, (-3.14 / 2.0, 3.14 / 2.0));
+            let yaw = self.camera.yaw() + look[0];
+            let pitch = clamp(self.camera.pitch() + look[1], (-3.14 / 2.0, 3.14 / 2.0));
             self.camera.set_yaw(yaw);
             self.camera.set_pitch(pitch);
 
             let movement = Vec2f::new(
-                yaw.cos() * movement.x + yaw.sin() * movement.y,
-                -yaw.cos() * movement.y + yaw.sin() * movement.x) * self.move_accel;
+                yaw.cos() * movement[0] + yaw.sin() * movement[1],
+                -yaw.cos() * movement[1] + yaw.sin() * movement[0]) * self.move_accel;
             let mut displacement = self.move_accel * delta_time;
             if !floored {
                 displacement *= 0.05;

@@ -2,7 +2,7 @@ use num::Float;
 use std::fmt;
 use std::ops::{Add, Sub, Mul};
 
-use numvec::Vec3f;
+use vector::{Vec3f, Vector};
 
 /// The type of matrix elements.
 pub type Scalar = f32;
@@ -15,7 +15,6 @@ pub type Scalar = f32;
 /// are currently supported (and not super-efficiently implemented).
 ///
 /// _Note:_ The 16 elements are stored in place, so copies are not cheap.
-#[repr(packed)]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Mat4 {
@@ -65,9 +64,9 @@ impl Mat4 {
         let nca = 1.0 - ca;
         let u = axis;
         Mat4::new(
-            ca + u.x*u.x*nca, u.x*u.y*nca - u.z*sa, u.x*u.z*nca + u.y*sa, 0.0,
-            u.y*u.x*nca + u.z*sa, ca + u.y*u.y*nca, u.y*u.z*nca - u.x*sa, 0.0,
-            u.z*u.x*nca - u.y*sa, u.z*u.y*nca + u.x*sa, ca + u.z*u.z*nca, 0.0,
+            ca + u[0]*u[0]*nca, u[0]*u[1]*nca - u[2]*sa, u[0]*u[2]*nca + u[1]*sa, 0.0,
+            u[1]*u[0]*nca + u[2]*sa, ca + u[1]*u[1]*nca, u[1]*u[2]*nca - u[0]*sa, 0.0,
+            u[2]*u[0]*nca - u[1]*sa, u[2]*u[1]*nca + u[0]*sa, ca + u[2]*u[2]*nca, 0.0,
             0.0, 0.0, 0.0, 1.0
         )
     }
@@ -87,9 +86,9 @@ impl Mat4 {
 
     /// Creates a translation matrix which maps points `p` to `p + by`.
     pub fn new_translation(by: Vec3f) -> Mat4 {
-        Mat4::new(1.0, 0.0, 0.0, by.x,
-                  0.0, 1.0, 0.0, by.y,
-                  0.0, 0.0, 1.0, by.z,
+        Mat4::new(1.0, 0.0, 0.0, by[0],
+                  0.0, 1.0, 0.0, by[1],
+                  0.0, 0.0, 1.0, by[2],
                   0.0, 0.0, 0.0,  1.0)
     }
 

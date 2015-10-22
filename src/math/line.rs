@@ -1,15 +1,14 @@
 use num::{Float, NumCast};
-use numvec::{Vec2, Numvec};
-
+use vector::{Vec2, Vector, Field};
 
 pub type Line2f = Line2<f32>;
 
 #[derive(Copy, Clone)]
-pub struct Line2<T: Float + NumCast> {
+pub struct Line2<T: Copy + Field + Float + NumCast> {
     origin: Vec2<T>,
     displace: Vec2<T>,
 }
-impl<T: Float + NumCast> Line2<T> {
+impl<T: Copy + Field + Float + NumCast> Line2<T> {
     pub fn from_origin_and_displace(origin: Vec2<T>,
                                     displace: Vec2<T>) -> Line2<T> {
         Line2 { origin: origin, displace: displace.normalized() }
@@ -32,8 +31,7 @@ impl<T: Float + NumCast> Line2<T> {
         if numerator.abs() < <T as NumCast>::from(1e-16).unwrap() {
             None
         } else {
-            Some((other.origin - self.origin).cross(&other.displace) /
-                 numerator)
+            Some((other.origin - self.origin).cross(&other.displace) / numerator)
         }
     }
 

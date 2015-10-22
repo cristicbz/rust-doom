@@ -1,5 +1,6 @@
-use math::{Mat4, Vec3, Vec3f};
 use cached::Cached;
+use math::{Mat4, Vec3f};
+use num::Zero;
 
 /// A Camera object abstracts a projection-modelview transform, by providing concepts like
 /// position and orientation.
@@ -25,7 +26,7 @@ impl Camera {
     /// specified perspective parameters.
     pub fn new(fov: f32, aspect_ratio: f32, near: f32, far: f32) -> Camera {
         let camera = Camera {
-            position: Vec3::zero(), yaw: 0.0, pitch: 0.0, roll: 0.0,
+            position: Vec3f::zero(), yaw: 0.0, pitch: 0.0, roll: 0.0,
 
             fov: fov, aspect_ratio: aspect_ratio,
             near: near, far: far,  // Whereeeever you are.
@@ -114,7 +115,7 @@ impl Camera {
 #[cfg(test)]
 mod test {
     use super::Camera;
-    use math::{Mat4, Vec3};
+    use math::{Mat4, Vec3f};
 
     #[test]
     fn projection() {
@@ -140,24 +141,24 @@ mod test {
         camera.set_yaw(0.0);
         camera.set_pitch(0.0);
         camera.set_roll(0.0);
-        camera.set_position(Vec3::new(0.0, 0.0, 0.0));
+        camera.set_position(Vec3f::new(0.0, 0.0, 0.0));
         assert_eq!(camera.yaw(), 0.0);
         assert_eq!(camera.pitch(), 0.0);
         assert_eq!(camera.roll(), 0.0);
-        assert_eq!(camera.position(), &Vec3::new(0.0, 0.0, 0.0));
+        assert_eq!(camera.position(), &Vec3f::new(0.0, 0.0, 0.0));
 
         camera.set_yaw(1.0);
         camera.set_pitch(2.0);
         camera.set_roll(3.0);
-        camera.set_position(Vec3::new(4.0, 5.0, 6.0));
+        camera.set_position(Vec3f::new(4.0, 5.0, 6.0));
         assert_eq!(camera.yaw(), 1.0);
         assert_eq!(camera.pitch(), 2.0);
         assert_eq!(camera.roll(), 3.0);
-        assert_eq!(camera.position(), &Vec3::new(4.0, 5.0, 6.0));
+        assert_eq!(camera.position(), &Vec3f::new(4.0, 5.0, 6.0));
 
         assert!(camera.modelview().approx_eq(
                 &(Mat4::new_euler_rotation(1.0, 2.0, 3.0)
-                  * Mat4::new_translation(Vec3::new(-4.0, -5.0, -6.0))),
+                  * Mat4::new_translation(Vec3f::new(-4.0, -5.0, -6.0))),
                 1e-16));
     }
 }

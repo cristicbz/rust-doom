@@ -1,8 +1,9 @@
-use math::{Vec2f, Vec2};
-use sdl2::{Sdl, EventPump};
+use math::Vec2f;
+use num::Zero;
 use sdl2::event::Event;
-use sdl2::mouse::{Mouse, MouseUtil};
 use sdl2::keyboard::Scancode;
+use sdl2::mouse::{Mouse, MouseUtil};
+use sdl2::{Sdl, EventPump};
 use std::vec::Vec;
 
 pub type Sensitivity = f32;
@@ -51,7 +52,7 @@ impl GameController {
             quit_requested_index: 0,
             mouse_util: mouse_util,
             mouse_enabled: true,
-            mouse_rel: Vec2::zero(),
+            mouse_rel: Vec2f::zero(),
             pump: pump,
         }
     }
@@ -66,7 +67,7 @@ impl GameController {
 
     pub fn update(&mut self) {
         self.current_update_index += 1;
-        self.mouse_rel = Vec2::zero();
+        self.mouse_rel = Vec2f::zero();
         for event in self.pump.poll_iter() {
             match event {
                 Event::Quit { .. } => {
@@ -82,9 +83,9 @@ impl GameController {
                 },
                 Event::MouseMotion { xrel, yrel, .. } => {
                     if self.mouse_enabled {
-                        self.mouse_rel = Vec2::new(xrel as f32, yrel as f32);
+                        self.mouse_rel = Vec2f::new(xrel as f32, yrel as f32);
                     } else {
-                        self.mouse_rel = Vec2::zero();
+                        self.mouse_rel = Vec2f::zero();
                     }
                 },
                 _ => {}
@@ -132,7 +133,7 @@ impl GameController {
             &Analog2d::Mouse(sensitivity) => self.mouse_rel * sensitivity,
             &Analog2d::Gestures(
                     ref xpos, ref xneg, ref ypos, ref yneg, step) => {
-                Vec2::new(
+                Vec2f::new(
                     if self.poll_gesture(xpos) { step }
                     else if self.poll_gesture(xneg) { -step }
                     else { 0.0 },
@@ -141,7 +142,7 @@ impl GameController {
                     else { 0.0 }
                 )
             }
-            &Analog2d::NoAnalog2d => Vec2::zero()
+            &Analog2d::NoAnalog2d => Vec2f::zero()
         }
     }
 }
