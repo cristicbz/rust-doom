@@ -6,10 +6,10 @@ cache:
   directories:
     - $HOME/SDL2
     - $HOME/.cargo
-    - target/debug/deps
-    - target/debug/build
+    - $HOME/artifacts
 
 before_install:
+  - mkdir -p "$HOME/artifacts"
   - if [ ! -d "$HOME/SDL2/lib" ]; then wget https://www.libsdl.org/release/SDL2-2.0.3.tar.gz -O ~/SDL2.tar.gz && tar -xzvf ~/SDL2.tar.gz -C ~/ && mkdir ~/sdl-build && cd ~/sdl-build && ~/SDL2-2.0.3/configure --prefix=$HOME/SDL2 && make && make install; else echo 'Using cached SDL2 build directory.'; fi
   - export "LIBRARY_PATH=$LIBRARY_PATH:$HOME/SDL2/lib"
   - export "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/SDL2/lib"
@@ -21,6 +21,10 @@ rust:
 
 script:
   - cd $TRAVIS_BUILD_DIR
+  - export ARTIFACT_CACHE="$HOME/artifacts/$(rustc --version | sed 's/^rustc \([^ ]*\).*$/\1/g')"
+  - mkdir -p "$ARTIFACT_CACHE"
+  - rm -rf target
+  - ln -s "$ARTIFACT_CACHE" target
   - rustc --version
   - cargo build
   - make test
