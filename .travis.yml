@@ -5,6 +5,9 @@ sudo: false
 cache:
   directories:
     - $HOME/SDL2
+    - $HOME/.cargo
+    - target/debug/deps
+    - target/debug/build
 
 before_install:
   - if [ ! -d "$HOME/SDL2/lib" ]; then wget https://www.libsdl.org/release/SDL2-2.0.3.tar.gz -O ~/SDL2.tar.gz && tar -xzvf ~/SDL2.tar.gz -C ~/ && mkdir ~/sdl-build && cd ~/sdl-build && ~/SDL2-2.0.3/configure --prefix=$HOME/SDL2 && make && make install; else echo 'Using cached SDL2 build directory.'; fi

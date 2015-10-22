@@ -1,6 +1,6 @@
 use gfx::{BufferBuilder, Renderer, RenderStep, ShaderLoader, VertexBuffer, StepId};
 use gl;
-use math::{Mat4, Line2, Line2f, Vec2f, Vec2, Vec3f, Vec3, Numvec};
+use math::{Mat4, Line2f, Vec2f, Vec3f, Vector};
 use lights::{LightBuffer, FakeContrast};
 use std::cmp::Ordering;
 use std::rc::Rc;
@@ -11,6 +11,7 @@ use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
 use wad::types::{WadSeg, WadCoord, WadSector, WadName, WadThing, ChildId, ThingType};
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id, is_sky_flat};
 use std::error::Error;
+use num::Zero;
 
 pub struct Level {
     start_pos: Vec3f,
@@ -67,9 +68,9 @@ impl Level {
                 let height = 0.5 + volume.sector_at(&pos)
                     .map(|sector| sector.floor)
                     .unwrap_or(0.0);
-                Vec3::new(pos.x, height, pos.y)
+                Vec3f::new(pos[0], height, pos[1])
             })
-            .unwrap_or(Vec3::zero());
+            .unwrap_or(Vec3f::zero());
 
         Ok(Level {
             start_pos: start_pos,
@@ -292,7 +293,7 @@ impl Poly {
     pub fn contains(&self, point: &Vec2f) -> bool {
         self.poly.iter()
             .zip(self.poly[1..].iter().chain(Some(&self.poly[0]).into_iter()))
-            .map(|(a, b)| Line2::from_two_points(*a, *b))
+            .map(|(a, b)| Line2f::from_two_points(*a, *b))
             .all(|l| l.signed_distance(point) >= 0.0)
     }
 }
@@ -461,21 +462,21 @@ impl<'a> VboBuilder<'a> {
         };
 
         let (low, high) = if meta.hanging {
-            (Vec3f::new(pos.x, sector.ceil - bounds.size.y / 100.0, pos.y),
-             Vec3f::new(pos.x, sector.ceil, pos.y))
+            (Vec3f::new(pos[0], sector.ceil - bounds.size[1] / 100.0, pos[1]),
+             Vec3f::new(pos[0], sector.ceil, pos[1]))
         } else {
-            (Vec3f::new(pos.x, sector.floor, pos.y),
-             Vec3f::new(pos.x, sector.floor + bounds.size.y / 100.0, pos.y))
+            (Vec3f::new(pos[0], sector.floor, pos[1]),
+             Vec3f::new(pos[0], sector.floor + bounds.size[1] / 100.0, pos[1]))
         };
-        let half_width = bounds.size.x / 100.0 * 0.5;
+        let half_width = bounds.size[0] / 100.0 * 0.5;
 
-        self.decor_vertex(&low, -half_width, 0.0, bounds.size.y, bounds, sector.light_info);
-        self.decor_vertex(&low, half_width, bounds.size.x, bounds.size.y, bounds,
+        self.decor_vertex(&low, -half_width, 0.0, bounds.size[1], bounds, sector.light_info);
+        self.decor_vertex(&low, half_width, bounds.size[0], bounds.size[1], bounds,
                           sector.light_info);
         self.decor_vertex(&high, -half_width, 0.0, 0.0, bounds, sector.light_info);
-        self.decor_vertex(&low, half_width, bounds.size.x, bounds.size.y, bounds,
+        self.decor_vertex(&low, half_width, bounds.size[0], bounds.size[1], bounds,
                           sector.light_info);
-        self.decor_vertex(&high, half_width, bounds.size.x, 0.0, bounds, sector.light_info);
+        self.decor_vertex(&high, half_width, bounds.size[0], 0.0, bounds, sector.light_info);
         self.decor_vertex(&high, -half_width, 0.0, 0.0, bounds, sector.light_info);
     }
 
@@ -487,7 +488,7 @@ impl<'a> VboBuilder<'a> {
         }
 
         let node = &self.level.nodes[id];
-        let partition = Line2::from_origin_and_displace(
+        let partition = Line2f::from_origin_and_displace(
             from_wad_coords(node.line_x, node.line_y),
             from_wad_coords(node.step_x, node.step_y));
         lines.push(partition);
@@ -512,7 +513,7 @@ impl<'a> VboBuilder<'a> {
             let (v1, v2) = self.level.seg_vertices(seg);
             points.push(v1);
             points.push(v2);
-            seg_lines.push(Line2::from_two_points(v1, v2));
+            seg_lines.push(Line2f::from_two_points(v1, v2));
 
             // Also push the wall segments.
             self.seg(seg);
@@ -635,17 +636,17 @@ impl<'a> VboBuilder<'a> {
         let (v1, v2) = (v1 - bias, v2 + bias);
         let (low, high) = match peg {
             Peg::TopFloat => (from_wad_height(low + side.y_offset),
-                              from_wad_height(low + bounds.size.y as i16 +
+                              from_wad_height(low + bounds.size[1] as i16 +
                                               side.y_offset)),
             Peg::BottomFloat => (from_wad_height(high + side.y_offset -
-                                                 bounds.size.y as i16),
+                                                 bounds.size[1] as i16),
                                  from_wad_height(high + side.y_offset)),
             _ => (from_wad_height(low), from_wad_height(high))
         };
 
-        let fake_contrast = if v1.x == v2.x {
+        let fake_contrast = if v1[0] == v2[0] {
             FakeContrast::Brighten
-        } else if v1.y == v2.y {
+        } else if v1[1] == v2[1] {
             FakeContrast::Darken
         } else {
             FakeContrast::None
@@ -656,16 +657,16 @@ impl<'a> VboBuilder<'a> {
         let s2 = s1 + (v2 - v1).norm() * 100.0;
         let (t1, t2) = match peg {
             Peg::Top => (height, 0.0),
-            Peg::Bottom => (bounds.size.y, bounds.size.y - height),
+            Peg::Bottom => (bounds.size[1], bounds.size[1] - height),
             Peg::BottomLower => {
                 // As far as I can tell, this is a special case.
                 let sector_height = (sector.ceiling_height -
                                      sector.floor_height) as f32;
-                (bounds.size.y + sector_height,
-                 bounds.size.y - height + sector_height)
+                (bounds.size[1] + sector_height,
+                 bounds.size[1] - height + sector_height)
             },
             Peg::TopFloat | Peg::BottomFloat => {
-                (bounds.size.y, 0.0)
+                (bounds.size[1], 0.0)
             }
         };
         let (t1, t2) = (t1 + side.y_offset as f32, t2 + side.y_offset as f32);
@@ -769,16 +770,16 @@ impl<'a> VboBuilder<'a> {
 
     fn sky_vertex(&mut self, xz: &Vec2f, y: f32) {
         self.sky.push(SkyVertex {
-            _pos: Vec3::new(xz.x, y, xz.y),
+            _pos: Vec3f::new(xz[0], y, xz[1]),
         });
     }
 
     fn flat_vertex(&mut self, xz: &Vec2f, y: f32, light_info: u8,
                    bounds: &Bounds) {
         self.flats.push(StaticVertex {
-            _pos: Vec3::new(xz.x, y, xz.y),
+            _pos: Vec3f::new(xz[0], y, xz[1]),
             _atlas_uv: bounds.pos,
-            _tile_uv: -Vec2::new(xz.x, xz.y) * 100.0,
+            _tile_uv: -Vec2f::new(xz[0], xz[1]) * 100.0,
             _tile_size: bounds.size,
             _scroll_rate: 0.0,
             _num_frames: bounds.num_frames as u8,
@@ -790,9 +791,9 @@ impl<'a> VboBuilder<'a> {
     fn wall_vertex(&mut self, xz: &Vec2f, y: f32, tile_u: f32, tile_v: f32,
                    light_info: u8, scroll_rate: f32, bounds: &Bounds) {
         self.walls.push(StaticVertex {
-            _pos: Vec3::new(xz.x, y, xz.y),
+            _pos: Vec3f::new(xz[0], y, xz[1]),
             _atlas_uv: bounds.pos,
-            _tile_uv: Vec2::new(tile_u, tile_v),
+            _tile_uv: Vec2f::new(tile_u, tile_v),
             _tile_size: bounds.size,
             _scroll_rate: scroll_rate,
             _num_frames: bounds.num_frames as u8,
@@ -807,7 +808,7 @@ impl<'a> VboBuilder<'a> {
             _pos: *pos,
             _local_x: local_x,
             _atlas_uv: bounds.pos,
-            _tile_uv: Vec2::new(tile_u, tile_v),
+            _tile_uv: Vec2f::new(tile_u, tile_v),
             _tile_size: bounds.size,
             _num_frames: 1,
             _light: light_info,
@@ -817,7 +818,7 @@ impl<'a> VboBuilder<'a> {
 }
 
 fn polygon_center(points: &[Vec2f]) -> Vec2f {
-    let mut center = Vec2::zero();
+    let mut center = Vec2f::zero();
     for p in points.iter() { center = center + *p; }
     center / (points.len() as f32)
 }
@@ -830,21 +831,21 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
         |a, b| {
             let ac = *a - center;
             let bc = *b - center;
-            if ac.x >= 0.0 && bc.x < 0.0 {
+            if ac[0] >= 0.0 && bc[0] < 0.0 {
                 return Ordering::Less;
             }
-            if ac.x < 0.0 && bc.x >= 0.0 {
+            if ac[0] < 0.0 && bc[0] >= 0.0 {
                 return Ordering::Greater;
             }
-            if ac.x == 0.0 && bc.x == 0.0 {
-                if ac.y >= 0.0 || bc.y >= 0.0 {
-                    return if a.y > b.y {
+            if ac[0] == 0.0 && bc[0] == 0.0 {
+                if ac[1] >= 0.0 || bc[1] >= 0.0 {
+                    return if a[1] > b[1] {
                         Ordering::Less
                     } else {
                         Ordering::Greater
                     }
                 }
-                return if b.y > a.y {
+                return if b[1] > a[1] {
                     Ordering::Less
                 } else {
                     Ordering::Greater

@@ -6,7 +6,7 @@ use gl;
 use image::Image;
 use math::{Vec2, Vec2f};
 use name::WadName;
-use num::Float;
+use num::{Float, Zero};
 use read::WadRead;
 use std::cmp;
 use std::collections::BTreeMap;
