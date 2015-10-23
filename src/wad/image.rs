@@ -1,10 +1,11 @@
+use byteorder::{LittleEndian, ByteOrder, ReadBytesExt};
 use gfx::Texture;
 use gl;
-use std::vec::Vec;
-use types::WadTextureHeader;
-use byteorder::{LittleEndian, ByteOrder, ReadBytesExt};
+use math::Vec2;
 use sdl2::pixels::PixelFormatEnum;
 use std::path::Path;
+use std::vec::Vec;
+use types::WadTextureHeader;
 
 pub struct Image {
     width: usize,
@@ -83,21 +84,20 @@ impl Image {
         }
     }
 
-    pub fn blit(&mut self, source: &Image, x_offset: isize, y_offset: isize,
-                ignore_transparency: bool) {
+    pub fn blit(&mut self, source: &Image, offset: Vec2<isize>, ignore_transparency: bool) {
         // Figure out the region in source which is not out of bounds when
         // copied into self.
-        let y_start = if y_offset < 0 { (-y_offset) as usize } else { 0 };
-        let x_start = if x_offset < 0 { (-x_offset) as usize } else { 0 };
-        let y_end = if self.height as isize > source.height as isize + y_offset {
+        let y_start = if offset[1] < 0 { (-offset[1]) as usize } else { 0 };
+        let x_start = if offset[0] < 0 { (-offset[0]) as usize } else { 0 };
+        let y_end = if self.height as isize > source.height as isize + offset[1] {
             source.height
         } else {
-            (self.height as isize - y_offset) as usize
+            (self.height as isize - offset[1]) as usize
         };
-        let x_end = if self.width as isize > source.width as isize + x_offset {
+        let x_end = if self.width as isize > source.width as isize + offset[0] {
             source.width
         } else {
-            (self.width as isize - x_offset) as usize
+            (self.width as isize - offset[0]) as usize
         };
 
         let src_pitch = source.width as usize;
@@ -110,8 +110,8 @@ impl Image {
                                 .chunks(src_pitch)
                                 .take(copy_height)
                                 .map(|row| &row[..copy_width]);
-        let dest_rows = self.pixels[(x_start as isize + x_offset) as usize
-                                    + (y_start as isize + y_offset) as usize * dest_pitch..]
+        let dest_rows = self.pixels[(x_start as isize + offset[0]) as usize
+                                    + (y_start as isize + offset[1]) as usize * dest_pitch..]
                             .chunks_mut(dest_pitch)
                             .take(copy_height)
                             .map(|row| &mut row[..copy_width]);
@@ -150,6 +150,8 @@ impl Image {
 
     pub fn width(&self) -> usize { self.width }
     pub fn height(&self) -> usize { self.height }
+
+    pub fn size(&self) -> Vec2<usize> { Vec2::new(self.width, self.height) }
 
     pub fn num_pixels(&self) -> usize { self.pixels.len() }
 

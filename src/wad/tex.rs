@@ -39,17 +39,6 @@ pub struct TextureDirectory {
     animated_flats: Vec<Vec<WadName>>,
 }
 
-fn search_for_frame<'a>(search_for: &WadName, animations: &'a Vec<Vec<WadName>>)
-        -> Option<&'a [WadName]> {
-    for animation in animations.iter() {
-        for frame in animation.iter() {
-            if search_for == frame { return Some(&animation); }
-        }
-    }
-    None
-}
-
-
 impl TextureDirectory {
     pub fn from_archive(wad: &Archive) -> Result<TextureDirectory> {
         info!("Reading texture directory...");
@@ -159,118 +148,109 @@ impl TextureDirectory {
     }
 
 
-    pub fn build_texture_atlas<'a, T: Iterator<Item = &'a WadName>>(
+    pub fn build_texture_atlas<'a, T: IntoIterator<Item = &'a WadName>>(
             &'a self, names_iter: T) -> (Texture, BoundsLookup) {
-        let images = ordered_atlas_entries(
-            &self.animated_walls,
-            |n| self.texture(n),
-            names_iter);
-        if images.len() == 0 {
+        let entries = ordered_atlas_entries(&self.animated_walls,
+                                            |n| self.texture(&n),
+                                            names_iter);
+        if entries.len() == 0 {
             return (Texture::new(gl::TEXTURE_2D), BoundsLookup::new());
         }
 
-        let num_pixels = images
-            .iter().map(|t| t.1.num_pixels()).fold(0, |x, y| x + y);
-        let min_atlas_width = cmp::min(
-            128, next_pow2(images.iter().map(|t| t.1.width()).max().unwrap()));
-        let min_atlas_height = 128;
+        let num_pixels = entries.iter().map(|e| e.image.num_pixels()).fold(0, |x, y| x + y);
+        let max_image_width = entries.iter().map(|e| e.image.width()).max().unwrap();
+        let min_atlas_size = Vec2::new(cmp::min(128, next_pow2(max_image_width)), 128);
         let max_size = 4096;
 
-        let next_size = |w: &mut usize, h: &mut usize| {
+        let next_size = |size: &mut Vec2<usize>| {
             loop {
-                if *w <= *h {
-                    if *w == max_size { panic!("Could not fit wall atlas."); }
-                    *w *= 2; *h = min_atlas_height;
-                } else { *h *= 2; }
+                if size[0] <= size[1] {
+                    if size[0] == max_size {
+                        panic!("Could not fit wall atlas.");
+                    }
+                    size[0] *= 2;
+                    size[1] = 128;
+                } else {
+                    size[1] *= 2;
+                }
 
-                if *w * *h >= num_pixels { break; }
+                if size[0] * size[1] >= num_pixels {
+                    break;
+                }
             }
         };
 
-        fn img_bound((x_offset, y_offset, row_height): (isize, isize, usize),
-                     img: &Image,
-                     num_frames: usize)
-                    -> Bounds {
-            Bounds {
-                pos: Vec2::new(x_offset as f32, y_offset as f32),
-                size: Vec2::new(img.width() as f32, img.height() as f32),
-                num_frames: num_frames,
-                row_height: row_height
-            }
-        }
-
-
-        let (mut atlas_width, mut atlas_height) = (min_atlas_width,
-                                                   min_atlas_height);
-        next_size(&mut atlas_width, &mut atlas_height);
+        let mut atlas_size = min_atlas_size;
+        next_size(&mut atlas_size);
 
         let mut transposed = false;
-        let mut offsets = Vec::with_capacity(images.len());
+        let mut positions = Vec::with_capacity(entries.len());
         loop {
-            let mut x_offset = 0;
-            let mut y_offset = 0;
+            let mut offset = Vec2::zero();
             let mut failed = false;
-            let mut max_height = 0;
-            for &(_, image, _, _) in images.iter() {
-                let (width, height) = (image.width(), image.height());
-                if x_offset + width > atlas_width {
-                    x_offset = 0;
-                    y_offset += max_height;
-                    max_height = 0;
+            let mut row_height = 0;
+            for &AtlasEntry { image, .. } in entries.iter() {
+                let size = image.size();
+                if offset[0] + size[0] > atlas_size[0] {
+                    offset[0] = 0;
+                    offset[1] += row_height;
+                    row_height = 0;
                 }
-                if height > max_height { max_height = height; }
-                if y_offset + height > atlas_height {
+                if size[1] > row_height {
+                    row_height = size[1];
+                }
+                if offset[1] + size[1] > atlas_size[1] {
                     failed = true;
                     break;
                 }
-                offsets.push((x_offset as isize, y_offset as isize, max_height as usize));
-                x_offset += width;
+                positions.push(AtlasPosition {
+                                   offset: Vec2::new(offset[0] as isize, offset[1] as isize),
+                                   row_height: row_height
+                               });
+                offset[0] += size[0];
             }
 
             if failed {
-                offsets.clear();
+                positions.clear();
 
                 // Try swapping width and height to see if it fits that way.
-                mem::swap(&mut atlas_width, &mut atlas_height);
+                atlas_size.swap();
                 transposed = !transposed;
-                if transposed && atlas_width != atlas_height {
+                if transposed && atlas_size[0] != atlas_size[1] {
                     continue;
                 }
 
                 // If all else fails try a larger size for the atlas.
                 transposed = false;
-                next_size(&mut atlas_width, &mut atlas_height);
+                next_size(&mut atlas_size);
             } else {
                 break;
             }
         }
-        let (atlas_width, atlas_height) = (atlas_width, atlas_height);
+        let atlas_size = atlas_size;
 
-        assert!(offsets.len() == images.len());
-        let mut atlas = Image::new(atlas_width, atlas_height);
+        assert!(positions.len() == entries.len());
+        let mut atlas = Image::new(atlas_size[0], atlas_size[1]);
         let mut bound_map = BTreeMap::new();
-        for (i, (name, image, frame_offset, num_frames)) in images.into_iter().enumerate() {
-            atlas.blit(image, offsets[i].0, offsets[i].1, true);
-            bound_map.insert(*name,
-                             img_bound(offsets[i - frame_offset],
-                                       image,
-                                       num_frames));
+        for (i, entry) in entries.iter().enumerate() {
+            atlas.blit(entry.image, positions[i].offset, true);
+            bound_map.insert(entry.name, img_bound(&positions[i - entry.frame_offset], entry));
         }
 
         let mut tex = Texture::new(gl::TEXTURE_2D);
         tex.bind(gl::TEXTURE0);
         tex.set_filters_nearest()
-           .data_rg_u8(0, atlas_width, atlas_height, atlas.pixels())
+           .data_rg_u8(0, atlas_size[0], atlas_size[1], atlas.pixels())
            .unbind(gl::TEXTURE0);
 
-        info!("Wall texture atlas size: {}x{}", atlas_width, atlas_height);
+        info!("Wall texture atlas size: {:?}", atlas_size);
         (tex, bound_map)
     }
 
     pub fn build_flat_atlas<'a, T: Iterator<Item = &'a WadName>>(
             &'a self, names_iter: T) -> (Texture, BoundsLookup) {
         let names = ordered_atlas_entries(
-            &self.animated_flats, |n| self.flat(n),
+            &self.animated_flats, |n| self.flat(&n),
             names_iter);
         let num_names = names.len();
 
@@ -286,14 +266,12 @@ impl TextureDirectory {
         info!("Flat atlas size: {}x{} ({}, {})", width, height, flats_per_row,
                                                  num_rows);
         let mut anim_start_pos = Vec2::zero();
-        for (name, flat, frame_offset, num_frames) in names.into_iter() {
-            let x_offset = column * 64;
-            let y_offset = row * 64;
-
+        for AtlasEntry { name, image, frame_offset, num_frames } in names.into_iter() {
+            let offset = Vec2::new(column * 64, row * 64);
             if frame_offset == 0 {
-               anim_start_pos = Vec2::new(x_offset as f32, y_offset as f32);
+               anim_start_pos = Vec2::new(offset[0] as f32, offset[1] as f32);
             }
-            offsets.insert(*name, Bounds {
+            offsets.insert(name, Bounds {
                 pos: anim_start_pos,
                 size: Vec2::new(64.0, 64.0),
                 num_frames: num_frames,
@@ -302,8 +280,7 @@ impl TextureDirectory {
 
             for y in 0 .. 64 {
                 for x in 0 .. 64 {
-                    data[x_offset + x + (y + y_offset) * width]
-                        = flat[x + y * 64];
+                    data[offset[0] + x + (y + offset[1]) * width] = image[x + y * 64];
                 }
             }
 
@@ -324,6 +301,17 @@ impl TextureDirectory {
     }
 }
 
+struct AtlasEntry<'a, ImageType: 'a> {
+    name: WadName,
+    image: &'a ImageType,
+    frame_offset: usize,
+    num_frames: usize,
+}
+
+struct AtlasPosition {
+    offset: Vec2<isize>,
+    row_height: usize,
+}
 
 fn next_pow2(x: usize) -> usize {
     let mut pow2 = 1;
@@ -365,6 +353,67 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     Ok(patches)
 }
 
+fn img_bound(pos: &AtlasPosition, entry: &AtlasEntry<Image>) -> Bounds {
+    Bounds {
+        pos: Vec2f::new(pos.offset[0] as f32, pos.offset[1] as f32),
+        size: Vec2f::new(entry.image.width() as f32, entry.image.height() as f32),
+        num_frames: entry.num_frames,
+        row_height: pos.row_height,
+    }
+}
+
+fn ordered_atlas_entries<'a, 'b, NameIter, Image, ImageLookup>(animations: &'b [Vec<WadName>],
+                                                               image_lookup: ImageLookup,
+                                                               names_iter: NameIter)
+                                                               -> Vec<AtlasEntry<Image>>
+        where NameIter: IntoIterator<Item=&'a WadName>,
+              ImageLookup: Fn(WadName) -> Option<&'b Image>,
+              'a: 'b {
+
+    let mut frames_by_first_frame = BTreeMap::new();
+    for name in names_iter {
+        let maybe_frames = search_for_frame(name, animations);
+        let first_frame = maybe_frames.map(|f| &f[0]).unwrap_or(name);
+        frames_by_first_frame.insert(first_frame, maybe_frames);
+    }
+    let mut entries = Vec::with_capacity(frames_by_first_frame.len());
+    for (&name, maybe_frames) in frames_by_first_frame.into_iter() {
+        match maybe_frames {
+            Some(frames) =>
+                for (offset, &frame) in frames.iter().enumerate() {
+                    if let Some(image) = image_lookup(frame) {
+                        entries.push(AtlasEntry {
+                                         name: frame,
+                                         image: image,
+                                         frame_offset: offset,
+                                         num_frames: frames.len(),
+                                     });
+                    } else {
+                        warn!("Unable to find texture/sprite: {}", frame);
+                    }
+                },
+            None => {
+                if let Some(image) = image_lookup(name) {
+                    entries.push(AtlasEntry {
+                                     name: name,
+                                     image: image,
+                                     frame_offset: 0,
+                                     num_frames: 1,
+                                 });
+                }
+            },
+        }
+    }
+    entries
+}
+
+fn search_for_frame<'a>(search_for: &WadName, animations: &'a [Vec<WadName>])
+        -> Option<&'a [WadName]> {
+    animations.iter()
+              .find(|animation| animation.iter().any(|frame| frame == search_for))
+              .map(|animation| &animation[..])
+}
+
 
 fn read_sprites(wad: &Archive, textures: &mut BTreeMap<WadName, Image>) -> Result<usize> {
     let start_index =
@@ -395,13 +444,11 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
 
         for i_patch in 0 .. header.num_patches {
             let pref = try!(lump.wad_read::<WadTexturePatchRef>());
-            let (off_x, off_y) =
-                    (pref.origin_x as isize, pref.origin_y as isize);
+            let offset = Vec2::new(pref.origin_x as isize,
+                                   if pref.origin_y <= 0 { 0 } else { pref.origin_y as isize });
             match patches[pref.patch as usize] {
                 (_, Some(ref patch)) => {
-                    image.blit(patch,
-                               off_x, if off_y < 0 { 0 } else { off_y },
-                               i_patch == 0);
+                    image.blit(patch, offset, i_patch == 0);
                 },
                 (ref patch_name, None) => {
                     return Err(MissingRequiredPatch(header.name, *patch_name).into())
@@ -428,40 +475,3 @@ fn read_flats(wad: &Archive) -> Result<BTreeMap<WadName, Flat>> {
 
     Ok(flats)
 }
-
-pub fn ordered_atlas_entries<'b, 'a: 'b,
-                             NameIteratorT: Iterator<Item = &'a WadName>,
-                             ImageT,
-                             ImageLookupT: Fn(&WadName) -> Option<&'b ImageT>>(
-            animations: &'b Vec<Vec<WadName>>,
-            image_lookup: ImageLookupT,
-            names_iter: NameIteratorT)
-        -> Vec<(&'b WadName, &'b ImageT, usize, usize)> {
-    let mut frames_by_first_frame = BTreeMap::new();
-    for name in names_iter {
-        let maybe_frames = search_for_frame(name, animations);
-        let first_frame = maybe_frames.map(|f| &f[0]).unwrap_or(name);
-        frames_by_first_frame.insert(first_frame, maybe_frames);
-    }
-    let mut names = Vec::new();
-    for (name, maybe_frames) in frames_by_first_frame.into_iter() {
-        match maybe_frames {
-            Some(frames) =>
-                for (offset, frame) in frames.iter().enumerate() {
-                    if let Some(image) = image_lookup(frame) {
-                        names.push(
-                            (frame, image, offset, frames.len()));
-                    } else {
-                        warn!("Unable to find texture/sprite: {}", frame);
-                    }
-                },
-            None => {
-                if let Some(image) = image_lookup(name) {
-                    names.push((name, image, 0, 1))
-                }
-            },
-        }
-    }
-    names
-}
-
