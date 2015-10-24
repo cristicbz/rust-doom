@@ -1,6 +1,5 @@
 use byteorder::{LittleEndian, ByteOrder, ReadBytesExt};
 use gfx::Texture;
-use gl;
 use math::Vec2;
 use sdl2::pixels::PixelFormatEnum;
 use std::path::Path;
@@ -137,11 +136,11 @@ impl Image {
     }
 
     pub fn to_texture(&self) -> Texture {
-        let mut tex = Texture::new(gl::TEXTURE_2D);
-        tex.bind(gl::TEXTURE0);
+        let mut tex = Texture::new_2d();
+        tex.bind(0);
         tex.set_filters_nearest()
            .data_rg_u8(0, self.width, self.height, &self.pixels)
-           .unbind(gl::TEXTURE0);
+           .unbind(0);
         tex
     }
 
@@ -156,6 +155,8 @@ impl Image {
     pub fn num_pixels(&self) -> usize { self.pixels.len() }
 
     pub fn pixels(&self) -> &[u16] { &self.pixels }
+
+    pub fn into_pixels(self) -> Vec<u16> { self.pixels }
 
     pub fn save_bmp<P: AsRef<Path>>(&self, palette: &[[u8; 3]; 256], path: &P) {
         use ::sdl2::surface::Surface;

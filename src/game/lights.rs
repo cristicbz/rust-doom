@@ -16,23 +16,6 @@ pub enum FakeContrast {
     Darken,
     Brighten,
 }
-trait ApplyContrast {
-    fn apply_contrast(self, fake_contrast: FakeContrast) -> Self;
-}
-impl ApplyContrast for LightLevel {
-    fn apply_contrast(self, fake_contrast: FakeContrast) -> LightLevel {
-        match fake_contrast {
-            FakeContrast::Darken => if self <= 16 { 0 } else { self - 16 },
-            FakeContrast::Brighten => if self >= LightLevel::max_value() - 16 {
-                LightLevel::max_value()
-            } else {
-                self + 16
-            },
-            _ => self,
-        }
-    }
-}
-
 
 pub struct LightBuffer {
     lights: Vec<Light>,
@@ -67,11 +50,10 @@ impl LightBuffer {
         }
     }
 
-    pub fn buffer_at(&mut self, time: f32) -> &[f32] {
-        for (value, info) in self.levels.iter_mut().zip(self.lights.iter()) {
+    pub fn fill_buffer_at(&mut self, time: f32, buffer: &mut [f32]) {
+        for (value, info) in buffer.iter_mut().zip(self.lights.iter()) {
             *value = info.light_level_at(time);
         }
-        &self.levels
     }
 }
 
@@ -109,8 +91,8 @@ struct Light {
 impl Light {
     fn new(level0: LightLevel, level1: LightLevel, sector_type: SectorType, sector_id: SectorId,
            fake_contrast: FakeContrast) -> Light {
-        let level0 = (level0.apply_contrast(fake_contrast) >> 3) as f32 / 31.0;
-        let level1 = (level1.apply_contrast(fake_contrast) >> 3) as f32 / 31.0;
+        let level0 = (apply_contrast(level0, fake_contrast) >> 3) as f32 / 31.0;
+        let level1 = (apply_contrast(level1, fake_contrast) >> 3) as f32 / 31.0;
         let effect = sector_type.into();
         if effect == LightEffect::Constant
                 || (effect == LightEffect::Glow && level0 == level1) {
@@ -168,3 +150,15 @@ impl Light {
 }
 
 fn fract(x: f32) -> f32 { x - x.floor() }
+
+fn apply_contrast(level: LightLevel, fake_contrast: FakeContrast) -> LightLevel {
+    match fake_contrast {
+        FakeContrast::Darken => if level <= 16 { 0 } else { level - 16 },
+        FakeContrast::Brighten => if level >= LightLevel::max_value() - 16 {
+            LightLevel::max_value()
+        } else {
+            level + 16
+        },
+        _ => level,
+    }
+}

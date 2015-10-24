@@ -1,4 +1,3 @@
-use gl;
 use gl::types::GLenum;
 use math::{Mat4, Vec2f};
 use shader::{Shader, Uniform};
@@ -31,7 +30,7 @@ impl Renderer {
 
     pub fn render(&mut self, delta_time: f32, projection: &Mat4, modelview: &Mat4)
             -> &Renderer {
-        check_gl_unsafe!(gl::Enable(gl::CULL_FACE));
+        // check_gl_unsafe!(gl::Enable(gl::CULL_FACE));
         self.time += delta_time;
         for step in self.steps.iter() {
             step.render_setup(projection, modelview, self.time).render_done();
@@ -91,7 +90,7 @@ impl RenderStep {
             -> Result<&mut RenderStep> {
         let uniform = try!(self.shader.expect_uniform(name));
         self.shader.bind_mut().set_uniform_i32(uniform, unit as i32).unbind();
-        self.shared_tex.push((unit as GLenum + gl::TEXTURE0, texture));
+        self.shared_tex.push((unit as GLenum, texture));
         Ok(self)
     }
 
@@ -99,7 +98,7 @@ impl RenderStep {
             -> Result<&mut RenderStep> {
         let uniform = try!(self.shader.expect_uniform(name));
         self.shader.bind_mut().set_uniform_i32(uniform, unit as i32).unbind();
-        self.unique_tex.push((unit as GLenum + gl::TEXTURE0, texture));
+        self.unique_tex.push((unit as GLenum, texture));
         Ok(self)
     }
 

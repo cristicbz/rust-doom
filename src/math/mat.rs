@@ -1,6 +1,6 @@
 use num::Float;
 use std::fmt;
-use std::ops::{Add, Sub, Mul};
+use std::ops::{Add, Sub, Mul, Index, IndexMut};
 
 use vector::{Vec3f, Vector};
 
@@ -206,6 +206,22 @@ impl Sub<Mat4> for Mat4 {
     type Output = Mat4;
 
     fn sub(self, rhs: Mat4) -> Mat4 { &self - &rhs }
+}
+
+impl Index<usize> for Mat4 {
+    type Output = [f32];
+
+    #[inline]
+    fn index(&self, index: usize) -> &[f32] {
+        &self.data[index * 4..][..4]
+    }
+}
+
+impl IndexMut<usize> for Mat4 {
+    #[inline]
+    fn index_mut(&mut self, index: usize) -> &mut [f32] {
+        &mut self.data[index * 4..][..4]
+    }
 }
 
 impl PartialEq for Mat4 {

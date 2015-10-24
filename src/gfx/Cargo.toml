@@ -7,9 +7,6 @@ authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 name = "gfx"
 path = "lib.rs"
 
-[dependencies.gl]
-path = "../gl"
-
 [dependencies.math]
 path = "../math"
 
@@ -20,3 +17,5 @@ path = "../common"
 log = "*"
 libc = "*"
 sdl2 = "*"
+glium = "*"
+glium_sdl2 = "*"

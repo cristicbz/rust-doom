@@ -1,8 +1,6 @@
 use archive::{Archive, InArchive};
 use error::ErrorKind::MissingRequiredPatch;
 use error::Result;
-use gfx::Texture;
-use gl;
 use image::Image;
 use math::{Vec2, Vec2f};
 use name::WadName;
@@ -13,19 +11,12 @@ use std::collections::BTreeMap;
 use std::mem;
 use time;
 use types::{WadTextureHeader, WadTexturePatchRef};
+use gfx::Bounds;
 
 pub type Palette = [u8; 256 * 3];
 pub type Colormap = [u8; 256];
 pub type Flat = Vec<u8>;
 
-
-#[derive(Copy, Clone, Debug)]
-pub struct Bounds {
-    pub pos: Vec2f,
-    pub size: Vec2f,
-    pub num_frames: usize,
-    pub row_height: usize,
-}
 
 pub type BoundsLookup = BTreeMap<WadName, Bounds>;
 
@@ -38,6 +29,22 @@ pub struct TextureDirectory {
     animated_walls: Vec<Vec<WadName>>,
     animated_flats: Vec<Vec<WadName>>,
 }
+
+pub struct MappedPalette {
+    pub pixels: Vec<u8>,
+    pub colormaps: usize,
+}
+
+pub struct TransparentImage {
+    pub pixels: Vec<u16>,
+    pub size: Vec2<usize>,
+}
+
+pub struct OpaqueImage {
+    pub pixels: Vec<u8>,
+    pub size: Vec2<usize>,
+}
+
 
 impl TextureDirectory {
     pub fn from_archive(wad: &Archive) -> Result<TextureDirectory> {
@@ -115,7 +122,7 @@ impl TextureDirectory {
     pub fn build_palette_texture(&self,
                                  palette: usize,
                                  colormap_start: usize,
-                                 colormap_end: usize) -> Texture {
+                                 colormap_end: usize) -> MappedPalette {
         let num_colormaps = colormap_end - colormap_start;
         let mut data = vec![0u8; 256 * num_colormaps * 3];
         let palette = &self.palettes[palette];
@@ -128,33 +135,24 @@ impl TextureDirectory {
             }
         }
 
-        let mut palette_tex = Texture::new(gl::TEXTURE_2D);
-        palette_tex.bind(gl::TEXTURE0);
-        palette_tex
-            .set_filters_nearest()
-            .data_rgb_u8(0, 256, num_colormaps, &data)
-            .unbind(gl::TEXTURE0);
-        palette_tex
-    }
-
-    pub fn build_colormap_texture(&self) -> Texture {
-        let mut colormap_tex = Texture::new(gl::TEXTURE_2D);
-        colormap_tex.bind(gl::TEXTURE0);
-        colormap_tex
-            .set_filters_nearest()
-            .data_red_u8(0, 256, self.colormaps.len(), &self.colormaps)
-            .unbind(gl::TEXTURE0);
-        colormap_tex
+        MappedPalette {
+            pixels: data,
+            colormaps: colormap_end - colormap_start + 1,
+        }
     }
 
 
     pub fn build_texture_atlas<'a, T: IntoIterator<Item = &'a WadName>>(
-            &'a self, names_iter: T) -> (Texture, BoundsLookup) {
+            &'a self, names_iter: T) -> (TransparentImage, BoundsLookup) {
         let entries = ordered_atlas_entries(&self.animated_walls,
                                             |n| self.texture(&n),
                                             names_iter);
         if entries.len() == 0 {
-            return (Texture::new(gl::TEXTURE_2D), BoundsLookup::new());
+            return (TransparentImage {
+                        pixels: Vec::new(),
+                        size: Vec2::zero(),
+                    },
+                    BoundsLookup::new());
         }
 
         let num_pixels = entries.iter().map(|e| e.image.num_pixels()).fold(0, |x, y| x + y);
@@ -237,18 +235,17 @@ impl TextureDirectory {
             bound_map.insert(entry.name, img_bound(&positions[i - entry.frame_offset], entry));
         }
 
-        let mut tex = Texture::new(gl::TEXTURE_2D);
-        tex.bind(gl::TEXTURE0);
-        tex.set_filters_nearest()
-           .data_rg_u8(0, atlas_size[0], atlas_size[1], atlas.pixels())
-           .unbind(gl::TEXTURE0);
+        let tex = TransparentImage {
+            size: atlas_size,
+            pixels: atlas.into_pixels(),
+        };
 
         info!("Wall texture atlas size: {:?}", atlas_size);
         (tex, bound_map)
     }
 
     pub fn build_flat_atlas<'a, T: Iterator<Item = &'a WadName>>(
-            &'a self, names_iter: T) -> (Texture, BoundsLookup) {
+            &'a self, names_iter: T) -> (OpaqueImage, BoundsLookup) {
         let names = ordered_atlas_entries(
             &self.animated_flats, |n| self.flat(&n),
             names_iter);
@@ -291,12 +288,10 @@ impl TextureDirectory {
             }
         }
 
-        let mut tex = Texture::new(gl::TEXTURE_2D);
-        tex.bind(gl::TEXTURE0);
-        tex.set_filters_nearest()
-           .data_red_u8(0, width, height, &data)
-           .unbind(gl::TEXTURE0);
-
+        let tex = OpaqueImage {
+            pixels: data,
+            size: Vec2::new(width, height),
+        };
         (tex, offsets)
     }
 }

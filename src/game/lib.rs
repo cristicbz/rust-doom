@@ -1,5 +1,4 @@
 #[macro_use] extern crate log;
-#[macro_use] extern crate gl;
 
 extern crate common;
 extern crate gfx;

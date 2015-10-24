@@ -1,65 +1,51 @@
-use gfx::{BufferBuilder, Renderer, RenderStep, ShaderLoader, VertexBuffer, StepId};
-use gl;
-use math::{Mat4, Line2f, Vec2f, Vec3f, Vector};
+use gfx::{Scene, SceneBuilder};
 use lights::{LightBuffer, FakeContrast};
+use math::{Line2f, Vec2f, Vec3f, Vector};
+use num::Zero;
 use std::cmp::Ordering;
-use std::rc::Rc;
+use std::error::Error;
 use std::vec::Vec;
 use wad;
-use wad::{WadMetadata, SkyMetadata, ThingMetadata};
-use wad::tex::{Bounds, BoundsLookup, TextureDirectory};
+use wad::tex::{BoundsLookup, TextureDirectory};
+use wad::tex::{OpaqueImage, TransparentImage};
 use wad::types::{WadSeg, WadCoord, WadSector, WadName, WadThing, ChildId, ThingType};
 use wad::util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id, is_sky_flat};
-use std::error::Error;
-use num::Zero;
+use wad::{WadMetadata, SkyMetadata, ThingMetadata};
 
 pub struct Level {
     start_pos: Vec3f,
-    renderer: Renderer,
     time: f32,
-    flats_step_id: StepId,
-    walls_step_id: StepId,
-    decor_step_id: StepId,
     lights: LightBuffer,
     volume: WorldVolume,
 }
 
 impl Level {
-    pub fn new(shader_loader: &ShaderLoader,
-               wad: &mut wad::Archive,
+    pub fn new(wad: &wad::Archive,
                textures: &TextureDirectory,
-               level_index: usize) -> Result<Level, Box<Error>> {
+               level_index: usize,
+               scene: &mut SceneBuilder) -> Result<Level, Box<Error>> {
         let name = *wad.level_name(level_index);
         info!("Building level {}...", name);
         let level = try!(wad::Level::from_archive(wad, level_index));
 
-        let mut steps = RenderSteps {
-            sky: try!(init_sky_step(shader_loader, wad.metadata().sky_for(&name), textures)),
-            flats: try!(init_static_step(shader_loader)),
-            walls: try!(init_static_step(shader_loader)),
-            decors: try!(init_decor_step(shader_loader)),
-        };
-        try!(build_palette(textures, &mut [&mut steps.flats,
-                                           &mut steps.sky,
-                                           &mut steps.walls,
-                                           &mut steps.decors]));
+        let palette = textures.build_palette_texture(0, 0, 32);
+        try!(scene.palette(&palette.pixels));
+
+        try!(scene.sky_program("sky"));
+        try!(scene.static_program("static"));
+        try!(scene.sprite_program("sprite"));
+        try!(load_sky_texture(wad.metadata().sky_for(&name), textures, scene));
 
         let texture_maps = TextureMaps {
-            flats: try!(build_flats_atlas(&level, textures, &mut steps.flats)),
-            walls: try!(build_walls_atlas(&level, textures, &mut steps.walls)),
-            decors: try!(build_decor_atlas(&level, wad, textures, &mut steps.decors)),
+            flats: try!(build_flats_atlas(&level, textures, scene)),
+            walls: try!(build_walls_atlas(&level, textures, scene)),
+            decors: try!(build_decor_atlas(&level, wad, textures, scene)),
         };
 
         let mut volume = WorldVolume::new();
         let mut lights = LightBuffer::new();
-        VboBuilder::build(&level, &wad.metadata(),
-                          &texture_maps, &mut lights, &mut volume, &mut steps);
-
-        let mut renderer = Renderer::new();
-        let flats_step_id = renderer.add_step(steps.flats);
-        let decor_step_id = renderer.add_step(steps.decors);
-        let walls_step_id = renderer.add_step(steps.walls);
-        renderer.add_step(steps.sky);
+        LevelBuilder::build(&level, &wad.metadata(),
+                            &texture_maps, &mut lights, &mut volume, scene);
 
         let start_pos = level.things.iter()
             .find(|thing| thing.thing_type == 1)
@@ -74,11 +60,7 @@ impl Level {
 
         Ok(Level {
             start_pos: start_pos,
-            renderer: renderer,
             time: 0.0,
-            flats_step_id: flats_step_id,
-            walls_step_id: walls_step_id,
-            decor_step_id: decor_step_id,
             lights: lights,
             volume: volume,
         })
@@ -90,13 +72,11 @@ impl Level {
         self.volume.sector_at(pos).map(|s| (s.floor, s.ceil))
     }
 
-    pub fn render(&mut self, delta_time: f32, projection: &Mat4, modelview: &Mat4) {
+    pub fn render(&mut self, delta_time: f32, scene: &mut Scene) {
         self.time += delta_time;
-        let lights = self.lights.buffer_at(self.time);
-        self.renderer.step_mut(self.flats_step_id).add_constant_f32v("u_lights", lights).unwrap();
-        self.renderer.step_mut(self.walls_step_id).add_constant_f32v("u_lights", lights).unwrap();
-        self.renderer.step_mut(self.decor_step_id).add_constant_f32v("u_lights", lights).unwrap();
-        self.renderer.render(delta_time, projection, modelview);
+        scene.set_lights(|lights| {
+            self.lights.fill_buffer_at(self.time, lights);
+        });
     }
 }
 
@@ -105,14 +85,6 @@ struct TextureMaps {
     flats: BoundsLookup,
     walls: BoundsLookup,
     decors: BoundsLookup,
-}
-
-
-struct RenderSteps {
-    sky: RenderStep,
-    flats: RenderStep,
-    walls: RenderStep,
-    decors: RenderStep,
 }
 
 #[derive(Copy, Clone)]
@@ -124,47 +96,12 @@ enum Peg {
     BottomFloat
 }
 
-#[repr(packed)]
-#[derive(Copy, Clone)]
-struct StaticVertex {
-    _pos: Vec3f,
-    _atlas_uv: Vec2f,
-    _tile_uv: Vec2f,
-    _tile_size: Vec2f,
-    _scroll_rate: f32,
-    _row_height: f32,
-    _num_frames: u8,
-    _light: u8,
-}
-
-#[repr(packed)]
-#[derive(Copy, Clone)]
-struct SpriteVertex {
-    _pos: Vec3f,
-    _atlas_uv: Vec2f,
-    _tile_uv: Vec2f,
-    _tile_size: Vec2f,
-    _local_x: f32,
-    _num_frames: u8,
-    _light: u8,
-}
-
-#[repr(packed)]
-#[derive(Copy, Clone)]
-struct SkyVertex {
-    _pos: Vec3f,
-}
-
 // Distance on the wrong side of a BSP and seg line allowed.
 const BSP_TOLERANCE: f32 = 1e-3;
 const SEG_TOLERANCE: f32 = 0.1;
 
 // All polygons are `fattened' by this amount to fill in thin gaps between them.
 const POLY_BIAS: f32 = 0.64 * 3e-4;
-
-const PALETTE_UNIT: usize = 0;
-const ATLAS_UNIT: usize = 1;
-
 
 pub fn find_thing(meta: &WadMetadata, thing_type: ThingType) -> Option<&ThingMetadata> {
     meta.things.decorations.iter().find(|t| t.thing_type == thing_type)
@@ -182,59 +119,30 @@ macro_rules! offset_of(
     )
 );
 
-fn build_palette(textures: &TextureDirectory, steps: &mut [&mut RenderStep])
-        -> Result<(), Box<Error>> {
-    let palette = Rc::new(textures.build_palette_texture(0, 0, 32));
-    for step in steps.iter_mut() {
-        try!(step.add_shared_texture("u_palette", palette.clone(), PALETTE_UNIT));
-    }
+fn load_sky_texture(meta: &wad::SkyMetadata,
+                    textures: &wad::TextureDirectory,
+                    scene: &mut SceneBuilder) -> Result<(), Box<Error>> {
+    let image = textures.texture(&meta.texture_name).expect("Missing sky texture.");
+    try!(scene.tiled_band_size(meta.tiled_band_size)
+              .sky_texture(image.pixels(), image.size()));
     Ok(())
 }
 
-fn init_sky_step(shader_loader: &ShaderLoader,
-                 meta: &wad::SkyMetadata, textures: &wad::TextureDirectory)
-        -> Result<RenderStep, Box<Error>> {
-    let mut step = RenderStep::new(try!(shader_loader.load("sky".to_owned())));
-    try!(try!(step
-        .add_constant_f32("u_tiled_band_size", meta.tiled_band_size))
-        .add_unique_texture("u_texture",
-                            textures
-                                .texture(&meta.texture_name)
-                                .expect("init_sky_step: Missing sky texture.")
-                                .to_texture(),
-                            ATLAS_UNIT));
-    Ok(step)
-}
 
-
-fn init_static_step(shader_loader: &ShaderLoader) -> Result<RenderStep, Box<Error>> {
-    let mut step = RenderStep::new(try!(shader_loader.load("static".to_owned())));
-    try!(step.add_constant_f32v("u_lights", &[0.0; 256]));
-    Ok(step)
-}
-
-fn init_decor_step(shader_loader: &ShaderLoader) -> Result<RenderStep, Box<Error>> {
-    let mut step = RenderStep::new(try!(shader_loader.load("sprite".to_owned())));
-    try!(step.add_constant_f32v("u_lights", &[0.0; 256]));
-    Ok(step)
-}
-
-
-fn build_flats_atlas(level: &wad::Level, textures: &wad::TextureDirectory, step: &mut RenderStep)
-        -> Result<BoundsLookup, Box<Error>> {
+fn build_flats_atlas(level: &wad::Level,
+                     textures: &wad::TextureDirectory,
+                     scene: &mut SceneBuilder) -> Result<BoundsLookup, Box<Error>> {
     let flat_name_iter = level.sectors
             .iter()
             .flat_map(|s| Some(&s.floor_texture).into_iter()
-                            .chain(Some(&s.ceiling_texture).into_iter()))
+                                                .chain(Some(&s.ceiling_texture).into_iter()))
             .filter(|name| !is_untextured(*name) && !is_sky_flat(*name));
-    let (atlas, lookup) = textures.build_flat_atlas(flat_name_iter);
-    try!(try!(step
-        .add_constant_vec2f("u_atlas_size", &atlas.size_as_vec()))
-        .add_unique_texture("u_atlas", atlas, ATLAS_UNIT));
+    let (OpaqueImage { pixels, size }, lookup) = textures.build_flat_atlas(flat_name_iter);
+    try!(scene.flats_texture(&pixels, size));
     Ok(lookup)
 }
 
-fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory, step: &mut RenderStep)
+fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory, scene: &mut SceneBuilder)
         -> Result<BoundsLookup, Box<Error>> {
     let tex_name_iter = level.sidedefs
             .iter()
@@ -242,18 +150,15 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory, step:
                           .chain(Some(&s.lower_texture).into_iter())
                           .chain(Some(&s.middle_texture).into_iter()))
             .filter(|name| !is_untextured(*name));
-    let (atlas, lookup) = textures.build_texture_atlas(tex_name_iter);
-    try!(try!(step
-        .add_constant_vec2f("u_atlas_size", &atlas.size_as_vec()))
-        .add_unique_texture("u_atlas", atlas, ATLAS_UNIT));
-
+    let (TransparentImage { pixels, size }, lookup) = textures.build_texture_atlas(tex_name_iter);
+    try!(scene.walls_texture(&pixels, size));
     Ok(lookup)
 }
 
 fn build_decor_atlas(level: &wad::Level,
                      archive: &wad::Archive,
                      textures: &wad::TextureDirectory,
-                     step: &mut RenderStep) -> Result<BoundsLookup, Box<Error>> {
+                     scene: &mut SceneBuilder) -> Result<BoundsLookup, Box<Error>> {
     let tex_names = level.things
             .iter()
             .filter_map(|t| find_thing(archive.metadata(), t.thing_type))
@@ -269,10 +174,9 @@ fn build_decor_atlas(level: &wad::Level,
             })
             .filter(|name| !is_untextured(&name))
             .collect::<Vec<_>>();
-    let (atlas, lookup) = textures.build_texture_atlas(tex_names.iter());
-    try!(try!(step
-        .add_constant_vec2f("u_atlas_size", &atlas.size_as_vec()))
-        .add_unique_texture("u_atlas", atlas, ATLAS_UNIT));
+    let (TransparentImage { pixels, size }, lookup) =
+        textures.build_texture_atlas(tex_names.iter());
+    try!(scene.decors_texture(&pixels, size));
     Ok(lookup)
 }
 
@@ -339,23 +243,20 @@ impl WorldVolume {
 }
 
 
-struct VboBuilder<'a> {
+struct LevelBuilder<'a, 'b: 'a> {
     level: &'a wad::Level,
     meta: &'a WadMetadata,
     bounds: &'a TextureMaps,
     lights: &'a mut LightBuffer,
     volume: &'a mut WorldVolume,
-    sky: Vec<SkyVertex>,
-    flats: Vec<StaticVertex>,
-    walls: Vec<StaticVertex>,
-    decors: Vec<SpriteVertex>,
+    scene: &'a mut SceneBuilder<'b>,
     min_height: i16,
     max_height: i16,
 }
-impl<'a> VboBuilder<'a> {
+impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
     fn build(level: &wad::Level, meta: &WadMetadata,
              bounds: &TextureMaps, lights: &mut LightBuffer,
-             volume: &mut WorldVolume, steps: &mut RenderSteps) {
+             volume: &mut WorldVolume, scene: &mut SceneBuilder) {
         let (min_height, max_height) = level.sectors
             .iter()
             .map(|s| (s.floor_height, s.ceiling_height))
@@ -364,70 +265,19 @@ impl<'a> VboBuilder<'a> {
                                         if c > max { c } else { max }));
         let max_height = max_height + 32;
 
-        let mut builder = VboBuilder {
+        let mut builder = LevelBuilder {
             level: level,
             meta: meta,
             bounds: bounds,
             lights: lights,
             volume: volume,
-            flats: Vec::with_capacity(level.subsectors.len() * 4),
-            walls: Vec::with_capacity(level.segs.len() * 2 * 4),
-            sky: Vec::with_capacity(32),
-            decors: Vec::with_capacity(256),
+            scene: scene,
             min_height: min_height,
             max_height: max_height,
         };
         let root_id = (level.nodes.len() - 1) as ChildId;
         builder.node(&mut Vec::with_capacity(32), root_id);
         builder.things();
-
-        let mut vbo = VboBuilder::init_sky_buffer();
-        vbo.set_data(gl::STATIC_DRAW, &builder.sky);
-        steps.sky.add_static_vbo(vbo);
-
-        let mut vbo = VboBuilder::init_static_buffer();
-        vbo.set_data(gl::STATIC_DRAW, &builder.flats);
-        steps.flats.add_static_vbo(vbo);
-
-        let mut vbo = VboBuilder::init_sprite_buffer();
-        vbo.set_data(gl::STATIC_DRAW, &builder.decors);
-        steps.decors.add_static_vbo(vbo);
-
-        let mut vbo = VboBuilder::init_static_buffer();
-        vbo.set_data(gl::STATIC_DRAW, &builder.walls);
-        steps.walls.add_static_vbo(vbo);
-
-    }
-
-    fn init_sky_buffer() -> VertexBuffer {
-        let mut buffer = BufferBuilder::<SkyVertex>::new(2);
-        buffer.attribute_vec3f(0, offset_of!(SkyVertex, _pos));
-        buffer.build()
-    }
-
-    fn init_static_buffer() -> VertexBuffer {
-        let mut buffer = BufferBuilder::<StaticVertex>::new(8);
-        buffer.attribute_vec3f(0, offset_of!(StaticVertex, _pos))
-            .attribute_vec2f(1, offset_of!(StaticVertex, _atlas_uv))
-            .attribute_vec2f(2, offset_of!(StaticVertex, _tile_uv))
-            .attribute_vec2f(3, offset_of!(StaticVertex, _tile_size))
-            .attribute_f32(4, offset_of!(StaticVertex, _scroll_rate))
-            .attribute_f32(5, offset_of!(StaticVertex, _row_height))
-            .attribute_u8(6, offset_of!(StaticVertex, _num_frames))
-            .attribute_u8(7, offset_of!(StaticVertex, _light));
-        buffer.build()
-    }
-
-    fn init_sprite_buffer() -> VertexBuffer {
-        let mut buffer = BufferBuilder::<SpriteVertex>::new(8);
-        buffer.attribute_vec3f(0, offset_of!(SpriteVertex, _pos))
-            .attribute_vec2f(1, offset_of!(SpriteVertex, _atlas_uv))
-            .attribute_vec2f(2, offset_of!(SpriteVertex, _tile_uv))
-            .attribute_vec2f(3, offset_of!(SpriteVertex, _tile_size))
-            .attribute_f32(4, offset_of!(SpriteVertex, _local_x))
-            .attribute_u8(5, offset_of!(SpriteVertex, _num_frames))
-            .attribute_u8(6, offset_of!(SpriteVertex, _light));
-        buffer.build()
     }
 
     fn things(&mut self) {
@@ -470,14 +320,13 @@ impl<'a> VboBuilder<'a> {
         };
         let half_width = bounds.size[0] / 100.0 * 0.5;
 
-        self.decor_vertex(&low, -half_width, 0.0, bounds.size[1], bounds, sector.light_info);
-        self.decor_vertex(&low, half_width, bounds.size[0], bounds.size[1], bounds,
-                          sector.light_info);
-        self.decor_vertex(&high, -half_width, 0.0, 0.0, bounds, sector.light_info);
-        self.decor_vertex(&low, half_width, bounds.size[0], bounds.size[1], bounds,
-                          sector.light_info);
-        self.decor_vertex(&high, half_width, bounds.size[0], 0.0, bounds, sector.light_info);
-        self.decor_vertex(&high, -half_width, 0.0, 0.0, bounds, sector.light_info);
+        self.scene.decors_buffer()
+            .push(&low, -half_width, 0.0, bounds.size[1], bounds, sector.light_info)
+            .push(&low, half_width, bounds.size[0], bounds.size[1], bounds, sector.light_info)
+            .push(&high, -half_width, 0.0, 0.0, bounds, sector.light_info)
+            .push(&low, half_width, bounds.size[0], bounds.size[1], bounds, sector.light_info)
+            .push(&high, half_width, bounds.size[0], 0.0, bounds, sector.light_info)
+            .push(&high, -half_width, 0.0, 0.0, bounds, sector.light_info);
     }
 
     fn node(&mut self, lines: &mut Vec<Line2f>, id: ChildId) {
@@ -674,13 +523,13 @@ impl<'a> VboBuilder<'a> {
         let scroll = if line.special_type == 0x30 { 35.0 } else { 0.0 };
 
         let (low, high) = (low - POLY_BIAS, high + POLY_BIAS);
-        self.wall_vertex(&v1, low,  s1, t1, light_info, scroll, bounds);
-        self.wall_vertex(&v2, low,  s2, t1, light_info, scroll, bounds);
-        self.wall_vertex(&v1, high, s1, t2, light_info, scroll, bounds);
-
-        self.wall_vertex(&v2, low,  s2, t1, light_info, scroll, bounds);
-        self.wall_vertex(&v2, high, s2, t2, light_info, scroll, bounds);
-        self.wall_vertex(&v1, high, s1, t2, light_info, scroll, bounds);
+        self.scene.walls_buffer()
+            .push(&v1, low,  s1, t1, light_info, scroll, bounds)
+            .push(&v2, low,  s2, t1, light_info, scroll, bounds)
+            .push(&v1, high, s1, t2, light_info, scroll, bounds)
+            .push(&v2, low,  s2, t1, light_info, scroll, bounds)
+            .push(&v2, high, s2, t2, light_info, scroll, bounds)
+            .push(&v1, high, s1, t2, light_info, scroll, bounds);
     }
 
     fn flat_poly(&mut self, sector: &WadSector, points: &[Vec2f]) {
@@ -709,18 +558,17 @@ impl<'a> VboBuilder<'a> {
                 .expect(&format!("flat: No such floor {}.", floor_tex));
             for i in 1..points.len() {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-                self.flat_vertex(&v0, floor_y, light_info, floor_bounds);
-                self.flat_vertex(&v1, floor_y, light_info, floor_bounds);
-                self.flat_vertex(&v2, floor_y, light_info, floor_bounds);
+                self.scene.flats_buffer()
+                    .push(&v0, floor_y, light_info, floor_bounds)
+                    .push(&v1, floor_y, light_info, floor_bounds)
+                    .push(&v2, floor_y, light_info, floor_bounds);
             }
         } else {
             let min = from_wad_height(self.min_height);
             for i in 1..points.len() {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
 
-                self.sky_vertex(&v0, min);
-                self.sky_vertex(&v1, min);
-                self.sky_vertex(&v2, min);
+                self.scene.sky_buffer().push(&v0, min).push(&v1, min).push(&v2, min);
             }
         }
 
@@ -730,18 +578,17 @@ impl<'a> VboBuilder<'a> {
                 .expect(&format!("flat: No such ceiling {}.", ceil_tex));
             for i in 1..points.len() {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-                self.flat_vertex(&v2, ceil_y, light_info, ceiling_bounds);
-                self.flat_vertex(&v1, ceil_y, light_info, ceiling_bounds);
-                self.flat_vertex(&v0, ceil_y, light_info, ceiling_bounds);
+                self.scene.flats_buffer()
+                    .push(&v2, ceil_y, light_info, ceiling_bounds)
+                    .push(&v1, ceil_y, light_info, ceiling_bounds)
+                    .push(&v0, ceil_y, light_info, ceiling_bounds);
             }
         } else {
             let max = from_wad_height(self.max_height);
             for i in 1..points.len() {
                 let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
 
-                self.sky_vertex(&v2, max);
-                self.sky_vertex(&v1, max);
-                self.sky_vertex(&v0, max);
+                self.scene.sky_buffer().push(&v2, max).push(&v1, max).push(&v0, max);
             }
         }
     }
@@ -753,67 +600,14 @@ impl<'a> VboBuilder<'a> {
         let (v1, v2) = (v1 - bias, v2 + bias);
         let (low, high) = (from_wad_height(low), from_wad_height(high));
 
-        self.sky_vertex(&v1, low);
-        self.sky_vertex(&v2, low);
-        self.sky_vertex(&v1, high);
-
-        self.sky_vertex(&v2, low);
-        self.sky_vertex(&v2, high);
-        self.sky_vertex(&v1, high);
+        self.scene.sky_buffer().push(&v1, low).push(&v2, low).push(&v1, high);
+        self.scene.sky_buffer().push(&v2, low).push(&v2, high).push(&v1, high);
     }
 
     fn light_info(&mut self, sector: &WadSector, fake_contrast: FakeContrast) -> u8 {
         self.lights.push(sector.light, self.level.sector_min_light(sector),
                          sector.sector_type, self.level.sector_id(sector),
                          fake_contrast)
-    }
-
-    fn sky_vertex(&mut self, xz: &Vec2f, y: f32) {
-        self.sky.push(SkyVertex {
-            _pos: Vec3f::new(xz[0], y, xz[1]),
-        });
-    }
-
-    fn flat_vertex(&mut self, xz: &Vec2f, y: f32, light_info: u8,
-                   bounds: &Bounds) {
-        self.flats.push(StaticVertex {
-            _pos: Vec3f::new(xz[0], y, xz[1]),
-            _atlas_uv: bounds.pos,
-            _tile_uv: -Vec2f::new(xz[0], xz[1]) * 100.0,
-            _tile_size: bounds.size,
-            _scroll_rate: 0.0,
-            _num_frames: bounds.num_frames as u8,
-            _row_height: bounds.row_height as f32,
-            _light: light_info,
-        });
-    }
-
-    fn wall_vertex(&mut self, xz: &Vec2f, y: f32, tile_u: f32, tile_v: f32,
-                   light_info: u8, scroll_rate: f32, bounds: &Bounds) {
-        self.walls.push(StaticVertex {
-            _pos: Vec3f::new(xz[0], y, xz[1]),
-            _atlas_uv: bounds.pos,
-            _tile_uv: Vec2f::new(tile_u, tile_v),
-            _tile_size: bounds.size,
-            _scroll_rate: scroll_rate,
-            _num_frames: bounds.num_frames as u8,
-            _row_height: bounds.row_height as f32,
-            _light: light_info,
-        });
-    }
-
-    fn decor_vertex(&mut self, pos: &Vec3f, local_x: f32,
-                    tile_u: f32, tile_v: f32, bounds: &Bounds, light_info: u8) {
-        let v = SpriteVertex {
-            _pos: *pos,
-            _local_x: local_x,
-            _atlas_uv: bounds.pos,
-            _tile_uv: Vec2f::new(tile_u, tile_v),
-            _tile_size: bounds.size,
-            _num_frames: 1,
-            _light: light_info,
-        };
-        self.decors.push(v);
     }
 }
 

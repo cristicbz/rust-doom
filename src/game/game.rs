@@ -1,13 +1,10 @@
 use common::GeneralError;
-use ctrl::GameController;
-use ctrl::Gesture;
-use gfx::ShaderLoader;
-use gfx::Window;
+use ctrl::{GameController, Gesture};
+use gfx::{Scene, SceneBuilder, Window};
 use level::Level;
 use player::Player;
 use sdl2::keyboard::Scancode;
 use sdl2::{self, Sdl};
-use std::default::Default;
 use std::error::Error;
 use std::path::PathBuf;
 use super::SHADER_ROOT;
@@ -26,6 +23,7 @@ pub struct GameConfig {
 
 pub struct Game {
     window: Window,
+    scene: Scene,
     player: Player,
     level: Level,
     _sdl: Sdl,
@@ -37,11 +35,15 @@ impl Game {
         let sdl = try!(sdl2::init().map_err(|e| GeneralError(e.0)));
         let window = try!(Window::new(&sdl, config.width, config.height));
 
-        let shader_loader = ShaderLoader::new(PathBuf::from(SHADER_ROOT));
 
         let mut wad = try!(Archive::open(&config.wad_file, &config.metadata_file));
         let textures = try!(TextureDirectory::from_archive(&mut wad));
-        let level = try!(Level::new(&shader_loader, &mut wad, &textures, config.level_index));
+        let (level, scene) = {
+            let mut scene = SceneBuilder::new(&window, PathBuf::from(SHADER_ROOT));
+            let level = try!(Level::new(&mut wad, &textures, config.level_index, &mut scene));
+            let scene = try!(scene.build());
+            (level, scene)
+        };
 
         let mut player = Player::new(config.fov,
                                      window.aspect_ratio() * 1.2,
@@ -55,6 +57,7 @@ impl Game {
             window: window,
             player: player,
             level: level,
+            scene: scene,
             _sdl: sdl,
             control: control,
         })
@@ -72,7 +75,6 @@ impl Game {
         let mut t0 = time::precise_time_s();
         let mut mouse_grabbed = true;
         loop {
-            self.window.clear();
             let t1 = time::precise_time_s();
             let mut delta = (t1 - t0) as f32;
             if delta < 1e-10 { delta = 1.0 / 60.0; }
@@ -91,8 +93,9 @@ impl Game {
             }
 
             self.player.update(delta, &self.control, &self.level);
-            self.level.render(delta,
-                              self.player.camera().projection(), self.player.camera().modelview());
+            self.scene.set_modelview(self.player.camera().modelview());
+            self.scene.set_projection(self.player.camera().projection());
+            self.level.render(delta, &mut self.scene);
 
             let updates_t1 = time::precise_time_s();
             cum_updates_time += updates_t1 - updates_t0;
@@ -108,8 +111,7 @@ impl Game {
                 cum_updates_time = 0.0;
                 num_frames = 0.0;
             }
-
-            self.window.swap_buffers();
+            self.scene.render(&self.window, delta);
         }
     }
 }

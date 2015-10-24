@@ -14,7 +14,7 @@ use getopts::Options;
 use std::path::PathBuf;
 use std::error::Error;
 
-use gfx::ShaderLoader;
+use gfx::SceneBuilder;
 use wad::{Archive, TextureDirectory};
 use gfx::Window;
 use game::SHADER_ROOT;
@@ -114,15 +114,16 @@ pub fn run(args: &[String]) -> Result<(), Box<Error>> {
         },
         RunMode::Check { wad_file, metadata_file } => {
             let sdl = try!(sdl2::init().map_err(|e| GeneralError(e.0)));
-            let _win = try!(Window::new(&sdl, 128, 128));
+            let win = try!(Window::new(&sdl, 128, 128));
 
             info!("Loading all levels...");
             let t0 = time::precise_time_s();
             let mut wad = try!(Archive::open(&wad_file, &metadata_file));
             let textures = try!(TextureDirectory::from_archive(&mut wad));
-            let shader_loader = ShaderLoader::new(PathBuf::from(SHADER_ROOT));
             for level_index in 0 .. wad.num_levels() {
-                try!(Level::new(&shader_loader, &mut wad, &textures, level_index));
+                let mut scene = SceneBuilder::new(&win, PathBuf::from(SHADER_ROOT));
+                try!(Level::new(&wad, &textures, level_index, &mut scene));
+                try!(scene.build());
             }
             info!("Done loading all levels in {:.4}s. Shutting down...",
                   time::precise_time_s() - t0);
