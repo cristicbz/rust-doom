@@ -1,5 +1,4 @@
 use byteorder::{LittleEndian, ByteOrder, ReadBytesExt};
-use gfx::Texture;
 use math::Vec2;
 use sdl2::pixels::PixelFormatEnum;
 use std::path::Path;
@@ -133,15 +132,6 @@ impl Image {
                 }
             }
         }
-    }
-
-    pub fn to_texture(&self) -> Texture {
-        let mut tex = Texture::new_2d();
-        tex.bind(0);
-        tex.set_filters_nearest()
-           .data_rg_u8(0, self.width, self.height, &self.pixels)
-           .unbind(0);
-        tex
     }
 
     pub fn x_offset(&self) -> isize { self.x_offset }

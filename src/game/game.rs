@@ -93,7 +93,7 @@ impl Game {
             }
 
             self.player.update(delta, &self.control, &self.level);
-            self.scene.set_modelview(self.player.camera().modelview());
+            self.scene.set_modelview(&self.player.camera().modelview());
             self.scene.set_projection(self.player.camera().projection());
             self.level.render(delta, &mut self.scene);
 

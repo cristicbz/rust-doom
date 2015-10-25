@@ -33,15 +33,6 @@ impl Window {
             .build_glium());
 
         sdl2::clear_error();
-        // gl::load_with(|name| {
-        //     video.gl_get_proc_address(name) as *const c_void
-        // });
-        // let mut vao_id = 0;
-        // check_gl_unsafe!(gl::GenVertexArrays(1, &mut vao_id));
-        // check_gl_unsafe!(gl::BindVertexArray(vao_id));
-        // check_gl_unsafe!(gl::ClearColor(0.06, 0.07, 0.09, 0.0));
-        // check_gl_unsafe!(gl::Enable(gl::DEPTH_TEST));
-        // check_gl_unsafe!(gl::DepthFunc(gl::LESS));
         Ok(Window {
            facade: facade,
            width: width,

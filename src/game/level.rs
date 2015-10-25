@@ -113,12 +113,6 @@ pub fn find_thing(meta: &WadMetadata, thing_type: ThingType) -> Option<&ThingMet
         .or_else(|| meta.things.monsters.iter().find(|t| t.thing_type == thing_type))
 }
 
-macro_rules! offset_of(
-    ($T:ty, $m:ident) => (
-        unsafe { (&((*(0 as *const $T)).$m)) as *const _ as usize }
-    )
-);
-
 fn load_sky_texture(meta: &wad::SkyMetadata,
                     textures: &wad::TextureDirectory,
                     scene: &mut SceneBuilder) -> Result<(), Box<Error>> {
@@ -127,7 +121,6 @@ fn load_sky_texture(meta: &wad::SkyMetadata,
               .sky_texture(image.pixels(), image.size()));
     Ok(())
 }
-
 
 fn build_flats_atlas(level: &wad::Level,
                      textures: &wad::TextureDirectory,

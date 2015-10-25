@@ -16,7 +16,6 @@ pub mod camera;
 pub mod ctrl;
 pub mod player;
 pub mod level;
-pub mod cached;
 pub mod lights;
 pub mod game;
 
