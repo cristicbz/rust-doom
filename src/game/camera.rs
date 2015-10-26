@@ -1,4 +1,4 @@
-use cached::Cached;
+use std::cell::Cell;
 use math::{Mat4, Vec3f};
 use num::Zero;
 
@@ -10,7 +10,8 @@ pub struct Camera {
     yaw: f32,                 // Left-right look (rotation around y-axis).
     pitch: f32,               // Up-down look (rotation around x-axis).
     roll: f32,                // Tilt left-right (rotation around z-axis).
-    modelview: Cached<Mat4>,  // Cached modelview transform.
+    modelview: Cell<Mat4>,    // Cached modelview transform.
+    dirty: Cell<bool>,        // Whether the cached modelview is out of date.
 
     // Projection parameters.
     fov: f32,           // Horizontal field of view.
@@ -32,17 +33,21 @@ impl Camera {
             near: near, far: far,  // Whereeeever you are.
             projection: Mat4::new_perspective(fov, aspect_ratio, near, far),
 
-            modelview: Cached::invalidated(Mat4::new_identity()),
+            modelview: Cell::new(Mat4::new_identity()),
+            dirty: Cell::new(true),
         };
         camera
     }
 
     /// Returns the modelview matrix associated with this camera.
-    pub fn modelview(&self) -> &Mat4 {
-        self.modelview.get(|| {
-            Mat4::new_euler_rotation(self.yaw, self.pitch, self.roll)
-                * Mat4::new_translation(-self.position)
-        })
+    pub fn modelview(&self) -> Mat4 {
+        if self.dirty.get() {
+            self.dirty.set(false);
+            self.modelview.set(
+                Mat4::new_euler_rotation(self.yaw, self.pitch, self.roll)
+                    * Mat4::new_translation(-self.position));
+        }
+        self.modelview.get()
     }
 
     /// Returns the projection matrix associated with this camera.
@@ -63,35 +68,35 @@ impl Camera {
     /// Changes the yaw of the camera (rotation around Y, bottom to top, axis).
     pub fn set_yaw(&mut self, value: f32) -> &mut Camera {
         self.yaw = value;
-        self.modelview.invalidate();
+        self.dirty.set(true);
         self
     }
 
     /// Changes the pitch of the camera (rotation around X, left to right, axis).
     pub fn set_pitch(&mut self, value: f32) -> &mut Camera {
         self.pitch = value;
-        self.modelview.invalidate();
+        self.dirty.set(true);
         self
     }
 
     /// Changes the roll of the camera (rotation around Z, back to front, axis).
     pub fn set_roll(&mut self, value: f32) -> &mut Camera {
         self.roll = value;
-        self.modelview.invalidate();
+        self.dirty.set(true);
         self
     }
 
     /// Moves the camera with to an absolute position.
     pub fn set_position(&mut self, value: Vec3f) -> &mut Camera {
         self.position = value;
-        self.modelview.invalidate();
+        self.dirty.set(true);
         self
     }
 
     /// Moves the camera with a relative vector.
     pub fn move_by(&mut self, by: Vec3f) -> &mut Camera {
         self.position = self.position + by;
-        self.modelview.invalidate();
+        self.dirty.set(true);
         self
     }
 

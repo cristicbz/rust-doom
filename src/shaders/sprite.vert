@@ -2,7 +2,7 @@ uniform mat4 u_modelview;
 uniform mat4 u_projection;
 uniform vec2 u_atlas_size;
 uniform float u_time;
-uniform float u_lights[256];
+uniform samplerBuffer u_lights;
 
 layout(location = 0) in vec3 a_pos;
 layout(location = 1) in vec2 a_atlas_uv;
@@ -40,7 +40,7 @@ void main() {
     vec3 right = vec3(u_modelview[0][0], u_modelview[1][0], u_modelview[2][0]);
     vec3 pos = a_pos + right * a_local_x;
     vec4 projected_pos = u_projection * (u_modelview * vec4(pos, 1.0));
-    v_light = u_lights[a_light];
+    v_light = texelFetch(u_lights, a_light).r;
     v_dist = projected_pos.w;
     gl_Position = projected_pos;
 

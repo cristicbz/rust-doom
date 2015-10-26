@@ -1,5 +1,4 @@
 #[macro_use] extern crate log;
-#[macro_use] extern crate gl;
 
 extern crate common;
 extern crate gfx;
@@ -17,7 +16,6 @@ pub mod camera;
 pub mod ctrl;
 pub mod player;
 pub mod level;
-pub mod cached;
 pub mod lights;
 pub mod game;
 

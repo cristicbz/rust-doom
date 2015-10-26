@@ -168,4 +168,3 @@ fn clamp<T: PartialOrd>(value: T, (limit_min, limit_max): (T, T)) -> T {
     else if value > limit_max { limit_max }
     else { value }
 }
-

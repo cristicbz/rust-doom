@@ -1,4 +1,3 @@
-#[macro_use] extern crate gl;
 #[macro_use] extern crate log;
 #[macro_use] extern crate regex;
 
