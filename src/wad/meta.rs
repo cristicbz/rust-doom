@@ -6,7 +6,6 @@ use rustc_serialize::{Encodable, Decodable};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use std::str;
 use toml::{Decoder, Value, Parser};
 use types::ThingType;
 
@@ -70,13 +69,25 @@ impl WadMetadata {
             })
     }
 
-    pub fn sky_for(&self, name: &WadName) -> &SkyMetadata {
+    pub fn sky_for(&self, name: &WadName) -> Option<&SkyMetadata> {
         self.sky.iter()
                 .find(|sky| {
-                    Regex::new(&sky.level_pattern).unwrap()
-                        .is_match(str::from_utf8(&name[..]).unwrap())
+                    Regex::new(&sky.level_pattern).map(|r| r.is_match(name.as_ref()))
+                                                  .unwrap_or_else(|_| {
+                                                      warn!("Invalid level pattern {} for sky {}.",
+                                                            sky.level_pattern, sky.texture_name);
+                                                      false
+                                                  })
                 })
-                .unwrap_or(&self.sky[0])
+                .or_else(|| {
+                    if let Some(sky) = self.sky.get(0) {
+                        warn!("No sky found for level {}, using {}.", name, sky.texture_name);
+                        Some(sky)
+                    } else {
+                        error!("No sky metadata provided.");
+                        None
+                    }
+                })
     }
 }
 
@@ -122,7 +133,7 @@ mod test {
                     sequence = "W"
                     obstacle = false
                     hanging = false
-        "#).unwrap();
+        "#).ok().expect("test: could not parse test metadata");
     }
 }
 

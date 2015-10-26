@@ -1,8 +1,8 @@
-use math::{Vec2f, Vec3f};
 use Bounds;
-use glium::VertexBuffer;
+use error::{Result, NeededBy};
+use glium::{VertexBuffer};
+use math::{Vec2f, Vec3f};
 use Window;
-use error::Result;
 
 pub type SkyBuffer = VertexBuffer<SkyVertex>;
 pub type SpriteBuffer = VertexBuffer<SpriteVertex>;
@@ -49,7 +49,7 @@ impl FlatBufferBuilder {
     }
 
     pub fn build(&self, window: &Window) -> Result<StaticBuffer> {
-        Ok(VertexBuffer::immutable(window.facade(), &self.0).unwrap())
+        VertexBuffer::immutable(window.facade(), &self.0).needed_by("flats vertex buffer")
     }
 }
 
@@ -76,7 +76,7 @@ impl WallBufferBuilder {
     }
 
     pub fn build(&self, window: &Window) -> Result<StaticBuffer> {
-        Ok(VertexBuffer::immutable(window.facade(), &self.0).unwrap())
+        VertexBuffer::immutable(window.facade(), &self.0).needed_by("walls vertex buffer")
     }
 }
 
@@ -117,7 +117,7 @@ impl DecorBufferBuilder {
     }
 
     pub fn build(&self, window: &Window) -> Result<SpriteBuffer> {
-        Ok(VertexBuffer::immutable(window.facade(), &self.0).unwrap())
+        VertexBuffer::immutable(window.facade(), &self.0).needed_by("decors buffer")
     }
 }
 
@@ -144,6 +144,6 @@ impl SkyBufferBuilder {
     }
 
     pub fn build(&self, window: &Window) -> Result<SkyBuffer> {
-        Ok(VertexBuffer::immutable(window.facade(), &self.0).unwrap())
+        VertexBuffer::immutable(window.facade(), &self.0).needed_by("sky vertex buffer")
     }
 }

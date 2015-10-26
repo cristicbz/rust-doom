@@ -63,7 +63,7 @@ impl Game {
         })
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> Result<(), Box<Error>> {
         let quit_gesture = Gesture::AnyOf(
             vec![Gesture::QuitTrigger,
                  Gesture::KeyTrigger(Scancode::Escape)]);
@@ -111,7 +111,8 @@ impl Game {
                 cum_updates_time = 0.0;
                 num_frames = 0.0;
             }
-            self.scene.render(&self.window, delta);
+            try!(self.scene.render(&self.window, delta));
         }
+        Ok(())
     }
 }

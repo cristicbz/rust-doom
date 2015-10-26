@@ -64,61 +64,77 @@ impl Level {
         })
     }
 
-    pub fn vertex(&self, id: VertexId) -> Vec2f {
-        from_wad_coords(self.vertices[id as usize].x,
-                        self.vertices[id as usize].y)
+    pub fn vertex(&self, id: VertexId) -> Option<Vec2f> {
+        self.vertices.get(id as usize).map(|v| from_wad_coords(v.x, v.y))
     }
 
-    pub fn seg_linedef(&self, seg: &WadSeg) -> &WadLinedef {
-        &self.linedefs[seg.linedef as usize]
+    pub fn seg_linedef(&self, seg: &WadSeg) -> Option<&WadLinedef> {
+        self.linedefs.get(seg.linedef as usize)
     }
 
-    pub fn seg_vertices(&self, seg: &WadSeg) -> (Vec2f, Vec2f) {
-        (self.vertex(seg.start_vertex), self.vertex(seg.end_vertex))
+    pub fn seg_vertices(&self, seg: &WadSeg) -> Option<(Vec2f, Vec2f)> {
+        if let (Some(v1), Some(v2)) = (self.vertex(seg.start_vertex),
+                                       self.vertex(seg.end_vertex)) {
+            Some((v1, v2))
+        } else {
+            None
+        }
     }
 
-    pub fn seg_sidedef(&self, seg: &WadSeg) -> &WadSidedef {
-        let line = self.seg_linedef(seg);
-        if seg.direction == 0 { self.right_sidedef(line).unwrap() }
-        else { self.left_sidedef(line).unwrap() }
+    pub fn seg_sidedef(&self, seg: &WadSeg) -> Option<&WadSidedef> {
+        self.seg_linedef(seg).and_then(|line| {
+            if seg.direction == 0 {
+                self.right_sidedef(line)
+            } else {
+                self.left_sidedef(line)
+            }
+        })
     }
 
     pub fn seg_back_sidedef(&self, seg: &WadSeg) -> Option<&WadSidedef> {
-        let line = self.seg_linedef(seg);
-        if seg.direction == 1 { self.right_sidedef(line) }
-        else { self.left_sidedef(line) }
+        self.seg_linedef(seg).and_then(|line| {
+            if seg.direction == 1 {
+                self.right_sidedef(line)
+            } else {
+                self.left_sidedef(line)
+            }
+        })
     }
 
-    pub fn seg_sector(&self, seg: &WadSeg) -> &WadSector {
-        self.sidedef_sector(self.seg_sidedef(seg))
+    pub fn seg_sector(&self, seg: &WadSeg) -> Option<&WadSector> {
+        self.seg_sidedef(seg).and_then(|side| self.sidedef_sector(side))
     }
 
     pub fn seg_back_sector(&self, seg: &WadSeg) -> Option<&WadSector> {
-        self.seg_back_sidedef(seg).map(|s| self.sidedef_sector(s))
+        self.seg_back_sidedef(seg).and_then(|side| self.sidedef_sector(side))
     }
 
     pub fn left_sidedef(&self, linedef: &WadLinedef) -> Option<&WadSidedef> {
         match linedef.left_side {
             -1 => None,
-            index => Some(&self.sidedefs[index as usize])
+            index => self.sidedefs.get(index as usize)
         }
     }
 
     pub fn right_sidedef(&self, linedef: &WadLinedef) -> Option<&WadSidedef> {
         match linedef.right_side {
             -1 => None,
-            index => Some(&self.sidedefs[index as usize])
+            index => self.sidedefs.get(index as usize)
         }
     }
 
-    pub fn sidedef_sector(&self, sidedef: &WadSidedef) -> &WadSector {
-        &self.sectors[sidedef.sector as usize]
+    pub fn sidedef_sector(&self, sidedef: &WadSidedef) -> Option<&WadSector> {
+        self.sectors.get(sidedef.sector as usize)
     }
 
-    pub fn ssector_segs(&self, ssector: &WadSubsector) -> &[WadSeg] {
+    pub fn ssector_segs(&self, ssector: &WadSubsector) -> Option<&[WadSeg]> {
         let start = ssector.first_seg as usize;
         let end = start + ssector.num_segs as usize;
-        &self.segs[start .. end]
+        if end < self.segs.len() {
+            Some(&self.segs[start .. end])
+        } else {
+            None
+        }
     }
 
     pub fn sector_id(&self, sector: &WadSector) -> SectorId {
@@ -140,13 +156,17 @@ impl Level {
                     Some(r) => r.sector, None => continue,
                  });
             let adjacent_light = if left == sector_id {
-                self.sectors[right as usize].light
+                self.sectors.get(right as usize).map(|s| s.light)
             } else if right == sector_id {
-                self.sectors[left as usize].light
+                self.sectors.get(left as usize).map(|s| s.light)
             } else {
                 continue;
             };
-            if adjacent_light < min_light { min_light = adjacent_light; }
+            if let Some(light) = adjacent_light {
+                if light < min_light { min_light = light; }
+            } else {
+                warn!("Bad WAD: Cannot access all adjacent sectors to find minimum light.");
+            }
         }
         min_light
     }

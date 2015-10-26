@@ -1,9 +1,11 @@
-use byteorder::{LittleEndian, ByteOrder, ReadBytesExt};
+use read::WadRead;
 use math::Vec2;
 use sdl2::pixels::PixelFormatEnum;
 use std::path::Path;
 use std::vec::Vec;
 use types::WadTextureHeader;
+use std::borrow::Cow;
+use std::fmt::{self, Display, Debug};
 
 pub struct Image {
     width: usize,
@@ -13,27 +15,37 @@ pub struct Image {
     pixels: Vec<u16>,
 }
 
+#[derive(Debug)]
+pub struct ImageError(Cow<'static, str>);
+
 impl Image {
-    pub fn new(width: usize, height: usize) -> Image {
-        Image {
+    pub fn new(width: usize, height: usize) -> Result<Image, ImageError> {
+        if width >= 4096 || height >= 4096 {
+            return Err(format!("image too large {}x{}", width, height).into());
+        }
+        Ok(Image {
             width: width,
             height: height,
             x_offset: 0,
             y_offset: 0,
             pixels: vec![0xff00; width * height],
-        }
+        })
     }
 
-    pub fn new_from_header(header: &WadTextureHeader) -> Image {
+    pub fn new_from_header(header: &WadTextureHeader) -> Result<Image, ImageError> {
         Image::new(header.width as usize, header.height as usize)
     }
 
-    pub fn from_buffer(buffer: &[u8]) -> Image {
+    pub fn from_buffer(buffer: &[u8]) -> Result<Image, ImageError> {
         let mut reader = buffer;
-        let width = reader.read_u16::<LittleEndian>().unwrap() as usize;
-        let height = reader.read_u16::<LittleEndian>().unwrap() as usize;
-        let x_offset = reader.read_i16::<LittleEndian>().unwrap() as isize;
-        let y_offset = reader.read_i16::<LittleEndian>().unwrap() as isize;
+        let width = try!(reader.wad_read::<u16>().to_err("missing width")) as usize;
+        let height = try!(reader.wad_read::<u16>().to_err("missing height")) as usize;
+        if width >= 4096 || height >= 4096 {
+            return Err(format!("image too large {}x{}", width, height).into());
+        }
+
+        let x_offset = try!(reader.wad_read::<i16>().to_err("missing x offset")) as isize;
+        let y_offset = try!(reader.wad_read::<i16>().to_err("missing y offset")) as isize;
 
         let mut pixels = vec![!0; width * height];
 
@@ -41,12 +53,21 @@ impl Image {
         for i_column in 0 .. width {
             // Each column is defined as a number of vertical `runs' which are
             // defined starting at `offset' in the buffer.
-            let offset = reader.read_u32::<LittleEndian>().unwrap() as isize;
+            let offset = try!(reader.wad_read::<u32>()
+                                    .to_err_with(|| format!("unfinished column {}, {}x{}",
+                                                            i_column, width, height))) as isize;
+            if offset >= buffer.len() as isize {
+                return Err(format!("invalid column offset in {}, offset={}, size={}",
+                                   i_column, offset, buffer.len()).into());
+            }
             let mut source = buffer[offset as usize..].iter();
+            let mut i_run = 0;
             loop {
                 // The first byte contains the vertical coordinate of the run's
                 // start.
-                let row_start = *source.next().unwrap() as usize;
+                let row_start = *try!(source.next()
+                                            .to_err_with(|| format!("unfinshed column {}, run {}",
+                                                                    i_column, i_run))) as usize;
 
                 // The special value of 255 means this is the last run in the
                 // column, so move on to the next one.
@@ -56,30 +77,56 @@ impl Image {
 
                 // The second byte is the length of this run. Skip an additional
                 // byte which is ignored for some reason.
-                let run_length = *source.next().unwrap() as usize;
-                source.next().unwrap();
+                let run_length =
+                    *try!(source.next()
+                                .to_err_with(|| format!("missing run length: column {}, run {}",
+                                                        i_column, i_run))) as usize;
 
-                // Iterator to the beginning of the run in `pixels`.
+                // Check that the run fits in the image.
+                if row_start + run_length > height {
+                    return Err(format!("run out of bounds: column {}, run {} ({}, +{}), \
+                                        size {}x{}", i_column, i_run, row_start, run_length,
+                                       width, height).into());
+                }
+
+                // An ignored padding byte.
+                try!(source.next()
+                           .to_err_with(|| format!("missing padding byte 1: column {}, run {}",
+                                                   i_column, i_run)));
+
+                // Iterator to the beginning of the run in `pixels`. Guaranteed to be in bounds by
+                // the check above.
                 let mut destination = pixels[row_start * width + i_column..]
                     .chunks_mut(width)
                     .map(|row| &mut row[0])
                     .take(run_length);
 
-                while let Some(dest_pixel) = destination.next() {
-                    *dest_pixel = *source.next().unwrap() as u16;
+                // Copy the bytes from source to destination, but first check there's enough of
+                // those left.
+                if source.size_hint().0 < run_length {
+                    return Err(format!("source underrun: column {}, run {} ({}, +{}), \
+                                        bytes left {}", i_column, i_run, row_start, run_length,
+                                       source.size_hint().0).into());
                 }
+                while let Some(dest_pixel) = destination.next() {
+                    *dest_pixel = *source.next().expect("missing pixel despite check") as u16;
+                }
+
                 // And another ignored byte after the run.
-                source.next().unwrap();
+                try!(source.next()
+                           .to_err_with(|| format!("missing padding byte 2: column {}, run {}",
+                                                   i_column, i_run)));
+                i_run += 1;
             }
         }
 
-        Image {
+        Ok(Image {
             width: width,
             height: height,
             x_offset: x_offset,
             y_offset: y_offset,
             pixels: pixels
-        }
+        })
     }
 
     pub fn blit(&mut self, source: &Image, offset: Vec2<isize>, ignore_transparency: bool) {
@@ -148,7 +195,8 @@ impl Image {
 
     pub fn into_pixels(self) -> Vec<u16> { self.pixels }
 
-    pub fn save_bmp<P: AsRef<Path>>(&self, palette: &[[u8; 3]; 256], path: &P) {
+    pub fn save_bmp<P: AsRef<Path> + Debug>(&self, palette: &[[u8; 3]; 256], path: &P)
+            -> Result<(), ImageError> {
         use ::sdl2::surface::Surface;
         let mut pixels = vec![0u8; 3 * self.width * self.height];
         for (index, pixel) in self.pixels.iter().enumerate() {
@@ -157,14 +205,61 @@ impl Image {
             pixels[index * 3 + 1] = pixel[1];
             pixels[index * 3 + 2] = pixel[0];
         }
-        Surface::from_data(&mut pixels[..],
-                           self.width as u32,
-                           self.height as u32,
-                           self.width as u32 * 3,
-                           PixelFormatEnum::BGR24)
-            .unwrap()
-            .save_bmp(path)
-            .unwrap();
+        let surface = try!(Surface::from_data(&mut pixels[..],
+                                              self.width as u32,
+                                              self.height as u32,
+                                              self.width as u32 * 3,
+                                              PixelFormatEnum::BGR24)
+                           .to_err("failed to create surface"));
+        surface.save_bmp(path).to_err_with(|| format!("failed to save bmp {:?}", path))
     }
 }
 
+trait ToError {
+    type Success;
+
+    fn to_err(self, &'static str) -> Result<Self::Success, ImageError>;
+    fn to_err_with<F: FnOnce() -> String>(self, with: F) -> Result<Self::Success, ImageError>;
+}
+
+impl<S, E> ToError for Result<S, E> {
+    type Success = S;
+
+    fn to_err(self, message: &'static str) -> Result<Self::Success, ImageError> {
+        self.map_err(|_| ImageError(Cow::Borrowed(message)))
+    }
+
+    fn to_err_with<F: FnOnce() -> String>(self, with: F) -> Result<Self::Success, ImageError> {
+        self.map_err(|_| ImageError(Cow::Owned(with())))
+    }
+}
+
+impl<S> ToError for Option<S> {
+    type Success = S;
+
+    fn to_err(self, message: &'static str) -> Result<Self::Success, ImageError> {
+        self.ok_or(ImageError(Cow::Borrowed(message)))
+    }
+
+    fn to_err_with<F: FnOnce() -> String>(self, with: F) -> Result<Self::Success, ImageError> {
+        self.ok_or_else(|| ImageError(Cow::Owned(with())))
+    }
+}
+
+impl From<String> for ImageError {
+    fn from(value: String) -> ImageError {
+        ImageError(Cow::Owned(value))
+    }
+}
+
+impl From<&'static str> for ImageError {
+    fn from(value: &'static str) -> ImageError {
+        ImageError(Cow::Borrowed(value))
+    }
+}
+
+impl Display for ImageError {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "{}", self.0)
+    }
+}

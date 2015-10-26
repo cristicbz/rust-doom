@@ -1,4 +1,4 @@
-use error::Result;
+use error::{Result, NeededBy};
 use glium::{Depth, DepthTest, BackfaceCullingMode, Program, DrawParameters, Frame, Surface};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{Texture2d, RawImage2d, ClientFormat};
@@ -62,13 +62,13 @@ impl<'window> SceneBuilder<'window> {
 
     pub fn palette(&mut self, pixels: &[u8]) -> Result<&mut Self> {
         assert_eq!(pixels.len() % (256 * 3), 0);
-        self.palette = Some(Texture2d::new(self.window.facade(),
-                                           RawImage2d {
-                                               data: Cow::Borrowed(pixels),
-                                               width: 256,
-                                               height: (pixels.len() / (256 * 3)) as u32,
-                                               format: ClientFormat::U8U8U8,
-                                           }).unwrap());
+        self.palette = Some(try!(Texture2d::new(self.window.facade(),
+                                                RawImage2d {
+                                                    data: Cow::Borrowed(pixels),
+                                                    width: 256,
+                                                    height: (pixels.len() / (256 * 3)) as u32,
+                                                    format: ClientFormat::U8U8U8,
+                                                }).needed_by("palette texture")));
         Ok(self)
     }
 
@@ -87,55 +87,62 @@ impl<'window> SceneBuilder<'window> {
         Ok(self)
     }
 
+    pub fn no_sky_texture(&mut self) -> Result<&mut Self> {
+        debug!("Setting no sky texture.");
+        self.sky_texture = Some(try!(Texture2d::empty(self.window.facade(), 1, 1)
+                                        .needed_by("empty sky texture")));
+        Ok(self)
+    }
+
     pub fn sky_texture(&mut self, pixels: &[u16], size: Vec2<usize>)
             -> Result<&mut Self> {
         debug!("Setting sky texture: pixels={}, size={:?}", pixels.len(), size);
-        self.sky_texture = Some(Texture2d::new(self.window.facade(),
-                                               RawImage2d {
-                                                   data: Cow::Borrowed(pixels),
-                                                   width: size[0] as u32,
-                                                   height: size[1] as u32,
-                                                   format: ClientFormat::U8U8,
-                                               }).unwrap());
+        self.sky_texture = Some(try!(Texture2d::new(self.window.facade(),
+                                                    RawImage2d {
+                                                        data: Cow::Borrowed(pixels),
+                                                        width: size[0] as u32,
+                                                        height: size[1] as u32,
+                                                        format: ClientFormat::U8U8,
+                                                    }).needed_by("sky texture")));
         Ok(self)
     }
 
     pub fn flats_texture(&mut self, pixels: &[u8], size: Vec2<usize>)
             -> Result<&mut Self> {
         debug!("Setting flats texture: pixels={}, size={:?}", pixels.len(), size);
-        self.flats_texture = Some(Texture2d::new(self.window.facade(),
-                                                 RawImage2d {
-                                                     data: Cow::Borrowed(pixels),
-                                                     width: size[0] as u32,
-                                                     height: size[1] as u32,
-                                                     format: ClientFormat::U8,
-                                                 }).unwrap());
+        self.flats_texture = Some(try!(Texture2d::new(self.window.facade(),
+                                                      RawImage2d {
+                                                          data: Cow::Borrowed(pixels),
+                                                          width: size[0] as u32,
+                                                          height: size[1] as u32,
+                                                          format: ClientFormat::U8,
+                                                      }).needed_by("flats atlas texture")));
         Ok(self)
     }
 
     pub fn walls_texture(&mut self, pixels: &[u16], size: Vec2<usize>)
             -> Result<&mut Self> {
         debug!("Setting walls texture: pixels={}, size={:?}", pixels.len(), size);
-        self.walls_texture = Some(Texture2d::new(self.window.facade(),
-                                                 RawImage2d {
-                                                     data: Cow::Borrowed(pixels),
-                                                     width: size[0] as u32,
-                                                     height: size[1] as u32,
-                                                     format: ClientFormat::U8U8,
-                                                 }).unwrap());
+        self.walls_texture = Some(try!(Texture2d::new(self.window.facade(),
+                                                      RawImage2d {
+                                                          data: Cow::Borrowed(pixels),
+                                                          width: size[0] as u32,
+                                                          height: size[1] as u32,
+                                                          format: ClientFormat::U8U8,
+                                                      }).needed_by("walls atlas texture")));
         Ok(self)
     }
 
     pub fn decors_texture(&mut self, pixels: &[u16], size: Vec2<usize>)
             -> Result<&mut Self> {
         debug!("Setting decors texture: pixels={}, size={:?}", pixels.len(), size);
-        self.decors_texture = Some(Texture2d::new(self.window.facade(),
-                                                  RawImage2d {
-                                                      data: Cow::Borrowed(pixels),
-                                                      width: size[0] as u32,
-                                                      height: size[1] as u32,
-                                                      format: ClientFormat::U8U8,
-                                                  }).unwrap());
+        self.decors_texture = Some(try!(Texture2d::new(self.window.facade(),
+                                                       RawImage2d {
+                                                           data: Cow::Borrowed(pixels),
+                                                           width: size[0] as u32,
+                                                           height: size[1] as u32,
+                                                           format: ClientFormat::U8U8,
+                                                       }).needed_by("decors texture")));
         Ok(self)
     }
 
@@ -174,9 +181,8 @@ impl<'window> SceneBuilder<'window> {
             projection: mat4_to_uniform(&Mat4::new_identity()),
             modelview: mat4_to_uniform(&Mat4::new_identity()),
             time: 0.0f32,
-            lights: BufferTexture::empty_persistent(self.window.facade(),
-                                                    256,
-                                                    BufferTextureType::Float).unwrap(),
+            lights: try!(BufferTexture::empty_persistent(
+                self.window.facade(), 256, BufferTextureType::Float).needed_by("lights buffer")),
             palette: self.palette.expect("missing palette from SceneBuilder"),
             sky_program: self.sky_program.expect("missing sky program from SceneBuilder"),
             sky_texture: self.sky_texture.expect("missing sky texture from SceneBuilder"),
@@ -209,8 +215,10 @@ impl<'window> SceneBuilder<'window> {
         debug!("Loading shader: {} (from {:?} and {:?})", name, frag_path, vert_path);
         try!(read_utf8_file(&frag_path, &mut frag_src));
         try!(read_utf8_file(&vert_path, &mut vert_src));
-        let program =
-            Program::from_source(self.window.facade(), &vert_src, &frag_src, None).unwrap();
+        let program = try!(Program::from_source(self.window.facade(),
+                                                &vert_src,
+                                                &frag_src,
+                                                None).needed_by(name));
         debug!("Shader '{}' loaded successfully", name);
         Ok(program)
     }
@@ -254,20 +262,24 @@ impl Scene {
         writer(&mut *self.lights.map())
     }
 
-    pub fn render(&mut self, window: &Window, delta_time: f32) {
+    pub fn render(&mut self, window: &Window, delta_time: f32) -> Result<()> {
         self.time += delta_time;
 
         let mut frame = window.draw();
         frame.clear_all((0.06, 0.07, 0.09, 0.0), 1.0, 0);
-        StaticStep::flats(self).render(&mut frame);
-        StaticStep::walls(self).render(&mut frame);
-        SpriteStep::decors(self).render(&mut frame);
-        SkyStep::new(self).render(&mut frame);
-        frame.finish().unwrap()
+        try!(StaticStep::flats(self).render(&mut frame));
+        try!(StaticStep::walls(self).render(&mut frame));
+        try!(SpriteStep::decors(self).render(&mut frame));
+        try!(SkyStep::new(self).render(&mut frame));
+
+        // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
+        frame.finish().ok().expect("Cannot handle context loss currently :(");
+        Ok(())
     }
 }
 
 pub struct StaticStep<'a> {
+    name: &'static str,
     scene: &'a Scene,
     texture: &'a Texture2d,
     program: &'a Program,
@@ -281,6 +293,7 @@ impl<'scene> StaticStep<'scene> {
             texture: &scene.flats_texture,
             buffer: &scene.flats_buffer,
             program: &scene.static_program,
+            name: "flats render step",
         }
     }
 
@@ -290,15 +303,17 @@ impl<'scene> StaticStep<'scene> {
             texture: &scene.walls_texture,
             buffer: &scene.walls_buffer,
             program: &scene.static_program,
+            name: "walls render step",
         }
     }
 
-    pub fn render(self, frame: &mut Frame) {
-        frame.draw(self.buffer,
-                   NoIndices(PrimitiveType::TrianglesList),
-                   &self.program,
-                   &self,
-                   &self.scene.draw_params).unwrap();
+    pub fn render(self, frame: &mut Frame) -> Result<()> {
+        try!(frame.draw(self.buffer,
+                        NoIndices(PrimitiveType::TrianglesList),
+                        &self.program,
+                        &self,
+                        &self.scene.draw_params).needed_by(self.name));
+        Ok(())
     }
 }
 
@@ -313,7 +328,8 @@ impl<'scene> Uniforms for StaticStep<'scene> {
         set_uniform("u_atlas", UniformValue::Texture2d(self.texture, SAMPLER));
         set_uniform("u_atlas_size",
                     UniformValue::Vec2([self.texture.get_width() as f32,
-                                        self.texture.get_height().unwrap() as f32]));
+                                        self.texture.get_height()
+                                                    .expect("1d static atlas") as f32]));
     }
 }
 
@@ -325,12 +341,13 @@ impl<'scene> SkyStep<'scene> {
         SkyStep(scene)
     }
 
-    pub fn render(self, frame: &mut Frame) {
-        frame.draw(&self.0.sky_buffer,
-                   NoIndices(PrimitiveType::TrianglesList),
-                   &self.0.sky_program,
-                   &self,
-                   &self.0.draw_params).unwrap();
+    pub fn render(self, frame: &mut Frame) -> Result<()> {
+        try!(frame.draw(&self.0.sky_buffer,
+                        NoIndices(PrimitiveType::TrianglesList),
+                        &self.0.sky_program,
+                        &self,
+                        &self.0.draw_params).needed_by("sky render step"));
+        Ok(())
     }
 }
 
@@ -376,17 +393,19 @@ impl<'scene> Uniforms for SpriteStep<'scene> {
         set_uniform("u_atlas", UniformValue::Texture2d(self.texture, SAMPLER));
         set_uniform("u_atlas_size",
                     UniformValue::Vec2([self.texture.get_width() as f32,
-                                        self.texture.get_height().unwrap() as f32]));
+                                        self.texture.get_height()
+                                                    .expect("1d sprite atlas") as f32]));
     }
 }
 
 impl<'scene> SpriteStep<'scene> {
-    fn render(self, frame: &mut Frame) {
-        frame.draw(self.buffer,
-                   NoIndices(PrimitiveType::TrianglesList),
-                   self.program,
-                   &self,
-                   &self.scene.draw_params).unwrap();
+    fn render(self, frame: &mut Frame) -> Result<()> {
+        try!(frame.draw(self.buffer,
+                        NoIndices(PrimitiveType::TrianglesList),
+                        self.program,
+                        &self,
+                        &self.scene.draw_params).needed_by("sprite render step"));
+        Ok(())
     }
 }
 
@@ -400,6 +419,7 @@ fn mat4_to_uniform(m: &Mat4) -> UniformValue<'static> {
 fn read_utf8_file(path: &Path, into: &mut String) -> IoResult<()> {
     try!(File::open(path)).read_to_string(into).map(|_| ())
 }
+
 
 const SAMPLER: Option<SamplerBehavior> = Some(SamplerBehavior {
                                                   wrap_function: (SamplerWrapFunction::Repeat,
