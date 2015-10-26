@@ -10,15 +10,15 @@ extern crate time;
 extern crate wad;
 
 use common::GeneralError;
-use getopts::Options;
-use std::path::PathBuf;
-use std::error::Error;
-
-use gfx::SceneBuilder;
-use wad::{Archive, TextureDirectory};
-use gfx::Window;
-use game::SHADER_ROOT;
 use game::{Level, Game, GameConfig};
+use game::SHADER_ROOT;
+use getopts::Options;
+use gfx::SceneBuilder;
+use gfx::Window;
+use std::borrow::Cow;
+use std::error::Error;
+use std::path::PathBuf;
+use wad::{Archive, TextureDirectory};
 
 pub enum RunMode {
     DisplayHelp(String),
@@ -122,8 +122,12 @@ pub fn run(args: &[String]) -> Result<(), Box<Error>> {
             let textures = try!(TextureDirectory::from_archive(&mut wad));
             for level_index in 0 .. wad.num_levels() {
                 let mut scene = SceneBuilder::new(&win, PathBuf::from(SHADER_ROOT));
-                try!(Level::new(&wad, &textures, level_index, &mut scene));
-                try!(scene.build());
+                if let Err(e) = Level::new(&wad, &textures, level_index, &mut scene) {
+                    error!("reading level {}: {}", level_index, e);
+                }
+                if let Err(e) = scene.build() {
+                    error!("building scene for level {}: {}", level_index, e);
+                }
             }
             info!("Done loading all levels in {:.4}s. Shutting down...",
                   time::precise_time_s() - t0);
@@ -132,7 +136,7 @@ pub fn run(args: &[String]) -> Result<(), Box<Error>> {
             println!("{}", help);
         },
         RunMode::Play(config) => {
-            try!(Game::new(config)).run();
+            try!(try!(Game::new(config)).run());
             info!("Game main loop ended, shutting down.");
         }
     }
@@ -149,8 +153,10 @@ fn main() {
     let args = env::args().collect::<Vec<_>>();
 
     if let Err(error) = run(&args) {
-        writeln!(io::stderr(), "{}: {}",
-                 Path::new(&args[0]).file_name().unwrap().to_string_lossy(),
-                 error).unwrap()
-    };
+        let filename = Path::new(&args[0]).file_name()
+                                          .map(|n| n.to_string_lossy())
+                                          .unwrap_or(Cow::Borrowed("<cannot determine filename>"));
+        writeln!(io::stderr(), "{}: {}", filename, error).ok()
+                                                         .expect("failed to  write to stderr");
+    }
 }

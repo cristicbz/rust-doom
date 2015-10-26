@@ -1,5 +1,6 @@
 use archive::{Archive, InArchive};
-use error::ErrorKind::MissingRequiredPatch;
+//use error::ErrorKind::MissingRequiredPatch;
+use error::ErrorKind::BadImage;
 use error::Result;
 use image::Image;
 use math::{Vec2, Vec2f};
@@ -147,16 +148,17 @@ impl TextureDirectory {
         let entries = ordered_atlas_entries(&self.animated_walls,
                                             |n| self.texture(&n),
                                             names_iter);
-        if entries.len() == 0 {
+        let max_image_width = if let Some(width) = entries.iter().map(|e| e.image.width()).max() {
+            width
+        } else  {
             return (TransparentImage {
                         pixels: Vec::new(),
                         size: Vec2::zero(),
                     },
                     BoundsLookup::new());
-        }
 
+        };
         let num_pixels = entries.iter().map(|e| e.image.num_pixels()).fold(0, |x, y| x + y);
-        let max_image_width = entries.iter().map(|e| e.image.width()).max().unwrap();
         let min_atlas_size = Vec2::new(cmp::min(128, next_pow2(max_image_width)), 128);
         let max_size = 4096;
 
@@ -228,7 +230,9 @@ impl TextureDirectory {
         let atlas_size = atlas_size;
 
         assert!(positions.len() == entries.len());
-        let mut atlas = Image::new(atlas_size[0], atlas_size[1]);
+        // TODO(cristicbz): This should probably split things into multiple atlases or something,
+        // but realistically, I'm never going to implement that.
+        let mut atlas = Image::new(atlas_size[0], atlas_size[1]).ok().expect("atlas too big");
         let mut bound_map = BTreeMap::new();
         for (i, entry) in entries.iter().enumerate() {
             atlas.blit(entry.image, positions[i].offset, true);
@@ -335,12 +339,20 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
         let name = try!(lump.wad_read::<WadName>());
         match wad.named_lump_index(&name) {
             Some(index) => {
-                patches.push((name, Some(Image::from_buffer(&try!(wad.read_lump(index))))));
+                let image = match Image::from_buffer(&try!(wad.read_lump(index))) {
+                    Ok(i) => Some(i),
+                    Err(e) => {
+                        warn!("Skipping patch: {}", BadImage(name, e));
+                        None
+                    }
+                };
+
+                patches.push((name, image));
             }
             None => {
                 missing_patches += 1;
                 patches.push((name, None));
-            },
+            }
         }
     }
     let time = time::precise_time_s() - t0;
@@ -417,7 +429,14 @@ fn read_sprites(wad: &Archive, textures: &mut BTreeMap<WadName, Image>) -> Resul
     info!("Reading {} sprites....", end_index - start_index);
     let t0 = time::precise_time_s();
     for index in start_index .. end_index {
-        textures.insert(*wad.lump_name(index), Image::from_buffer(&try!(wad.read_lump(index))));
+        let name = *wad.lump_name(index);
+        match Image::from_buffer(&try!(wad.read_lump(index))) {
+            Ok(texture) => { textures.insert(name, texture); }
+            Err(e) => {
+                warn!("Skipping sprite: {}", BadImage(name, e));
+                continue;
+            }
+        }
     }
     let time = time::precise_time_s() - t0;
     info!("Done in {:.4}s.", time);
@@ -435,18 +454,28 @@ fn read_textures(lump_buffer: &[u8], patches: &[(WadName, Option<Image>)],
     for _ in 0 .. num_textures {
         lump = &lump_buffer[try!(offsets.wad_read::<u32>()) as usize..];
         let header = try!(lump.wad_read::<WadTextureHeader>());
-        let mut image = Image::new_from_header(&header);
+        let mut image = match Image::new_from_header(&header) {
+            Ok(image) => image,
+            Err(e) => {
+                warn!("Skipping texture: {}", BadImage(header.name, e));
+                continue;
+            }
+        };
 
         for i_patch in 0 .. header.num_patches {
             let pref = try!(lump.wad_read::<WadTexturePatchRef>());
             let offset = Vec2::new(pref.origin_x as isize,
                                    if pref.origin_y <= 0 { 0 } else { pref.origin_y as isize });
-            match patches[pref.patch as usize] {
-                (_, Some(ref patch)) => {
+            match patches.get(pref.patch as usize) {
+                Some(&(_, Some(ref patch))) => {
                     image.blit(patch, offset, i_patch == 0);
-                },
-                (ref patch_name, None) => {
-                    return Err(MissingRequiredPatch(header.name, *patch_name).into())
+                }
+                Some(&(ref patch_name, None)) => {
+                    warn!("PatchRef {}, required by {} is missing.", patch_name, header.name);
+                }
+                None => {
+                    warn!("PatchRef index {} out of bounds ({}) in {}, skipping.",
+                          pref.patch, patches.len(), header.name);
                 }
             }
         }

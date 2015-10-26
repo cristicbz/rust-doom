@@ -109,6 +109,12 @@ impl Borrow<[u8; 8]> for WadName {
     }
 }
 
+impl AsRef<str> for WadName {
+    fn as_ref(&self) -> &str {
+        str::from_utf8(self.deref()).ok().expect("wad name is not valid utf-8")
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::WadName;
