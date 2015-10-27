@@ -105,7 +105,7 @@ impl Light {
         }
 
         let level1 = if level0 != level1 { level1 } else { 0.0 };
-        let sync = if sector_type == 12 || sector_type == 13 { 0.0 }
+        let sync = if sector_type == 12 || sector_type == 13 || sector_type == 8 { 0.0 }
         else { ((sector_id as u64 * 1664525 + 1013904223) & 0xffff) as f32 / 15.0 };
 
         Light {
@@ -126,7 +126,7 @@ impl Light {
         match self.effect {
             LightEffect::Glow => {
                 let scale = self.level0 - self.level1;
-                let phase = (time + self.sync * 3.5435) / 2.0 / scale;
+                let phase = time / 2.0 / scale;
                 (0.5 - fract(phase)).abs() * 2.0 * scale + self.level1
             },
             LightEffect::Flash => {
