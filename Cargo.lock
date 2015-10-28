@@ -608,6 +608,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "vec_map"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "wad"
 version = "0.0.1"
 dependencies = [
@@ -622,6 +627,7 @@ dependencies = [
  "sdl2 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.33 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
+ "vec_map 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

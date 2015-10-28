@@ -97,10 +97,12 @@ impl WadReadFrom for [u8; 768] {
 }
 
 pub trait WadRead: Read + Sized {
+    #[inline]
     fn wad_read<T: WadReadFrom>(&mut self) -> Result<T> {
         T::wad_read_from(self)
     }
 
+    #[inline]
     fn wad_read_many<T: WadReadFrom>(&mut self, n: usize) -> Result<Vec<T>> {
         T::wad_read_many_from(self, n)
     }
