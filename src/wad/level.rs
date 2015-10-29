@@ -2,11 +2,10 @@ use math::Vec2f;
 use std::mem;
 use std::vec::Vec;
 use archive::Archive;
-use types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg, WadSubsector,
-            WadNode, WadSector, VertexId, LightLevel, SectorId};
+use types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg, WadSubsector};
+use types::{WadNode, WadSector, VertexId, LightLevel, SectorId};
 use util::from_wad_coords;
 use error::Result;
-
 
 const THINGS_OFFSET: usize = 1;
 const LINEDEFS_OFFSET: usize = 2;
@@ -127,10 +126,14 @@ impl Level {
         self.sectors.get(sidedef.sector as usize)
     }
 
+    pub fn ssector(&self, index: usize) -> Option<&WadSubsector> {
+        self.subsectors.get(index)
+    }
+
     pub fn ssector_segs(&self, ssector: &WadSubsector) -> Option<&[WadSeg]> {
         let start = ssector.first_seg as usize;
         let end = start + ssector.num_segs as usize;
-        if end < self.segs.len() {
+        if end <= self.segs.len() {
             Some(&self.segs[start .. end])
         } else {
             None

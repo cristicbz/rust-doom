@@ -89,6 +89,16 @@ impl WadMetadata {
                     }
                 })
     }
+
+    pub fn find_thing(&self, thing_type: ThingType) -> Option<&ThingMetadata> {
+        self.things.decorations.iter().find(|t| t.thing_type == thing_type)
+            .or_else(|| self.things.weapons.iter().find(|t| t.thing_type == thing_type))
+            .or_else(|| self.things.powerups.iter().find(|t| t.thing_type == thing_type))
+            .or_else(|| self.things.artifacts.iter().find(|t| t.thing_type == thing_type))
+            .or_else(|| self.things.ammo.iter().find(|t| t.thing_type == thing_type))
+            .or_else(|| self.things.keys.iter().find(|t| t.thing_type == thing_type))
+            .or_else(|| self.things.monsters.iter().find(|t| t.thing_type == thing_type))
+    }
 }
 
 #[cfg(test)]
