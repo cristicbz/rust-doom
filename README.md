@@ -3,7 +3,7 @@
 Rust Doom
 =========
 
-A little Doom 1 & 2 Renderer written in [Rust](https://github.com/rust-lang/rust). I wanted to learn the language and was inspired by Notch's [Dart Doom renderer](https://github.com/xNotch/Dark), who is using his project to learn Dart better. Mostly it's a fun little project, but I will take PR-s to do with compatibility issues and the like.
+A little Doom 1 & 2 Renderer written in [Rust](https://github.com/rust-lang/rust). I wanted to learn the language and was inspired by Notch's [Dart Doom renderer](https://github.com/xNotch/Dark), who is using his project to learn Dart better. That said, pull requests are most welcome!
 
 The code is mostly based on the endlessly useful [Doom Wiki](http://doomwiki.org) and the [Unofficial Doom Specs](http://aiforge.net/test/wadview/dmspec16.txt). It is **not** a port of the original Doom C source code into Rust; I'm doing my best to make the code as idiomatic as possible and have not looked at the original in a long time.
 
@@ -14,7 +14,7 @@ The code is mostly based on the endlessly useful [Doom Wiki](http://doomwiki.org
 ![Doom 2 Screenshot](screenshots/readme1.png)
 
 ### Build Instructions
-I build against nightlies; I pull rustc every few days or so. Give me a shout (submit an issue) if it doesn't build on the most recent nightly and I'll fix it ASAP.
+Rust Doom should always build on the latest stable version of Rust (but is also tested on beta and nightly), which you can install using any of the methods described on [the Rust website](https://www.rust-lang.org/downloads.html).
 
 Currently the only non-rust dependency is SDL2. You can install it using your system's package manager:
 
@@ -43,6 +43,7 @@ _(subject to change)_
 * **Modern OpenGL 3 renderer.** No immediate mode shenanigans: it's all VBO-s and shaders. Unlike some GL ports, the floors are actually rendered as convex polygons computed from the BSP. The downside of this (or upside depending on your perspective) is that some visual glitches (like [slime trails](http://doom.wikia.com/wiki/Slime_trail)) don't show up.
 * **Correct 256 color palette.** Uses the original palette and colormaps to replicate the original lighting effects (mostly you'll notice things get darker in visible steps and they also get greyer as they get darker). Doing 256 color palette lookups in a fragment shader is wonderfully anachronistic.
 * **Free flying camera.** Mouse & keyboard control for full 6 degrees of freedom.
+* **100% safe code.** No pesky `unsafe` blocks anywhere.
 
 ## Contributing
 
