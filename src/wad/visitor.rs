@@ -56,7 +56,7 @@ pub struct LevelWalker<'a, V: LevelVisitor + 'a> {
     tex: &'a TextureDirectory,
     meta: &'a WadMetadata,
     visitor: &'a mut V,
-    height_range: HeightRange,
+    height_range: (WadCoord, WadCoord),
     bsp_lines: Vec<Line2f>,
 
     // The vector contains all (2D) points which are part of the subsector:
@@ -78,7 +78,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             tex: tex,
             meta: meta,
             visitor: visitor,
-            height_range: HeightRange::from(level),
+            height_range: min_max_height(level),
             bsp_lines: Vec::with_capacity(32),
             subsector_points: Vec::with_capacity(32),
             subsector_seg_lines: Vec::with_capacity(32),
@@ -202,7 +202,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 warn!("No sidedef found for seg, skipping seg.");
                 return;
             };
-        let (min, max) = (self.height_range.low, self.height_range.high);
+        let (min, max) = (self.height_range.0, self.height_range.1);
         let (floor, ceil) = (sector.floor_height, sector.ceiling_height);
         let unpeg_lower = line.lower_unpegged();
         let back_sector = match self.level.seg_back_sector(seg) {
@@ -350,7 +350,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         self.visitor.visit_volume(self.level.sector_id(sector),
                                   (floor_y,
                                    if is_sky_flat(ceil_tex) {
-                                       from_wad_height(self.height_range.high)
+                                       from_wad_height(self.height_range.1)
                                    } else {
                                        ceil_y
                                    }),
@@ -363,7 +363,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         } else {
             // TODO(cristicbz): investigate if we could store height_range in f32.
             self.visitor.visit_floor_sky_poly(&self.subsector_points,
-                                              from_wad_height(self.height_range.low));
+                                              from_wad_height(self.height_range.0));
         }
 
         if !is_sky_flat(ceil_tex) {
@@ -371,7 +371,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 &self.subsector_points, ceil_y, light_info, ceil_tex);
         } else {
             self.visitor.visit_ceil_sky_poly(&self.subsector_points,
-                                             from_wad_height(self.height_range.high));
+                                             from_wad_height(self.height_range.1));
         }
     }
 
@@ -514,24 +514,13 @@ enum Peg {
     BottomFloat
 }
 
-
-struct HeightRange {
-    low: i16,
-    high: i16,
-}
-
-impl HeightRange {
-    fn from(level: &Level) -> HeightRange {
-        let (min, max) =
-            level.sectors.iter()
-                         .map(|s| (s.floor_height, s.ceiling_height))
-                         .fold((32767, -32768),
-                               |(min, max), (f, c)| (cmp::min(min, f), cmp::max(max, c)));
-        HeightRange {
-            low: min,
-            high: max + 32,
-        }
-    }
+fn min_max_height(level: &Level) -> (WadCoord, WadCoord) {
+    let (min, max) =
+        level.sectors.iter()
+                     .map(|s| (s.floor_height, s.ceiling_height))
+                     .fold((32767, -32768),
+                           |(min, max), (f, c)| (cmp::min(min, f), cmp::max(max, c)));
+    (min, max + 32)
 }
 
 fn polygon_center(points: &[Vec2f]) -> Vec2f {
