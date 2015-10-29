@@ -63,31 +63,36 @@ impl WadMetadata {
     pub fn from_text(text: &str) -> Result<WadMetadata> {
         let mut parser = Parser::new(text);
         parser.parse()
-            .ok_or_else(move || BadMetadataSyntax(parser.errors).into())
-            .and_then(|value| {
-                Decodable::decode(&mut Decoder::new(Value::Table(value))).map_err(|e| e.into())
-            })
+              .ok_or_else(move || BadMetadataSyntax(parser.errors).into())
+              .and_then(|value| {
+                  Decodable::decode(&mut Decoder::new(Value::Table(value))).map_err(|e| e.into())
+              })
     }
 
     pub fn sky_for(&self, name: &WadName) -> Option<&SkyMetadata> {
-        self.sky.iter()
-                .find(|sky| {
-                    Regex::new(&sky.level_pattern).map(|r| r.is_match(name.as_ref()))
-                                                  .unwrap_or_else(|_| {
-                                                      warn!("Invalid level pattern {} for sky {}.",
-                                                            sky.level_pattern, sky.texture_name);
-                                                      false
-                                                  })
-                })
-                .or_else(|| {
-                    if let Some(sky) = self.sky.get(0) {
-                        warn!("No sky found for level {}, using {}.", name, sky.texture_name);
-                        Some(sky)
-                    } else {
-                        error!("No sky metadata provided.");
-                        None
-                    }
-                })
+        self.sky
+            .iter()
+            .find(|sky| {
+                Regex::new(&sky.level_pattern)
+                    .map(|r| r.is_match(name.as_ref()))
+                    .unwrap_or_else(|_| {
+                        warn!("Invalid level pattern {} for sky {}.",
+                              sky.level_pattern,
+                              sky.texture_name);
+                        false
+                    })
+            })
+            .or_else(|| {
+                if let Some(sky) = self.sky.get(0) {
+                    warn!("No sky found for level {}, using {}.",
+                          name,
+                          sky.texture_name);
+                    Some(sky)
+                } else {
+                    error!("No sky metadata provided.");
+                    None
+                }
+            })
     }
 }
 
@@ -133,7 +138,8 @@ mod test {
                     sequence = "W"
                     obstacle = false
                     hanging = false
-        "#).ok().expect("test: could not parse test metadata");
+        "#)
+            .ok()
+            .expect("test: could not parse test metadata");
     }
 }
-

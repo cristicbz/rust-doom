@@ -109,7 +109,10 @@ pub trait WadRead: Read + Sized {
         while !buf.is_empty() {
             match self.read(buf) {
                 Ok(0) => break,
-                Ok(n) => { let tmp = buf; buf = &mut tmp[n..]; }
+                Ok(n) => {
+                    let tmp = buf;
+                    buf = &mut tmp[n..];
+                }
                 Err(ref e) if e.kind() == IoErrorKind::Interrupted => {}
                 Err(e) => return Err(e),
             }

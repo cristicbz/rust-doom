@@ -72,22 +72,22 @@ impl GameController {
             match event {
                 Event::Quit { .. } => {
                     self.quit_requested_index = self.current_update_index;
-                },
+                }
                 Event::KeyDown{ scancode: Some(scancode), .. } => {
                     self.keyboard_state[scancode as usize] =
                         ButtonState::Down(self.current_update_index);
-                },
+                }
                 Event::KeyUp { scancode: Some(scancode), .. } => {
                     self.keyboard_state[scancode as usize] =
                         ButtonState::Up(self.current_update_index);
-                },
+                }
                 Event::MouseMotion { xrel, yrel, .. } => {
                     if self.mouse_enabled {
                         self.mouse_rel = Vec2f::new(xrel as f32, yrel as f32);
                     } else {
                         self.mouse_rel = Vec2f::zero();
                     }
-                },
+                }
                 _ => {}
             }
         }
@@ -97,15 +97,14 @@ impl GameController {
         match *gesture {
             Gesture::QuitTrigger => {
                 self.quit_requested_index == self.current_update_index
-            },
+            }
             Gesture::KeyHold(code) => match self.keyboard_state[code as usize] {
                 ButtonState::Down(_) => true,
-                _ => false
+                _ => false,
             },
-            Gesture::KeyTrigger(code)
-                    => match self.keyboard_state[code as usize] {
+            Gesture::KeyTrigger(code) => match self.keyboard_state[code as usize] {
                 ButtonState::Down(index) => self.current_update_index == index,
-                _ => false
+                _ => false,
             },
             Gesture::AnyOf(ref subs) => {
                 for subgesture in subs.iter() {
@@ -114,7 +113,7 @@ impl GameController {
                     }
                 }
                 false
-            },
+            }
             Gesture::AllOf(ref subs) => {
                 for subgesture in subs.iter() {
                     if !self.poll_gesture(subgesture) {
@@ -122,27 +121,34 @@ impl GameController {
                     }
                 }
                 true
-            },
+            }
             Gesture::NoGesture => false,
-            _ => { panic!("Unimplemented gesture type."); }
+            _ => {
+                panic!("Unimplemented gesture type.");
+            }
         }
     }
 
     pub fn poll_analog2d(&self, motion: &Analog2d) -> Vec2f {
         match motion {
             &Analog2d::Mouse(sensitivity) => self.mouse_rel * sensitivity,
-            &Analog2d::Gestures(
-                    ref xpos, ref xneg, ref ypos, ref yneg, step) => {
-                Vec2f::new(
-                    if self.poll_gesture(xpos) { step }
-                    else if self.poll_gesture(xneg) { -step }
-                    else { 0.0 },
-                    if self.poll_gesture(ypos) { step }
-                    else if self.poll_gesture(yneg) { -step }
-                    else { 0.0 }
-                )
+            &Analog2d::Gestures(ref xpos, ref xneg, ref ypos, ref yneg, step) => {
+                Vec2f::new(if self.poll_gesture(xpos) {
+                               step
+                           } else if self.poll_gesture(xneg) {
+                               -step
+                           } else {
+                               0.0
+                           },
+                           if self.poll_gesture(ypos) {
+                               step
+                           } else if self.poll_gesture(yneg) {
+                               -step
+                           } else {
+                               0.0
+                           })
             }
-            &Analog2d::NoAnalog2d => Vec2f::zero()
+            &Analog2d::NoAnalog2d => Vec2f::zero(),
         }
     }
 }
