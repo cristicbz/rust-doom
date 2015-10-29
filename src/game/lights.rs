@@ -31,16 +31,23 @@ impl LightBuffer {
     }
 
     pub fn push(&mut self,
-            sector_light: LightLevel, alt_light: LightLevel,
-            sector_type: SectorType, sector_id: SectorId,
-            fake_contrast: FakeContrast) -> u8 {
+                sector_light: LightLevel,
+                alt_light: LightLevel,
+                sector_type: SectorType,
+                sector_id: SectorId,
+                fake_contrast: FakeContrast)
+                -> u8 {
         assert!(self.lights.len() < 256);
-        let new_light = Light::new(sector_light, alt_light, sector_type, sector_id, fake_contrast);
+        let new_light = Light::new(sector_light,
+                                   alt_light,
+                                   sector_type,
+                                   sector_id,
+                                   fake_contrast);
         let existing_index = self.lights
-            .iter()
-            .enumerate()
-            .find(|&(_, x)| x == &new_light)
-            .map(|(i, _)| i as u8);
+                                 .iter()
+                                 .enumerate()
+                                 .find(|&(_, x)| x == &new_light)
+                                 .map(|(i, _)| i as u8);
         if let Some(index) = existing_index {
             index
         } else {
@@ -89,13 +96,16 @@ struct Light {
 }
 
 impl Light {
-    fn new(level0: LightLevel, level1: LightLevel, sector_type: SectorType, sector_id: SectorId,
-           fake_contrast: FakeContrast) -> Light {
+    fn new(level0: LightLevel,
+           level1: LightLevel,
+           sector_type: SectorType,
+           sector_id: SectorId,
+           fake_contrast: FakeContrast)
+           -> Light {
         let level0 = (apply_contrast(level0, fake_contrast) >> 3) as f32 / 31.0;
         let level1 = (apply_contrast(level1, fake_contrast) >> 3) as f32 / 31.0;
         let effect = sector_type.into();
-        if effect == LightEffect::Constant
-                || (effect == LightEffect::Glow && level0 == level1) {
+        if effect == LightEffect::Constant || (effect == LightEffect::Glow && level0 == level1) {
             return Light {
                 level0: level0,
                 level1: level1,
@@ -104,9 +114,16 @@ impl Light {
             };
         }
 
-        let level1 = if level0 != level1 { level1 } else { 0.0 };
-        let sync = if sector_type == 12 || sector_type == 13 { 0.0 }
-        else { ((sector_id as u64 * 1664525 + 1013904223) & 0xffff) as f32 / 15.0 };
+        let level1 = if level0 != level1 {
+            level1
+        } else {
+            0.0
+        };
+        let sync = if sector_type == 12 || sector_type == 13 {
+            0.0
+        } else {
+            ((sector_id as u64 * 1664525 + 1013904223) & 0xffff) as f32 / 15.0
+        };
 
         Light {
             level0: level0,
@@ -117,8 +134,8 @@ impl Light {
     }
 
     fn noise(&self, time: f32) -> f32 {
-        let r = (1.0 + ((self.sync + time / 1000.0) * 12.9898
-                        + self.sync * 78.233).sin()) * 43758.5453;
+        let r = (1.0 + ((self.sync + time / 1000.0) * 12.9898 + self.sync * 78.233).sin()) *
+                43758.5453;
         r - r.floor()
     }
 
@@ -128,20 +145,35 @@ impl Light {
                 let scale = self.level0 - self.level1;
                 let phase = (time + self.sync * 3.5435) / 2.0 / scale;
                 (0.5 - fract(phase)).abs() * 2.0 * scale + self.level1
-            },
+            }
             LightEffect::Flash => {
-                if self.noise((time * 20.0).floor()) < 0.06 { self.level1 } else { self.level0 }
-            },
+                if self.noise((time * 20.0).floor()) < 0.06 {
+                    self.level1
+                } else {
+                    self.level0
+                }
+            }
             LightEffect::Flicker => {
-                if self.noise((time * 8.0).floor()) < 0.5 { self.level1 } else { self.level0 }
-            },
+                if self.noise((time * 8.0).floor()) < 0.5 {
+                    self.level1
+                } else {
+                    self.level0
+                }
+            }
             LightEffect::SlowStrobe => {
-                if fract(time + self.sync * 3.5435) > 0.85 { self.level0 } else { self.level1 }
-            },
+                if fract(time + self.sync * 3.5435) > 0.85 {
+                    self.level0
+                } else {
+                    self.level1
+                }
+            }
             LightEffect::FastStrobe => {
-                if fract(time * 2.0 + self.sync * 3.5435) > 0.7 { self.level0 }
-                else { self.level1 }
-            },
+                if fract(time * 2.0 + self.sync * 3.5435) > 0.7 {
+                    self.level0
+                } else {
+                    self.level1
+                }
+            }
             LightEffect::Constant => {
                 self.level0
             }
@@ -149,11 +181,17 @@ impl Light {
     }
 }
 
-fn fract(x: f32) -> f32 { x - x.floor() }
+fn fract(x: f32) -> f32 {
+    x - x.floor()
+}
 
 fn apply_contrast(level: LightLevel, fake_contrast: FakeContrast) -> LightLevel {
     match fake_contrast {
-        FakeContrast::Darken => if level <= 16 { 0 } else { level - 16 },
+        FakeContrast::Darken => if level <= 16 {
+            0
+        } else {
+            level - 16
+        },
         FakeContrast::Brighten => if level >= LightLevel::max_value() - 16 {
             LightLevel::max_value()
         } else {

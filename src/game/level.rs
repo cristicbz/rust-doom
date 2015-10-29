@@ -23,7 +23,8 @@ impl Level {
     pub fn new(wad: &wad::Archive,
                textures: &TextureDirectory,
                level_index: usize,
-               scene: &mut SceneBuilder) -> Result<Level, Box<Error>> {
+               scene: &mut SceneBuilder)
+               -> Result<Level, Box<Error>> {
         let name = *wad.level_name(level_index);
         info!("Building level {}...", name);
         let level = try!(wad::Level::from_archive(wad, level_index));
@@ -44,19 +45,25 @@ impl Level {
 
         let mut volume = WorldVolume::new();
         let mut lights = LightBuffer::new();
-        LevelBuilder::build(&level, &wad.metadata(),
-                            &texture_maps, &mut lights, &mut volume, scene);
+        LevelBuilder::build(&level,
+                            &wad.metadata(),
+                            &texture_maps,
+                            &mut lights,
+                            &mut volume,
+                            scene);
 
-        let start_pos = level.things.iter()
-            .find(|thing| thing.thing_type == 1)
-            .map(|thing| from_wad_coords(thing.x, thing.y))
-            .map(|pos| {
-                let height = 0.5 + volume.sector_at(&pos)
-                    .map(|sector| sector.floor)
-                    .unwrap_or(0.0);
-                Vec3f::new(pos[0], height, pos[1])
-            })
-            .unwrap_or(Vec3f::zero());
+        let start_pos = level.things
+                             .iter()
+                             .find(|thing| thing.thing_type == 1)
+                             .map(|thing| from_wad_coords(thing.x, thing.y))
+                             .map(|pos| {
+                                 let height = 0.5 +
+                                              volume.sector_at(&pos)
+                                                    .map(|sector| sector.floor)
+                                                    .unwrap_or(0.0);
+                                 Vec3f::new(pos[0], height, pos[1])
+                             })
+                             .unwrap_or(Vec3f::zero());
 
         Ok(Level {
             start_pos: start_pos,
@@ -66,7 +73,9 @@ impl Level {
         })
     }
 
-    pub fn start_pos(&self) -> &Vec3f { &self.start_pos }
+    pub fn start_pos(&self) -> &Vec3f {
+        &self.start_pos
+    }
 
     pub fn heights_at(&self, pos: &Vec2f) -> Option<(f32, f32)> {
         self.volume.sector_at(pos).map(|s| (s.floor, s.ceil))
@@ -93,7 +102,7 @@ enum Peg {
     Bottom,
     BottomLower,
     TopFloat,
-    BottomFloat
+    BottomFloat,
 }
 
 // Distance on the wrong side of a BSP and seg line allowed.
@@ -104,7 +113,10 @@ const SEG_TOLERANCE: f32 = 0.1;
 const POLY_BIAS: f32 = 0.64 * 3e-4;
 
 pub fn find_thing(meta: &WadMetadata, thing_type: ThingType) -> Option<&ThingMetadata> {
-    meta.things.decorations.iter().find(|t| t.thing_type == thing_type)
+    meta.things
+        .decorations
+        .iter()
+        .find(|t| t.thing_type == thing_type)
         .or_else(|| meta.things.weapons.iter().find(|t| t.thing_type == thing_type))
         .or_else(|| meta.things.powerups.iter().find(|t| t.thing_type == thing_type))
         .or_else(|| meta.things.artifacts.iter().find(|t| t.thing_type == thing_type))
@@ -115,39 +127,50 @@ pub fn find_thing(meta: &WadMetadata, thing_type: ThingType) -> Option<&ThingMet
 
 fn load_sky_texture(meta: Option<&wad::SkyMetadata>,
                     textures: &wad::TextureDirectory,
-                    scene: &mut SceneBuilder) -> Result<(), Box<Error>> {
-    if let Some((Some(image), band)) = meta.map(|m| (textures.texture(&m.texture_name),
-                                                     m.tiled_band_size)) {
+                    scene: &mut SceneBuilder)
+                    -> Result<(), Box<Error>> {
+    if let Some((Some(image), band)) = meta.map(|m| {
+        (textures.texture(&m.texture_name), m.tiled_band_size)
+    }) {
         try!(scene.tiled_band_size(band)
                   .sky_texture(image.pixels(), image.size()));
     } else {
         warn!("Sky texture not found, will not render skies.");
         try!(scene.no_sky_texture()).tiled_band_size(0.0f32);
-    };
+    }
     Ok(())
 }
 
 fn build_flats_atlas(level: &wad::Level,
                      textures: &wad::TextureDirectory,
-                     scene: &mut SceneBuilder) -> Result<BoundsLookup, Box<Error>> {
+                     scene: &mut SceneBuilder)
+                     -> Result<BoundsLookup, Box<Error>> {
     let flat_name_iter = level.sectors
-            .iter()
-            .flat_map(|s| Some(&s.floor_texture).into_iter()
-                                                .chain(Some(&s.ceiling_texture).into_iter()))
-            .filter(|name| !is_untextured(*name) && !is_sky_flat(*name));
+                              .iter()
+                              .flat_map(|s| {
+                                  Some(&s.floor_texture)
+                                      .into_iter()
+                                      .chain(Some(&s.ceiling_texture).into_iter())
+                              })
+                              .filter(|name| !is_untextured(*name) && !is_sky_flat(*name));
     let (OpaqueImage { pixels, size }, lookup) = textures.build_flat_atlas(flat_name_iter);
     try!(scene.flats_texture(&pixels, size));
     Ok(lookup)
 }
 
-fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory, scene: &mut SceneBuilder)
-        -> Result<BoundsLookup, Box<Error>> {
+fn build_walls_atlas(level: &wad::Level,
+                     textures: &wad::TextureDirectory,
+                     scene: &mut SceneBuilder)
+                     -> Result<BoundsLookup, Box<Error>> {
     let tex_name_iter = level.sidedefs
-            .iter()
-            .flat_map(|s| Some(&s.upper_texture).into_iter()
-                          .chain(Some(&s.lower_texture).into_iter())
-                          .chain(Some(&s.middle_texture).into_iter()))
-            .filter(|name| !is_untextured(*name));
+                             .iter()
+                             .flat_map(|s| {
+                                 Some(&s.upper_texture)
+                                     .into_iter()
+                                     .chain(Some(&s.lower_texture).into_iter())
+                                     .chain(Some(&s.middle_texture).into_iter())
+                             })
+                             .filter(|name| !is_untextured(*name));
     let (TransparentImage { pixels, size }, lookup) = textures.build_texture_atlas(tex_name_iter);
     try!(scene.walls_texture(&pixels, size));
     Ok(lookup)
@@ -156,22 +179,23 @@ fn build_walls_atlas(level: &wad::Level, textures: &wad::TextureDirectory, scene
 fn build_decor_atlas(level: &wad::Level,
                      archive: &wad::Archive,
                      textures: &wad::TextureDirectory,
-                     scene: &mut SceneBuilder) -> Result<BoundsLookup, Box<Error>> {
+                     scene: &mut SceneBuilder)
+                     -> Result<BoundsLookup, Box<Error>> {
     let tex_names = level.things
-            .iter()
-            .filter_map(|t| find_thing(archive.metadata(), t.thing_type))
-            .flat_map(|d| {
-                let mut s = d.sprite.as_bytes().to_owned();
-                s.push(d.sequence.as_bytes()[0]);
-                s.push(b'0');
-                let n1 = WadName::from_bytes(&s);
-                s.pop();
-                s.push(b'1');
-                let n2 = WadName::from_bytes(&s);
-                n1.into_iter().chain(n2)
-            })
-            .filter(|name| !is_untextured(&name))
-            .collect::<Vec<_>>();
+                         .iter()
+                         .filter_map(|t| find_thing(archive.metadata(), t.thing_type))
+                         .flat_map(|d| {
+                             let mut s = d.sprite.as_bytes().to_owned();
+                             s.push(d.sequence.as_bytes()[0]);
+                             s.push(b'0');
+                             let n1 = WadName::from_bytes(&s);
+                             s.pop();
+                             s.push(b'1');
+                             let n2 = WadName::from_bytes(&s);
+                             n1.into_iter().chain(n2)
+                         })
+                         .filter(|name| !is_untextured(&name))
+                         .collect::<Vec<_>>();
     let (TransparentImage { pixels, size }, lookup) =
         textures.build_texture_atlas(tex_names.iter());
     try!(scene.decors_texture(&pixels, size));
@@ -196,7 +220,8 @@ impl Poly {
         if self.poly.len() < 3 {
             return false;
         }
-        self.poly.iter()
+        self.poly
+            .iter()
             .zip(self.poly[1..].iter().chain(Some(&self.poly[0]).into_iter()))
             .map(|(a, b)| Line2f::from_two_points(*a, *b))
             .all(|l| l.signed_distance(point) >= 0.0)
@@ -237,7 +262,8 @@ impl WorldVolume {
     }
 
     pub fn sector_at(&self, position: &Vec2f) -> Option<&Sector> {
-        self.polys.iter()
+        self.polys
+            .iter()
             .find(|poly| poly.contains(position))
             .and_then(|poly| self.sector(poly.sector))
     }
@@ -255,15 +281,27 @@ struct LevelBuilder<'a, 'b: 'a> {
     max_height: i16,
 }
 impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
-    fn build(level: &wad::Level, meta: &WadMetadata,
-             bounds: &TextureMaps, lights: &mut LightBuffer,
-             volume: &mut WorldVolume, scene: &mut SceneBuilder) {
+    fn build(level: &wad::Level,
+             meta: &WadMetadata,
+             bounds: &TextureMaps,
+             lights: &mut LightBuffer,
+             volume: &mut WorldVolume,
+             scene: &mut SceneBuilder) {
         let (min_height, max_height) = level.sectors
-            .iter()
-            .map(|s| (s.floor_height, s.ceiling_height))
-            .fold((32767, -32768),
-                  |(min, max), (f, c)| (if f < min { f } else { min },
-                                        if c > max { c } else { max }));
+                                            .iter()
+                                            .map(|s| (s.floor_height, s.ceiling_height))
+                                            .fold((32767, -32768), |(min, max), (f, c)| {
+                                                (if f < min {
+                                                    f
+                                                } else {
+                                                    min
+                                                },
+                                                 if c > max {
+                                                    c
+                                                } else {
+                                                    max
+                                                })
+                                            });
         let max_height = max_height + 32;
 
         let mut builder = LevelBuilder {
@@ -295,7 +333,7 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
             Some(m) => m,
             None => {
                 warn!("No metadata found for thing type {}", thing.thing_type);
-                return
+                return;
             }
         };
         let (name1, name2) = {
@@ -317,8 +355,10 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
                 }
             }
         };
-        let bounds = if let Some(bounds) = self.bounds.decors.get(&name1)
-                .or(self.bounds.decors.get(&name2)) {
+        let bounds = if let Some(bounds) = self.bounds
+                                               .decors
+                                               .get(&name1)
+                                               .or(self.bounds.decors.get(&name2)) {
             bounds
         } else {
             return;
@@ -333,12 +373,33 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
         };
         let half_width = bounds.size[0] / 100.0 * 0.5;
 
-        self.scene.decors_buffer()
-            .push(&low, -half_width, 0.0, bounds.size[1], bounds, sector.light_info)
-            .push(&low, half_width, bounds.size[0], bounds.size[1], bounds, sector.light_info)
+        self.scene
+            .decors_buffer()
+            .push(&low,
+                  -half_width,
+                  0.0,
+                  bounds.size[1],
+                  bounds,
+                  sector.light_info)
+            .push(&low,
+                  half_width,
+                  bounds.size[0],
+                  bounds.size[1],
+                  bounds,
+                  sector.light_info)
             .push(&high, -half_width, 0.0, 0.0, bounds, sector.light_info)
-            .push(&low, half_width, bounds.size[0], bounds.size[1], bounds, sector.light_info)
-            .push(&high, half_width, bounds.size[0], 0.0, bounds, sector.light_info)
+            .push(&low,
+                  half_width,
+                  bounds.size[0],
+                  bounds.size[1],
+                  bounds,
+                  sector.light_info)
+            .push(&high,
+                  half_width,
+                  bounds.size[0],
+                  0.0,
+                  bounds,
+                  sector.light_info)
             .push(&high, -half_width, 0.0, 0.0, bounds, sector.light_info);
     }
 
@@ -349,14 +410,14 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
             return;
         }
 
-        let node = if let Some(node) = self.level.nodes.get(id) { node }
-            else {
-                warn!("Missing entire node with id {}, skipping.", id);
-                return;
-            };
-        let partition = Line2f::from_origin_and_displace(
-            from_wad_coords(node.line_x, node.line_y),
-            from_wad_coords(node.step_x, node.step_y));
+        let node = if let Some(node) = self.level.nodes.get(id) {
+            node
+        } else {
+            warn!("Missing entire node with id {}, skipping.", id);
+            return;
+        };
+        let partition = Line2f::from_origin_and_displace(from_wad_coords(node.line_x, node.line_y),
+                                                         from_wad_coords(node.step_x, node.step_y));
         lines.push(partition);
         self.node(lines, node.left);
         lines.pop();
@@ -367,11 +428,13 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
     }
 
     fn subsector(&mut self, lines: &[Line2f], id: usize) {
-        let segs = if let Some(segs) = self.level.ssector_segs(&self.level.subsectors[id]) { segs }
-            else {
-                warn!("Cannot find segs for subsector with id {}, will skip entirely.", id);
-                return;
-            };
+        let segs = if let Some(segs) = self.level.ssector_segs(&self.level.subsectors[id]) {
+            segs
+        } else {
+            warn!("Cannot find segs for subsector with id {}, will skip entirely.",
+                  id);
+            return;
+        };
 
         // The vector contains all (2D) points which are part of the subsector:
         // implicit (intersection of BSP lines) and explicit (seg vertices).
@@ -380,11 +443,13 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
 
         // First add the explicit points.
         for seg in segs.iter() {
-            let (v1, v2) = if let Some(v) = self.level.seg_vertices(seg) { v }
-                else {
-                    warn!("Cannot find seg vertices in subsector {}, skipping seg.", id);
-                    continue;
-                };
+            let (v1, v2) = if let Some(v) = self.level.seg_vertices(seg) {
+                v
+            } else {
+                warn!("Cannot find seg vertices in subsector {}, skipping seg.",
+                      id);
+                continue;
+            };
             points.push(v1);
             points.push(v2);
             seg_lines.push(Line2f::from_two_points(v1, v2));
@@ -401,27 +466,29 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
                 let (l1, l2) = (&(*lines)[i_line], &(*lines)[j_line]);
                 let point = match l1.intersect_point(l2) {
                     Some(p) => p,
-                    None => continue
+                    None => continue,
                 };
 
                 let dist = |l: &Line2f| l.signed_distance(&point);
 
                 // The intersection point must lie both within the BSP volume
                 // and the segs volume.
-                if lines.iter().map(|x| dist(x)).all(|d| d >= -BSP_TOLERANCE)
-                   && seg_lines.iter().map(dist).all(|d| d <= SEG_TOLERANCE) {
+                if lines.iter().map(|x| dist(x)).all(|d| d >= -BSP_TOLERANCE) &&
+                   seg_lines.iter().map(dist).all(|d| d <= SEG_TOLERANCE) {
                     points.push(point);
                 }
             }
         }
         if points.len() < 3 {
             warn!("Degenerate source polygon {} ({} vertices).",
-                  id, points.len());
+                  id,
+                  points.len());
         }
         points_to_polygon(&mut points);  // Sort and remove duplicates.
         if points.len() < 3 {
             warn!("Degenerate cannonicalised polygon {} ({} vertices).",
-                  id, points.len());
+                  id,
+                  points.len());
         } else if let Some(sector) = self.level.seg_sector(&segs[0]) {
             self.flat_poly(sector, &points);
         } else {
@@ -430,37 +497,46 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
     }
 
     fn seg(&mut self, seg: &WadSeg) {
-        let line = if let Some(line) = self.level.seg_linedef(seg) { line }
-            else {
-                warn!("No linedef found for seg, skipping seg.");
-                return;
-            };
-        let side = if let Some(side) = self.level.seg_sidedef(seg) { side }
-            else {
-                warn!("No sidedef found for seg, skipping seg.");
-                return;
-            };
-        let sector = if let Some(sector) = self.level.sidedef_sector(side) { sector }
-            else {
-                warn!("No sector found for seg, skipping seg.");
-                return;
-            };
+        let line = if let Some(line) = self.level.seg_linedef(seg) {
+            line
+        } else {
+            warn!("No linedef found for seg, skipping seg.");
+            return;
+        };
+        let side = if let Some(side) = self.level.seg_sidedef(seg) {
+            side
+        } else {
+            warn!("No sidedef found for seg, skipping seg.");
+            return;
+        };
+        let sector = if let Some(sector) = self.level.sidedef_sector(side) {
+            sector
+        } else {
+            warn!("No sector found for seg, skipping seg.");
+            return;
+        };
         let (min, max) = (self.min_height, self.max_height);
         let (floor, ceil) = (sector.floor_height, sector.ceiling_height);
         let unpeg_lower = line.lower_unpegged();
         let back_sector = match self.level.seg_back_sector(seg) {
             None => {
-                self.wall_quad(seg, (floor, ceil), &side.middle_texture,
-                               if unpeg_lower { Peg::Bottom } else { Peg::Top });
+                self.wall_quad(seg,
+                               (floor, ceil),
+                               &side.middle_texture,
+                               if unpeg_lower {
+                                   Peg::Bottom
+                               } else {
+                                   Peg::Top
+                               });
                 if is_sky_flat(&sector.ceiling_texture) {
                     self.sky_quad(seg, (ceil, max));
                 }
                 if is_sky_flat(&sector.floor_texture) {
                     self.sky_quad(seg, (min, floor));
                 }
-                return
-            },
-            Some(s) => s
+                return;
+            }
+            Some(s) => s,
         };
 
         if is_sky_flat(&sector.ceiling_texture) && !is_sky_flat(&back_sector.ceiling_texture) {
@@ -474,76 +550,100 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
         let back_floor = back_sector.floor_height;
         let back_ceil = back_sector.ceiling_height;
         let floor = if back_floor > floor {
-            self.wall_quad(seg, (floor, back_floor), &side.lower_texture,
-                           if unpeg_lower { Peg::BottomLower } else { Peg::Top });
+            self.wall_quad(seg,
+                           (floor, back_floor),
+                           &side.lower_texture,
+                           if unpeg_lower {
+                               Peg::BottomLower
+                           } else {
+                               Peg::Top
+                           });
             back_floor
         } else {
             floor
         };
         let ceil = if back_ceil < ceil {
             if !is_sky_flat(&back_sector.ceiling_texture) {
-                self.wall_quad(seg, (back_ceil, ceil), &side.upper_texture,
-                               if unpeg_upper { Peg::Top } else { Peg::Bottom });
+                self.wall_quad(seg,
+                               (back_ceil, ceil),
+                               &side.upper_texture,
+                               if unpeg_upper {
+                                   Peg::Top
+                               } else {
+                                   Peg::Bottom
+                               });
             }
             back_ceil
         } else {
             ceil
         };
-        self.wall_quad(seg, (floor, ceil), &side.middle_texture,
-            if unpeg_lower {
-                if is_untextured(&side.upper_texture) {
-                    Peg::TopFloat
-                } else {
-                    Peg::Bottom
-                }
-            } else {
-                if is_untextured(&side.lower_texture) {
-                    Peg::BottomFloat
-                } else {
-                    Peg::Top
-                }
-            });
+        self.wall_quad(seg,
+                       (floor, ceil),
+                       &side.middle_texture,
+                       if unpeg_lower {
+                           if is_untextured(&side.upper_texture) {
+                               Peg::TopFloat
+                           } else {
+                               Peg::Bottom
+                           }
+                       } else {
+                           if is_untextured(&side.lower_texture) {
+                               Peg::BottomFloat
+                           } else {
+                               Peg::Top
+                           }
+                       });
     }
 
-    fn wall_quad(&mut self, seg: &WadSeg, (low, high): (WadCoord, WadCoord),
-                 texture_name: &WadName, peg: Peg) {
-        if low >= high { return; }
-        if is_untextured(texture_name) { return; }
-        let bounds = if let Some(bounds) = self.bounds.walls.get(texture_name) { bounds }
-            else {
-                warn!("wall_quad: No such wall texture '{}'", texture_name);
-                return
-            };
-        let line = if let Some(line) = self.level.seg_linedef(seg) { line }
-            else {
-                warn!("Missing linedef for seg, skipping wall.");
-                return;
-            };
-        let side = if let Some(side) = self.level.seg_sidedef(seg) { side }
-            else {
-                warn!("Missing sidedef for seg, skipping wall.");
-                return;
-            };
-        let sector = if let Some(sector) = self.level.sidedef_sector(side) { sector }
-            else {
-                warn!("Missing sector for seg, skipping wall.");
-                return;
-            };
-        let (v1, v2) = if let Some(v) = self.level.seg_vertices(seg) { v }
-            else {
-                warn!("Missing vertices for seg, skipping wall.");
-                return;
-            };
+    fn wall_quad(&mut self,
+                 seg: &WadSeg,
+                 (low, high): (WadCoord, WadCoord),
+                 texture_name: &WadName,
+                 peg: Peg) {
+        if low >= high {
+            return;
+        }
+        if is_untextured(texture_name) {
+            return;
+        }
+        let bounds = if let Some(bounds) = self.bounds.walls.get(texture_name) {
+            bounds
+        } else {
+            warn!("wall_quad: No such wall texture '{}'", texture_name);
+            return;
+        };
+        let line = if let Some(line) = self.level.seg_linedef(seg) {
+            line
+        } else {
+            warn!("Missing linedef for seg, skipping wall.");
+            return;
+        };
+        let side = if let Some(side) = self.level.seg_sidedef(seg) {
+            side
+        } else {
+            warn!("Missing sidedef for seg, skipping wall.");
+            return;
+        };
+        let sector = if let Some(sector) = self.level.sidedef_sector(side) {
+            sector
+        } else {
+            warn!("Missing sector for seg, skipping wall.");
+            return;
+        };
+        let (v1, v2) = if let Some(v) = self.level.seg_vertices(seg) {
+            v
+        } else {
+            warn!("Missing vertices for seg, skipping wall.");
+            return;
+        };
         let bias = (v2 - v1).normalized() * POLY_BIAS;
         let (v1, v2) = (v1 - bias, v2 + bias);
         let (low, high) = match peg {
             Peg::TopFloat => (from_wad_height(low + side.y_offset),
-                              from_wad_height(low + bounds.size[1] as i16 +
-                                              side.y_offset)),
-            Peg::BottomFloat => (from_wad_height(high + side.y_offset -
-                                                 bounds.size[1] as i16),
+                              from_wad_height(low + bounds.size[1] as i16 + side.y_offset)),
+            Peg::BottomFloat => (from_wad_height(high + side.y_offset - bounds.size[1] as i16),
                                  from_wad_height(high + side.y_offset)),
-            _ => (from_wad_height(low), from_wad_height(high))
+            _ => (from_wad_height(low), from_wad_height(high)),
         };
 
         let fake_contrast = if v1[0] == v2[0] {
@@ -562,25 +662,29 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
             Peg::Bottom => (bounds.size[1], bounds.size[1] - height),
             Peg::BottomLower => {
                 // As far as I can tell, this is a special case.
-                let sector_height = (sector.ceiling_height -
-                                     sector.floor_height) as f32;
+                let sector_height = (sector.ceiling_height - sector.floor_height) as f32;
                 (bounds.size[1] + sector_height,
                  bounds.size[1] - height + sector_height)
-            },
+            }
             Peg::TopFloat | Peg::BottomFloat => {
                 (bounds.size[1], 0.0)
             }
         };
         let (t1, t2) = (t1 + side.y_offset as f32, t2 + side.y_offset as f32);
 
-        let scroll = if line.special_type == 0x30 { 35.0 } else { 0.0 };
+        let scroll = if line.special_type == 0x30 {
+            35.0
+        } else {
+            0.0
+        };
 
         let (low, high) = (low - POLY_BIAS, high + POLY_BIAS);
-        self.scene.walls_buffer()
-            .push(&v1, low,  s1, t1, light_info, scroll, bounds)
-            .push(&v2, low,  s2, t1, light_info, scroll, bounds)
+        self.scene
+            .walls_buffer()
+            .push(&v1, low, s1, t1, light_info, scroll, bounds)
+            .push(&v2, low, s2, t1, light_info, scroll, bounds)
             .push(&v1, high, s1, t2, light_info, scroll, bounds)
-            .push(&v2, low,  s2, t1, light_info, scroll, bounds)
+            .push(&v2, low, s2, t1, light_info, scroll, bounds)
             .push(&v2, high, s2, t2, light_info, scroll, bounds)
             .push(&v1, high, s1, t2, light_info, scroll, bounds);
     }
@@ -594,12 +698,16 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
 
         let sector_id = self.level.sector_id(sector) as usize;
         if let None = self.volume.sector(sector_id) {
-            self.volume.insert_sector(sector_id, Sector {
-                floor: floor_y,
-                ceil: if is_sky_flat(ceil_tex) { from_wad_height(self.max_height) }
-                      else { ceil_y },
-                light_info: light_info,
-            });
+            self.volume.insert_sector(sector_id,
+                                      Sector {
+                                          floor: floor_y,
+                                          ceil: if is_sky_flat(ceil_tex) {
+                                              from_wad_height(self.max_height)
+                                          } else {
+                                              ceil_y
+                                          },
+                                          light_info: light_info,
+                                      });
         }
 
         self.volume.push_poly(points.to_owned(), sector_id);
@@ -609,7 +717,8 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
             if let Some(floor_bounds) = self.bounds.flats.get(floor_tex) {
                 for i in 1..points.len() {
                     let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-                    self.scene.flats_buffer()
+                    self.scene
+                        .flats_buffer()
                         .push(&v0, floor_y, light_info, floor_bounds)
                         .push(&v1, floor_y, light_info, floor_bounds)
                         .push(&v2, floor_y, light_info, floor_bounds);
@@ -617,7 +726,7 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
             } else {
                 warn!("No such floor {} in flat, skipping.", floor_tex);
                 return;
-            };
+            }
         } else {
             let min = from_wad_height(self.min_height);
             for i in 1..points.len() {
@@ -631,14 +740,15 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
             if let Some(ceiling_bounds) = self.bounds.flats.get(ceil_tex) {
                 for i in 1..points.len() {
                     let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-                    self.scene.flats_buffer()
+                    self.scene
+                        .flats_buffer()
                         .push(&v2, ceil_y, light_info, ceiling_bounds)
                         .push(&v1, ceil_y, light_info, ceiling_bounds)
                         .push(&v0, ceil_y, light_info, ceiling_bounds);
                 }
             } else {
                 warn!("No such floor {} in flat, skipping.", ceil_tex);
-            };
+            }
         } else {
             let max = from_wad_height(self.max_height);
             for i in 1..points.len() {
@@ -650,12 +760,15 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
     }
 
     fn sky_quad(&mut self, seg: &WadSeg, (low, high): (WadCoord, WadCoord)) {
-        if low >= high { return; }
-        let (v1, v2) = if let Some(v) = self.level.seg_vertices(seg) { v }
-            else {
-                warn!("Missing seg vertices for sky wall, skipping.");
-                return;
-            };
+        if low >= high {
+            return;
+        }
+        let (v1, v2) = if let Some(v) = self.level.seg_vertices(seg) {
+            v
+        } else {
+            warn!("Missing seg vertices for sky wall, skipping.");
+            return;
+        };
         let bias = (v2 - v1).normalized() * POLY_BIAS;
         let (v1, v2) = (v1 - bias, v2 + bias);
         let (low, high) = (from_wad_height(low), from_wad_height(high));
@@ -665,15 +778,19 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
     }
 
     fn light_info(&mut self, sector: &WadSector, fake_contrast: FakeContrast) -> u8 {
-        self.lights.push(sector.light, self.level.sector_min_light(sector),
-                         sector.sector_type, self.level.sector_id(sector),
+        self.lights.push(sector.light,
+                         self.level.sector_min_light(sector),
+                         sector.sector_type,
+                         self.level.sector_id(sector),
                          fake_contrast)
     }
 }
 
 fn polygon_center(points: &[Vec2f]) -> Vec2f {
     let mut center = Vec2f::zero();
-    for p in points.iter() { center = center + *p; }
+    for p in points.iter() {
+        center = center + *p;
+    }
     center / (points.len() as f32)
 }
 
@@ -681,34 +798,36 @@ fn polygon_center(points: &[Vec2f]) -> Vec2f {
 fn points_to_polygon(points: &mut Vec<Vec2f>) {
     // Sort points in polygonal CCW order around their center.
     let center = polygon_center(points);
-    points.sort_by(
-        |a, b| {
-            let ac = *a - center;
-            let bc = *b - center;
-            if ac[0] >= 0.0 && bc[0] < 0.0 {
-                return Ordering::Less;
-            }
-            if ac[0] < 0.0 && bc[0] >= 0.0 {
-                return Ordering::Greater;
-            }
-            if ac[0] == 0.0 && bc[0] == 0.0 {
-                if ac[1] >= 0.0 || bc[1] >= 0.0 {
-                    return if a[1] > b[1] {
-                        Ordering::Less
-                    } else {
-                        Ordering::Greater
-                    }
-                }
-                return if b[1] > a[1] {
+    points.sort_by(|a, b| {
+        let ac = *a - center;
+        let bc = *b - center;
+        if ac[0] >= 0.0 && bc[0] < 0.0 {
+            return Ordering::Less;
+        }
+        if ac[0] < 0.0 && bc[0] >= 0.0 {
+            return Ordering::Greater;
+        }
+        if ac[0] == 0.0 && bc[0] == 0.0 {
+            if ac[1] >= 0.0 || bc[1] >= 0.0 {
+                return if a[1] > b[1] {
                     Ordering::Less
                 } else {
                     Ordering::Greater
-                }
+                };
             }
+            return if b[1] > a[1] {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            };
+        }
 
-            if ac.cross(&bc) < 0.0 { Ordering::Less }
-            else { Ordering::Greater }
-        });
+        if ac.cross(&bc) < 0.0 {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        }
+    });
 
     // Remove duplicates.
     let mut simplified = Vec::new();
@@ -718,8 +837,7 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
     for i_point in 2..points.len() {
         let next_point = (*points)[i_point];
         let prev_point = simplified[simplified.len() - 1];
-        let new_area = (next_point - current_point)
-            .cross(&(current_point - prev_point)) * 0.5;
+        let new_area = (next_point - current_point).cross(&(current_point - prev_point)) * 0.5;
         if new_area >= 0.0 && area + new_area > 1.024e-05 {
             area = 0.0;
             simplified.push(current_point);
@@ -729,7 +847,10 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
         current_point = next_point;
     }
     simplified.push((*points)[points.len() - 1]);
-    if simplified.len() < 3 { points.clear(); return; }
+    if simplified.len() < 3 {
+        points.clear();
+        return;
+    }
     while (simplified[0] - simplified[simplified.len() - 1]).norm() < 0.0032 {
         simplified.pop();
     }
