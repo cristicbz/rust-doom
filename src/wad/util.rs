@@ -2,7 +2,10 @@ use math::{Vec2, Vec2f};
 use types::{WadCoord, WadInfo, WadName, ChildId};
 
 #[derive(Copy, Clone)]
-pub enum WadType { Initial, Patch }
+pub enum WadType {
+    Initial,
+    Patch,
+}
 
 const IWAD_HEADER: &'static [u8] = b"IWAD";
 const PWAD_HEADER: &'static [u8] = b"PWAD";
@@ -26,7 +29,9 @@ pub fn is_sky_flat(name: &WadName) -> bool {
     name == b"F_SKY1\0\0"
 }
 
-pub fn from_wad_height(x: WadCoord) -> f32 { (x as f32) / 100.0 }
+pub fn from_wad_height(x: WadCoord) -> f32 {
+    (x as f32) / 100.0
+}
 
 pub fn from_wad_coords(x: WadCoord, y: WadCoord) -> Vec2f {
     Vec2::new(-from_wad_height(x), from_wad_height(y))
