@@ -130,7 +130,7 @@ impl TextureDirectory {
         for i_colormap in colormap_start .. colormap_end {
             for i_color in 0 .. 256 {
                 let rgb = &palette[self.colormaps[i_colormap][i_color] as usize * 3..][..3];
-                data[0 + i_color * 3 + i_colormap * 256 * 3] = rgb[0];
+                data[    i_color * 3 + i_colormap * 256 * 3] = rgb[0];
                 data[1 + i_color * 3 + i_colormap * 256 * 3] = rgb[1];
                 data[2 + i_color * 3 + i_colormap * 256 * 3] = rgb[2];
             }
@@ -189,7 +189,7 @@ impl TextureDirectory {
             let mut offset = Vec2::zero();
             let mut failed = false;
             let mut row_height = 0;
-            for &AtlasEntry { image, .. } in entries.iter() {
+            for &AtlasEntry { image, .. } in &entries {
                 let size = image.size();
                 if offset[0] + size[0] > atlas_size[0] {
                     offset[0] = 0;

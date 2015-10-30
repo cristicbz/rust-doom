@@ -385,7 +385,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
     }
 
     fn things(&mut self) {
-        for thing in self.level.things.iter() {
+        for thing in &self.level.things {
             let pos = from_wad_coords(thing.x, thing.y);
             if let Some(sector) = self.sector_at(&pos) {
                 self.decor(thing, &pos, sector);
@@ -588,7 +588,7 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
     }
 
     let center = polygon_center(&simplified);
-    for point in simplified.iter_mut() {
+    for point in &mut simplified {
         *point = *point + (*point - center).normalized() * POLY_BIAS;
     }
     *points = simplified;

@@ -108,7 +108,7 @@ impl Image {
                                         bytes left {}", i_column, i_run, row_start, run_length,
                                        source.size_hint().0).into());
                 }
-                while let Some(dest_pixel) = destination.next() {
+                for dest_pixel in &mut destination {
                     *dest_pixel = *source.next().expect("missing pixel despite check") as u16;
                 }
 
