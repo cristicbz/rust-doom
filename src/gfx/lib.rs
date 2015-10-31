@@ -1,5 +1,7 @@
-#[macro_use] extern crate log;
-#[macro_use] extern crate glium;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate glium;
 
 extern crate common;
 extern crate math;

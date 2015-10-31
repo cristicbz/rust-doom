@@ -8,7 +8,7 @@ use wad::tex::{OpaqueImage, TransparentImage};
 use wad::types::{WadName, SectorId};
 use wad::util::{from_wad_coords, is_untextured, is_sky_flat};
 use wad::{WadMetadata, SkyMetadata, TextureDirectory};
-use wad::Archive as Archive;
+use wad::Archive;
 use wad::Level as WadLevel;
 use wad::{LightInfo, LevelWalker, LevelVisitor};
 
@@ -23,7 +23,8 @@ impl Level {
     pub fn new(wad: &Archive,
                textures: &TextureDirectory,
                level_index: usize,
-               scene: &mut SceneBuilder) -> Result<Level, Box<Error>> {
+               scene: &mut SceneBuilder)
+               -> Result<Level, Box<Error>> {
         let name = *wad.level_name(level_index);
         info!("Building level {}...", name);
         let level = try!(WadLevel::from_archive(wad, level_index));
@@ -44,19 +45,26 @@ impl Level {
 
         let mut volume = WorldVolume::new();
         let mut lights = LightBuffer::new();
-        LevelBuilder::build(&level, &wad.metadata(),
-                            textures, &texture_maps, &mut lights, &mut volume, scene);
+        LevelBuilder::build(&level,
+                            &wad.metadata(),
+                            textures,
+                            &texture_maps,
+                            &mut lights,
+                            &mut volume,
+                            scene);
 
-        let start_pos = level.things.iter()
-            .find(|thing| thing.thing_type == 1)
-            .map(|thing| from_wad_coords(thing.x, thing.y))
-            .map(|pos| {
-                let height = 0.5 + volume.sector_at(&pos)
-                    .map(|sector| sector.floor)
-                    .unwrap_or(0.0);
-                Vec3f::new(pos[0], height, pos[1])
-            })
-            .unwrap_or(Vec3f::zero());
+        let start_pos = level.things
+                             .iter()
+                             .find(|thing| thing.thing_type == 1)
+                             .map(|thing| from_wad_coords(thing.x, thing.y))
+                             .map(|pos| {
+                                 let height = 0.5 +
+                                              volume.sector_at(&pos)
+                                                    .map(|sector| sector.floor)
+                                                    .unwrap_or(0.0);
+                                 Vec3f::new(pos[0], height, pos[1])
+                             })
+                             .unwrap_or(Vec3f::zero());
 
         Ok(Level {
             start_pos: start_pos,
@@ -66,7 +74,9 @@ impl Level {
         })
     }
 
-    pub fn start_pos(&self) -> &Vec3f { &self.start_pos }
+    pub fn start_pos(&self) -> &Vec3f {
+        &self.start_pos
+    }
 
     pub fn heights_at(&self, pos: &Vec2f) -> Option<(f32, f32)> {
         self.volume.sector_at(pos).map(|s| (s.floor, s.ceil))
@@ -89,39 +99,50 @@ pub struct TextureMaps {
 
 fn load_sky_texture(meta: Option<&SkyMetadata>,
                     textures: &TextureDirectory,
-                    scene: &mut SceneBuilder) -> Result<(), Box<Error>> {
-    if let Some((Some(image), band)) = meta.map(|m| (textures.texture(&m.texture_name),
-                                                     m.tiled_band_size)) {
+                    scene: &mut SceneBuilder)
+                    -> Result<(), Box<Error>> {
+    if let Some((Some(image), band)) = meta.map(|m| {
+        (textures.texture(&m.texture_name), m.tiled_band_size)
+    }) {
         try!(scene.tiled_band_size(band)
                   .sky_texture(image.pixels(), image.size()));
     } else {
         warn!("Sky texture not found, will not render skies.");
         try!(scene.no_sky_texture()).tiled_band_size(0.0f32);
-    };
+    }
     Ok(())
 }
 
 fn build_flats_atlas(level: &WadLevel,
                      textures: &TextureDirectory,
-                     scene: &mut SceneBuilder) -> Result<BoundsLookup, Box<Error>> {
+                     scene: &mut SceneBuilder)
+                     -> Result<BoundsLookup, Box<Error>> {
     let flat_name_iter = level.sectors
-            .iter()
-            .flat_map(|s| Some(&s.floor_texture).into_iter()
-                                                .chain(Some(&s.ceiling_texture).into_iter()))
-            .filter(|name| !is_untextured(*name) && !is_sky_flat(*name));
+                              .iter()
+                              .flat_map(|s| {
+                                  Some(&s.floor_texture)
+                                      .into_iter()
+                                      .chain(Some(&s.ceiling_texture).into_iter())
+                              })
+                              .filter(|name| !is_untextured(*name) && !is_sky_flat(*name));
     let (OpaqueImage { pixels, size }, lookup) = textures.build_flat_atlas(flat_name_iter);
     try!(scene.flats_texture(&pixels, size));
     Ok(lookup)
 }
 
-fn build_walls_atlas(level: &WadLevel, textures: &TextureDirectory, scene: &mut SceneBuilder)
-        -> Result<BoundsLookup, Box<Error>> {
+fn build_walls_atlas(level: &WadLevel,
+                     textures: &TextureDirectory,
+                     scene: &mut SceneBuilder)
+                     -> Result<BoundsLookup, Box<Error>> {
     let tex_name_iter = level.sidedefs
-            .iter()
-            .flat_map(|s| Some(&s.upper_texture).into_iter()
-                          .chain(Some(&s.lower_texture).into_iter())
-                          .chain(Some(&s.middle_texture).into_iter()))
-            .filter(|name| !is_untextured(*name));
+                             .iter()
+                             .flat_map(|s| {
+                                 Some(&s.upper_texture)
+                                     .into_iter()
+                                     .chain(Some(&s.lower_texture).into_iter())
+                                     .chain(Some(&s.middle_texture).into_iter())
+                             })
+                             .filter(|name| !is_untextured(*name));
     let (TransparentImage { pixels, size }, lookup) = textures.build_texture_atlas(tex_name_iter);
     try!(scene.walls_texture(&pixels, size));
     Ok(lookup)
@@ -130,22 +151,23 @@ fn build_walls_atlas(level: &WadLevel, textures: &TextureDirectory, scene: &mut 
 fn build_decor_atlas(level: &WadLevel,
                      archive: &Archive,
                      textures: &TextureDirectory,
-                     scene: &mut SceneBuilder) -> Result<BoundsLookup, Box<Error>> {
+                     scene: &mut SceneBuilder)
+                     -> Result<BoundsLookup, Box<Error>> {
     let tex_names = level.things
-            .iter()
-            .filter_map(|t| archive.metadata().find_thing(t.thing_type))
-            .flat_map(|d| {
-                let mut s = d.sprite.as_bytes().to_owned();
-                s.push(d.sequence.as_bytes()[0]);
-                s.push(b'0');
-                let n1 = WadName::from_bytes(&s);
-                s.pop();
-                s.push(b'1');
-                let n2 = WadName::from_bytes(&s);
-                n1.into_iter().chain(n2)
-            })
-            .filter(|name| !is_untextured(&name))
-            .collect::<Vec<_>>();
+                         .iter()
+                         .filter_map(|t| archive.metadata().find_thing(t.thing_type))
+                         .flat_map(|d| {
+                             let mut s = d.sprite.as_bytes().to_owned();
+                             s.push(d.sequence.as_bytes()[0]);
+                             s.push(b'0');
+                             let n1 = WadName::from_bytes(&s);
+                             s.pop();
+                             s.push(b'1');
+                             let n2 = WadName::from_bytes(&s);
+                             n1.into_iter().chain(n2)
+                         })
+                         .filter(|name| !is_untextured(&name))
+                         .collect::<Vec<_>>();
     let (TransparentImage { pixels, size }, lookup) =
         textures.build_texture_atlas(tex_names.iter());
     try!(scene.decors_texture(&pixels, size));
@@ -170,7 +192,8 @@ impl Poly {
         if self.poly.len() < 3 {
             return false;
         }
-        self.poly.iter()
+        self.poly
+            .iter()
             .zip(self.poly[1..].iter().chain(Some(&self.poly[0]).into_iter()))
             .map(|(a, b)| Line2f::from_two_points(*a, *b))
             .all(|l| l.signed_distance(point) >= 0.0)
@@ -211,7 +234,8 @@ impl WorldVolume {
     }
 
     pub fn sector_at(&self, position: &Vec2f) -> Option<&Sector> {
-        self.polys.iter()
+        self.polys
+            .iter()
             .find(|poly| poly.contains(position))
             .and_then(|poly| self.sector(poly.sector))
     }
@@ -257,18 +281,21 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
                        light_info: &LightInfo,
                        scroll: f32,
                        tex_name: &WadName) {
-        let bounds = if let Some(bounds) = self.bounds.walls.get(tex_name) { bounds } else {
+        let bounds = if let Some(bounds) = self.bounds.walls.get(tex_name) {
+            bounds
+        } else {
             warn!("No such wall texture {}.", tex_name);
             return;
         };
         let light_info = self.add_light_info(light_info);
-        self.scene.walls_buffer()
-                  .push(v1, low,  s1, t1, light_info, scroll, bounds)
-                  .push(v2, low,  s2, t1, light_info, scroll, bounds)
-                  .push(v1, high, s1, t2, light_info, scroll, bounds)
-                  .push(v2, low,  s2, t1, light_info, scroll, bounds)
-                  .push(v2, high, s2, t2, light_info, scroll, bounds)
-                  .push(v1, high, s1, t2, light_info, scroll, bounds);
+        self.scene
+            .walls_buffer()
+            .push(v1, low, s1, t1, light_info, scroll, bounds)
+            .push(v2, low, s2, t1, light_info, scroll, bounds)
+            .push(v1, high, s1, t2, light_info, scroll, bounds)
+            .push(v2, low, s2, t1, light_info, scroll, bounds)
+            .push(v2, high, s2, t2, light_info, scroll, bounds)
+            .push(v1, high, s1, t2, light_info, scroll, bounds);
     }
 
     fn visit_floor_poly(&mut self,
@@ -276,7 +303,9 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
                         height: f32,
                         light_info: &LightInfo,
                         tex_name: &WadName) {
-        let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name) { bounds } else {
+        let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name) {
+            bounds
+        } else {
             warn!("No such floor texture {}.", tex_name);
             return;
         };
@@ -284,10 +313,11 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         let v0 = points[0];
         for i in 1..points.len() {
             let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-            self.scene.flats_buffer()
-                      .push(&v0, height, light_info, bounds)
-                      .push(&v1, height, light_info, bounds)
-                      .push(&v2, height, light_info, bounds);
+            self.scene
+                .flats_buffer()
+                .push(&v0, height, light_info, bounds)
+                .push(&v1, height, light_info, bounds)
+                .push(&v2, height, light_info, bounds);
         }
     }
 
@@ -296,7 +326,9 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
                        height: f32,
                        light_info: &LightInfo,
                        tex_name: &WadName) {
-        let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name) { bounds } else {
+        let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name) {
+            bounds
+        } else {
             warn!("No such ceiling texture {}.", tex_name);
             return;
         };
@@ -304,7 +336,8 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         let v0 = points[0];
         for i in 1..points.len() {
             let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
-            self.scene.flats_buffer()
+            self.scene
+                .flats_buffer()
                 .push(&v2, height, light_info, bounds)
                 .push(&v1, height, light_info, bounds)
                 .push(&v0, height, light_info, bounds);
@@ -328,9 +361,14 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
     }
 
     fn visit_sky_quad(&mut self, &(ref v1, ref v2): &(Vec2f, Vec2f), (low, high): (f32, f32)) {
-        self.scene.sky_buffer()
-            .push(v1, low).push(v2, low).push(v1, high)
-            .push(v2, low).push(v2, high).push(v1, high);
+        self.scene
+            .sky_buffer()
+            .push(v1, low)
+            .push(v2, low)
+            .push(v1, high)
+            .push(v2, low)
+            .push(v2, high)
+            .push(v1, high);
     }
 
     fn visit_volume(&mut self,
@@ -358,15 +396,28 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
                    light_info: &LightInfo,
                    tex_name: &WadName) {
         let light_info = self.add_light_info(light_info);
-        let bounds = if let Some(bounds) = self.bounds.decors.get(tex_name) { bounds } else {
+        let bounds = if let Some(bounds) = self.bounds.decors.get(tex_name) {
+            bounds
+        } else {
             warn!("No such decor texture {}.", tex_name);
             return;
         };
-        self.scene.decors_buffer()
+        self.scene
+            .decors_buffer()
             .push(&low, -half_width, 0.0, bounds.size[1], bounds, light_info)
-            .push(&low, half_width, bounds.size[0], bounds.size[1], bounds, light_info)
+            .push(&low,
+                  half_width,
+                  bounds.size[0],
+                  bounds.size[1],
+                  bounds,
+                  light_info)
             .push(&high, -half_width, 0.0, 0.0, bounds, light_info)
-            .push(&low, half_width, bounds.size[0], bounds.size[1], bounds, light_info)
+            .push(&low,
+                  half_width,
+                  bounds.size[0],
+                  bounds.size[1],
+                  bounds,
+                  light_info)
             .push(&high, half_width, bounds.size[0], 0.0, bounds, light_info)
             .push(&high, -half_width, 0.0, 0.0, bounds, light_info);
     }

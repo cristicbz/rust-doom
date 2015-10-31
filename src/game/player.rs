@@ -33,16 +33,15 @@ impl PlayerBindings {
 impl Default for PlayerBindings {
     fn default() -> PlayerBindings {
         PlayerBindings {
-            movement: Analog2d::Gestures(
-                Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::D),
-                                    Gesture::KeyHold(Scancode::Right)]),
-                Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::A),
-                                    Gesture::KeyHold(Scancode::Left)]),
-                Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::W),
-                                    Gesture::KeyHold(Scancode::Up)]),
-                Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::S),
-                                    Gesture::KeyHold(Scancode::Down)]),
-                1.0),
+            movement: Analog2d::Gestures(Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::D),
+                                                             Gesture::KeyHold(Scancode::Right)]),
+                                         Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::A),
+                                                             Gesture::KeyHold(Scancode::Left)]),
+                                         Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::W),
+                                                             Gesture::KeyHold(Scancode::Up)]),
+                                         Gesture::AnyOf(vec![Gesture::KeyHold(Scancode::S),
+                                                             Gesture::KeyHold(Scancode::Down)]),
+                                         1.0),
             look: Analog2d::Mouse(0.002),
             jump: Gesture::KeyTrigger(Scancode::Space),
         }
@@ -62,8 +61,7 @@ pub struct Player {
 
 
 impl Player {
-    pub fn new(fov: f32, aspect_ratio: f32,
-               bindings: PlayerBindings) -> Player {
+    pub fn new(fov: f32, aspect_ratio: f32, bindings: PlayerBindings) -> Player {
         let mut camera = Camera::new(fov, aspect_ratio, 0.01, 100.0);
         camera.set_yaw(3.1415926538);
 
@@ -92,7 +90,11 @@ impl Player {
         pos[1] += self.vertical_speed * delta_time;
         level.heights_at(&Vec2f::new(pos[0], pos[2])).map(|(floor, ceil)| {
             let (floor, ceil) = (floor + 50.0 / 100.0, ceil - 1.0 / 100.0);
-            let ceil = if ceil < floor { floor } else { ceil };
+            let ceil = if ceil < floor {
+                floor
+            } else {
+                ceil
+            };
             self.floor_height = floor;
             self.ceil_height = ceil;
         });
@@ -108,9 +110,9 @@ impl Player {
             self.horizontal_speed = self.horizontal_speed * 0.97;
         }
 
-        if old_pos[1] < self.floor_height && pos[1] > self.floor_height
-                || old_pos[1] > self.floor_height && pos[1] < self.floor_height
-                || floor_dist.abs() <= 1e-3 {
+        if old_pos[1] < self.floor_height && pos[1] > self.floor_height ||
+           old_pos[1] > self.floor_height && pos[1] < self.floor_height ||
+           floor_dist.abs() <= 1e-3 {
             self.vertical_speed = 0.0;
             pos[1] = self.floor_height;
         } else if pos[1] > self.ceil_height {
@@ -137,9 +139,9 @@ impl Player {
             self.camera.set_yaw(yaw);
             self.camera.set_pitch(pitch);
 
-            let movement = Vec2f::new(
-                yaw.cos() * movement[0] + yaw.sin() * movement[1],
-                -yaw.cos() * movement[1] + yaw.sin() * movement[0]) * self.move_accel;
+            let movement = Vec2f::new(yaw.cos() * movement[0] + yaw.sin() * movement[1],
+                                      -yaw.cos() * movement[1] + yaw.sin() * movement[0]) *
+                           self.move_accel;
             let mut displacement = self.move_accel * delta_time;
             if !floored {
                 displacement *= 0.05;
@@ -164,7 +166,11 @@ impl Player {
 }
 
 fn clamp<T: PartialOrd>(value: T, (limit_min, limit_max): (T, T)) -> T {
-    if value < limit_min { limit_min }
-    else if value > limit_max { limit_max }
-    else { value }
+    if value < limit_min {
+        limit_min
+    } else if value > limit_max {
+        limit_max
+    } else {
+        value
+    }
 }

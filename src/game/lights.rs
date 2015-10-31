@@ -6,20 +6,19 @@ pub struct LightBuffer {
 
 impl LightBuffer {
     pub fn new() -> LightBuffer {
-        LightBuffer {
-            lights: vec![],
-        }
+        LightBuffer { lights: vec![] }
     }
 
     pub fn push(&mut self, light_info: &LightInfo) -> u8 {
-        self.lights.iter()
-                   .position(|x| x == light_info)
-                   .unwrap_or_else(|| {
-                       // TODO(cristicbz): Remove this restriction.
-                       assert!(self.lights.len() < 255);
-                       self.lights.push(light_info.clone());
-                       (self.lights.len() - 1)
-                   }) as u8
+        self.lights
+            .iter()
+            .position(|x| x == light_info)
+            .unwrap_or_else(|| {
+                // TODO(cristicbz): Remove this restriction.
+                assert!(self.lights.len() < 255);
+                self.lights.push(light_info.clone());
+                (self.lights.len() - 1)
+            }) as u8
     }
 
     pub fn fill_buffer_at(&mut self, time: f32, buffer: &mut [f32]) {
@@ -30,7 +29,9 @@ impl LightBuffer {
 }
 
 fn light_level_at(info: &LightInfo, time: f32) -> f32 {
-    let effect = if let Some(ref effect) = info.effect { effect } else {
+    let effect = if let Some(ref effect) = info.effect {
+        effect
+    } else {
         return info.level;
     };
     match effect.kind {
@@ -38,21 +39,21 @@ fn light_level_at(info: &LightInfo, time: f32) -> f32 {
             let scale = info.level - effect.alt_level;
             let phase = time * effect.speed / scale;
             (0.5 - fract(phase)).abs() * 2.0 * scale + effect.alt_level
-        },
-        LightEffectKind::Random  => {
+        }
+        LightEffectKind::Random => {
             if noise(effect.sync, (time * effect.speed).floor()) < effect.duration {
                 effect.alt_level
             } else {
                 info.level
             }
-        },
+        }
         LightEffectKind::Alternate => {
             if fract(time * effect.speed + effect.sync * 3.5435) < effect.duration {
                 effect.alt_level
             } else {
                 info.level
             }
-        },
+        }
     }
 }
 
@@ -63,4 +64,3 @@ fn noise(sync: f32, time: f32) -> f32 {
 fn fract(x: f32) -> f32 {
     x - x.floor()
 }
-
