@@ -32,8 +32,8 @@ impl WadReadFrom for WadInfo {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         let identifier = try!(reader.wad_read::<u32>());
         Ok(WadInfo {
-            identifier: [( identifier        & 0xff) as u8,
-                         ((identifier >>  8) & 0xff) as u8,
+            identifier: [(identifier & 0xff) as u8,
+                         ((identifier >> 8) & 0xff) as u8,
                          ((identifier >> 16) & 0xff) as u8,
                          ((identifier >> 24) & 0xff) as u8],
             num_lumps: try!(reader.wad_read()),
@@ -111,15 +111,33 @@ pub struct WadLinedef {
 }
 
 impl WadLinedef {
-    pub fn impassable(&self) -> bool { self.flags & 0x0001 != 0 }
-    pub fn blocks_monsters(&self) -> bool { self.flags & 0x0002 != 0 }
-    pub fn is_two_sided(&self) -> bool { self.flags & 0x0004 != 0 }
-    pub fn upper_unpegged(&self) -> bool { self.flags & 0x0008 != 0 }
-    pub fn lower_unpegged(&self) -> bool { self.flags & 0x0010 != 0 }
-    pub fn secret(&self) -> bool { self.flags & 0x0020 != 0 }
-    pub fn blocks_sound(&self) -> bool { self.flags & 0x0040 != 0 }
-    pub fn always_shown_on_map(&self) -> bool { self.flags & 0x0080 != 0 }
-    pub fn never_shown_on_map(&self) -> bool { self.flags & 0x0100 != 0 }
+    pub fn impassable(&self) -> bool {
+        self.flags & 0x0001 != 0
+    }
+    pub fn blocks_monsters(&self) -> bool {
+        self.flags & 0x0002 != 0
+    }
+    pub fn is_two_sided(&self) -> bool {
+        self.flags & 0x0004 != 0
+    }
+    pub fn upper_unpegged(&self) -> bool {
+        self.flags & 0x0008 != 0
+    }
+    pub fn lower_unpegged(&self) -> bool {
+        self.flags & 0x0010 != 0
+    }
+    pub fn secret(&self) -> bool {
+        self.flags & 0x0020 != 0
+    }
+    pub fn blocks_sound(&self) -> bool {
+        self.flags & 0x0040 != 0
+    }
+    pub fn always_shown_on_map(&self) -> bool {
+        self.flags & 0x0080 != 0
+    }
+    pub fn never_shown_on_map(&self) -> bool {
+        self.flags & 0x0100 != 0
+    }
 }
 
 impl WadReadFrom for WadLinedef {
@@ -242,12 +260,12 @@ pub struct WadNode {
     pub left_x_max: WadCoord,
     pub left_x_min: WadCoord,
     pub right: ChildId,
-    pub left: ChildId
+    pub left: ChildId,
 }
 
 impl WadReadFrom for WadNode {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-         Ok(WadNode {
+        Ok(WadNode {
             line_x: try!(reader.wad_read()),
             line_y: try!(reader.wad_read()),
             step_x: try!(reader.wad_read()),
@@ -261,7 +279,7 @@ impl WadReadFrom for WadNode {
             left_x_max: try!(reader.wad_read()),
             left_x_min: try!(reader.wad_read()),
             right: try!(reader.wad_read()),
-            left: try!(reader.wad_read())
+            left: try!(reader.wad_read()),
         })
     }
 }

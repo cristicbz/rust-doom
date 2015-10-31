@@ -45,13 +45,11 @@ impl Game {
             (level, scene)
         };
 
-        let mut player = Player::new(config.fov,
-                                     window.aspect_ratio() * 1.2,
-                                     Default::default());
+        let mut player = Player::new(config.fov, window.aspect_ratio() * 1.2, Default::default());
         player.set_position(level.start_pos());
 
-        let control = GameController::new(
-            &sdl, try!(sdl.event_pump().map_err(|e| GeneralError(e.0))));
+        let control = GameController::new(&sdl,
+                                          try!(sdl.event_pump().map_err(|e| GeneralError(e.0))));
 
         Ok(Game {
             window: window,
@@ -64,9 +62,8 @@ impl Game {
     }
 
     pub fn run(&mut self) -> Result<(), Box<Error>> {
-        let quit_gesture = Gesture::AnyOf(
-            vec![Gesture::QuitTrigger,
-                 Gesture::KeyTrigger(Scancode::Escape)]);
+        let quit_gesture = Gesture::AnyOf(vec![Gesture::QuitTrigger,
+                                               Gesture::KeyTrigger(Scancode::Escape)]);
         let grab_toggle_gesture = Gesture::KeyTrigger(Scancode::Grave);
 
         let mut cum_time = 0.0;
@@ -77,7 +74,9 @@ impl Game {
         loop {
             let t1 = time::precise_time_s();
             let mut delta = (t1 - t0) as f32;
-            if delta < 1e-10 { delta = 1.0 / 60.0; }
+            if delta < 1e-10 {
+                delta = 1.0 / 60.0;
+            }
             let delta = delta;
             t0 = t1;
 
@@ -106,7 +105,9 @@ impl Game {
                 let fps = num_frames / cum_time;
                 let cpums = 1000.0 * cum_updates_time / num_frames;
                 info!("Frame time: {:.2}ms ({:.2}ms cpu, FPS: {:.2})",
-                      1000.0 / fps, cpums, fps);
+                      1000.0 / fps,
+                      cpums,
+                      fps);
                 cum_time = 0.0;
                 cum_updates_time = 0.0;
                 num_frames = 0.0;

@@ -72,8 +72,7 @@ impl Level {
     }
 
     pub fn seg_vertices(&self, seg: &WadSeg) -> Option<(Vec2f, Vec2f)> {
-        if let (Some(v1), Some(v2)) = (self.vertex(seg.start_vertex),
-                                       self.vertex(seg.end_vertex)) {
+        if let (Some(v1), Some(v2)) = (self.vertex(seg.start_vertex), self.vertex(seg.end_vertex)) {
             Some((v1, v2))
         } else {
             None
@@ -111,14 +110,14 @@ impl Level {
     pub fn left_sidedef(&self, linedef: &WadLinedef) -> Option<&WadSidedef> {
         match linedef.left_side {
             -1 => None,
-            index => self.sidedefs.get(index as usize)
+            index => self.sidedefs.get(index as usize),
         }
     }
 
     pub fn right_sidedef(&self, linedef: &WadLinedef) -> Option<&WadSidedef> {
         match linedef.right_side {
             -1 => None,
-            index => self.sidedefs.get(index as usize)
+            index => self.sidedefs.get(index as usize),
         }
     }
 
@@ -134,16 +133,15 @@ impl Level {
         let start = ssector.first_seg as usize;
         let end = start + ssector.num_segs as usize;
         if end <= self.segs.len() {
-            Some(&self.segs[start .. end])
+            Some(&self.segs[start..end])
         } else {
             None
         }
     }
 
     pub fn sector_id(&self, sector: &WadSector) -> SectorId {
-        let sector_id =
-            (sector as *const _ as usize - self.sectors.as_ptr() as usize) /
-            mem::size_of::<WadSector>();
+        let sector_id = (sector as *const _ as usize - self.sectors.as_ptr() as usize) /
+                        mem::size_of::<WadSector>();
         assert!(sector_id < self.sectors.len());
         sector_id as SectorId
     }
@@ -152,12 +150,14 @@ impl Level {
         let mut min_light = sector.light;
         let sector_id = self.sector_id(sector);
         for line in &self.linedefs {
-            let (left, right) =
-                (match self.left_sidedef(line) {
-                    Some(l) => l.sector, None => continue,
-                 }, match self.right_sidedef(line) {
-                    Some(r) => r.sector, None => continue,
-                 });
+            let (left, right) = (match self.left_sidedef(line) {
+                Some(l) => l.sector,
+                None => continue,
+            },
+                                 match self.right_sidedef(line) {
+                Some(r) => r.sector,
+                None => continue,
+            });
             let adjacent_light = if left == sector_id {
                 self.sectors.get(right as usize).map(|s| s.light)
             } else if right == sector_id {
@@ -166,7 +166,9 @@ impl Level {
                 continue;
             };
             if let Some(light) = adjacent_light {
-                if light < min_light { min_light = light; }
+                if light < min_light {
+                    min_light = light;
+                }
             } else {
                 warn!("Bad WAD: Cannot access all adjacent sectors to find minimum light.");
             }

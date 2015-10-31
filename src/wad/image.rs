@@ -50,15 +50,22 @@ impl Image {
         let mut pixels = vec![!0; width * height];
 
         // Process each column of the image.
-        for i_column in 0 .. width {
+        for i_column in 0..width {
             // Each column is defined as a number of vertical `runs' which are
             // defined starting at `offset' in the buffer.
             let offset = try!(reader.wad_read::<u32>()
-                                    .to_err_with(|| format!("unfinished column {}, {}x{}",
-                                                            i_column, width, height))) as isize;
+                                    .to_err_with(|| {
+                                        format!("unfinished column {}, {}x{}",
+                                                i_column,
+                                                width,
+                                                height)
+                                    })) as isize;
             if offset >= buffer.len() as isize {
                 return Err(format!("invalid column offset in {}, offset={}, size={}",
-                                   i_column, offset, buffer.len()).into());
+                                   i_column,
+                                   offset,
+                                   buffer.len())
+                               .into());
             }
             let mut source = buffer[offset as usize..].iter();
             let mut i_run = 0;
@@ -66,8 +73,11 @@ impl Image {
                 // The first byte contains the vertical coordinate of the run's
                 // start.
                 let row_start = *try!(source.next()
-                                            .to_err_with(|| format!("unfinshed column {}, run {}",
-                                                                    i_column, i_run))) as usize;
+                                            .to_err_with(|| {
+                                                format!("unfinshed column {}, run {}",
+                                                        i_column,
+                                                        i_run)
+                                            })) as usize;
 
                 // The special value of 255 means this is the last run in the
                 // column, so move on to the next one.
@@ -77,36 +87,51 @@ impl Image {
 
                 // The second byte is the length of this run. Skip an additional
                 // byte which is ignored for some reason.
-                let run_length =
-                    *try!(source.next()
-                                .to_err_with(|| format!("missing run length: column {}, run {}",
-                                                        i_column, i_run))) as usize;
+                let run_length = *try!(source.next()
+                                             .to_err_with(|| {
+                                                 format!("missing run length: column {}, run {}",
+                                                         i_column,
+                                                         i_run)
+                                             })) as usize;
 
                 // Check that the run fits in the image.
                 if row_start + run_length > height {
-                    return Err(format!("run out of bounds: column {}, run {} ({}, +{}), \
-                                        size {}x{}", i_column, i_run, row_start, run_length,
-                                       width, height).into());
+                    return Err(format!("run out of bounds: column {}, run {} ({}, +{}), size \
+                                        {}x{}",
+                                       i_column,
+                                       i_run,
+                                       row_start,
+                                       run_length,
+                                       width,
+                                       height)
+                                   .into());
                 }
 
                 // An ignored padding byte.
                 try!(source.next()
-                           .to_err_with(|| format!("missing padding byte 1: column {}, run {}",
-                                                   i_column, i_run)));
+                           .to_err_with(|| {
+                               format!("missing padding byte 1: column {}, run {}", i_column, i_run)
+                           }));
 
-                // Iterator to the beginning of the run in `pixels`. Guaranteed to be in bounds by
+                // Iterator to the beginning of the run in `pixels`. Guaranteed to be in bounds
+                // by
                 // the check above.
                 let mut destination = pixels[row_start * width + i_column..]
-                    .chunks_mut(width)
-                    .map(|row| &mut row[0])
-                    .take(run_length);
+                                          .chunks_mut(width)
+                                          .map(|row| &mut row[0])
+                                          .take(run_length);
 
                 // Copy the bytes from source to destination, but first check there's enough of
                 // those left.
                 if source.size_hint().0 < run_length {
-                    return Err(format!("source underrun: column {}, run {} ({}, +{}), \
-                                        bytes left {}", i_column, i_run, row_start, run_length,
-                                       source.size_hint().0).into());
+                    return Err(format!("source underrun: column {}, run {} ({}, +{}), bytes \
+                                        left {}",
+                                       i_column,
+                                       i_run,
+                                       row_start,
+                                       run_length,
+                                       source.size_hint().0)
+                                   .into());
                 }
                 for dest_pixel in &mut destination {
                     *dest_pixel = *source.next().expect("missing pixel despite check") as u16;
@@ -114,8 +139,9 @@ impl Image {
 
                 // And another ignored byte after the run.
                 try!(source.next()
-                           .to_err_with(|| format!("missing padding byte 2: column {}, run {}",
-                                                   i_column, i_run)));
+                           .to_err_with(|| {
+                               format!("missing padding byte 2: column {}, run {}", i_column, i_run)
+                           }));
                 i_run += 1;
             }
         }
@@ -125,15 +151,23 @@ impl Image {
             height: height,
             x_offset: x_offset,
             y_offset: y_offset,
-            pixels: pixels
+            pixels: pixels,
         })
     }
 
     pub fn blit(&mut self, source: &Image, offset: Vec2<isize>, ignore_transparency: bool) {
         // Figure out the region in source which is not out of bounds when
         // copied into self.
-        let y_start = if offset[1] < 0 { (-offset[1]) as usize } else { 0 };
-        let x_start = if offset[0] < 0 { (-offset[0]) as usize } else { 0 };
+        let y_start = if offset[1] < 0 {
+            (-offset[1]) as usize
+        } else {
+            0
+        };
+        let x_start = if offset[0] < 0 {
+            (-offset[0]) as usize
+        } else {
+            0
+        };
         let y_end = if self.height as isize > source.height as isize + offset[1] {
             source.height
         } else {
@@ -152,11 +186,11 @@ impl Image {
         let (x_start, y_start) = (x_start as usize, y_start as usize);
 
         let source_rows = source.pixels[x_start + y_start * src_pitch..]
-                                .chunks(src_pitch)
-                                .take(copy_height)
-                                .map(|row| &row[..copy_width]);
-        let dest_rows = self.pixels[(x_start as isize + offset[0]) as usize
-                                    + (y_start as isize + offset[1]) as usize * dest_pitch..]
+                              .chunks(src_pitch)
+                              .take(copy_height)
+                              .map(|row| &row[..copy_width]);
+        let dest_rows = self.pixels[(x_start as isize + offset[0]) as usize +
+                                    (y_start as isize + offset[1]) as usize * dest_pitch..]
                             .chunks_mut(dest_pitch)
                             .take(copy_height)
                             .map(|row| &mut row[..copy_width]);
@@ -181,23 +215,41 @@ impl Image {
         }
     }
 
-    pub fn x_offset(&self) -> isize { self.x_offset }
-    pub fn y_offset(&self) -> isize { self.y_offset }
+    pub fn x_offset(&self) -> isize {
+        self.x_offset
+    }
+    pub fn y_offset(&self) -> isize {
+        self.y_offset
+    }
 
-    pub fn width(&self) -> usize { self.width }
-    pub fn height(&self) -> usize { self.height }
+    pub fn width(&self) -> usize {
+        self.width
+    }
+    pub fn height(&self) -> usize {
+        self.height
+    }
 
-    pub fn size(&self) -> Vec2<usize> { Vec2::new(self.width, self.height) }
+    pub fn size(&self) -> Vec2<usize> {
+        Vec2::new(self.width, self.height)
+    }
 
-    pub fn num_pixels(&self) -> usize { self.pixels.len() }
+    pub fn num_pixels(&self) -> usize {
+        self.pixels.len()
+    }
 
-    pub fn pixels(&self) -> &[u16] { &self.pixels }
+    pub fn pixels(&self) -> &[u16] {
+        &self.pixels
+    }
 
-    pub fn into_pixels(self) -> Vec<u16> { self.pixels }
+    pub fn into_pixels(self) -> Vec<u16> {
+        self.pixels
+    }
 
-    pub fn save_bmp<P: AsRef<Path> + Debug>(&self, palette: &[[u8; 3]; 256], path: &P)
-            -> Result<(), ImageError> {
-        use ::sdl2::surface::Surface;
+    pub fn save_bmp<P: AsRef<Path> + Debug>(&self,
+                                            palette: &[[u8; 3]; 256],
+                                            path: &P)
+                                            -> Result<(), ImageError> {
+        use sdl2::surface::Surface;
         let mut pixels = vec![0u8; 3 * self.width * self.height];
         for (index, pixel) in self.pixels.iter().enumerate() {
             let pixel = palette[(pixel & 0xff) as usize];
@@ -210,7 +262,7 @@ impl Image {
                                               self.height as u32,
                                               self.width as u32 * 3,
                                               PixelFormatEnum::BGR24)
-                           .to_err("failed to create surface"));
+                               .to_err("failed to create surface"));
         surface.save_bmp(path).to_err_with(|| format!("failed to save bmp {:?}", path))
     }
 }

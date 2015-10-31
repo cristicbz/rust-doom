@@ -1,5 +1,7 @@
-#[macro_use] extern crate log;
-#[macro_use] extern crate regex;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate regex;
 
 extern crate byteorder;
 extern crate common;

@@ -28,15 +28,15 @@ impl Window {
         gl_attr.set_double_buffer(true);
 
         let facade = try!(video.window(WINDOW_TITLE, width as u32, height as u32)
-            .position_centered()
-            .opengl()
-            .build_glium());
+                               .position_centered()
+                               .opengl()
+                               .build_glium());
 
         sdl2::clear_error();
         Ok(Window {
-           facade: facade,
-           width: width,
-           height: height,
+            facade: facade,
+            width: width,
+            height: height,
         })
     }
 
@@ -52,4 +52,3 @@ impl Window {
         &self.facade
     }
 }
-
