@@ -121,6 +121,7 @@ impl AsRef<str> for WadName {
 #[cfg(test)]
 mod test {
     use super::WadName;
+    use super::error;
 
     #[test]
     fn test_wad_name() {
