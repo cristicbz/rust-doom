@@ -132,7 +132,7 @@ impl AsRef<str> for WadName {
 #[cfg(test)]
 mod test {
     use super::WadName;
-    use super::error;
+    use std::str::FromStr;
 
     #[test]
     fn test_wad_name() {
