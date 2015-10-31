@@ -61,7 +61,7 @@ impl FromStr for WadName {
     type Err = super::error::Error;
     fn from_str(value: &str) -> Result<WadName> {
         WadName::from_bytes(value.as_bytes())
-    }    
+    }
 }
 
 impl Display for WadName {
