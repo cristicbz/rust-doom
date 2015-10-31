@@ -1,13 +1,13 @@
 use level::Level;
-use light::{self, LightInfo, Contrast};
-use math::{Line2f, Vec2f, Vec3f, Vector};
+use light::{self, Contrast, LightInfo};
 use meta::WadMetadata;
+use math::{Line2f, Vec2f, Vec3f, Vector};
 use num::Zero;
 use std::cmp;
 use std::cmp::Ordering;
 use tex::TextureDirectory;
-use types::{SectorId, WadSeg, WadCoord, WadSector, WadName, WadThing, ChildId};
-use util::{from_wad_height, from_wad_coords, is_untextured, parse_child_id, is_sky_flat};
+use types::{ChildId, SectorId, WadCoord, WadName, WadSector, WadSeg, WadThing};
+use util::{from_wad_coords, from_wad_height, is_sky_flat, is_untextured, parse_child_id};
 use vec_map::VecMap;
 
 pub trait LevelVisitor {
@@ -399,34 +399,34 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
 
     fn flat_poly(&mut self, sector: &WadSector) {
         let light_info = light_info(&mut self.light_cache, &self.level, sector);
-        let floor_y = from_wad_height(sector.floor_height);
-        let floor_tex = &sector.floor_texture;
-        let ceil_y = from_wad_height(sector.ceiling_height);
-        let ceil_tex = &sector.ceiling_texture;
+        let (floor_tex, ceil_tex) = (&sector.floor_texture, &sector.ceiling_texture);
+        let (floor_sky, ceil_sky) = (is_sky_flat(floor_tex), is_sky_flat(ceil_tex));
+        let floor_y = from_wad_height(if floor_sky {
+            self.height_range.0
+        } else {
+            sector.floor_height
+        });
+        let ceil_y = from_wad_height(if ceil_sky {
+            self.height_range.1
+        } else {
+            sector.ceiling_height
+        });
 
         self.visitor.visit_volume(self.level.sector_id(sector),
-                                  (floor_y,
-                                   if is_sky_flat(ceil_tex) {
-                                      from_wad_height(self.height_range.1)
-                                  } else {
-                                      ceil_y
-                                  }),
+                                  (floor_y, ceil_y),
                                   light_info,
                                   self.subsector_points.clone());
 
-        if !is_sky_flat(floor_tex) {
-            self.visitor.visit_floor_poly(&self.subsector_points, floor_y, light_info, floor_tex);
+        if floor_sky {
+            self.visitor.visit_floor_sky_poly(&self.subsector_points, floor_y);
         } else {
-            // TODO(cristicbz): investigate if we could store height_range in f32.
-            self.visitor
-                .visit_floor_sky_poly(&self.subsector_points, from_wad_height(self.height_range.0));
+            self.visitor.visit_floor_poly(&self.subsector_points, floor_y, light_info, floor_tex);
         }
 
-        if !is_sky_flat(ceil_tex) {
-            self.visitor.visit_ceil_poly(&self.subsector_points, ceil_y, light_info, ceil_tex);
+        if ceil_sky {
+            self.visitor.visit_ceil_sky_poly(&self.subsector_points, ceil_y);
         } else {
-            self.visitor
-                .visit_ceil_sky_poly(&self.subsector_points, from_wad_height(self.height_range.1));
+            self.visitor.visit_ceil_poly(&self.subsector_points, ceil_y, light_info, ceil_tex);
         }
     }
 

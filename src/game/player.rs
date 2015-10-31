@@ -2,7 +2,7 @@ use camera::Camera;
 use ctrl::{Analog2d, Gesture};
 use ctrl::GameController;
 use level::Level;
-use math::{Vec3f, Vec2f, Vector};
+use math::{Vec2f, Vec3f, Vector};
 use sdl2::keyboard::Scancode;
 use std::default::Default;
 use num::{Float, Zero};

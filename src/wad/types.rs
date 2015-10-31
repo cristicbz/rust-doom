@@ -1,5 +1,5 @@
 use error::Result;
-use read::{WadReadFrom, WadRead};
+use read::{WadRead, WadReadFrom};
 use std::io::Read;
 
 pub use super::name::WadName;

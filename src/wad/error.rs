@@ -5,7 +5,7 @@ use std::error::Error as StdError;
 use std::fmt::{Display, Formatter};
 use std::fmt::Result as FmtResult;
 use std::io::Error as IoError;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 use std::result::Result as StdResult;
 use toml::DecodeError as TomlDecodeError;
 use toml::ParserError as TomlParserError;

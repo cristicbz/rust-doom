@@ -1,12 +1,12 @@
 use error::ErrorKind::BadMetadataSyntax;
-use error::{Result, InFile};
+use error::{InFile, Result};
 use name::WadName;
 use regex::Regex;
-use rustc_serialize::{Encodable, Decodable};
+use rustc_serialize::{Decodable, Encodable};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use toml::{Decoder, Value, Parser};
+use toml::{Decoder, Parser, Value};
 use types::ThingType;
 
 #[derive(Debug, RustcDecodable, RustcEncodable)]

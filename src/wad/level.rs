@@ -2,8 +2,8 @@ use math::Vec2f;
 use std::mem;
 use std::vec::Vec;
 use archive::Archive;
-use types::{WadThing, WadLinedef, WadSidedef, WadVertex, WadSeg, WadSubsector};
-use types::{WadNode, WadSector, VertexId, LightLevel, SectorId};
+use types::{WadLinedef, WadSeg, WadSidedef, WadSubsector, WadThing, WadVertex};
+use types::{LightLevel, SectorId, VertexId, WadNode, WadSector};
 use util::from_wad_coords;
 use error::Result;
 
@@ -150,14 +150,14 @@ impl Level {
         let mut min_light = sector.light;
         let sector_id = self.sector_id(sector);
         for line in &self.linedefs {
-            let (left, right) = (match self.left_sidedef(line) {
+            let left = match self.left_sidedef(line) {
                 Some(l) => l.sector,
                 None => continue,
-            },
-                                 match self.right_sidedef(line) {
+            };
+            let right = match self.right_sidedef(line) {
                 Some(r) => r.sector,
                 None => continue,
-            });
+            };
             let adjacent_light = if left == sector_id {
                 self.sectors.get(right as usize).map(|s| s.light)
             } else if right == sector_id {

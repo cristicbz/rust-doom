@@ -5,12 +5,12 @@ use num::Zero;
 use std::error::Error;
 use wad::tex::BoundsLookup;
 use wad::tex::{OpaqueImage, TransparentImage};
-use wad::types::{WadName, SectorId};
-use wad::util::{from_wad_coords, is_untextured, is_sky_flat};
-use wad::{WadMetadata, SkyMetadata, TextureDirectory};
+use wad::types::{SectorId, WadName};
+use wad::util::{from_wad_coords, is_sky_flat, is_untextured};
+use wad::{SkyMetadata, TextureDirectory, WadMetadata};
 use wad::Archive;
 use wad::Level as WadLevel;
-use wad::{LightInfo, LevelWalker, LevelVisitor};
+use wad::{LevelVisitor, LevelWalker, LightInfo};
 
 pub struct Level {
     start_pos: Vec3f,

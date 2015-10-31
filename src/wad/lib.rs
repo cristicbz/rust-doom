@@ -22,9 +22,9 @@ pub use meta::SkyMetadata;
 pub use meta::ThingMetadata;
 pub use name::WadName;
 pub use tex::TextureDirectory;
-pub use error::{Result, Error};
+pub use error::{Error, Result};
 pub use visitor::{LevelVisitor, LevelWalker};
-pub use light::{LightInfo, LightEffect, LightEffectKind};
+pub use light::{LightEffect, LightEffectKind, LightInfo};
 
 mod name;
 mod archive;

@@ -1,11 +1,11 @@
-use error::{Result, NeededBy};
-use glium::{Depth, DepthTest, BackfaceCullingMode, Program, DrawParameters, Frame, Surface};
+use error::{NeededBy, Result};
+use glium::{BackfaceCullingMode, Depth, DepthTest, DrawParameters, Frame, Program, Surface};
 use glium::index::{NoIndices, PrimitiveType};
-use glium::texture::{Texture2d, RawImage2d, ClientFormat};
+use glium::texture::{ClientFormat, RawImage2d, Texture2d};
 use glium::texture::buffer_texture::{BufferTexture, BufferTextureType};
-use glium::uniforms::{SamplerBehavior, MinifySamplerFilter, MagnifySamplerFilter};
+use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter, SamplerBehavior};
 use glium::uniforms::SamplerWrapFunction;
-use glium::uniforms::{Uniforms, UniformValue, AsUniformValue};
+use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
 use math::{Mat4, Vec2};
 use platform;
 use std::borrow::Cow;
@@ -13,8 +13,8 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Result as IoResult;
 use std::path::{Path, PathBuf};
-use vertex::{FlatBufferBuilder, WallBufferBuilder, SkyBufferBuilder, DecorBufferBuilder};
-use vertex::{StaticBuffer, SkyBuffer, SpriteBuffer};
+use vertex::{DecorBufferBuilder, FlatBufferBuilder, SkyBufferBuilder, WallBufferBuilder};
+use vertex::{SkyBuffer, SpriteBuffer, StaticBuffer};
 use window::Window;
 
 pub struct SceneBuilder<'window> {

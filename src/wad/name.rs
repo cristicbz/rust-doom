@@ -1,7 +1,7 @@
-use error::{Result, ErrorKind};
+use error::{ErrorKind, Result};
 use std::result::Result as StdResult;
-use read::{WadReadFrom, WadRead};
-use rustc_serialize::{Encoder, Encodable, Decoder, Decodable};
+use read::{WadRead, WadReadFrom};
+use rustc_serialize::{Decodable, Decoder, Encodable, Encoder};
 use std::ascii::AsciiExt;
 use std::fmt;
 use std::fmt::Debug;

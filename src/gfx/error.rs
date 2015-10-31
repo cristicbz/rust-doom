@@ -1,5 +1,5 @@
 use std::error::Error as StdError;
-use std::fmt::{Formatter, Display};
+use std::fmt::{Display, Formatter};
 use std::fmt::Result as FmtResult;
 use std::io::Error as IoError;
 use std::result::Result as StdResult;
@@ -189,6 +189,7 @@ impl<S> NeededBy for StdResult<S, glium::DrawError> {
                     feature: format!("{:?}", e),
                     needed_by: by.to_owned(),
                 },
+
                 e@NoDepthBuffer |
                 e@AttributeTypeMismatch |
                 e@AttributeMissing |
