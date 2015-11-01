@@ -1,7 +1,7 @@
 uniform mat4 u_modelview;
 uniform mat4 u_projection;
 
-layout(location = 0) in vec3 a_pos;
+in vec3 a_pos;
 
 flat out vec2 v_r;
 out vec4 v_p;
