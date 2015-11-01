@@ -130,9 +130,9 @@ impl GameController {
     }
 
     pub fn poll_analog2d(&self, motion: &Analog2d) -> Vec2f {
-        match motion {
-            &Analog2d::Mouse(sensitivity) => self.mouse_rel * sensitivity,
-            &Analog2d::Gestures(ref xpos, ref xneg, ref ypos, ref yneg, step) => {
+        match *motion {
+            Analog2d::Mouse(sensitivity) => self.mouse_rel * sensitivity,
+            Analog2d::Gestures(ref xpos, ref xneg, ref ypos, ref yneg, step) => {
                 Vec2f::new(if self.poll_gesture(xpos) {
                                step
                            } else if self.poll_gesture(xneg) {
@@ -148,7 +148,7 @@ impl GameController {
                                0.0
                            })
             }
-            &Analog2d::NoAnalog2d => Vec2f::zero(),
+            Analog2d::NoAnalog2d => Vec2f::zero(),
         }
     }
 }

@@ -32,7 +32,7 @@ impl WadReadFrom for WadInfo {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         let identifier = try!(reader.wad_read::<u32>());
         Ok(WadInfo {
-            identifier: [((identifier >> 0) & 0xff) as u8,
+            identifier: [(identifier & 0xff) as u8,
                          ((identifier >> 8) & 0xff) as u8,
                          ((identifier >> 16) & 0xff) as u8,
                          ((identifier >> 24) & 0xff) as u8],

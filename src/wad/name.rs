@@ -7,7 +7,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::io::Read;
-use std::str;
+use std::str::{self, FromStr};
 use std::error::Error;
 use std::ops::Deref;
 use std::borrow::Borrow;
@@ -61,8 +61,11 @@ impl WadName {
             Ok(WadName(name))
         }
     }
+}
 
-    pub fn from_str(value: &str) -> Result<WadName> {
+impl FromStr for WadName {
+    type Err = super::error::Error;
+    fn from_str(value: &str) -> Result<WadName> {
         WadName::from_bytes(value.as_bytes())
     }
 }
@@ -97,7 +100,7 @@ impl Decodable for WadName {
 impl WadReadFrom for WadName {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         let bytes = try!(reader.wad_read::<u64>());
-        WadName::from_bytes(&[((bytes >> 0) & 0xff) as u8,
+        WadName::from_bytes(&[(bytes & 0xff) as u8,
                               ((bytes >> 8) & 0xff) as u8,
                               ((bytes >> 16) & 0xff) as u8,
                               ((bytes >> 24) & 0xff) as u8,
@@ -129,6 +132,7 @@ impl AsRef<str> for WadName {
 #[cfg(test)]
 mod test {
     use super::WadName;
+    use std::str::FromStr;
 
     #[test]
     fn test_wad_name() {

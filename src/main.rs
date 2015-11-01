@@ -147,9 +147,9 @@ pub fn run(args: &[String]) -> Result<(), Box<Error>> {
 
             info!("Loading all levels...");
             let t0 = time::precise_time_s();
-            let mut wad = try!(Archive::open(&wad_file, &metadata_file));
-            let textures = try!(TextureDirectory::from_archive(&mut wad));
-            for level_index in 0..wad.num_levels() {
+            let wad = try!(Archive::open(&wad_file, &metadata_file));
+            let textures = try!(TextureDirectory::from_archive(&wad));
+            for level_index in 0 .. wad.num_levels() {
                 let mut scene = SceneBuilder::new(&win, PathBuf::from(SHADER_ROOT));
                 if let Err(e) = Level::new(&wad, &textures, level_index, &mut scene) {
                     error!("reading level {}: {}", level_index, e);

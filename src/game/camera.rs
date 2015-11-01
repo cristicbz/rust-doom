@@ -25,7 +25,7 @@ impl Camera {
     /// Creates a camera in (0, 0, 0) loking in direction (0, 0, -1), with
     /// specified perspective parameters.
     pub fn new(fov: f32, aspect_ratio: f32, near: f32, far: f32) -> Camera {
-        let camera = Camera {
+        Camera {
             position: Vec3f::zero(),
             yaw: 0.0,
             pitch: 0.0,
@@ -39,8 +39,7 @@ impl Camera {
 
             modelview: Cell::new(Mat4::new_identity()),
             dirty: Cell::new(true),
-        };
-        camera
+        }
     }
 
     /// Returns the modelview matrix associated with this camera.

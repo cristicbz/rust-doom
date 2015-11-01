@@ -36,11 +36,11 @@ impl Game {
         let window = try!(Window::new(&sdl, config.width, config.height));
 
 
-        let mut wad = try!(Archive::open(&config.wad_file, &config.metadata_file));
-        let textures = try!(TextureDirectory::from_archive(&mut wad));
+        let wad = try!(Archive::open(&config.wad_file, &config.metadata_file));
+        let textures = try!(TextureDirectory::from_archive(&wad));
         let (level, scene) = {
             let mut scene = SceneBuilder::new(&window, PathBuf::from(SHADER_ROOT));
-            let level = try!(Level::new(&mut wad, &textures, config.level_index, &mut scene));
+            let level = try!(Level::new(&wad, &textures, config.level_index, &mut scene));
             let scene = try!(scene.build());
             (level, scene)
         };

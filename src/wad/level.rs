@@ -143,13 +143,13 @@ impl Level {
         let sector_id = (sector as *const _ as usize - self.sectors.as_ptr() as usize) /
                         mem::size_of::<WadSector>();
         assert!(sector_id < self.sectors.len());
-        return sector_id as SectorId;
+        sector_id as SectorId
     }
 
     pub fn sector_min_light(&self, sector: &WadSector) -> LightLevel {
         let mut min_light = sector.light;
         let sector_id = self.sector_id(sector);
-        for line in self.linedefs.iter() {
+        for line in &self.linedefs {
             let (left, right) = (match self.left_sidedef(line) {
                 Some(l) => l.sector,
                 None => continue,
