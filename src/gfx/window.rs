@@ -1,5 +1,5 @@
 use error::Result;
-use glium_sdl2::{SDL2Facade, DisplayBuild};
+use glium_sdl2::{DisplayBuild, SDL2Facade};
 use glium::Frame;
 use platform;
 use sdl2;

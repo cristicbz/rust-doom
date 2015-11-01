@@ -1,4 +1,4 @@
-use wad::{LightInfo, LightEffectKind};
+use wad::{LightEffectKind, LightInfo};
 
 pub struct LightBuffer {
     lights: Vec<LightInfo>,

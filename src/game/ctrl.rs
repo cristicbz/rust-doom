@@ -3,7 +3,7 @@ use num::Zero;
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
 use sdl2::mouse::{Mouse, MouseUtil};
-use sdl2::{Sdl, EventPump};
+use sdl2::{EventPump, Sdl};
 use std::vec::Vec;
 
 pub type Sensitivity = f32;
@@ -123,9 +123,7 @@ impl GameController {
                 true
             }
             Gesture::NoGesture => false,
-            _ => {
-                panic!("Unimplemented gesture type.");
-            }
+            _ => panic!("Unimplemented gesture type."),
         }
     }
 

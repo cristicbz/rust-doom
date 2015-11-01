@@ -1,5 +1,5 @@
 use Bounds;
-use error::{Result, NeededBy};
+use error::{NeededBy, Result};
 use glium::VertexBuffer;
 use math::{Vec2f, Vec3f};
 use Window;

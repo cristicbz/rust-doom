@@ -1,6 +1,7 @@
+
 use num::Float;
 use std::fmt;
-use std::ops::{Add, Sub, Mul, Index, IndexMut};
+use std::ops::{Add, Index, IndexMut, Mul, Sub};
 
 use vector::{Vec3f, Vector};
 
@@ -18,20 +19,20 @@ pub type Scalar = f32;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Mat4 {
-    data: [Scalar; 16]
+    data: [Scalar; 16],
 }
 
 impl Mat4 {
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     pub fn new(m00: Scalar, m01: Scalar, m02: Scalar, m03: Scalar,
                m10: Scalar, m11: Scalar, m12: Scalar, m13: Scalar,
                m20: Scalar, m21: Scalar, m22: Scalar, m23: Scalar,
                m30: Scalar, m31: Scalar, m32: Scalar, m33: Scalar) -> Mat4 {
-        // In my mind vectors are columns, hence matrices need to be transposed
-        // to the OpenGL memory order.
         Mat4 { data: [m00, m10, m20, m30, m01, m11, m21, m31,
                       m02, m12, m22, m32, m03, m13, m23, m33] }
     }
 
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     pub fn new_identity() -> Mat4 {
         Mat4::new(1.0, 0.0, 0.0, 0.0,
                   0.0, 1.0, 0.0, 0.0,
@@ -45,6 +46,7 @@ impl Mat4 {
     /// * `fov_degrees`  - Horizontal field of view.
     /// * `aspect_ratio` - Ratio between width and height of the view.
     /// * `near`, `far`  - The Z coordinate of the near and far planes.
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     pub fn new_perspective(fov_degrees: Scalar, aspect_ratio: Scalar,
                            near: Scalar, far: Scalar) -> Mat4 {
         let fov = (3.1415926538 * fov_degrees) / 180.0;
@@ -58,6 +60,7 @@ impl Mat4 {
     }
 
     /// Creates a matrix which rotates points by `angle_radians` around `axis`.
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     pub fn new_axis_rotation(axis: &Vec3f, angle_radians: Scalar) -> Mat4 {
         let ca = angle_radians.cos();
         let sa = angle_radians.sin();
@@ -72,6 +75,7 @@ impl Mat4 {
     }
 
     /// Creates a rotation matrix from the three _Euler angles_.
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     pub fn new_euler_rotation(yaw: f32, pitch: f32, roll: f32) -> Mat4 {
         let (ca, sa) = (pitch.cos(), pitch.sin());
         let (cb, sb) = (yaw.cos(), yaw.sin());
@@ -85,6 +89,7 @@ impl Mat4 {
     }
 
     /// Creates a translation matrix which maps points `p` to `p + by`.
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     pub fn new_translation(by: Vec3f) -> Mat4 {
         Mat4::new(1.0, 0.0, 0.0, by[0],
                   0.0, 1.0, 0.0, by[1],
@@ -93,10 +98,9 @@ impl Mat4 {
     }
 
     /// Returns the transpose of the matrix (columns swapped with rows).
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     pub fn transposed(&self) -> Mat4 {
         let m = &self.data;
-        // m is in column-major order, so calling with new in row-order will
-        // transpose it.
         Mat4::new(m[0], m[1], m[2], m[3],
                   m[4], m[5], m[6], m[7],
                   m[8], m[9], m[10], m[11],
@@ -117,6 +121,7 @@ impl Mat4 {
 }
 
 impl fmt::Debug for Mat4 {
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter,
                "[{:10.3e} {:10.3e} {:10.3e} {:10.3e};\n\
@@ -133,6 +138,7 @@ impl fmt::Debug for Mat4 {
 impl<'a, 'b> Mul<&'a Mat4> for &'b Mat4 {
     type Output = Mat4;
 
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     fn mul(self, rhs: &'a Mat4) -> Mat4 {
         let l = &self.data;
         let r = &rhs.data;
@@ -163,6 +169,7 @@ impl<'a, 'b> Mul<&'a Mat4> for &'b Mat4 {
 impl<'a, 'b> Add<&'a Mat4> for &'b Mat4 {
     type Output = Mat4;
 
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     fn add(self, rhs: &'a Mat4) -> Mat4 {
         let l = &self.data;
         let r = &rhs.data;
@@ -178,6 +185,7 @@ impl<'a, 'b> Add<&'a Mat4> for &'b Mat4 {
 impl<'a, 'b> Sub<&'a Mat4> for &'b Mat4 {
     type Output = Mat4;
 
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     fn sub(self, rhs: &'a Mat4) -> Mat4 {
         let l = &self.data;
         let r = &rhs.data;
@@ -193,19 +201,25 @@ impl<'a, 'b> Sub<&'a Mat4> for &'b Mat4 {
 impl Mul<Mat4> for Mat4 {
     type Output = Mat4;
 
-    fn mul(self, rhs: Mat4) -> Mat4 { &self * &rhs }
+    fn mul(self, rhs: Mat4) -> Mat4 {
+        &self * &rhs
+    }
 }
 
 impl Add<Mat4> for Mat4 {
     type Output = Mat4;
 
-    fn add(self, rhs: Mat4) -> Mat4 { &self + &rhs }
+    fn add(self, rhs: Mat4) -> Mat4 {
+        &self + &rhs
+    }
 }
 
 impl Sub<Mat4> for Mat4 {
     type Output = Mat4;
 
-    fn sub(self, rhs: Mat4) -> Mat4 { &self - &rhs }
+    fn sub(self, rhs: Mat4) -> Mat4 {
+        &self - &rhs
+    }
 }
 
 impl Index<usize> for Mat4 {
@@ -235,6 +249,7 @@ mod test {
     use super::Mat4;
 
     #[test]
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     fn test_mul() {
         let a = Mat4::new(4.0,    8.0,    1.0,    6.0,
                           9.0,    4.0,    2.0,    1.0,

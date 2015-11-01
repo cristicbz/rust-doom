@@ -1,5 +1,5 @@
 use num::{Float, NumCast};
-use vector::{Vec2, Vector, Field};
+use vector::{Field, Vec2, Vector};
 
 pub type Line2f = Line2<f32>;
 
@@ -9,17 +9,25 @@ pub struct Line2<T: Copy + Field + Float + NumCast> {
     displace: Vec2<T>,
 }
 impl<T: Copy + Field + Float + NumCast> Line2<T> {
-    pub fn from_origin_and_displace(origin: Vec2<T>,
-                                    displace: Vec2<T>) -> Line2<T> {
-        Line2 { origin: origin, displace: displace.normalized() }
+    pub fn from_origin_and_displace(origin: Vec2<T>, displace: Vec2<T>) -> Line2<T> {
+        Line2 {
+            origin: origin,
+            displace: displace.normalized(),
+        }
     }
 
     pub fn from_two_points(origin: Vec2<T>, towards: Vec2<T>) -> Line2<T> {
-        Line2 { origin: origin, displace: (towards - origin).normalized() }
+        Line2 {
+            origin: origin,
+            displace: (towards - origin).normalized(),
+        }
     }
 
     pub fn inverted_halfspaces(&self) -> Line2<T> {
-        Line2 { origin: self.origin, displace: -self.displace }
+        Line2 {
+            origin: self.origin,
+            displace: -self.displace,
+        }
     }
 
     pub fn signed_distance(&self, to: &Vec2<T>) -> T {

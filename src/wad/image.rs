@@ -5,7 +5,7 @@ use std::path::Path;
 use std::vec::Vec;
 use types::WadTextureHeader;
 use std::borrow::Cow;
-use std::fmt::{self, Display, Debug};
+use std::fmt::{self, Debug, Display};
 
 pub struct Image {
     width: usize,
@@ -17,7 +17,6 @@ pub struct Image {
 
 #[derive(Debug)]
 pub struct ImageError(Cow<'static, str>);
-
 impl Image {
     pub fn new(width: usize, height: usize) -> Result<Image, ImageError> {
         if width >= 4096 || height >= 4096 {
@@ -96,8 +95,7 @@ impl Image {
 
                 // Check that the run fits in the image.
                 if row_start + run_length > height {
-                    return Err(format!("run out of bounds: column {}, run {} ({}, +{}), size \
-                                        {}x{}",
+                    return Err(format!("run too big: column {}, run {} ({} +{}), size {}x{}",
                                        i_column,
                                        i_run,
                                        row_start,
@@ -114,8 +112,7 @@ impl Image {
                            }));
 
                 // Iterator to the beginning of the run in `pixels`. Guaranteed to be in bounds
-                // by
-                // the check above.
+                // by the check above.
                 let mut destination = pixels[row_start * width + i_column..]
                                           .chunks_mut(width)
                                           .map(|row| &mut row[0])
@@ -185,26 +182,27 @@ impl Image {
         let copy_height = (y_end - y_start) as usize;
         let (x_start, y_start) = (x_start as usize, y_start as usize);
 
-        let source_rows = source.pixels[x_start + y_start * src_pitch..]
-                              .chunks(src_pitch)
-                              .take(copy_height)
-                              .map(|row| &row[..copy_width]);
-        let dest_rows = self.pixels[(x_start as isize + offset[0]) as usize +
-                                    (y_start as isize + offset[1]) as usize * dest_pitch..]
-                            .chunks_mut(dest_pitch)
-                            .take(copy_height)
-                            .map(|row| &mut row[..copy_width]);
+        let src_rows = &source.pixels[x_start + y_start * src_pitch..];
+        let src_rows = src_rows.chunks(src_pitch)
+                               .take(copy_height)
+                               .map(|row| &row[..copy_width]);
+
+        let dest_rows = &mut self.pixels[(x_start as isize + offset[0]) as usize +
+                                         (y_start as isize + offset[1]) as usize * dest_pitch..];
+        let dest_rows = dest_rows.chunks_mut(dest_pitch)
+                                 .take(copy_height)
+                                 .map(|row| &mut row[..copy_width]);
 
         if ignore_transparency {
             // If we don't care about transparency we can copy row by row.
-            for (dest_row, source_row) in dest_rows.zip(source_rows) {
+            for (dest_row, source_row) in dest_rows.zip(src_rows) {
                 for (dest_pixel, &source_pixel) in dest_row.iter_mut().zip(source_row.iter()) {
                     *dest_pixel = source_pixel;
                 }
             }
         } else {
             // Only copy pixels whose high bits are not set.
-            for (dest_row, source_row) in dest_rows.zip(source_rows) {
+            for (dest_row, source_row) in dest_rows.zip(src_rows) {
                 for (dest_pixel, &source_pixel) in dest_row.iter_mut().zip(source_row.iter()) {
                     // `Blending' is a simple copy/no copy, but using bit ops we can avoid
                     // branching.
@@ -225,6 +223,7 @@ impl Image {
     pub fn width(&self) -> usize {
         self.width
     }
+
     pub fn height(&self) -> usize {
         self.height
     }

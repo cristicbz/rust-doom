@@ -1,5 +1,5 @@
 use level::Level;
-use types::{SectorType, WadSector, LightLevel};
+use types::{LightLevel, SectorType, WadSector};
 
 #[derive(PartialEq, Clone)]
 pub struct LightInfo {

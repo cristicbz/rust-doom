@@ -11,7 +11,7 @@ extern crate time;
 extern crate wad;
 
 use common::GeneralError;
-use game::{Level, Game, GameConfig};
+use game::{Game, GameConfig, Level};
 use game::SHADER_ROOT;
 use getopts::Options;
 use gfx::SceneBuilder;
@@ -67,7 +67,8 @@ impl RunMode {
         let matches = try!(opts.parse(&args[1..]).map_err(|e| GeneralError(e.to_string())));
 
         if matches.opt_present("h") {
-            return Ok(RunMode::DisplayHelp(opts.usage("rs_doom 0.0.7: A Rust Doom I/II Renderer.")));
+            return Ok(RunMode::DisplayHelp(opts.usage("rs_doom 0.0.7: A Rust Doom I/II \
+                                                       Renderer.")));
         }
 
 
@@ -85,38 +86,17 @@ impl RunMode {
                 metadata_file: metadata,
             }
         } else {
-            let size_str = matches.opt_str("resolution").unwrap_or("1280x720".to_owned());
-            let (width, height) = try!(size_str.find('x')
-                                               .and_then(|x| {
-                                                   if x == 0 || x == size_str.len() - 1 {
-                                                       None
-                                                   } else {
-                                                       Some((&size_str[..x], &size_str[x + 1..]))
-                                                   }
-                                               })
-                                               .map(|size| {
-                                                   (size.0.parse::<u32>(), size.1.parse::<u32>())
-                                               })
-                                               .and_then(|size| {
-                                                   match size {
-                                                       (Ok(width), Ok(height)) =>
-                                                           Some((width, height)),
-                                                       _ => None,
-                                                   }
-                                               })
-                                               .ok_or_else(|| {
-                                                   GeneralError("invalid window size \
-                                                                 (WIDTHxHEIGHT)"
-                                                                    .to_owned())
-                                               }));
+            let (width, height) = try!(parse_window_size(&matches.opt_str("resolution")
+                                                                 .unwrap_or("1280x720"
+                                                                                .to_owned())));
             let fov = try!(matches.opt_str("fov")
                                   .unwrap_or("65".to_owned())
                                   .parse::<f32>()
-                                  .map_err(|_| GeneralError("invalid value for fov".to_owned())));
+                                  .map_err(|_| GeneralError("invalid value for fov".into())));
             let level = try!(matches.opt_str("level")
                                     .unwrap_or("0".to_owned())
                                     .parse::<usize>()
-                                    .map_err(|_| GeneralError("invalid value for fov".to_owned())));
+                                    .map_err(|_| GeneralError("invalid value for fov".into())));
 
             RunMode::Play(GameConfig {
                 wad_file: wad,
@@ -130,8 +110,27 @@ impl RunMode {
     }
 }
 
+fn parse_window_size(size_str: &str) -> Result<(u32, u32), GeneralError> {
+    size_str.find('x')
+            .and_then(|x_index| {
+                if x_index == 0 || x_index + 1 == size_str.len() {
+                    None
+                } else {
+                    Some((&size_str[..x_index], &size_str[x_index + 1..]))
+                }
+            })
+            .map(|(width, height)| (width.parse::<u32>(), height.parse::<u32>()))
+            .and_then(|size| {
+                match size {
+                    (Ok(w), Ok(h)) => Some((w, h)),
+                    _ => None,
+                }
+            })
+            .ok_or_else(|| GeneralError("invalid window size (WIDTHxHEIGHT)".into()))
+}
+
 #[cfg(not(test))]
-pub fn run(args: &[String]) -> Result<(), Box<Error>> {
+fn run(args: &[String]) -> Result<(), Box<Error>> {
     try!(env_logger::init());
 
     match try!(RunMode::from_args(args)) {
@@ -149,7 +148,7 @@ pub fn run(args: &[String]) -> Result<(), Box<Error>> {
             let t0 = time::precise_time_s();
             let wad = try!(Archive::open(&wad_file, &metadata_file));
             let textures = try!(TextureDirectory::from_archive(&wad));
-            for level_index in 0 .. wad.num_levels() {
+            for level_index in 0..wad.num_levels() {
                 let mut scene = SceneBuilder::new(&win, PathBuf::from(SHADER_ROOT));
                 if let Err(e) = Level::new(&wad, &textures, level_index, &mut scene) {
                     error!("reading level {}: {}", level_index, e);

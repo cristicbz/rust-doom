@@ -1,4 +1,4 @@
-use byteorder::{LittleEndian, ByteOrder, ReadBytesExt};
+use byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
 use error::Result;
 use std::io::Read;
 use std::io::Error as IoError;
