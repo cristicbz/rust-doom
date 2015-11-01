@@ -6,48 +6,89 @@ use num::Zero;
 use std::cmp;
 use std::cmp::Ordering;
 use tex::TextureDirectory;
-use types::{ChildId, SectorId, WadCoord, WadName, WadSector, WadSeg, WadThing};
+use types::{ChildId, WadCoord, WadName, WadSector, WadSeg, WadThing, WadNode};
 use util::{from_wad_coords, from_wad_height, is_sky_flat, is_untextured, parse_child_id};
 use vec_map::VecMap;
 
-pub trait LevelVisitor {
+pub trait LevelVisitor: Sized {
     fn visit_wall_quad(&mut self,
-                       vertices: &(Vec2f, Vec2f),
-                       tex_start: (f32, f32),
-                       tex_end: (f32, f32),
-                       height_range: (f32, f32),
-                       light_info: &LightInfo,
-                       scroll: f32,
-                       tex_name: &WadName);
+                       _vertices: &(Vec2f, Vec2f),
+                       _tex_start: (f32, f32),
+                       _tex_end: (f32, f32),
+                       _height_range: (f32, f32),
+                       _light_info: &LightInfo,
+                       _scroll: f32,
+                       _tex_name: &WadName) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
 
     fn visit_floor_poly(&mut self,
-                        points: &[Vec2f],
-                        height: f32,
-                        light_info: &LightInfo,
-                        tex_name: &WadName);
+                        _points: &[Vec2f],
+                        _height: f32,
+                        _light_info: &LightInfo,
+                        _tex_name: &WadName) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
 
     fn visit_ceil_poly(&mut self,
-                       points: &[Vec2f],
-                       height: f32,
-                       light_info: &LightInfo,
-                       tex_name: &WadName);
+                       _points: &[Vec2f],
+                       _height: f32,
+                       _light_info: &LightInfo,
+                       _tex_name: &WadName) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
 
-    fn visit_volume(&mut self,
-                    sector_id: SectorId,
-                    height_range: (f32, f32),
-                    light_info: &LightInfo,
-                    points: Vec<Vec2f>);
+    fn visit_floor_sky_poly(&mut self, _points: &[Vec2f], _height: f32) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
 
-    fn visit_floor_sky_poly(&mut self, points: &[Vec2f], height: f32);
-    fn visit_ceil_sky_poly(&mut self, points: &[Vec2f], height: f32);
-    fn visit_sky_quad(&mut self, vertices: &(Vec2f, Vec2f), height_range: (f32, f32));
+    fn visit_ceil_sky_poly(&mut self, _points: &[Vec2f], _height: f32) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
+
+    fn visit_sky_quad(&mut self, _vertices: &(Vec2f, Vec2f), _height_range: (f32, f32)) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
 
     fn visit_decor(&mut self,
-                   low: &Vec3f,
-                   high: &Vec3f,
-                   half_width: f32,
-                   light_info: &LightInfo,
-                   tex_name: &WadName);
+                   _low: &Vec3f,
+                   _high: &Vec3f,
+                   _half_width: f32,
+                   _light_info: &LightInfo,
+                   _tex_name: &WadName) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
+
+    fn visit_bsp_root(&mut self, _line: &Line2f) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
+
+    fn visit_bsp_node(&mut self, _line: &Line2f, _branch: Branch) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
+
+    fn visit_bsp_leaf(&mut self, _branch: Branch) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
+
+    fn visit_bsp_node_end(&mut self) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
+
+    fn chain<'a, 'b, Other: LevelVisitor>(&'a mut self,
+                                          other: &'b mut Other)
+                                          -> VisitorChain<'a, 'b, Self, Other> {
+        VisitorChain {
+            first: self,
+            second: other,
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
+pub enum Branch {
+    Positive,
+    Negative,
 }
 
 
@@ -88,19 +129,25 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
     }
 
     pub fn walk(&mut self) {
-        if self.level.nodes.is_empty() {
-            warn!("Level contains no nodes, visitor not called at all.");
-            return;
-        }
+        let root = match self.level.nodes.last() {
+            Some(node) => node,
+            None => {
+                warn!("Level contains no nodes, visitor not called at all.");
+                return;
+            }
+        };
+        let partition = partition_line(&root);
+        self.visitor.visit_bsp_root(&partition);
+        self.children(root, partition);
+        self.visitor.visit_bsp_node_end();
 
-        let root_id = (self.level.nodes.len() - 1) as ChildId;
-        self.node(root_id);
         self.things();
     }
 
-    fn node(&mut self, id: ChildId) {
+    fn node(&mut self, id: ChildId, branch: Branch) {
         let (id, is_leaf) = parse_child_id(id);
         if is_leaf {
+            self.visitor.visit_bsp_leaf(branch);
             self.subsector(id);
             return;
         }
@@ -111,14 +158,19 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             warn!("Missing entire node with id {}, skipping.", id);
             return;
         };
-        let partition = Line2f::from_origin_and_displace(from_wad_coords(node.line_x, node.line_y),
-                                                         from_wad_coords(node.step_x, node.step_y));
+        let partition = partition_line(&node);
+        self.visitor.visit_bsp_node(&partition, branch);
+        self.children(node, partition);
+        self.visitor.visit_bsp_node_end();
+    }
+
+    fn children(&mut self, node: &WadNode, partition: Line2f) {
         self.bsp_lines.push(partition);
-        self.node(node.left);
+        self.node(node.left, Branch::Positive);
         self.bsp_lines.pop();
 
         self.bsp_lines.push(partition.inverted_halfspaces());
-        self.node(node.right);
+        self.node(node.right, Branch::Negative);
         self.bsp_lines.pop();
     }
 
@@ -158,8 +210,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             let (v1, v2) = if let Some(vertices) = self.level.seg_vertices(seg) {
                 vertices
             } else {
-                warn!("Cannot find seg vertices in subsector {}, will skip subsector.",
-                      id);
+                warn!("Cannot find seg vertices in subsector {}, will skip.", id);
                 return;
             };
             self.subsector_points.push(v1);
@@ -171,8 +222,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         }
 
         // The convex polyon defined at the intersection of the partition lines,
-        // intersected with
-        // the half-volumes of the segs form the 'implicit' points.
+        // intersected with the half-volumes of the segs form the 'implicit' points.
         for i_line in 0..(self.bsp_lines.len() - 1) {
             for j_line in (i_line + 1)..self.bsp_lines.len() {
                 let (l1, l2) = (&self.bsp_lines[i_line], &self.bsp_lines[j_line]);
@@ -412,11 +462,6 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             sector.ceiling_height
         });
 
-        self.visitor.visit_volume(self.level.sector_id(sector),
-                                  (floor_y, ceil_y),
-                                  light_info,
-                                  self.subsector_points.clone());
-
         if floor_sky {
             self.visitor.visit_floor_sky_poly(&self.subsector_points, floor_y);
         } else {
@@ -470,8 +515,8 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 } else {
                     return None;
                 };
-                let sector = if let Some(s) = self.level.seg_sector(&segs[0]) {
-                    s
+                let sector = if let Some(sector) = self.level.seg_sector(&segs[0]) {
+                    sector
                 } else {
                     return None;
                 };
@@ -493,7 +538,6 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                                                                                  node.line_y),
                                                                  from_wad_coords(node.step_x,
                                                                                  node.step_y));
-
                 if partition.signed_distance(pos) > 0.0f32 {
                     child_id = node.left;
                 } else {
@@ -571,6 +615,11 @@ fn light_info<'a>(cache: &'a mut VecMap<LightInfo>,
                   -> &'a LightInfo {
     cache.entry(level.sector_id(sector) as usize)
          .or_insert_with(|| light::new_light(level, sector))
+}
+
+fn partition_line(node: &WadNode) -> Line2f {
+    Line2f::from_origin_and_displace(from_wad_coords(node.line_x, node.line_y),
+                                     from_wad_coords(node.step_x, node.step_y))
 }
 
 // Distance on the wrong side of a BSP and seg line allowed.
@@ -673,4 +722,99 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
         *point = *point + (*point - center).normalized() * POLY_BIAS;
     }
     *points = simplified;
+}
+
+
+pub struct VisitorChain<'a, 'b, A: LevelVisitor + 'a, B: LevelVisitor + 'b> {
+    first: &'a mut A,
+    second: &'b mut B,
+}
+
+impl<'a, 'b, A: LevelVisitor, B: LevelVisitor> LevelVisitor for VisitorChain<'a, 'b, A, B> {
+    fn visit_wall_quad(&mut self,
+                       vertices: &(Vec2f, Vec2f),
+                       tex_start: (f32, f32),
+                       tex_end: (f32, f32),
+                       height_range: (f32, f32),
+                       light_info: &LightInfo,
+                       scroll: f32,
+                       tex_name: &WadName) {
+        self.first.visit_wall_quad(vertices,
+                                   tex_start,
+                                   tex_end,
+                                   height_range,
+                                   light_info,
+                                   scroll,
+                                   tex_name);
+        self.second.visit_wall_quad(vertices,
+                                    tex_start,
+                                    tex_end,
+                                    height_range,
+                                    light_info,
+                                    scroll,
+                                    tex_name);
+    }
+
+    fn visit_floor_poly(&mut self,
+                        points: &[Vec2f],
+                        height: f32,
+                        light_info: &LightInfo,
+                        tex_name: &WadName) {
+        self.first.visit_floor_poly(points, height, light_info, tex_name);
+        self.second.visit_floor_poly(points, height, light_info, tex_name);
+    }
+
+    fn visit_ceil_poly(&mut self,
+                       points: &[Vec2f],
+                       height: f32,
+                       light_info: &LightInfo,
+                       tex_name: &WadName) {
+        self.first.visit_ceil_poly(points, height, light_info, tex_name);
+        self.second.visit_ceil_poly(points, height, light_info, tex_name);
+    }
+
+    fn visit_floor_sky_poly(&mut self, points: &[Vec2f], height: f32) {
+        self.first.visit_floor_sky_poly(points, height);
+        self.second.visit_floor_sky_poly(points, height);
+    }
+
+    fn visit_ceil_sky_poly(&mut self, points: &[Vec2f], height: f32) {
+        self.first.visit_ceil_sky_poly(points, height);
+        self.second.visit_ceil_sky_poly(points, height);
+    }
+
+    fn visit_sky_quad(&mut self, vertices: &(Vec2f, Vec2f), height_range: (f32, f32)) {
+        self.first.visit_sky_quad(vertices, height_range);
+        self.second.visit_sky_quad(vertices, height_range);
+    }
+
+    fn visit_decor(&mut self,
+                   low: &Vec3f,
+                   high: &Vec3f,
+                   half_width: f32,
+                   light_info: &LightInfo,
+                   tex_name: &WadName) {
+        self.first.visit_decor(low, high, half_width, light_info, tex_name);
+        self.second.visit_decor(low, high, half_width, light_info, tex_name);
+    }
+
+    fn visit_bsp_root(&mut self, line: &Line2f) {
+        self.first.visit_bsp_root(line);
+        self.second.visit_bsp_root(line);
+    }
+
+    fn visit_bsp_node(&mut self, line: &Line2f, branch: Branch) {
+        self.first.visit_bsp_node(line, branch);
+        self.second.visit_bsp_node(line, branch);
+    }
+
+    fn visit_bsp_leaf(&mut self, branch: Branch) {
+        self.first.visit_bsp_leaf(branch);
+        self.second.visit_bsp_leaf(branch);
+    }
+
+    fn visit_bsp_node_end(&mut self) {
+        self.first.visit_bsp_node_end();
+        self.second.visit_bsp_node_end();
+    }
 }

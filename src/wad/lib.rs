@@ -23,7 +23,7 @@ pub use meta::ThingMetadata;
 pub use name::WadName;
 pub use tex::TextureDirectory;
 pub use error::{Error, Result};
-pub use visitor::{LevelVisitor, LevelWalker};
+pub use visitor::{LevelVisitor, LevelWalker, Branch};
 pub use light::{LightEffect, LightEffectKind, LightInfo};
 
 mod name;

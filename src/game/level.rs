@@ -2,15 +2,16 @@ use gfx::{Scene, SceneBuilder};
 use lights::LightBuffer;
 use math::{Line2f, Vec2f, Vec3f, Vector};
 use num::Zero;
+use std::i32;
 use std::error::Error;
 use wad::tex::BoundsLookup;
 use wad::tex::{OpaqueImage, TransparentImage};
-use wad::types::{SectorId, WadName};
+use wad::types::WadName;
 use wad::util::{from_wad_coords, is_sky_flat, is_untextured};
 use wad::{SkyMetadata, TextureDirectory, WadMetadata};
 use wad::Archive;
 use wad::Level as WadLevel;
-use wad::{LevelVisitor, LevelWalker, LightInfo};
+use wad::{LevelVisitor, LevelWalker, LightInfo, Branch};
 
 pub struct Level {
     start_pos: Vec3f,
@@ -174,78 +175,9 @@ fn build_decor_atlas(level: &WadLevel,
     Ok(lookup)
 }
 
-pub struct Poly {
-    sector: usize,
-    poly: Vec<Vec2f>,
-}
-
-#[derive(Copy, Clone)]
-pub struct Sector {
-    floor: f32,
-    ceil: f32,
-    light_info: u8,
-}
-
-
-impl Poly {
-    pub fn contains(&self, point: &Vec2f) -> bool {
-        if self.poly.len() < 3 {
-            return false;
-        }
-        self.poly
-            .iter()
-            .zip(self.poly[1..].iter().chain(Some(&self.poly[0]).into_iter()))
-            .map(|(a, b)| Line2f::from_two_points(*a, *b))
-            .all(|l| l.signed_distance(point) >= 0.0)
-    }
-}
-
-pub struct WorldVolume {
-    polys: Vec<Poly>,
-    sectors: Vec<Option<Sector>>,
-}
-impl WorldVolume {
-    pub fn new() -> WorldVolume {
-        WorldVolume {
-            polys: vec![],
-            sectors: vec![],
-        }
-    }
-
-    pub fn sector(&self, index: usize) -> Option<&Sector> {
-        match self.sectors.get(index) {
-            Some(sector) => sector.as_ref(),
-            None => None,
-        }
-    }
-
-    pub fn insert_sector(&mut self, index: usize, sector: Sector) {
-        while self.sectors.len() <= index {
-            self.sectors.push(None);
-        }
-        self.sectors[index] = Some(sector);
-    }
-
-    pub fn push_poly(&mut self, points: Vec<Vec2f>, sector_index: usize) {
-        self.polys.push(Poly {
-            poly: points,
-            sector: sector_index,
-        });
-    }
-
-    pub fn sector_at(&self, position: &Vec2f) -> Option<&Sector> {
-        self.polys
-            .iter()
-            .find(|poly| poly.contains(position))
-            .and_then(|poly| self.sector(poly.sector))
-    }
-}
-
-
 struct LevelBuilder<'a, 'b: 'a> {
     bounds: &'a TextureMaps,
     lights: &'a mut LightBuffer,
-    volume: &'a mut WorldVolume,
     scene: &'a mut SceneBuilder<'b>,
 }
 impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
@@ -259,10 +191,9 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
         let mut builder = LevelBuilder {
             bounds: bounds,
             lights: lights,
-            volume: volume,
             scene: scene,
         };
-        LevelWalker::new(level, tex, meta, &mut builder).walk();
+        LevelWalker::new(level, tex, meta, &mut builder.chain(volume)).walk();
     }
 
     fn add_light_info(&mut self, light_info: &LightInfo) -> u8 {
@@ -371,24 +302,6 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             .push(v1, high);
     }
 
-    fn visit_volume(&mut self,
-                    sector_id: SectorId,
-                    (floor, ceil): (f32, f32),
-                    light_info: &LightInfo,
-                    points: Vec<Vec2f>) {
-        let sector_id = sector_id as usize;
-        let light_info = self.add_light_info(light_info);
-        if self.volume.sector(sector_id).is_none() {
-            self.volume.insert_sector(sector_id,
-                                      Sector {
-                                          floor: floor,
-                                          ceil: ceil,
-                                          light_info: light_info,
-                                      });
-        }
-        self.volume.push_poly(points, sector_id);
-    }
-
     fn visit_decor(&mut self,
                    low: &Vec3f,
                    high: &Vec3f,
@@ -420,5 +333,163 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
                   light_info)
             .push(&high, half_width, bounds.size[0], 0.0, bounds, light_info)
             .push(&high, -half_width, 0.0, 0.0, bounds, light_info);
+    }
+}
+
+
+pub struct WorldVolume {
+    nodes: Vec<Node>,
+    leaves: Vec<Sector>,
+    node_stack: Vec<usize>,
+}
+impl WorldVolume {
+    pub fn new() -> WorldVolume {
+        WorldVolume {
+            nodes: Vec::with_capacity(128),
+            leaves: Vec::with_capacity(128),
+            node_stack: Vec::with_capacity(32),
+        }
+    }
+
+    pub fn sector_at(&self, position: &Vec2f) -> Option<&Sector> {
+        let mut node = &self.nodes[0];
+        loop {
+            match node.child_at(position) {
+                Child::Stump => return None,
+                Child::Leaf(index) => return Some(&self.leaves[index]),
+                Child::Node(index) => node = &self.nodes[index],
+            }
+        }
+    }
+
+    fn link_child(&mut self, child: Child, branch: Branch) {
+        let parent_index = *self.node_stack.last().expect("called link_child on root node");
+        let parent = &mut self.nodes[parent_index];
+
+        match branch {
+            Branch::Positive => {
+                assert_eq!(parent.positive, 0);
+                parent.positive = child.pack();
+            }
+            Branch::Negative => {
+                assert_eq!(parent.negative, 0);
+                parent.negative = child.pack();
+            }
+        }
+    }
+}
+
+impl LevelVisitor for WorldVolume {
+    fn visit_bsp_root(&mut self, line: &Line2f) {
+        let index = self.nodes.len();
+        self.nodes.push(Node::new(line.clone()));
+        self.node_stack.push(index);
+    }
+
+    fn visit_bsp_node(&mut self, line: &Line2f, branch: Branch) {
+        let index = self.nodes.len();
+        self.nodes.push(Node::new(line.clone()));
+        self.link_child(Child::Node(index), branch);
+        self.node_stack.push(index);
+    }
+
+    fn visit_bsp_leaf(&mut self, branch: Branch) {
+        let index = self.leaves.len();
+        self.leaves.push(Sector {
+            floor: 0.0,
+            ceil: 0.0,
+        });
+        self.link_child(Child::Leaf(index), branch);
+    }
+
+    fn visit_bsp_node_end(&mut self) {
+        self.node_stack.pop().expect("too many calls to visit_bsp_node_end");
+    }
+
+    fn visit_floor_sky_poly(&mut self, _points: &[Vec2f], height: f32) {
+        self.leaves.last_mut().expect("missing leaf on sky floor").floor = height;
+    }
+
+    fn visit_ceil_sky_poly(&mut self, _points: &[Vec2f], height: f32) {
+        self.leaves.last_mut().expect("missing leaf on sky ceil").ceil = height;
+    }
+
+    fn visit_floor_poly(&mut self,
+                        _points: &[Vec2f],
+                        height: f32,
+                        _light_info: &LightInfo,
+                        _tex_name: &WadName) {
+        self.leaves.last_mut().expect("missing leaf on floor").floor = height;
+    }
+
+    fn visit_ceil_poly(&mut self,
+                       _points: &[Vec2f],
+                       height: f32,
+                       _light_info: &LightInfo,
+                       _tex_name: &WadName) {
+        self.leaves.last_mut().expect("missing leaf on ceil").ceil = height;
+    }
+}
+
+pub struct Sector {
+    floor: f32,
+    ceil: f32,
+}
+
+struct Node {
+    partition: Line2f,
+    positive: i32,
+    negative: i32,
+}
+
+
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+enum Child {
+    Leaf(usize),
+    Node(usize),
+    Stump,
+}
+
+impl Child {
+    fn pack(self) -> i32 {
+        match self {
+            Child::Leaf(index) => {
+                assert!(index < i32::MAX as usize);
+                -(index as i32)
+            }
+            Child::Node(index) => {
+                assert!(index < i32::MAX as usize);
+                (index as i32)
+            }
+            Child::Stump => 0,
+        }
+    }
+
+    fn unpack(packed: i32) -> Self {
+        if packed == 0 {
+            Child::Stump
+        } else if packed > 0 {
+            Child::Node(packed as usize)
+        } else {
+            Child::Leaf((-packed) as usize)
+        }
+    }
+}
+
+impl Node {
+    fn new(partition: Line2f) -> Node {
+        Node {
+            partition: partition,
+            positive: 0,
+            negative: 0,
+        }
+    }
+
+    fn child_at(&self, position: &Vec2f) -> Child {
+        if self.partition.signed_distance(position) >= 0.0 {
+            Child::unpack(self.positive)
+        } else {
+            Child::unpack(self.negative)
+        }
     }
 }
