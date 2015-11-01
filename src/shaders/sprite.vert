@@ -4,13 +4,13 @@ uniform vec2 u_atlas_size;
 uniform float u_time;
 uniform samplerBuffer u_lights;
 
-layout(location = 0) in vec3 a_pos;
-layout(location = 1) in vec2 a_atlas_uv;
-layout(location = 2) in vec2 a_tile_uv;
-layout(location = 3) in vec2 a_tile_size;
-layout(location = 4) in float a_local_x;
-layout(location = 5) in int a_num_frames;
-layout(location = 6) in int a_light;
+in vec3 a_pos;
+in vec2 a_atlas_uv;
+in vec2 a_tile_uv;
+in vec2 a_tile_size;
+in float a_local_x;
+in int a_num_frames;
+in int a_light;
 
 out float v_dist;
 out vec2 v_tile_uv;
