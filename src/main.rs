@@ -90,7 +90,7 @@ impl RunMode {
                                                                  .unwrap_or("1280x720"
                                                                                 .to_owned())));
             let fov = try!(matches.opt_str("fov")
-                                  .unwrap_or("65".to_owned())
+                                  .unwrap_or("64".to_owned())
                                   .parse::<f32>()
                                   .map_err(|_| GeneralError("invalid value for fov".into())));
             let level = try!(matches.opt_str("level")

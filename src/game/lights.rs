@@ -21,9 +21,9 @@ impl LightBuffer {
             }) as u8
     }
 
-    pub fn fill_buffer_at(&mut self, time: f32, buffer: &mut [f32]) {
+    pub fn fill_buffer_at(&mut self, time: f32, buffer: &mut [u8]) {
         for (value, info) in buffer.iter_mut().zip(self.lights.iter()) {
-            *value = light_level_at(info, time);
+            *value = (clamp(light_level_at(info, time)) * 255.0) as u8;
         }
     }
 }
@@ -63,4 +63,14 @@ fn noise(sync: f32, time: f32) -> f32 {
 
 fn fract(x: f32) -> f32 {
     x - x.floor()
+}
+
+fn clamp(x: f32) -> f32 {
+    if x < 0.0 {
+        0.0
+    } else if x > 1.0 {
+        1.0
+    } else {
+        x
+    }
 }
