@@ -7,11 +7,11 @@ use std::error::Error;
 use wad::tex::BoundsLookup;
 use wad::tex::{OpaqueImage, TransparentImage};
 use wad::types::WadName;
-use wad::util::{from_wad_coords, is_sky_flat, is_untextured};
+use wad::util::{is_sky_flat, is_untextured};
 use wad::{SkyMetadata, TextureDirectory, WadMetadata};
 use wad::Archive;
 use wad::Level as WadLevel;
-use wad::{LevelVisitor, LevelWalker, LightInfo, Branch};
+use wad::{LevelVisitor, LevelWalker, LightInfo, Branch, Marker};
 
 pub struct Level {
     start_pos: Vec3f,
@@ -46,26 +46,15 @@ impl Level {
 
         let mut volume = WorldVolume::new();
         let mut lights = LightBuffer::new();
+        let mut start_pos = Vec3f::zero();
         LevelBuilder::build(&level,
                             &wad.metadata(),
                             textures,
                             &texture_maps,
+                            &mut start_pos,
                             &mut lights,
                             &mut volume,
                             scene);
-
-        let start_pos = level.things
-                             .iter()
-                             .find(|thing| thing.thing_type == 1)
-                             .map(|thing| from_wad_coords(thing.x, thing.y))
-                             .map(|pos| {
-                                 let height = 0.5 +
-                                              volume.sector_at(&pos)
-                                                    .map(|sector| sector.floor)
-                                                    .unwrap_or(0.0);
-                                 Vec3f::new(pos[0], height, pos[1])
-                             })
-                             .unwrap_or(Vec3f::zero());
 
         Ok(Level {
             start_pos: start_pos,
@@ -179,12 +168,15 @@ struct LevelBuilder<'a, 'b: 'a> {
     bounds: &'a TextureMaps,
     lights: &'a mut LightBuffer,
     scene: &'a mut SceneBuilder<'b>,
+    start_pos: &'a mut Vec3f,
 }
+
 impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
     fn build(level: &WadLevel,
              meta: &WadMetadata,
              tex: &TextureDirectory,
              bounds: &TextureMaps,
+             start_pos: &mut Vec3f,
              lights: &mut LightBuffer,
              volume: &mut WorldVolume,
              scene: &mut SceneBuilder) {
@@ -192,6 +184,7 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
             bounds: bounds,
             lights: lights,
             scene: scene,
+            start_pos: start_pos,
         };
         LevelWalker::new(level, tex, meta, &mut builder.chain(volume)).walk();
     }
@@ -300,6 +293,13 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             .push(v2, low)
             .push(v2, high)
             .push(v1, high);
+    }
+
+    fn visit_marker(&mut self, pos: Vec3f, marker: Marker) {
+        match marker {
+            Marker::StartPos { player: 0 } => *self.start_pos = pos,
+            _ => {}
+        }
     }
 
     fn visit_decor(&mut self,

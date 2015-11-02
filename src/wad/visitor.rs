@@ -6,7 +6,7 @@ use num::Zero;
 use std::cmp;
 use std::cmp::Ordering;
 use tex::TextureDirectory;
-use types::{ChildId, WadCoord, WadName, WadSector, WadSeg, WadThing, WadNode};
+use types::{ChildId, WadCoord, WadName, WadSector, WadSeg, WadThing, WadNode, ThingType};
 use util::{from_wad_coords, from_wad_height, is_sky_flat, is_untextured, parse_child_id};
 use vec_map::VecMap;
 
@@ -50,6 +50,10 @@ pub trait LevelVisitor: Sized {
         // Default impl is empty to allow visitors to mix and match.
     }
 
+    fn visit_marker(&mut self, _pos: Vec3f, _marker: Marker) {
+        // Default impl is empty to allow visitors to mix and match.
+    }
+
     fn visit_decor(&mut self,
                    _low: &Vec3f,
                    _high: &Vec3f,
@@ -75,9 +79,9 @@ pub trait LevelVisitor: Sized {
         // Default impl is empty to allow visitors to mix and match.
     }
 
-    fn chain<'a, 'b, Other: LevelVisitor>(&'a mut self,
-                                          other: &'b mut Other)
-                                          -> VisitorChain<'a, 'b, Self, Other> {
+    fn chain<'a, 'b, V: LevelVisitor>(&'a mut self,
+                                      other: &'b mut V)
+                                      -> VisitorChain<'a, 'b, Self, V> {
         VisitorChain {
             first: self,
             second: other,
@@ -89,6 +93,15 @@ pub trait LevelVisitor: Sized {
 pub enum Branch {
     Positive,
     Negative,
+}
+
+#[derive(Eq, PartialEq, Debug, Copy, Clone)]
+pub enum Marker {
+    StartPos {
+        player: usize,
+    },
+    TeleportStart,
+    TeleportEnd,
 }
 
 
@@ -489,7 +502,15 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
     fn things(&mut self) {
         for thing in &self.level.things {
             let pos = from_wad_coords(thing.x, thing.y);
-            if let Some(sector) = self.sector_at(&pos) {
+            let sector = match self.sector_at(&pos) {
+                Some(sector) => sector,
+                None => continue,
+            };
+
+            if let Some(marker) = Marker::from(thing.thing_type) {
+                let pos = Vec3f::new(pos[0], from_wad_height(sector.floor_height), pos[1]);
+                self.visitor.visit_marker(pos, marker);
+            } else if let Some(sector) = self.sector_at(&pos) {
                 self.decor(thing, &pos, sector);
             }
         }
@@ -788,6 +809,11 @@ impl<'a, 'b, A: LevelVisitor, B: LevelVisitor> LevelVisitor for VisitorChain<'a,
         self.second.visit_sky_quad(vertices, height_range);
     }
 
+    fn visit_marker(&mut self, pos: Vec3f, marker: Marker) {
+        self.first.visit_marker(pos, marker);
+        self.second.visit_marker(pos, marker);
+    }
+
     fn visit_decor(&mut self,
                    low: &Vec3f,
                    high: &Vec3f,
@@ -816,5 +842,27 @@ impl<'a, 'b, A: LevelVisitor, B: LevelVisitor> LevelVisitor for VisitorChain<'a,
     fn visit_bsp_node_end(&mut self) {
         self.first.visit_bsp_node_end();
         self.second.visit_bsp_node_end();
+    }
+}
+
+
+const THING_TYPE_PLAYER1_START: ThingType = 1;
+const THING_TYPE_PLAYER2_START: ThingType = 2;
+const THING_TYPE_PLAYER3_START: ThingType = 3;
+const THING_TYPE_PLAYER4_START: ThingType = 4;
+const THING_TYPE_TELEPORT_START: ThingType = 11;
+const THING_TYPE_TELEPORT_END: ThingType = 14;
+
+impl Marker {
+    fn from(thing_type: ThingType) -> Option<Marker> {
+        match thing_type {
+            THING_TYPE_PLAYER1_START => Some(Marker::StartPos { player: 0 }),
+            THING_TYPE_PLAYER2_START => Some(Marker::StartPos { player: 1 }),
+            THING_TYPE_PLAYER3_START => Some(Marker::StartPos { player: 2 }),
+            THING_TYPE_PLAYER4_START => Some(Marker::StartPos { player: 3 }),
+            THING_TYPE_TELEPORT_START => Some(Marker::TeleportStart),
+            THING_TYPE_TELEPORT_END => Some(Marker::TeleportEnd),
+            _ => None,
+        }
     }
 }

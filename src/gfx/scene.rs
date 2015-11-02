@@ -6,6 +6,7 @@ use glium::texture::buffer_texture::{BufferTexture, BufferTextureType};
 use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter, SamplerBehavior};
 use glium::uniforms::SamplerWrapFunction;
 use glium::uniforms::{AsUniformValue, UniformValue, Uniforms};
+use glium::program::ProgramCreationInput;
 use math::{Mat4, Vec2};
 use platform;
 use std::borrow::Cow;
@@ -229,7 +230,17 @@ impl<'window> SceneBuilder<'window> {
                vert_path);
         try!(read_utf8_file(&frag_path, &mut frag_src));
         try!(read_utf8_file(&vert_path, &mut vert_src));
-        let program = try!(Program::from_source(self.window.facade(), &vert_src, &frag_src, None)
+        let program = try!(Program::new(self.window.facade(),
+                                        ProgramCreationInput::SourceCode {
+                                            vertex_shader: &vert_src,
+                                            tessellation_control_shader: None,
+                                            tessellation_evaluation_shader: None,
+                                            geometry_shader: None,
+                                            fragment_shader: &frag_src,
+                                            transform_feedback_varyings: None,
+                                            outputs_srgb: true,
+                                            uses_point_size: false,
+                                        })
                                .needed_by(name));
         debug!("Shader '{}' loaded successfully", name);
         Ok(program)
@@ -241,7 +252,7 @@ pub struct Scene {
     projection: UniformValue<'static>,
     modelview: UniformValue<'static>,
     time: f32,
-    lights: BufferTexture<f32>,
+    lights: BufferTexture<u8>,
 
     palette: Texture2d,
 
@@ -271,7 +282,7 @@ impl Scene {
     }
 
     pub fn set_lights<F>(&mut self, writer: F)
-        where F: FnOnce(&mut [f32])
+        where F: FnOnce(&mut [u8])
     {
         writer(&mut *self.lights.map())
     }
@@ -280,7 +291,7 @@ impl Scene {
         self.time += delta_time;
 
         let mut frame = window.draw();
-        frame.clear_all((0.06, 0.07, 0.09, 0.0), 1.0, 0);
+        frame.clear_all_srgb((0.06, 0.07, 0.09, 0.0), 1.0, 0);
         try!(StaticStep::flats(self).render(&mut frame));
         try!(StaticStep::walls(self).render(&mut frame));
         try!(SpriteStep::decors(self).render(&mut frame));
@@ -341,7 +352,7 @@ impl<'scene> Uniforms for StaticStep<'scene> {
         set_uniform("u_time", UniformValue::Float(self.scene.time));
         set_uniform("u_lights", self.scene.lights.as_uniform_value());
         set_uniform("u_palette",
-                    UniformValue::Texture2d(&self.scene.palette, SAMPLER));
+                    UniformValue::Texture2d(&self.scene.palette, PALETTE_SAMPLER));
         set_uniform("u_atlas", UniformValue::Texture2d(self.texture, SAMPLER));
         set_uniform("u_atlas_size",
                     UniformValue::Vec2([self.texture.get_width() as f32,
@@ -377,7 +388,7 @@ impl<'scene> Uniforms for SkyStep<'scene> {
         set_uniform("u_projection", self.0.projection);
         set_uniform("u_time", UniformValue::Float(self.0.time));
         set_uniform("u_palette",
-                    UniformValue::Texture2d(&self.0.palette, SAMPLER));
+                    UniformValue::Texture2d(&self.0.palette, PALETTE_SAMPLER));
         set_uniform("u_texture",
                     UniformValue::Texture2d(&self.0.sky_texture, SAMPLER));
         set_uniform("u_tiled_band_size",
@@ -413,7 +424,7 @@ impl<'scene> Uniforms for SpriteStep<'scene> {
         set_uniform("u_lights", self.scene.lights.as_uniform_value());
         set_uniform("u_time", UniformValue::Float(self.scene.time));
         set_uniform("u_palette",
-                    UniformValue::Texture2d(&self.scene.palette, SAMPLER));
+                    UniformValue::Texture2d(&self.scene.palette, PALETTE_SAMPLER));
         set_uniform("u_atlas", UniformValue::Texture2d(self.texture, SAMPLER));
         set_uniform("u_atlas_size",
                     UniformValue::Vec2([self.texture.get_width() as f32,
@@ -450,6 +461,15 @@ const SAMPLER: Option<SamplerBehavior> = Some(SamplerBehavior {
     wrap_function: (SamplerWrapFunction::Repeat,
                     SamplerWrapFunction::Repeat,
                     SamplerWrapFunction::Repeat),
+    minify_filter: MinifySamplerFilter::Nearest,
+    magnify_filter: MagnifySamplerFilter::Nearest,
+    max_anisotropy: 1,
+});
+
+const PALETTE_SAMPLER: Option<SamplerBehavior> = Some(SamplerBehavior {
+    wrap_function: (SamplerWrapFunction::Clamp,
+                    SamplerWrapFunction::Clamp,
+                    SamplerWrapFunction::Clamp),
     minify_filter: MinifySamplerFilter::Nearest,
     magnify_filter: MagnifySamplerFilter::Nearest,
     max_anisotropy: 1,
