@@ -64,6 +64,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "bitflags"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "bitflags"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
@@ -241,10 +246,13 @@ dependencies = [
  "common 0.0.1",
  "glium 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glium_sdl2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "math 0.0.1",
  "sdl2 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2_ttf 0.9.0 (git+https://github.com/cristicbz/rust-sdl2_ttf?branch=wrapped)",
+ "slab 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -539,6 +547,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdl2_ttf"
+version = "0.9.0"
+source = "git+https://github.com/cristicbz/rust-sdl2_ttf?branch=wrapped#ce360f9445391074a41ca0ec6b27082d07abf52c"
+dependencies = [
+ "bitflags 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2-sys 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "shared_library"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -555,6 +574,11 @@ dependencies = [
  "winapi 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "slab"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "smallvec"

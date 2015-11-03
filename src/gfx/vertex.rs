@@ -9,7 +9,7 @@ pub type SpriteBuffer = VertexBuffer<SpriteVertex>;
 pub type StaticBuffer = VertexBuffer<StaticVertex>;
 
 
-#[repr(packed)]
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub struct StaticVertex {
     pub a_pos: [f32; 3],
@@ -86,7 +86,7 @@ impl WallBufferBuilder {
     }
 }
 
-#[repr(packed)]
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub struct SpriteVertex {
     pub a_pos: [f32; 3],
@@ -133,7 +133,7 @@ impl DecorBufferBuilder {
     }
 }
 
-#[repr(packed)]
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub struct SkyVertex {
     pub a_pos: [f32; 3],

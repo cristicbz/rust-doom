@@ -10,6 +10,8 @@ use std::path::PathBuf;
 use super::SHADER_ROOT;
 use time;
 use wad::{Archive, TextureDirectory};
+use gfx::TextRenderer;
+use math::Vec2f;
 
 pub struct GameConfig {
     pub wad_file: PathBuf,
@@ -24,6 +26,7 @@ pub struct GameConfig {
 pub struct Game {
     window: Window,
     scene: Scene,
+    text: TextRenderer,
     player: Player,
     level: Level,
     _sdl: Sdl,
@@ -34,8 +37,6 @@ impl Game {
     pub fn new(config: GameConfig) -> Result<Game, Box<Error>> {
         let sdl = try!(sdl2::init().map_err(|e| GeneralError(e.0)));
         let window = try!(Window::new(&sdl, config.width, config.height));
-
-
         let wad = try!(Archive::open(&config.wad_file, &config.metadata_file));
         let textures = try!(TextureDirectory::from_archive(&wad));
         let (level, scene) = {
@@ -51,11 +52,14 @@ impl Game {
         let control = GameController::new(&sdl,
                                           try!(sdl.event_pump().map_err(|e| GeneralError(e.0))));
 
+        let text = try!(TextRenderer::new(&window));
+
         Ok(Game {
             window: window,
             player: player,
             level: level,
             scene: scene,
+            text: text,
             _sdl: sdl,
             control: control,
         })
@@ -65,13 +69,21 @@ impl Game {
         let quit_gesture = Gesture::AnyOf(vec![Gesture::QuitTrigger,
                                                Gesture::KeyTrigger(Scancode::Escape)]);
         let grab_toggle_gesture = Gesture::KeyTrigger(Scancode::Grave);
+        let help_gesture = Gesture::KeyTrigger(Scancode::H);
+
+        let short_help = self.text.insert(&self.window, SHORT_HELP, Vec2f::new(0.0, 0.0), 6);
+        let long_help = self.text.insert(&self.window, LONG_HELP, Vec2f::new(0.0, 0.0), 6);
+        self.text[long_help].set_visible(false);
+        let mut current_help = 0;
 
         let mut cum_time = 0.0;
         let mut cum_updates_time = 0.0;
         let mut num_frames = 0.0;
         let mut t0 = time::precise_time_s();
         let mut mouse_grabbed = true;
-        loop {
+        let mut running = true;
+        while running {
+            let mut frame = self.window.draw();
             let t1 = time::precise_time_s();
             let mut delta = (t1 - t0) as f32;
             if delta < 1e-10 {
@@ -84,17 +96,31 @@ impl Game {
 
             self.control.update();
             if self.control.poll_gesture(&quit_gesture) {
-                break;
+                running = false;
             } else if self.control.poll_gesture(&grab_toggle_gesture) {
                 mouse_grabbed = !mouse_grabbed;
                 self.control.set_mouse_enabled(mouse_grabbed);
                 self.control.set_cursor_grabbed(mouse_grabbed);
+            } else if self.control.poll_gesture(&help_gesture) {
+                current_help = current_help % 2 + 1;
+                match current_help {
+                    0 => self.text[short_help].set_visible(true),
+                    1 => {
+                        self.text[short_help].set_visible(false);
+                        self.text[long_help].set_visible(true);
+                    }
+                    2 => self.text[long_help].set_visible(false),
+                    _ => unreachable!(),
+                }
             }
 
             self.player.update(delta, &self.control, &self.level);
             self.scene.set_modelview(&self.player.camera().modelview());
             self.scene.set_projection(self.player.camera().projection());
-            self.level.render(delta, &mut self.scene);
+            self.level.update(delta, &mut self.scene);
+
+            try!(self.scene.render(&mut frame, delta));
+            try!(self.text.render(&mut frame));
 
             let updates_t1 = time::precise_time_s();
             cum_updates_time += updates_t1 - updates_t0;
@@ -112,8 +138,17 @@ impl Game {
                 cum_updates_time = 0.0;
                 num_frames = 0.0;
             }
-            try!(self.scene.render(&self.window, delta));
+
+            // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
+            frame.finish().ok().expect("Cannot handle context loss currently :(");
         }
         Ok(())
     }
 }
+
+const SHORT_HELP: &'static str = "Press 'h' for help.";
+const LONG_HELP: &'static str = r"Use WASD or arrow keys to move and the mouse to aim.
+Other keys:
+    ESC - to quit
+    ` - to toggle mouse grab (backtick)
+    h - toggle this help message";

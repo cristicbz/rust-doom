@@ -13,9 +13,15 @@ path = "../math"
 [dependencies.common]
 path = "../common"
 
+[dependencies.sdl2_ttf]
+git = "https://github.com/cristicbz/rust-sdl2_ttf"
+branch = "wrapped"
+
 [dependencies]
-log = "*"
-libc = "*"
-sdl2 = "*"
 glium = "*"
 glium_sdl2 = "*"
+lazy_static = "*"
+libc = "*"
+log = "*"
+sdl2 = "*"
+slab = "*"

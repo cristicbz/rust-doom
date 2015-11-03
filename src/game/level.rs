@@ -72,7 +72,7 @@ impl Level {
         self.volume.sector_at(pos).map(|s| (s.floor, s.ceil))
     }
 
-    pub fn render(&mut self, delta_time: f32, scene: &mut Scene) {
+    pub fn update(&mut self, delta_time: f32, scene: &mut Scene) {
         self.time += delta_time;
         scene.set_lights(|lights| {
             self.lights.fill_buffer_at(self.time, lights);
