@@ -951,7 +951,7 @@
         thing_type = 68
         radius = 64
         sprite = "BSPI"
-        sequence = "A"
+        sequence = "G"
         hanging = false
 
     [[things.monsters]]
@@ -959,7 +959,7 @@
         thing_type = 64
         radius = 20
         sprite = "VILE"
-        sequence = "A"
+        sequence = "G"
         hanging = false
 
     [[things.monsters]]
@@ -1031,7 +1031,7 @@
         thing_type = 69
         radius = 24
         sprite = "BOS2"
-        sequence = "A"
+        sequence = "G"
         hanging = false
 
     [[things.monsters]]
@@ -1071,7 +1071,7 @@
         thing_type = 66
         radius = 20
         sprite = "SKEL"
-        sequence = "A"
+        sequence = "G"
         hanging = false
 
     [[things.monsters]]
@@ -1087,7 +1087,7 @@
         thing_type = 7
         radius = 128
         sprite = "SPID"
-        sequence = "A"
+        sequence = "G"
         hanging = false
 
     [[things.monsters]]

@@ -4,7 +4,6 @@ use ctrl::GameController;
 use level::Level;
 use math::{Vec2f, Vec3f, Vector};
 use sdl2::keyboard::Scancode;
-use std::default::Default;
 use num::{Float, Zero};
 
 
@@ -12,6 +11,7 @@ pub struct PlayerBindings {
     pub movement: Analog2d,
     pub look: Analog2d,
     pub jump: Gesture,
+    pub fly: Gesture,
 }
 
 
@@ -26,6 +26,10 @@ impl PlayerBindings {
 
     pub fn jump(&self, controller: &GameController) -> bool {
         controller.poll_gesture(&self.jump)
+    }
+
+    pub fn fly(&self, controller: &GameController) -> bool {
+        controller.poll_gesture(&self.fly)
     }
 }
 
@@ -43,7 +47,8 @@ impl Default for PlayerBindings {
                                                              Gesture::KeyHold(Scancode::Down)]),
                                          1.0),
             look: Analog2d::Mouse(0.002),
-            jump: Gesture::KeyTrigger(Scancode::Space),
+            jump: Gesture::KeyHold(Scancode::Space),
+            fly: Gesture::KeyTrigger(Scancode::F),
         }
     }
 }
@@ -56,6 +61,8 @@ pub struct Player {
     floor_height: f32,
     ceil_height: f32,
     vertical_speed: f32,
+    fly_speed: f32,
+    fly: bool,
     horizontal_speed: Vec2f,
 }
 
@@ -72,6 +79,8 @@ impl Player {
             floor_height: 0.0,
             ceil_height: 100.0,
             vertical_speed: 0.0,
+            fly_speed: 10.0,
+            fly: false,
             horizontal_speed: Vec2f::zero(),
         }
     }
@@ -82,6 +91,45 @@ impl Player {
     }
 
     pub fn update(&mut self, delta_time: f32, controller: &GameController, level: &Level) {
+        if self.bindings.fly(controller) {
+            self.fly = !self.fly;
+        }
+
+        if self.fly {
+            self.update_fly(delta_time, controller);
+        } else {
+            self.update_nofly(delta_time, controller, level);
+        }
+    }
+
+    fn update_fly(&mut self, delta_time: f32, controller: &GameController) {
+        let movement = self.bindings.movement_vector(controller);
+        let look = self.bindings.look_vector(controller);
+        let jump = self.bindings.jump(controller);
+
+        if movement.norm() == 0.0 && look.norm() == 0.0 && !jump {
+            return;
+        }
+
+        let yaw = self.camera.yaw() + look[0];
+        let pitch = clamp(self.camera.pitch() + look[1], (-3.14 / 2.0, 3.14 / 2.0));
+        let displacement = self.fly_speed * delta_time;
+        let up = if jump {
+            displacement
+        } else {
+            0.0
+        };
+        let movement = Vec3f::new(yaw.cos() * movement[0] * displacement +
+                                  yaw.sin() * movement[1] * displacement * pitch.cos(),
+                                  -pitch.sin() * movement[1] * displacement + up,
+                                  -yaw.cos() * movement[1] * displacement * pitch.cos() +
+                                  yaw.sin() * movement[0] * displacement);
+        self.camera.set_yaw(yaw);
+        self.camera.set_pitch(pitch);
+        self.camera.move_by(movement);
+    }
+
+    fn update_nofly(&mut self, delta_time: f32, controller: &GameController, level: &Level) {
         let mut pos = *self.camera.position();
         let old_pos = pos;
 
@@ -105,9 +153,9 @@ impl Player {
         let floored = floor_dist < 1e-2;
 
         if floored {
-            self.horizontal_speed = self.horizontal_speed * 0.7;
+            self.horizontal_speed = self.horizontal_speed * 0.7f32.powf(delta_time * 60.0);
         } else {
-            self.horizontal_speed = self.horizontal_speed * 0.97;
+            self.horizontal_speed = self.horizontal_speed * 0.97f32.powf(delta_time * 60.0);
         }
 
         if old_pos[1] < self.floor_height && pos[1] > self.floor_height ||
