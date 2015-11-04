@@ -287,18 +287,14 @@ impl Scene {
         writer(&mut *self.lights.map())
     }
 
-    pub fn render(&mut self, window: &Window, delta_time: f32) -> Result<()> {
+    pub fn render(&mut self, frame: &mut Frame, delta_time: f32) -> Result<()> {
         self.time += delta_time;
 
-        let mut frame = window.draw();
-        frame.clear_all_srgb((0.06, 0.07, 0.09, 0.0), 1.0, 0);
-        try!(StaticStep::flats(self).render(&mut frame));
-        try!(StaticStep::walls(self).render(&mut frame));
-        try!(SpriteStep::decors(self).render(&mut frame));
-        try!(SkyStep::new(self).render(&mut frame));
+        try!(StaticStep::flats(self).render(frame));
+        try!(StaticStep::walls(self).render(frame));
+        try!(SpriteStep::decors(self).render(frame));
+        try!(SkyStep::new(self).render(frame));
 
-        // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
-        frame.finish().ok().expect("Cannot handle context loss currently :(");
         Ok(())
     }
 }
