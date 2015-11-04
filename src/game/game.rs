@@ -151,4 +151,5 @@ const LONG_HELP: &'static str = r"Use WASD or arrow keys to move and the mouse t
 Other keys:
     ESC - to quit
     ` - to toggle mouse grab (backtick)
+    f - to toggle fly mode
     h - toggle this help message";
