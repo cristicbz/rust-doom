@@ -150,6 +150,8 @@ const SHORT_HELP: &'static str = "Press 'h' for help.";
 const LONG_HELP: &'static str = r"Use WASD or arrow keys to move and the mouse to aim.
 Other keys:
     ESC - to quit
+    SPACEBAR - jump
     ` - to toggle mouse grab (backtick)
     f - to toggle fly mode
+    c - to toggle clipping (wall collisions)
     h - toggle this help message";

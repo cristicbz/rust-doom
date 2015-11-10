@@ -2,7 +2,7 @@ use camera::Camera;
 use ctrl::{Analog2d, Gesture};
 use ctrl::GameController;
 use level::Level;
-use math::{Vec2f, Vec3f, Vector};
+use math::{Vec3f, Vector, Sphere};
 use sdl2::keyboard::Scancode;
 use num::{Float, Zero};
 
@@ -12,27 +12,8 @@ pub struct PlayerBindings {
     pub look: Analog2d,
     pub jump: Gesture,
     pub fly: Gesture,
+    pub clip: Gesture,
 }
-
-
-impl PlayerBindings {
-    pub fn look_vector(&self, controller: &GameController) -> Vec2f {
-        controller.poll_analog2d(&self.look)
-    }
-
-    pub fn movement_vector(&self, controller: &GameController) -> Vec2f {
-        controller.poll_analog2d(&self.movement)
-    }
-
-    pub fn jump(&self, controller: &GameController) -> bool {
-        controller.poll_gesture(&self.jump)
-    }
-
-    pub fn fly(&self, controller: &GameController) -> bool {
-        controller.poll_gesture(&self.fly)
-    }
-}
-
 
 impl Default for PlayerBindings {
     fn default() -> PlayerBindings {
@@ -49,6 +30,7 @@ impl Default for PlayerBindings {
             look: Analog2d::Mouse(0.002),
             jump: Gesture::KeyHold(Scancode::Space),
             fly: Gesture::KeyTrigger(Scancode::F),
+            clip: Gesture::KeyTrigger(Scancode::C),
         }
     }
 }
@@ -57,13 +39,18 @@ impl Default for PlayerBindings {
 pub struct Player {
     bindings: PlayerBindings,
     camera: Camera,
-    move_accel: f32,
-    floor_height: f32,
-    ceil_height: f32,
-    vertical_speed: f32,
-    fly_speed: f32,
+    velocity: Vec3f,
+    move_force: f32,
+    spring_const_p: f32,
+    spring_const_d: f32,
+    last_height_diff: f32,
+    radius: f32,
+    height: f32,
     fly: bool,
-    horizontal_speed: Vec2f,
+    clip: bool,
+    air_drag: f32,
+    ground_drag: f32,
+    friction: f32,
 }
 
 
@@ -75,13 +62,18 @@ impl Player {
         Player {
             bindings: bindings,
             camera: camera,
-            move_accel: 10.0,
-            floor_height: 0.0,
-            ceil_height: 100.0,
-            vertical_speed: 0.0,
-            fly_speed: 10.0,
+            velocity: Vec3f::zero(),
+            move_force: 60.0,
+            spring_const_p: 200.0,
+            spring_const_d: 22.4,
+            radius: 0.19,
+            height: 0.21,
+            air_drag: 0.02,
+            ground_drag: 0.7,
+            friction: 30.0,
             fly: false,
-            horizontal_speed: Vec2f::zero(),
+            clip: true,
+            last_height_diff: 0.0,
         }
     }
 
@@ -90,118 +82,169 @@ impl Player {
         self
     }
 
+
     pub fn update(&mut self, delta_time: f32, controller: &GameController, level: &Level) {
-        if self.bindings.fly(controller) {
+        if controller.poll_gesture(&self.bindings.fly) {
             self.fly = !self.fly;
         }
 
-        if self.fly {
-            self.update_fly(delta_time, controller);
+        if controller.poll_gesture(&self.bindings.clip) {
+            self.clip = !self.clip;
+        }
+
+        let mut head = Sphere {
+            center: *self.camera.position() - Vec3f::new(0.0, 0.12, 0.0),
+            radius: self.radius,
+        };
+        let force = self.force(&head, delta_time, controller, level);
+        if self.clip {
+            self.clip(delta_time, &mut head, level);
         } else {
-            self.update_nofly(delta_time, controller, level);
+            self.noclip(delta_time, &mut head, level);
+        }
+
+        self.camera.set_position(head.center + Vec3f::new(0.0, 0.12, 0.0));
+        self.velocity = self.velocity + force * delta_time;
+    }
+
+    fn clip(&mut self, delta_time: f32, head: &mut Sphere, level: &Level) {
+        let mut time_left = delta_time;
+        for _ in 0..100 {
+            let displacement = self.velocity * time_left;
+            if let Some(contact) = level.volume().sweep_sphere(&head, &displacement) {
+                let adjusted_time = contact.time - 0.001 / displacement.norm();
+                if adjusted_time < 1.0 {
+                    let time = clamp(contact.time, (0.0, 1.0));
+                    let displacement = displacement * adjusted_time;
+                    head.center = head.center + displacement;
+                    self.velocity = self.velocity -
+                                    contact.normal * contact.normal.dot(&self.velocity);
+                    time_left *= 1.0 - time;
+                    continue;
+                }
+            }
+            head.center = head.center + displacement;
+            break;
         }
     }
 
-    fn update_fly(&mut self, delta_time: f32, controller: &GameController) {
-        let movement = self.bindings.movement_vector(controller);
-        let look = self.bindings.look_vector(controller);
-        let jump = self.bindings.jump(controller);
+    fn noclip(&mut self, delta_time: f32, head: &mut Sphere, level: &Level) {
+        let old_height = head.center[1];
+        head.center = head.center + self.velocity * delta_time;
 
-        if movement.norm() == 0.0 && look.norm() == 0.0 && !jump {
-            return;
+        if !self.fly {
+            let height = 2000.0;
+            let probe = Sphere {
+                center: head.center + Vec3f::new(0.0, height / 2.0, 0.0),
+                ..*head
+            };
+            let height = match level.volume()
+                                    .sweep_sphere(&probe, &Vec3f::new(0.0, -height, 0.0)) {
+                Some(contact) => head.center[1] + height * (0.5 - contact.time),
+                None => old_height,
+            };
+
+            if head.center[1] <= height {
+                head.center[1] = height;
+                if self.velocity[1] < 0.0 {
+                    self.velocity[1] = 0.0;
+                }
+            }
         }
+    }
 
+    fn move_force(&mut self, delta_time: f32, grounded: bool, ctrl: &GameController) -> Vec3f {
+        let movement = ctrl.poll_analog2d(&self.bindings.movement);
+        let look = ctrl.poll_analog2d(&self.bindings.look);
+        let jump = ctrl.poll_gesture(&self.bindings.jump);
         let yaw = self.camera.yaw() + look[0];
         let pitch = clamp(self.camera.pitch() + look[1], (-3.14 / 2.0, 3.14 / 2.0));
-        let displacement = self.fly_speed * delta_time;
-        let up = if jump {
-            displacement
-        } else {
-            0.0
-        };
-        let movement = Vec3f::new(yaw.cos() * movement[0] * displacement +
-                                  yaw.sin() * movement[1] * displacement * pitch.cos(),
-                                  -pitch.sin() * movement[1] * displacement + up,
-                                  -yaw.cos() * movement[1] * displacement * pitch.cos() +
-                                  yaw.sin() * movement[0] * displacement);
         self.camera.set_yaw(yaw);
         self.camera.set_pitch(pitch);
-        self.camera.move_by(movement);
-    }
 
-    fn update_nofly(&mut self, delta_time: f32, controller: &GameController, level: &Level) {
-        let mut pos = *self.camera.position();
-        let old_pos = pos;
-
-        pos[0] += self.horizontal_speed[0] * delta_time;
-        pos[2] += self.horizontal_speed[1] * delta_time;
-        pos[1] += self.vertical_speed * delta_time;
-        level.heights_at(&Vec2f::new(pos[0], pos[2])).map(|(floor, ceil)| {
-            let (floor, ceil) = (floor + 50.0 / 100.0, ceil - 1.0 / 100.0);
-            let ceil = if ceil < floor {
-                floor
+        if self.fly {
+            let up = if jump {
+                0.5
             } else {
-                ceil
+                0.0
             };
-            self.floor_height = floor;
-            self.ceil_height = ceil;
-        });
-
-
-        let floor_dist = pos[1] - self.floor_height;
-        let in_control = self.vertical_speed.abs() < 0.5 && floor_dist < 1e-1;
-        let floored = floor_dist < 1e-2;
-
-        if floored {
-            self.horizontal_speed = self.horizontal_speed * 0.7f32.powf(delta_time * 60.0);
+            Vec3f::new(yaw.cos() * movement[0] + yaw.sin() * movement[1] * pitch.cos(),
+                       -pitch.sin() * movement[1] + up,
+                       -yaw.cos() * movement[1] * pitch.cos() + yaw.sin() * movement[0])
+                .normalized() * self.move_force
         } else {
-            self.horizontal_speed = self.horizontal_speed * 0.97f32.powf(delta_time * 60.0);
-        }
-
-        if old_pos[1] < self.floor_height && pos[1] > self.floor_height ||
-           old_pos[1] > self.floor_height && pos[1] < self.floor_height ||
-           floor_dist.abs() <= 1e-3 {
-            self.vertical_speed = 0.0;
-            pos[1] = self.floor_height;
-        } else if pos[1] > self.ceil_height {
-            self.vertical_speed = 0.0;
-            pos[1] = self.ceil_height;
-        } else {
-            if pos[1] < self.floor_height {
-                if self.floor_height - pos[1] > 1.0 {
-                    pos[1] = self.floor_height;
+            let movement = Vec3f::new(yaw.cos() * movement[0] + yaw.sin() * movement[1],
+                                      0.0,
+                                      -yaw.cos() * movement[1] + yaw.sin() * movement[0])
+                               .normalized() * self.move_force;
+            if grounded {
+                if jump && self.velocity[1] < 0.1 {
+                    Vec3f::new(movement[0], 5.0 / delta_time, movement[2])
                 } else {
-                    self.vertical_speed += 10.0 * delta_time;
-                    pos[1] = pos[1] * 0.7 + self.floor_height * 0.3;
+                    movement
                 }
             } else {
-                self.vertical_speed -= 17.0 * delta_time;
+                movement * 0.1
             }
         }
+    }
 
-        let movement = self.bindings.movement_vector(controller);
-        let look = self.bindings.look_vector(controller);
-        if movement.norm() != 0.0 || look.norm() != 0.0 {
-            let yaw = self.camera.yaw() + look[0];
-            let pitch = clamp(self.camera.pitch() + look[1], (-3.14 / 2.0, 3.14 / 2.0));
-            self.camera.set_yaw(yaw);
-            self.camera.set_pitch(pitch);
-
-            let movement = Vec2f::new(yaw.cos() * movement[0] + yaw.sin() * movement[1],
-                                      -yaw.cos() * movement[1] + yaw.sin() * movement[0]) *
-                           self.move_accel;
-            let mut displacement = self.move_accel * delta_time;
-            if !floored {
-                displacement *= 0.05;
+    fn force(&mut self,
+             head: &Sphere,
+             delta_time: f32,
+             ctrl: &GameController,
+             level: &Level)
+             -> Vec3f {
+        let feet = Sphere { radius: 0.2, ..*head };
+        let feet_probe = Vec3f::new(0.0, -self.height, 0.0);
+        let (height, normal) = if let Some(contact) = level.volume()
+                                                           .sweep_sphere(&feet, &feet_probe) {
+            if contact.time < 1.0 {
+                (self.height * contact.time, Some(contact.normal))
+            } else if contact.time < 1.0 {
+                (self.height, Some(contact.normal))
+            } else {
+                (self.height, None)
             }
-            self.horizontal_speed = self.horizontal_speed + movement * displacement;
-        }
+        } else {
+            (self.height, None)
+        };
+        let mut force: Vec3f = self.move_force(delta_time, normal.is_some(), ctrl);
+        let speed = self.velocity.norm();
+        if speed > 0.0 {
+            let mut slowdown = if self.fly {
+                -self.velocity * (self.friction / speed + self.ground_drag * speed)
+            } else if let Some(normal) = normal {
+                let tangential = self.velocity - normal * self.velocity.dot(&normal);
+                let speed = tangential.norm();
+                if speed > 0.0 {
+                    -tangential * (self.friction / speed + self.ground_drag * speed)
+                } else {
+                    Vec3f::zero()
+                }
+            } else {
+                Vec3f::zero()
+            };
+            slowdown = slowdown - self.velocity * self.air_drag * speed;
 
-        let jump = self.bindings.jump(controller);
-        if jump && in_control {
-            self.vertical_speed = 5.0;
+            let slowdown_norm = slowdown.norm();
+            if slowdown_norm > 0.0 {
+                let max_slowdown = -self.velocity.dot(&slowdown) / slowdown_norm / delta_time;
+                if slowdown_norm >= max_slowdown {
+                    slowdown = slowdown / slowdown_norm * max_slowdown;
+                }
+                force = force + slowdown;
+            }
         }
-        self.camera.set_position(pos);
+        let height_diff = self.height - height;
+        let derivative = (height_diff - self.last_height_diff) / delta_time;
+        self.last_height_diff = height_diff;
+        force[1] += height_diff * self.spring_const_p + derivative * self.spring_const_d;
+
+        if !self.fly {
+            force[1] -= 17.0
+        }
+        force
     }
 
     pub fn camera(&self) -> &Camera {
