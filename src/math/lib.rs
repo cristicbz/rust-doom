@@ -13,7 +13,11 @@ pub use vector::Vec3;
 pub use vector::Vec3f;
 pub use vector::Vec4;
 pub use vector::Vec4f;
+pub use sphere::Sphere;
+pub use contact::ContactInfo;
 
 mod line;
 mod mat;
 mod vector;
+mod sphere;
+mod contact;

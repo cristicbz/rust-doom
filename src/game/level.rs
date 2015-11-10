@@ -1,8 +1,7 @@
 use gfx::{Scene, SceneBuilder};
 use lights::LightBuffer;
-use math::{Line2f, Vec2f, Vec3f, Vector};
+use math::{Vec2f, Vec3f, Vector};
 use num::Zero;
-use std::i32;
 use std::error::Error;
 use wad::tex::BoundsLookup;
 use wad::tex::{OpaqueImage, TransparentImage};
@@ -11,13 +10,14 @@ use wad::util::{is_sky_flat, is_untextured};
 use wad::{SkyMetadata, TextureDirectory, WadMetadata};
 use wad::Archive;
 use wad::Level as WadLevel;
-use wad::{LevelVisitor, LevelWalker, LightInfo, Branch, Marker};
+use wad::{LevelVisitor, LevelWalker, LightInfo, Marker};
+use world::World;
 
 pub struct Level {
     start_pos: Vec3f,
     time: f32,
     lights: LightBuffer,
-    volume: WorldVolume,
+    volume: World,
 }
 
 impl Level {
@@ -44,7 +44,7 @@ impl Level {
             decors: try!(build_decor_atlas(&level, wad, textures, scene)),
         };
 
-        let mut volume = WorldVolume::new();
+        let mut volume = World::new();
         let mut lights = LightBuffer::new();
         let mut start_pos = Vec3f::zero();
         LevelBuilder::build(&level,
@@ -68,15 +68,13 @@ impl Level {
         &self.start_pos
     }
 
-    pub fn heights_at(&self, pos: &Vec2f) -> Option<(f32, f32)> {
-        self.volume.sector_at(pos).map(|s| (s.floor, s.ceil))
+    pub fn volume(&self) -> &World {
+        &self.volume
     }
 
     pub fn update(&mut self, delta_time: f32, scene: &mut Scene) {
         self.time += delta_time;
-        scene.set_lights(|lights| {
-            self.lights.fill_buffer_at(self.time, lights);
-        });
+        scene.set_lights(|lights| self.lights.fill_buffer_at(self.time, lights))
     }
 }
 
@@ -178,7 +176,7 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
              bounds: &TextureMaps,
              start_pos: &mut Vec3f,
              lights: &mut LightBuffer,
-             volume: &mut WorldVolume,
+             volume: &mut World,
              scene: &mut SceneBuilder) {
         let mut builder = LevelBuilder {
             bounds: bounds,
@@ -204,7 +202,13 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
                        (low, high): (f32, f32),
                        light_info: &LightInfo,
                        scroll: f32,
-                       tex_name: &WadName) {
+                       tex_name: Option<&WadName>,
+                       _blocking: bool) {
+        let tex_name = if let Some(tex_name) = tex_name {
+            tex_name
+        } else {
+            return;
+        };
         let bounds = if let Some(bounds) = self.bounds.walls.get(tex_name) {
             bounds
         } else {
@@ -235,8 +239,8 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         };
         let light_info = self.add_light_info(light_info);
         let v0 = points[0];
-        for i in 1..points.len() {
-            let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
+        for i in 2..points.len() {
+            let (v1, v2) = (points[i - 1], points[i]);
             self.scene
                 .flats_buffer()
                 .push(&v0, height, light_info, bounds)
@@ -258,8 +262,8 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         };
         let light_info = self.add_light_info(light_info);
         let v0 = points[0];
-        for i in 1..points.len() {
-            let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
+        for i in 2..points.len() {
+            let (v1, v2) = (points[i - 1], points[i]);
             self.scene
                 .flats_buffer()
                 .push(&v2, height, light_info, bounds)
@@ -297,7 +301,7 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
 
     fn visit_marker(&mut self, pos: Vec3f, marker: Marker) {
         match marker {
-            Marker::StartPos { player: 0 } => *self.start_pos = pos,
+            Marker::StartPos { player: 0 } => *self.start_pos = pos + Vec3f::new(0.0, 0.5, 0.0),
             _ => {}
         }
     }
@@ -333,163 +337,5 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
                   light_info)
             .push(&high, half_width, bounds.size[0], 0.0, bounds, light_info)
             .push(&high, -half_width, 0.0, 0.0, bounds, light_info);
-    }
-}
-
-
-pub struct WorldVolume {
-    nodes: Vec<Node>,
-    leaves: Vec<Sector>,
-    node_stack: Vec<usize>,
-}
-impl WorldVolume {
-    pub fn new() -> WorldVolume {
-        WorldVolume {
-            nodes: Vec::with_capacity(128),
-            leaves: Vec::with_capacity(128),
-            node_stack: Vec::with_capacity(32),
-        }
-    }
-
-    pub fn sector_at(&self, position: &Vec2f) -> Option<&Sector> {
-        let mut node = &self.nodes[0];
-        loop {
-            match node.child_at(position) {
-                Child::Stump => return None,
-                Child::Leaf(index) => return Some(&self.leaves[index]),
-                Child::Node(index) => node = &self.nodes[index],
-            }
-        }
-    }
-
-    fn link_child(&mut self, child: Child, branch: Branch) {
-        let parent_index = *self.node_stack.last().expect("called link_child on root node");
-        let parent = &mut self.nodes[parent_index];
-
-        match branch {
-            Branch::Positive => {
-                assert_eq!(parent.positive, 0);
-                parent.positive = child.pack();
-            }
-            Branch::Negative => {
-                assert_eq!(parent.negative, 0);
-                parent.negative = child.pack();
-            }
-        }
-    }
-}
-
-impl LevelVisitor for WorldVolume {
-    fn visit_bsp_root(&mut self, line: &Line2f) {
-        let index = self.nodes.len();
-        self.nodes.push(Node::new(line.clone()));
-        self.node_stack.push(index);
-    }
-
-    fn visit_bsp_node(&mut self, line: &Line2f, branch: Branch) {
-        let index = self.nodes.len();
-        self.nodes.push(Node::new(line.clone()));
-        self.link_child(Child::Node(index), branch);
-        self.node_stack.push(index);
-    }
-
-    fn visit_bsp_leaf(&mut self, branch: Branch) {
-        let index = self.leaves.len();
-        self.leaves.push(Sector {
-            floor: 0.0,
-            ceil: 0.0,
-        });
-        self.link_child(Child::Leaf(index), branch);
-    }
-
-    fn visit_bsp_node_end(&mut self) {
-        self.node_stack.pop().expect("too many calls to visit_bsp_node_end");
-    }
-
-    fn visit_floor_sky_poly(&mut self, _points: &[Vec2f], height: f32) {
-        self.leaves.last_mut().expect("missing leaf on sky floor").floor = height;
-    }
-
-    fn visit_ceil_sky_poly(&mut self, _points: &[Vec2f], height: f32) {
-        self.leaves.last_mut().expect("missing leaf on sky ceil").ceil = height;
-    }
-
-    fn visit_floor_poly(&mut self,
-                        _points: &[Vec2f],
-                        height: f32,
-                        _light_info: &LightInfo,
-                        _tex_name: &WadName) {
-        self.leaves.last_mut().expect("missing leaf on floor").floor = height;
-    }
-
-    fn visit_ceil_poly(&mut self,
-                       _points: &[Vec2f],
-                       height: f32,
-                       _light_info: &LightInfo,
-                       _tex_name: &WadName) {
-        self.leaves.last_mut().expect("missing leaf on ceil").ceil = height;
-    }
-}
-
-pub struct Sector {
-    floor: f32,
-    ceil: f32,
-}
-
-struct Node {
-    partition: Line2f,
-    positive: i32,
-    negative: i32,
-}
-
-
-#[derive(Eq, PartialEq, Copy, Clone, Debug)]
-enum Child {
-    Leaf(usize),
-    Node(usize),
-    Stump,
-}
-
-impl Child {
-    fn pack(self) -> i32 {
-        match self {
-            Child::Leaf(index) => {
-                assert!(index < i32::MAX as usize);
-                -(index as i32)
-            }
-            Child::Node(index) => {
-                assert!(index < i32::MAX as usize);
-                (index as i32)
-            }
-            Child::Stump => 0,
-        }
-    }
-
-    fn unpack(packed: i32) -> Self {
-        if packed == 0 {
-            Child::Stump
-        } else if packed > 0 {
-            Child::Node(packed as usize)
-        } else {
-            Child::Leaf((-packed) as usize)
-        }
-    }
-}
-
-impl Node {
-    fn new(partition: Line2f) -> Node {
-        Node {
-            partition: partition,
-            positive: 0,
-            negative: 0,
-        }
-    }
-
-    fn child_at(&self, position: &Vec2f) -> Child {
-        if self.partition.signed_distance(position) >= 0.0 {
-            Child::unpack(self.positive)
-        } else {
-            Child::unpack(self.negative)
-        }
     }
 }

@@ -55,7 +55,11 @@ pub trait Vector: Mul<<Self as Vector>::Scalar, Output=Self>
         where Self::Scalar: Float
     {
         let norm = self.norm();
-        self / norm
+        if norm == Self::Scalar::zero() {
+            Self::zero()
+        } else {
+            self / norm
+        }
     }
 }
 
