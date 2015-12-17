@@ -30,6 +30,7 @@ impl Window {
         let facade = try!(video.window(WINDOW_TITLE, width as u32, height as u32)
                                .position_centered()
                                .opengl()
+                               .resizable()
                                .build_glium());
 
         sdl2::clear_error();
