@@ -19,8 +19,8 @@ path = "src/gfx"
 path = "src/common"
 
 [dependencies]
-sdl2 = "*"
-getopts = "*"
-time = "*"
-env_logger = "*"
-log = "*"
+sdl2 = "0.12.1"
+getopts = "0.2.14"
+time = "0.1.34"
+env_logger = "0.3.2"
+log = "0.3.4"

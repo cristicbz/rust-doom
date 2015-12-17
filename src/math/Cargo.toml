@@ -8,4 +8,4 @@ name = "math"
 path = "lib.rs"
 
 [dependencies]
-num = "*"
+num = "0.1.29"
