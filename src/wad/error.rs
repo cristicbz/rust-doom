@@ -51,7 +51,7 @@ impl ErrorKind {
         match *self {
             ErrorKind::Io(ref inner) => inner.description(),
             ErrorKind::ByteOrder(ref inner) => inner.description(),
-            ErrorKind::BadWadHeader(..) => "invalid header",
+            ErrorKind::BadWadHeader => "invalid header",
             ErrorKind::BadWadName(..) => "invalid wad name",
             ErrorKind::MissingRequiredLump(..) => "missing required lump",
             // ErrorKind::MissingRequiredPatch(..) => "missing required patch",
@@ -70,18 +70,12 @@ impl Display for ErrorKind {
             ErrorKind::ByteOrder(ref inner) => write!(fmt, "{}", inner),
             ErrorKind::BadWadHeader => write!(fmt, "{}", desc),
             ErrorKind::BadWadName(ref name) => write!(fmt, "{} ({:?})", desc, name),
-            ErrorKind::MissingRequiredLump(ref name) => {
-                write!(fmt, "{} ({})", desc, name)
-            }
+            ErrorKind::MissingRequiredLump(ref name) => write!(fmt, "{} ({})", desc, name),
             // ErrorKind::MissingRequiredPatch(ref patch, ref texture) => {
             //    write!(fmt, "{} ({}, required by {})", desc, patch, texture)
             // },
-            ErrorKind::BadMetadataSchema(ref err) => {
-                write!(fmt, "{}: {}", desc, err)
-            }
-            ErrorKind::BadMetadataSyntax(ref errors) => {
-                write!(fmt, "{}: {:?}", desc, errors)
-            }
+            ErrorKind::BadMetadataSchema(ref err) => write!(fmt, "{}: {}", desc, err),
+            ErrorKind::BadMetadataSyntax(ref errors) => write!(fmt, "{}: {:?}", desc, errors),
             ErrorKind::BadImage(ref name, ref inner) => {
                 write!(fmt, "{}: in {}: {}", desc, name, inner)
             }
