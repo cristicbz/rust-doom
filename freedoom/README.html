@@ -1,0 +1,1140 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
+<meta name="generator" content="AsciiDoc 8.6.7" />
+<title>Freedoom</title>
+<style type="text/css">
+/* Shared CSS for AsciiDoc xhtml11 and html5 backends */
+
+/* Default font. */
+body {
+  font-family: Georgia,serif;
+}
+
+/* Title font. */
+h1, h2, h3, h4, h5, h6,
+div.title, caption.title,
+thead, p.table.header,
+#toctitle,
+#author, #revnumber, #revdate, #revremark,
+#footer {
+  font-family: Arial,Helvetica,sans-serif;
+}
+
+body {
+  margin: 1em 5% 1em 5%;
+}
+
+a {
+  color: blue;
+  text-decoration: underline;
+}
+a:visited {
+  color: fuchsia;
+}
+
+em {
+  font-style: italic;
+  color: navy;
+}
+
+strong {
+  font-weight: bold;
+  color: #083194;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #527bbd;
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
+
+h1, h2, h3 {
+  border-bottom: 2px solid silver;
+}
+h2 {
+  padding-top: 0.5em;
+}
+h3 {
+  float: left;
+}
+h3 + * {
+  clear: left;
+}
+h5 {
+  font-size: 1.0em;
+}
+
+div.sectionbody {
+  margin-left: 0;
+}
+
+hr {
+  border: 1px solid silver;
+}
+
+p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+ul, ol, li > p {
+  margin-top: 0;
+}
+ul > li     { color: #aaa; }
+ul > li > * { color: black; }
+
+pre {
+  padding: 0;
+  margin: 0;
+}
+
+#author {
+  color: #527bbd;
+  font-weight: bold;
+  font-size: 1.1em;
+}
+#email {
+}
+#revnumber, #revdate, #revremark {
+}
+
+#footer {
+  font-size: small;
+  border-top: 2px solid silver;
+  padding-top: 0.5em;
+  margin-top: 4.0em;
+}
+#footer-text {
+  float: left;
+  padding-bottom: 0.5em;
+}
+#footer-badges {
+  float: right;
+  padding-bottom: 0.5em;
+}
+
+#preamble {
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+}
+div.imageblock, div.exampleblock, div.verseblock,
+div.quoteblock, div.literalblock, div.listingblock, div.sidebarblock,
+div.admonitionblock {
+  margin-top: 1.0em;
+  margin-bottom: 1.5em;
+}
+div.admonitionblock {
+  margin-top: 2.0em;
+  margin-bottom: 2.0em;
+  margin-right: 10%;
+  color: #606060;
+}
+
+div.content { /* Block element content. */
+  padding: 0;
+}
+
+/* Block element titles. */
+div.title, caption.title {
+  color: #527bbd;
+  font-weight: bold;
+  text-align: left;
+  margin-top: 1.0em;
+  margin-bottom: 0.5em;
+}
+div.title + * {
+  margin-top: 0;
+}
+
+td div.title:first-child {
+  margin-top: 0.0em;
+}
+div.content div.title:first-child {
+  margin-top: 0.0em;
+}
+div.content + div.title {
+  margin-top: 0.0em;
+}
+
+div.sidebarblock > div.content {
+  background: #ffffee;
+  border: 1px solid #dddddd;
+  border-left: 4px solid #f0f0f0;
+  padding: 0.5em;
+}
+
+div.listingblock > div.content {
+  border: 1px solid #dddddd;
+  border-left: 5px solid #f0f0f0;
+  background: #f8f8f8;
+  padding: 0.5em;
+}
+
+div.quoteblock, div.verseblock {
+  padding-left: 1.0em;
+  margin-left: 1.0em;
+  margin-right: 10%;
+  border-left: 5px solid #f0f0f0;
+  color: #888;
+}
+
+div.quoteblock > div.attribution {
+  padding-top: 0.5em;
+  text-align: right;
+}
+
+div.verseblock > pre.content {
+  font-family: inherit;
+  font-size: inherit;
+}
+div.verseblock > div.attribution {
+  padding-top: 0.75em;
+  text-align: left;
+}
+/* DEPRECATED: Pre version 8.2.7 verse style literal block. */
+div.verseblock + div.attribution {
+  text-align: left;
+}
+
+div.admonitionblock .icon {
+  vertical-align: top;
+  font-size: 1.1em;
+  font-weight: bold;
+  text-decoration: underline;
+  color: #527bbd;
+  padding-right: 0.5em;
+}
+div.admonitionblock td.content {
+  padding-left: 0.5em;
+  border-left: 3px solid #dddddd;
+}
+
+div.exampleblock > div.content {
+  border-left: 3px solid #dddddd;
+  padding-left: 0.5em;
+}
+
+div.imageblock div.content { padding-left: 0; }
+span.image img { border-style: none; }
+a.image:visited { color: white; }
+
+dl {
+  margin-top: 0.8em;
+  margin-bottom: 0.8em;
+}
+dt {
+  margin-top: 0.5em;
+  margin-bottom: 0;
+  font-style: normal;
+  color: navy;
+}
+dd > *:first-child {
+  margin-top: 0.1em;
+}
+
+ul, ol {
+    list-style-position: outside;
+}
+ol.arabic {
+  list-style-type: decimal;
+}
+ol.loweralpha {
+  list-style-type: lower-alpha;
+}
+ol.upperalpha {
+  list-style-type: upper-alpha;
+}
+ol.lowerroman {
+  list-style-type: lower-roman;
+}
+ol.upperroman {
+  list-style-type: upper-roman;
+}
+
+div.compact ul, div.compact ol,
+div.compact p, div.compact p,
+div.compact div, div.compact div {
+  margin-top: 0.1em;
+  margin-bottom: 0.1em;
+}
+
+tfoot {
+  font-weight: bold;
+}
+td > div.verse {
+  white-space: pre;
+}
+
+div.hdlist {
+  margin-top: 0.8em;
+  margin-bottom: 0.8em;
+}
+div.hdlist tr {
+  padding-bottom: 15px;
+}
+dt.hdlist1.strong, td.hdlist1.strong {
+  font-weight: bold;
+}
+td.hdlist1 {
+  vertical-align: top;
+  font-style: normal;
+  padding-right: 0.8em;
+  color: navy;
+}
+td.hdlist2 {
+  vertical-align: top;
+}
+div.hdlist.compact tr {
+  margin: 0;
+  padding-bottom: 0;
+}
+
+.comment {
+  background: yellow;
+}
+
+.footnote, .footnoteref {
+  font-size: 0.8em;
+}
+
+span.footnote, span.footnoteref {
+  vertical-align: super;
+}
+
+#footnotes {
+  margin: 20px 0 20px 0;
+  padding: 7px 0 0 0;
+}
+
+#footnotes div.footnote {
+  margin: 0 0 5px 0;
+}
+
+#footnotes hr {
+  border: none;
+  border-top: 1px solid silver;
+  height: 1px;
+  text-align: left;
+  margin-left: 0;
+  width: 20%;
+  min-width: 100px;
+}
+
+div.colist td {
+  padding-right: 0.5em;
+  padding-bottom: 0.3em;
+  vertical-align: top;
+}
+div.colist td img {
+  margin-top: 0.3em;
+}
+
+@media print {
+  #footer-badges { display: none; }
+}
+
+#toc {
+  margin-bottom: 2.5em;
+}
+
+#toctitle {
+  color: #527bbd;
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-top: 1.0em;
+  margin-bottom: 0.1em;
+}
+
+div.toclevel0, div.toclevel1, div.toclevel2, div.toclevel3, div.toclevel4 {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+div.toclevel2 {
+  margin-left: 2em;
+  font-size: 0.9em;
+}
+div.toclevel3 {
+  margin-left: 4em;
+  font-size: 0.9em;
+}
+div.toclevel4 {
+  margin-left: 6em;
+  font-size: 0.9em;
+}
+
+span.aqua { color: aqua; }
+span.black { color: black; }
+span.blue { color: blue; }
+span.fuchsia { color: fuchsia; }
+span.gray { color: gray; }
+span.green { color: green; }
+span.lime { color: lime; }
+span.maroon { color: maroon; }
+span.navy { color: navy; }
+span.olive { color: olive; }
+span.purple { color: purple; }
+span.red { color: red; }
+span.silver { color: silver; }
+span.teal { color: teal; }
+span.white { color: white; }
+span.yellow { color: yellow; }
+
+span.aqua-background { background: aqua; }
+span.black-background { background: black; }
+span.blue-background { background: blue; }
+span.fuchsia-background { background: fuchsia; }
+span.gray-background { background: gray; }
+span.green-background { background: green; }
+span.lime-background { background: lime; }
+span.maroon-background { background: maroon; }
+span.navy-background { background: navy; }
+span.olive-background { background: olive; }
+span.purple-background { background: purple; }
+span.red-background { background: red; }
+span.silver-background { background: silver; }
+span.teal-background { background: teal; }
+span.white-background { background: white; }
+span.yellow-background { background: yellow; }
+
+span.big { font-size: 2em; }
+span.small { font-size: 0.6em; }
+
+span.underline { text-decoration: underline; }
+span.overline { text-decoration: overline; }
+span.line-through { text-decoration: line-through; }
+
+div.unbreakable { page-break-inside: avoid; }
+
+
+/*
+ * xhtml11 specific
+ *
+ * */
+
+tt {
+  font-family: "Courier New", Courier, monospace;
+  font-size: inherit;
+  color: navy;
+}
+
+div.tableblock {
+  margin-top: 1.0em;
+  margin-bottom: 1.5em;
+}
+div.tableblock > table {
+  border: 3px solid #527bbd;
+}
+thead, p.table.header {
+  font-weight: bold;
+  color: #527bbd;
+}
+p.table {
+  margin-top: 0;
+}
+/* Because the table frame attribute is overriden by CSS in most browsers. */
+div.tableblock > table[frame="void"] {
+  border-style: none;
+}
+div.tableblock > table[frame="hsides"] {
+  border-left-style: none;
+  border-right-style: none;
+}
+div.tableblock > table[frame="vsides"] {
+  border-top-style: none;
+  border-bottom-style: none;
+}
+
+
+/*
+ * html5 specific
+ *
+ * */
+
+.monospaced {
+  font-family: "Courier New", Courier, monospace;
+  font-size: inherit;
+  color: navy;
+}
+
+table.tableblock {
+  margin-top: 1.0em;
+  margin-bottom: 1.5em;
+}
+thead, p.tableblock.header {
+  font-weight: bold;
+  color: #527bbd;
+}
+p.tableblock {
+  margin-top: 0;
+}
+table.tableblock {
+  border-width: 3px;
+  border-spacing: 0px;
+  border-style: solid;
+  border-color: #527bbd;
+  border-collapse: collapse;
+}
+th.tableblock, td.tableblock {
+  border-width: 1px;
+  padding: 4px;
+  border-style: solid;
+  border-color: #527bbd;
+}
+
+table.tableblock.frame-topbot {
+  border-left-style: hidden;
+  border-right-style: hidden;
+}
+table.tableblock.frame-sides {
+  border-top-style: hidden;
+  border-bottom-style: hidden;
+}
+table.tableblock.frame-none {
+  border-style: hidden;
+}
+
+th.tableblock.halign-left, td.tableblock.halign-left {
+  text-align: left;
+}
+th.tableblock.halign-center, td.tableblock.halign-center {
+  text-align: center;
+}
+th.tableblock.halign-right, td.tableblock.halign-right {
+  text-align: right;
+}
+
+th.tableblock.valign-top, td.tableblock.valign-top {
+  vertical-align: top;
+}
+th.tableblock.valign-middle, td.tableblock.valign-middle {
+  vertical-align: middle;
+}
+th.tableblock.valign-bottom, td.tableblock.valign-bottom {
+  vertical-align: bottom;
+}
+
+
+/*
+ * manpage specific
+ *
+ * */
+
+body.manpage h1 {
+  padding-top: 0.5em;
+  padding-bottom: 0.5em;
+  border-top: 2px solid silver;
+  border-bottom: 2px solid silver;
+}
+body.manpage h2 {
+  border-style: none;
+}
+body.manpage div.sectionbody {
+  margin-left: 3em;
+}
+
+@media print {
+  body.manpage div#toc { display: none; }
+}
+</style>
+<script type="text/javascript">
+/*<![CDATA[*/
+var asciidoc = {  // Namespace.
+
+/////////////////////////////////////////////////////////////////////
+// Table Of Contents generator
+/////////////////////////////////////////////////////////////////////
+
+/* Author: Mihai Bazon, September 2002
+ * http://students.infoiasi.ro/~mishoo
+ *
+ * Table Of Content generator
+ * Version: 0.4
+ *
+ * Feel free to use this script under the terms of the GNU General Public
+ * License, as long as you do not remove or alter this notice.
+ */
+
+ /* modified by Troy D. Hanson, September 2006. License: GPL */
+ /* modified by Stuart Rackham, 2006, 2009. License: GPL */
+
+// toclevels = 1..4.
+toc: function (toclevels) {
+
+  function getText(el) {
+    var text = "";
+    for (var i = el.firstChild; i != null; i = i.nextSibling) {
+      if (i.nodeType == 3 /* Node.TEXT_NODE */) // IE doesn't speak constants.
+        text += i.data;
+      else if (i.firstChild != null)
+        text += getText(i);
+    }
+    return text;
+  }
+
+  function TocEntry(el, text, toclevel) {
+    this.element = el;
+    this.text = text;
+    this.toclevel = toclevel;
+  }
+
+  function tocEntries(el, toclevels) {
+    var result = new Array;
+    var re = new RegExp('[hH]([1-'+(toclevels+1)+'])');
+    // Function that scans the DOM tree for header elements (the DOM2
+    // nodeIterator API would be a better technique but not supported by all
+    // browsers).
+    var iterate = function (el) {
+      for (var i = el.firstChild; i != null; i = i.nextSibling) {
+        if (i.nodeType == 1 /* Node.ELEMENT_NODE */) {
+          var mo = re.exec(i.tagName);
+          if (mo && (i.getAttribute("class") || i.getAttribute("className")) != "float") {
+            result[result.length] = new TocEntry(i, getText(i), mo[1]-1);
+          }
+          iterate(i);
+        }
+      }
+    }
+    iterate(el);
+    return result;
+  }
+
+  var toc = document.getElementById("toc");
+  if (!toc) {
+    return;
+  }
+
+  // Delete existing TOC entries in case we're reloading the TOC.
+  var tocEntriesToRemove = [];
+  var i;
+  for (i = 0; i < toc.childNodes.length; i++) {
+    var entry = toc.childNodes[i];
+    if (entry.nodeName.toLowerCase() == 'div'
+     && entry.getAttribute("class")
+     && entry.getAttribute("class").match(/^toclevel/))
+      tocEntriesToRemove.push(entry);
+  }
+  for (i = 0; i < tocEntriesToRemove.length; i++) {
+    toc.removeChild(tocEntriesToRemove[i]);
+  }
+
+  // Rebuild TOC entries.
+  var entries = tocEntries(document.getElementById("content"), toclevels);
+  for (var i = 0; i < entries.length; ++i) {
+    var entry = entries[i];
+    if (entry.element.id == "")
+      entry.element.id = "_toc_" + i;
+    var a = document.createElement("a");
+    a.href = "#" + entry.element.id;
+    a.appendChild(document.createTextNode(entry.text));
+    var div = document.createElement("div");
+    div.appendChild(a);
+    div.className = "toclevel" + entry.toclevel;
+    toc.appendChild(div);
+  }
+  if (entries.length == 0)
+    toc.parentNode.removeChild(toc);
+},
+
+
+/////////////////////////////////////////////////////////////////////
+// Footnotes generator
+/////////////////////////////////////////////////////////////////////
+
+/* Based on footnote generation code from:
+ * http://www.brandspankingnew.net/archive/2005/07/format_footnote.html
+ */
+
+footnotes: function () {
+  // Delete existing footnote entries in case we're reloading the footnodes.
+  var i;
+  var noteholder = document.getElementById("footnotes");
+  if (!noteholder) {
+    return;
+  }
+  var entriesToRemove = [];
+  for (i = 0; i < noteholder.childNodes.length; i++) {
+    var entry = noteholder.childNodes[i];
+    if (entry.nodeName.toLowerCase() == 'div' && entry.getAttribute("class") == "footnote")
+      entriesToRemove.push(entry);
+  }
+  for (i = 0; i < entriesToRemove.length; i++) {
+    noteholder.removeChild(entriesToRemove[i]);
+  }
+
+  // Rebuild footnote entries.
+  var cont = document.getElementById("content");
+  var spans = cont.getElementsByTagName("span");
+  var refs = {};
+  var n = 0;
+  for (i=0; i<spans.length; i++) {
+    if (spans[i].className == "footnote") {
+      n++;
+      var note = spans[i].getAttribute("data-note");
+      if (!note) {
+        // Use [\s\S] in place of . so multi-line matches work.
+        // Because JavaScript has no s (dotall) regex flag.
+        note = spans[i].innerHTML.match(/\s*\[([\s\S]*)]\s*/)[1];
+        spans[i].innerHTML =
+          "[<a id='_footnoteref_" + n + "' href='#_footnote_" + n +
+          "' title='View footnote' class='footnote'>" + n + "</a>]";
+        spans[i].setAttribute("data-note", note);
+      }
+      noteholder.innerHTML +=
+        "<div class='footnote' id='_footnote_" + n + "'>" +
+        "<a href='#_footnoteref_" + n + "' title='Return to text'>" +
+        n + "</a>. " + note + "</div>";
+      var id =spans[i].getAttribute("id");
+      if (id != null) refs["#"+id] = n;
+    }
+  }
+  if (n == 0)
+    noteholder.parentNode.removeChild(noteholder);
+  else {
+    // Process footnoterefs.
+    for (i=0; i<spans.length; i++) {
+      if (spans[i].className == "footnoteref") {
+        var href = spans[i].getElementsByTagName("a")[0].getAttribute("href");
+        href = href.match(/#.*/)[0];  // Because IE return full URL.
+        n = refs[href];
+        spans[i].innerHTML =
+          "[<a href='#_footnote_" + n +
+          "' title='View footnote' class='footnote'>" + n + "</a>]";
+      }
+    }
+  }
+},
+
+install: function(toclevels) {
+  var timerId;
+
+  function reinstall() {
+    asciidoc.footnotes();
+    if (toclevels) {
+      asciidoc.toc(toclevels);
+    }
+  }
+
+  function reinstallAndRemoveTimer() {
+    clearInterval(timerId);
+    reinstall();
+  }
+
+  timerId = setInterval(reinstall, 500);
+  if (document.addEventListener)
+    document.addEventListener("DOMContentLoaded", reinstallAndRemoveTimer, false);
+  else
+    window.onload = reinstallAndRemoveTimer;
+}
+
+}
+asciidoc.install();
+/*]]>*/
+</script>
+</head>
+<body class="article">
+<div id="header">
+<h1>Freedoom</h1>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph"><p>The Freedoom project aims to create a complete, free content first
+person shooter game, but <em>Freedoom</em> by itself is just the raw material
+for a game.  It must be paired with a compatible <em>Doom</em> engine to be
+played.</p></div>
+<div class="paragraph"><p>There is a massive <a href="http://doomwiki.org/wiki/Idgames_archive">back
+catalog</a>, spanning over two decades, containing thousands of <em>Doom</em>
+levels and other modifications (&#8220;mods&#8221;) made by fans of the game.
+<em>Freedoom</em> aims to be compatible with these and allows most to be
+played without the need to use non-free software.</p></div>
+<div class="paragraph"><p><em>Freedoom</em> is actually three games in one, consisting of two
+single-player oriented campaigns and one set of levels designed
+exclusively for multiplayer deathmatch:</p></div>
+<div class="hdlist"><table>
+<tr>
+<td class="hdlist1">
+<strong>Freedoom: Phase 1</strong>
+<br />
+</td>
+<td class="hdlist2">
+<p style="margin-top: 0;">
+Four chapters, nine levels each, totalling 36
+levels.  This game aims for compatibility with <em>The Ultimate Doom</em>,
+also known as plain <em>Doom</em> or <em>Doom 1</em>.
+</p>
+</td>
+</tr>
+<tr>
+<td class="hdlist1">
+<strong>Freedoom: Phase 2</strong>
+<br />
+</td>
+<td class="hdlist2">
+<p style="margin-top: 0;">
+32 levels in one long chapter, featuring extra
+monsters and a double-barrelled shotgun.  This project aims for
+compatibility with <em>Doom II</em> and <em>Final Doom</em>.
+</p>
+</td>
+</tr>
+<tr>
+<td class="hdlist1">
+<strong>FreeDM</strong>
+<br />
+</td>
+<td class="hdlist2">
+<p style="margin-top: 0;">
+A 32-level game designed for competitive deathmatch play.
+</p>
+</td>
+</tr>
+</table></div>
+<div class="paragraph"><p>The engine uses a single file, such as <tt>freedoom2.wad</tt>, that contains
+all the game data such as graphics, sound effects, music, and so on.
+This file is often called an &#8220;IWAD&#8221; by those in the <em>Doom</em> and
+<em>Freedoom</em> communities.  While the <em>Doom</em> engine source code is free,
+you would normally still need one of the proprietary data files from
+<a href="http://www.idsoftware.com/">id Software</a> to play <em>Doom</em>.  <em>Freedoom</em>
+aims to create a free alternative: combined with the GPL-licensed
+<em>Doom</em> source code, this results in a completely free game.</p></div>
+<div class="paragraph"><p>For more information, see <a href="http://freedoom.github.io/">http://freedoom.github.io/</a>.</p></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_how_to_play">How to play</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>Since <em>Freedoom</em> is only the game data, you will still need to
+download an engine separately.  These are also often termed &#8220;source
+ports&#8221; by the community.  There are an overwhelming number of choices
+available, a lengthy list of which is available on the
+<a href="http://doomwiki.org/wiki/Source_port">Doom Wiki</a>.</p></div>
+<div class="paragraph"><p>One in particular that is highly recommended by the Freedoom project
+is <a href="http://odamex.net/">Odamex</a>.  This engine offers good support for
+both single-player and multiplayer games.</p></div>
+<div class="paragraph"><p>On Windows, you should place <em>Freedoom</em>'s data files (those ending
+with <tt>.wad</tt>) alongside the engine (eg, <tt>odamex.exe</tt>).  On Unix-like
+systems, these data files should go in either <tt>/usr/share/games/doom</tt>
+or your home directory.  If <em>Freedoom</em> comes packaged as part of your
+operating system distribution, it should already be installed into the
+proper location.</p></div>
+<div class="paragraph"><p>If you wish to venture outside of Odamex, beware that <em>Phase 1</em> and
+<em>Phase 2</em> require a Boom-compatible engine, which is thankfully the
+majority of them, but without compatibility, some aspects of the game
+may not run properly.  <em>FreeDM</em>, on the other hand, is intended to be
+playable by all variants of the <em>Doom</em> engine.</p></div>
+<div class="paragraph"><p>Hopefully, your engine of choice should already be capable of running
+<em>Freedoom</em> without extra configuration.  This may not be the case,
+however, if the engine does not recognize any of the filenames for
+Freedoom, and might require manual intervention to make it so.  One of
+the following options should solve it:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+Use the <tt>-iwad</tt> command line parameter.  For example, to play
+    Phase 2, you can enter <tt>-iwad freedoom2.wad</tt> either at a command
+    line, or adding it to an application shortcut.
+</p>
+</li>
+<li>
+<p>
+Use the <tt>DOOMWADPATH</tt> environment variable.  Many engines support
+    this variable to add directories and/or files to their search
+    path.  The exact syntax matches your operating system&#8217;s normal
+    <tt>PATH</tt> environment variable.
+</p>
+</li>
+<li>
+<p>
+Rename the game files.  This may be a bit crude, but you can
+    rename the files to match those of <em>Doom</em>'s.  This is often the
+    easiest quick-fix, although it is normally desirable to use one of
+    the above methods if possible.
+</p>
+<div class="ulist"><ul>
+<li>
+<p>
+<tt>freedoom1.wad</tt> can be renamed to <tt>doom.wad</tt>
+</p>
+</li>
+<li>
+<p>
+<tt>freedoom2.wad</tt> can be renamed to <tt>doom2.wad</tt>, <tt>tnt.wad</tt>, or
+       <tt>plutonia.wad</tt>
+</p>
+</li>
+<li>
+<p>
+<tt>freedm.wad</tt> can be renamed to <tt>doom2.wad</tt>, <tt>tnt.wad</tt>, or
+       <tt>plutonia.wad</tt>
+</p>
+</li>
+</ul></div>
+</li>
+</ul></div>
+<div class="paragraph"><p>Additionally, for Unix-like operating systems, such as GNU/Linux or a
+BSD variant, <em>Freedoom</em> may be packaged and installed with programs
+named <tt>freedoom1</tt>, <tt>freedoom2</tt>, and <tt>freedm</tt> that automatically run an
+engine for proper play.  Desktop files may also be installed so that
+you can start the game using a graphical interface and avoid the
+command line altogether.</p></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_what_8220_free_8221_means">What &#8220;free&#8221; means</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>When we speak of free content or software, we refer to the movement in
+which your freedoms to use, copy, modify, and study a work is not
+infringed.  For example, you may freely use <em>Freedoom</em> for any purpose
+you see fit, you may redistribute it to anyone without needing to ask
+for permission, you may modify it (provided you keep the license
+intact, see <tt>COPYING</tt>), and you may study it&#8212;for example, to see how
+an &#8220;IWAD&#8221; is built.  To facilitate this, you can get the full source
+code for Freedoom, in this case, in the form of a DeuTex tree.</p></div>
+<div class="paragraph"><p>You may read more about free software at the <a href="http://www.gnu.org/">GNU</a>
+and <a href="http://www.fsf.org/">Free Software Foundation</a> websites.</p></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_contributing_to_freedoom">Contributing to Freedoom</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>Contributions to Freedoom are always welcome, however there are a few
+guidelines that should be followed:</p></div>
+<div class="sect2">
+<h3 id="_intellectual_property">Intellectual property</h3>
+<div class="paragraph"><p>We know people hate legalese, but this is important.  This applies to
+<strong>everything</strong> which is submitted.</p></div>
+<div class="paragraph"><p>You must be incredibly careful when basing on existing graphics or
+sounds.  Most <em>Doom</em> projects are incredibly lax on reusing
+intellectual property&#8212;there are many mods which contain modified
+<em>Doom</em> sprites, for example.  However, due to the nature of this
+project, we do not have the same liberty to rip as we please.</p></div>
+<div class="paragraph"><p>The general rules go as follows:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+You must have permission for everything you submit.  If you make
+    your own resources, do not base on resources from <em>Doom</em> or any
+    other restricted work.  If you take work from other places, please
+    make sure that the work is freely-licensed or that you obtain
+    permission to include it in the <em>Freedoom</em> project.  They may not
+    place additional restrictions compared to the normal <em>Freedoom</em>
+    license.
+</p>
+</li>
+<li>
+<p>
+Do not try to emulate <em>Doom</em> resources exactly.  Where possible,
+    put effort to make new versions look visibly different from
+    <em>Doom</em>.  This is a tough call, because our compatibility with
+    <em>Doom</em> mods limits how far we can deviate, but it is feasible.
+</p>
+</li>
+<li>
+<p>
+Be especially careful of &#8220;free textures&#8221; (or &#8220;free sounds&#8221; or
+    &#8220;free graphics&#8221;) sites.  Although these would appear at first to
+    be okay to use, many are free for &#8220;non-commercial use only.&#8221;
+    One of the things we want to be able to do is put this in
+    GNU/Linux distributions (which can be sold or developed
+    commercially).
+</p>
+</li>
+</ul></div>
+</div>
+<div class="sect2">
+<h3 id="_levels">Levels</h3>
+<div class="paragraph"><p>Levels for <em>Phase 1</em> and <em>Phase 2</em> should be compatible with Boom
+2.02: a <em>Doom</em>-derived engine which is a common ancestor for many
+engines today.  Its extensions are even commonly reimplemented by
+engines which are not descended from Boom.  This means that you may
+exceed the limits of the original <em>Doom</em> and use features introduced
+in Boom.  Do not use features that are not supported by Boom 2.02 and
+compatible engines.  Levels should be in <em>Doom</em>'s original format, not
+in &#8220;Hexen&#8221;-format.</p></div>
+<div class="paragraph"><p>Levels for <em>FreeDM</em> must strictly be vanilla-compatible, that is, they
+must run in the original <tt>doom2.exe</tt> engine for DOS and not cause any
+visplane overflows and other such problems in the vanilla engine.
+This ensures the maximum compatibility with all <em>Doom</em>-derived
+engines, including those that do not descend from nor support Boom
+features.</p></div>
+<div class="paragraph"><p>It is sensible to also heed the following guidelines:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+Make sure that skill levels are implemented, and that all
+    multiplayer start points, both coöperative and deathmatch, are
+    present.
+</p>
+</li>
+<li>
+<p>
+Try to make levels appropriately difficult for their position
+    within the progression of the game.  Also bear in mind that not
+    all players may be as skilled a player as you.
+</p>
+</li>
+<li>
+<p>
+Do not use tricks that exploit <em>Doom</em>'s software renderer; some
+    engines, especially those that use hardware accelerated rendering,
+    may not render it properly.  Examples of tricks to avoid include
+    those used to simulate 3D bridges and &#8220;deep water&#8221; effects.
+</p>
+</li>
+<li>
+<p>
+Boom removes almost all of the limits on rendering; however, do
+    not make excessively complicated scenes.  It is desirable that
+    Freedoom levels should be playable on low-powered hardware, such
+    as phones and old computers.
+</p>
+</li>
+<li>
+<p>
+For <em>Phase 1</em> and <em>Phase 2</em>, try to test in
+    <a href="http://www.teamtnt.com/boompubl/boom2.htm">Boom</a> towards the end of
+    your level creation process, before submission.  Incompatibilities
+    will usually be discovered before a release, but it will help to
+    be sure yourself.  Since using a DOS-compatible operating system
+    is uncommon these days, you may need to use
+    <a href="http://www.dosbox.com/">DOSBox</a> or similar virtual machine software
+    to run Boom.
+</p>
+</li>
+<li>
+<p>
+For <em>FreeDM</em>, while you can test in the original <tt>doom2.exe</tt>
+    engine with DOS or an emulator, this original engine is not free
+    software and not legally obtainable without <em>Doom</em>, in addition to
+    the hassle of merely running it.
+    <a href="http://www.chocolate-doom.org/">Chocolate Doom</a> is a free software,
+    highly-portable, and strictly-vanilla-compatible engine without
+    any extra features for levels, suitable for testing FreeDM.
+</p>
+</li>
+</ul></div>
+</div>
+<div class="sect2">
+<h3 id="_graphics">Graphics</h3>
+<div class="paragraph"><p>Graphics should generally have the same color and size as the original
+<em>Doom</em> graphics, as to remain compatible with mods.  Otherwise, levels
+may end up looking like a nightmare in design.  They may be
+thematically different as long as it doesn&#8217;t clash.</p></div>
+<div class="paragraph"><p><em>Doom</em> uses a fictional corporation abbreviated as &#8220;UAC:&#8221; this is
+trademarked by id Software and cannot be used in <em>Freedoom</em>.  Instead,
+use the initials &#8220;AGM&#8221; for <em>Freedoom</em>.</p></div>
+</div>
+<div class="sect2">
+<h3 id="_documentation">Documentation</h3>
+<div class="paragraph"><p><em>Freedoom</em> always needs help with documentation, so please send your
+patches, but keep in mind:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+We use <a href="http://asciidoc.org/">AsciiDoc</a> for writing the
+    documentation.  AsciiDoc is a simple plaintext-based format which
+    is simple to read and write in its source form, and can generate
+    nice HTML documents out of them.
+</p>
+</li>
+<li>
+<p>
+Headers are formated in a wiki-style format, this makes it easier
+    for Vim (perhaps other editors, too) to automatically re-format
+    text.
+</p>
+</li>
+<li>
+<p>
+Text is kept at 72 characters wide.  In Vim, you can set the
+    editor to automatically insert line breaks as you&#8217;re typing by
+    performing <tt>set textwidth=72</tt>.  Special exceptions to the width
+    rule might be allowed when necessary (for example, inserting long
+    URLs).
+</p>
+</li>
+</ul></div>
+</div>
+<div class="sect2">
+<h3 id="_submitting_your_work">Submitting your work</h3>
+<div class="paragraph"><p>The most common, and a fairly simple method, to submit your work is by
+posting it on the <a href="http://www.doomworld.com/vb/freedoom/">Freedoom
+forum</a> on Doomworld Forums.  This allows a great number of people to
+review the contribution and provide feedback, although the
+registration process is known to be cumbersome.</p></div>
+<div class="paragraph"><p>An alternative to using the forum, is to post your submission on the
+<a href="https://github.com/freedoom/freedoom/issues">issue tracker</a>, which may
+also be peer-reviewed and provide a feedback cycle.</p></div>
+<div class="paragraph"><p>Lastly, it is possible to get work submitted by joining the official
+<a href="irc://irc.oftc.net/freedoom">#freedoom</a> IRC channel, although this
+poses the greatest risk of being lost and forgotten.</p></div>
+<div class="paragraph"><p>Unfortunately, the Freedoom project cannot provide hosting space in
+the form of a web page nor FTP, however there are many free file hosts
+to use when you need a location to upload files.  Sites and services
+such as <a href="https://www.dropbox.com/">Dropbox</a> and
+<a href="https://mega.co.nz/">Mega</a>, as well as others, are common and should be
+simple to use.</p></div>
+<div class="sect3">
+<h4 id="_crediting_information">Crediting information</h4>
+<div class="paragraph"><p><em>Freedoom</em> is made up of submissions from many people all over the
+globe.  All of them, and you, deserve credit!  Please do not forget to
+provide your name and email when submitting resources.</p></div>
+</div>
+<div class="sect3">
+<h4 id="_using_git">Using Git</h4>
+<div class="paragraph"><p>You can also commit on a clone of the <em>Freedoom</em> repository, although
+this is a technical task and it is okay to let other <em>Freedoom</em>
+maintainers to do it instead: that is our normal mode of operation.
+However, pull requests are much appreciated and you may submit them in
+any manner you wish, with GitHub&#8217;s direct pull requests being the
+simplest, but by far not the only means.</p></div>
+<div class="paragraph"><p>Freedoom uses the commit message format commonly seen in distributed
+version control systems, and adopted by high-profile projects such as
+Linux and Git.  The first line of a message needs to be a short
+summary, preferably at a 72-character limit.  The summary usually
+begins with a short component name followed by a colon, this can be a
+directory name (eg, <tt>musics:</tt>), a resource name (eg, <tt>map17:</tt>), or a
+more generic component (eg, <tt>build system:</tt>).  The summary line must
+not bleed into a second line, and should not be the start of a lengthy
+explanation.  If the commit needs further explanation (and they often
+do), use extra paragraphs and write in plain English what the commit
+is about.  The commit <tt>2014-08-24T22:42:37Z!fraggle@gmail.com</tt> is a
+good example.</p></div>
+<div class="paragraph"><p>Additionally, do not use commit hashes to refer to other commits.  Use
+other kinds of pointers, simple ones like &#8220;my previous commit&#8221; might
+suffice, or use <a href="http://esr.ibiblio.org/?p=3872">action stamps</a>, which
+can improve the meaningfulness of commit identifiers if the repository
+history is rewritten (this has happened at least twice!), or if the
+repository is converted to another VCS (this happened once before).
+At the time of writing (July 2015), core Git does not yet have a
+mechanism to output this format, but you may use a
+<a href="https://gist.github.com/chungy/195f53bfb9253584e596">shell script</a> and
+place it in your <tt>$PATH</tt> to achieve some ease in generating them.</p></div>
+<div class="paragraph"><p>You should commit at each logical step.  Do not bundle up many
+unrelated changes into the same commit, and definitely do not write a
+commit message like &#8220;changed some stuff.&#8221;  Best judgment should be
+used for what constitutes a logical step.  It may be just a single
+file, or it may be a group of files representing a monster in the
+game.  If you are finding yourself needing to repair previous commits'
+blunders in your private repository, try to take advantage of Git&#8217;s
+ability to rewrite history , don&#8217;t use <tt>git revert</tt>, just remove (<tt>git
+reset</tt>), amend (<tt>git commit --amend</tt>), or rebase (<tt>git rebase</tt>) as
+necessary.  Leave all the interesting and important history bits,
+leave out stupid mistakes like spell check errors if you catch them.</p></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footnotes"><hr /></div>
+<div id="footer">
+<div id="footer-text">
+Last updated 2015-12-23 03:28:06 PST
+</div>
+</div>
+</body>
+</html>
