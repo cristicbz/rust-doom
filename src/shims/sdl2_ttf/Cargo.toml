@@ -1,0 +1,10 @@
+[package]
+name = "sdl2_ttf"
+version = "0.0.1"
+authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
+
+[lib]
+name = "sdl2_ttf"
+
+[dependencies.sdl2]
+path = "../sdl2"

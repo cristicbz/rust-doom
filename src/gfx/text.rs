@@ -1,8 +1,8 @@
 use glium::{DrawParameters, Program};
 use glium::Frame;
 use glium::index::{NoIndices, PrimitiveType};
-use glium::{Surface, VertexBuffer, Blend};
-use glium::texture::{RawImage2d, Texture2d, ClientFormat};
+use glium::{Blend, Surface, VertexBuffer};
+use glium::texture::{ClientFormat, RawImage2d, Texture2d};
 use math::Vec2f;
 use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;

@@ -20,7 +20,9 @@ path = "../wad"
 path = "../common"
 
 [dependencies]
-sdl2 = "0.12.1"
 log = "0.3.4"
 time = "0.1.34"
 num = "0.1.29"
+
+[dependencies.sdl2]
+path = "../shims/sdl2"

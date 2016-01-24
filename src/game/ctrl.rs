@@ -95,17 +95,19 @@ impl GameController {
 
     pub fn poll_gesture(&self, gesture: &Gesture) -> bool {
         match *gesture {
-            Gesture::QuitTrigger => {
-                self.quit_requested_index == self.current_update_index
+            Gesture::QuitTrigger => self.quit_requested_index == self.current_update_index,
+            Gesture::KeyHold(code) => {
+                match self.keyboard_state[code as usize] {
+                    ButtonState::Down(_) => true,
+                    _ => false,
+                }
             }
-            Gesture::KeyHold(code) => match self.keyboard_state[code as usize] {
-                ButtonState::Down(_) => true,
-                _ => false,
-            },
-            Gesture::KeyTrigger(code) => match self.keyboard_state[code as usize] {
-                ButtonState::Down(index) => self.current_update_index == index,
-                _ => false,
-            },
+            Gesture::KeyTrigger(code) => {
+                match self.keyboard_state[code as usize] {
+                    ButtonState::Down(index) => self.current_update_index == index,
+                    _ => false,
+                }
+            }
             Gesture::AnyOf(ref subs) => {
                 for subgesture in subs.iter() {
                     if self.poll_gesture(subgesture) {

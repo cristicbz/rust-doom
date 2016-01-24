@@ -1,0 +1,13 @@
+[package]
+name = "glium_sdl2"
+version = "0.0.1"
+authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
+
+[lib]
+name = "glium_sdl2"
+
+[dependencies.sdl2]
+path = "../sdl2"
+
+[dependencies.glium]
+path = "../glium"
