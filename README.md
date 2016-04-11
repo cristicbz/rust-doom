@@ -58,7 +58,7 @@ _(subject to change)_
 * [x] Sprite rendering.
 * [x] Correct player movement (falling etc.)
 * [x] Player-flat collisions.
-* [ ] Player-wall collisions.
+* [x] Player-wall collisions.
 * [ ] Sprite-player and sprite-sprite collisions.
 * [ ] Sprite animations.
 * [ ] BSP frustum culling.
