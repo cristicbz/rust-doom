@@ -1,8 +1,8 @@
-use Bounds;
-use error::{NeededBy, Result};
 use glium::VertexBuffer;
 use math::{Vec2f, Vec3f};
-use Window;
+use super::Bounds;
+use super::error::{NeededBy, Result};
+use super::window::Window;
 
 pub type SkyBuffer = VertexBuffer<SkyVertex>;
 pub type SpriteBuffer = VertexBuffer<SpriteVertex>;

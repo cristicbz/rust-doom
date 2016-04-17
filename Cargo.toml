@@ -6,21 +6,22 @@ authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 [[bin]]
 name = "rs_doom"
 
-[dependencies.game]
-path = "src/game"
-
-[dependencies.gfx]
-path = "src/gfx"
-
-[dependencies.wad]
-path = "src/gfx"
-
-[dependencies.common]
-path = "src/common"
 
 [dependencies]
-sdl2 = "0.12.1"
-getopts = "0.2.14"
-time = "0.1.34"
+byteorder = "0.4.2"
 env_logger = "0.3.2"
+getopts = "0.2.14"
+glium = "0.12.4"
+glium_sdl2 = "0.9.0"
+lazy_static = "0.1.15"
+libc = "0.2.3"
 log = "0.3.4"
+num = "0.1.29"
+regex = "0.1.43"
+rustc-serialize = "0.3.16"
+sdl2 = "0.12.1"
+sdl2_ttf = "0.10.0"
+slab = "0.1.3"
+time = "0.1.34"
+toml = "0.1.24"
+vec_map = "0.4.0"

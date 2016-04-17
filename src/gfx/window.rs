@@ -1,10 +1,10 @@
-use error::Result;
-use glium_sdl2::{DisplayBuild, SDL2Facade};
 use glium::{Frame, Surface};
-use platform;
+use glium_sdl2::{DisplayBuild, SDL2Facade};
 use sdl2;
 use sdl2::Sdl;
 use sdl2::video::GLProfile;
+use super::error::Result;
+use super::platform;
 
 
 const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.7";

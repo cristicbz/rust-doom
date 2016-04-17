@@ -1,17 +1,17 @@
 use common::GeneralError;
-use ctrl::{GameController, Gesture};
 use gfx::{Scene, SceneBuilder, Window};
-use level::Level;
-use player::Player;
+use gfx::TextRenderer;
+use math::Vec2f;
 use sdl2::keyboard::Scancode;
 use sdl2::{self, Sdl};
 use std::error::Error;
 use std::path::PathBuf;
+use super::ctrl::{GameController, Gesture};
+use super::level::Level;
+use super::player::Player;
 use super::SHADER_ROOT;
 use time;
 use wad::{Archive, TextureDirectory};
-use gfx::TextRenderer;
-use math::Vec2f;
 
 pub struct GameConfig {
     pub wad_file: PathBuf,

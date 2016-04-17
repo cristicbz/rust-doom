@@ -1,16 +1,15 @@
-use error::{ErrorKind, Result};
-use std::result::Result as StdResult;
-use read::{WadRead, WadReadFrom};
 use rustc_serialize::{Decodable, Decoder, Encodable, Encoder};
 use std::ascii::AsciiExt;
+use std::borrow::Borrow;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::io::Read;
-use std::str::{self, FromStr};
-use std::error::Error;
 use std::ops::Deref;
-use std::borrow::Borrow;
+use std::result::Result as StdResult;
+use std::str::{self, FromStr};
+use super::error::{ErrorKind, Result};
+use super::read::{WadRead, WadReadFrom};
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct WadName([u8; 8]);
@@ -33,13 +32,8 @@ impl WadName {
             }
 
             let new_byte = match src.to_ascii_uppercase() {
-                b@b'A'...b'Z' |
-                b@b'0'...b'9' |
-                b@b'_' |
-                b@b'-' |
-                b@b'[' |
-                b@b']' |
-                b@b'\\' => b,
+                b @ b'A'...b'Z' | b @ b'0'...b'9' | b @ b'_' | b @ b'-' | b @ b'[' | b @ b']' |
+                b @ b'\\' => b,
                 b'\0' => {
                     nulled = true;
                     break;

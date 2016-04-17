@@ -1,11 +1,11 @@
 use math::Vec2f;
 use std::mem;
 use std::vec::Vec;
-use archive::Archive;
-use types::{WadLinedef, WadSeg, WadSidedef, WadSubsector, WadThing, WadVertex};
-use types::{LightLevel, SectorId, VertexId, WadNode, WadSector};
-use util::from_wad_coords;
-use error::Result;
+use super::archive::Archive;
+use super::error::Result;
+use super::types::{LightLevel, SectorId, VertexId, WadNode, WadSector};
+use super::types::{WadLinedef, WadSeg, WadSidedef, WadSubsector, WadThing, WadVertex};
+use super::util::from_wad_coords;
 
 const THINGS_OFFSET: usize = 1;
 const LINEDEFS_OFFSET: usize = 2;
