@@ -361,7 +361,7 @@ impl<Scalar, Tail> Debug for VectorCons<Scalar, Tail>
     }
 }
 
-trait FmtTail {
+pub trait FmtTail {
     fn fmt_tail(&self, fmt: &mut fmt::Formatter) -> fmt::Result;
 }
 

@@ -1,8 +1,7 @@
-use error::Result;
-use read::{WadRead, WadReadFrom};
-use std::io::Read;
-
 pub use super::name::WadName;
+use std::io::Read;
+use super::error::Result;
+use super::read::{WadRead, WadReadFrom};
 
 pub type LightLevel = i16;
 pub type LinedefFlags = u16;

@@ -1,14 +1,31 @@
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate regex;
+#[macro_use]
+extern crate glium;
+#[macro_use]
+extern crate lazy_static;
 
-extern crate common;
+extern crate byteorder;
 extern crate env_logger;
-extern crate game;
-extern crate getopts;
-extern crate gfx;
+extern crate glium_sdl2;
+extern crate libc;
+extern crate num;
+extern crate rustc_serialize;
 extern crate sdl2;
+extern crate sdl2_ttf;
+extern crate slab;
 extern crate time;
-extern crate wad;
+extern crate toml;
+extern crate vec_map;
+extern crate getopts;
+
+pub mod common;
+pub mod game;
+pub mod gfx;
+pub mod math;
+pub mod wad;
 
 use common::GeneralError;
 use game::{Game, GameConfig, Level};
@@ -87,16 +104,16 @@ impl RunMode {
             }
         } else {
             let (width, height) = try!(parse_window_size(&matches.opt_str("resolution")
-                                                                 .unwrap_or("1280x720"
-                                                                                .to_owned())));
+                                                         .unwrap_or("1280x720"
+                                                                    .to_owned())));
             let fov = try!(matches.opt_str("fov")
-                                  .unwrap_or("64".to_owned())
-                                  .parse::<f32>()
-                                  .map_err(|_| GeneralError("invalid value for fov".into())));
+                           .unwrap_or("64".to_owned())
+                           .parse::<f32>()
+                           .map_err(|_| GeneralError("invalid value for fov".into())));
             let level = try!(matches.opt_str("level")
-                                    .unwrap_or("0".to_owned())
-                                    .parse::<usize>()
-                                    .map_err(|_| GeneralError("invalid value for fov".into())));
+                             .unwrap_or("0".to_owned())
+                             .parse::<usize>()
+                             .map_err(|_| GeneralError("invalid value for fov".into())));
 
             RunMode::Play(GameConfig {
                 wad_file: wad,
@@ -112,21 +129,21 @@ impl RunMode {
 
 fn parse_window_size(size_str: &str) -> Result<(u32, u32), GeneralError> {
     size_str.find('x')
-            .and_then(|x_index| {
-                if x_index == 0 || x_index + 1 == size_str.len() {
-                    None
-                } else {
-                    Some((&size_str[..x_index], &size_str[x_index + 1..]))
-                }
-            })
-            .map(|(width, height)| (width.parse::<u32>(), height.parse::<u32>()))
-            .and_then(|size| {
-                match size {
-                    (Ok(w), Ok(h)) => Some((w, h)),
-                    _ => None,
-                }
-            })
-            .ok_or_else(|| GeneralError("invalid window size (WIDTHxHEIGHT)".into()))
+        .and_then(|x_index| {
+            if x_index == 0 || x_index + 1 == size_str.len() {
+                None
+            } else {
+                Some((&size_str[..x_index], &size_str[x_index + 1..]))
+            }
+        })
+    .map(|(width, height)| (width.parse::<u32>(), height.parse::<u32>()))
+        .and_then(|size| {
+            match size {
+                (Ok(w), Ok(h)) => Some((w, h)),
+                _ => None,
+            }
+        })
+    .ok_or_else(|| GeneralError("invalid window size (WIDTHxHEIGHT)".into()))
 }
 
 #[cfg(not(test))]
@@ -141,7 +158,7 @@ fn run(args: &[String]) -> Result<(), Box<Error>> {
             }
         }
         RunMode::Check { wad_file, metadata_file } => {
-            let sdl = try!(sdl2::init().map_err(|e| GeneralError(e.0)));
+            let sdl = try!(sdl2::init().map_err(GeneralError));
             let win = try!(Window::new(&sdl, 128, 128));
 
             info!("Loading all levels...");
@@ -182,9 +199,9 @@ fn main() {
 
     if let Err(error) = run(&args) {
         let filename = Path::new(&args[0])
-                           .file_name()
-                           .map(|n| n.to_string_lossy())
-                           .unwrap_or(Cow::Borrowed("<cannot determine filename>"));
+            .file_name()
+            .map(|n| n.to_string_lossy())
+            .unwrap_or(Cow::Borrowed("<cannot determine filename>"));
         writeln!(io::stderr(), "{}: {}", filename, error)
             .ok()
             .expect("failed to  write to stderr");

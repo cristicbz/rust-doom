@@ -1,13 +1,13 @@
-use error::ErrorKind::BadMetadataSyntax;
-use error::{InFile, Result};
-use name::WadName;
 use regex::Regex;
 use rustc_serialize::{Decodable, Encodable};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use super::error::ErrorKind::BadMetadataSyntax;
+use super::error::{InFile, Result};
+use super::name::WadName;
+use super::types::ThingType;
 use toml::{Decoder, Parser, Value};
-use types::ThingType;
 
 #[derive(Debug, RustcDecodable, RustcEncodable)]
 pub struct SkyMetadata {

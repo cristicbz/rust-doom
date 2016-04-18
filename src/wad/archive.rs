@@ -1,21 +1,21 @@
-use error::ErrorKind::{BadWadHeader, MissingRequiredLump};
-use error::{Error, ErrorKind, InFile, Result};
-use meta::WadMetadata;
-use read::{WadRead, WadReadFrom};
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
+use std::hash::Hash;
 use std::io::{BufReader, Seek, SeekFrom};
 use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
 use std::result::Result as StdResult;
 use std::vec::Vec;
-use std::borrow::Borrow;
-use std::hash::Hash;
-use types::{WadInfo, WadLump, WadName};
-use util::wad_type_from_info;
+use super::error::{Error, ErrorKind, InFile, Result};
+use super::error::ErrorKind::{BadWadHeader, MissingRequiredLump};
+use super::meta::WadMetadata;
+use super::read::{WadRead, WadReadFrom};
+use super::types::{WadInfo, WadLump, WadName};
+use super::util::wad_type_from_info;
 
 pub struct Archive {
     file: RefCell<BufReader<File>>,

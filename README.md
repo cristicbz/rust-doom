@@ -45,10 +45,6 @@ _(subject to change)_
 * **Free flying camera.** Mouse & keyboard control for full 6 degrees of freedom.
 * **100% safe code.** No pesky `unsafe` blocks anywhere.
 
-## Contributing
-
-A `Makefile` is provided for convenient testing, please run `make test` to ensure all subcrates are working.
-
 ## Todo
 * [x] BSP -> convex subsector conversion.
 * [x] Flats (floors & ceiling) texture mapping.

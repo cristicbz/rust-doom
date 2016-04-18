@@ -1,6 +1,6 @@
-use contact::ContactInfo;
 use num::Zero;
-use vector::{Vec3f, Vec2f, Vector};
+use super::contact::ContactInfo;
+use super::vector::{Vec2f, Vec3f, Vector};
 
 pub struct Sphere {
     pub center: Vec3f,

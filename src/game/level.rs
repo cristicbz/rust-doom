@@ -1,17 +1,17 @@
 use gfx::{Scene, SceneBuilder};
-use lights::LightBuffer;
 use math::{Vec2f, Vec3f, Vector};
 use num::Zero;
 use std::error::Error;
+use super::lights::LightBuffer;
+use super::world::World;
+use wad::Archive;
+use wad::Level as WadLevel;
+use wad::{LevelVisitor, LevelWalker, LightInfo, Marker};
+use wad::{SkyMetadata, TextureDirectory, WadMetadata};
 use wad::tex::BoundsLookup;
 use wad::tex::{OpaqueImage, TransparentImage};
 use wad::types::WadName;
 use wad::util::{is_sky_flat, is_untextured};
-use wad::{SkyMetadata, TextureDirectory, WadMetadata};
-use wad::Archive;
-use wad::Level as WadLevel;
-use wad::{LevelVisitor, LevelWalker, LightInfo, Marker};
-use world::World;
 
 pub struct Level {
     start_pos: Vec3f,

@@ -30,5 +30,5 @@ rust:
 script:
   - rustc --version
   - cargo build
-  - make test
+  - cargo test
 

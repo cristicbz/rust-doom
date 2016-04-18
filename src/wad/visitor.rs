@@ -1,13 +1,13 @@
-use level::Level;
-use light::{self, Contrast, LightInfo};
-use meta::WadMetadata;
 use math::{Line2f, Vec2f, Vec3f, Vector};
 use num::Zero;
 use std::cmp;
 use std::cmp::Ordering;
-use tex::TextureDirectory;
-use types::{ChildId, WadCoord, WadName, WadSector, WadSeg, WadThing, WadNode, ThingType};
-use util::{from_wad_coords, from_wad_height, is_sky_flat, is_untextured, parse_child_id};
+use super::level::Level;
+use super::light::{self, Contrast, LightInfo};
+use super::meta::WadMetadata;
+use super::tex::TextureDirectory;
+use super::types::{ChildId, ThingType, WadCoord, WadName, WadNode, WadSector, WadSeg, WadThing};
+use super::util::{from_wad_coords, from_wad_height, is_sky_flat, is_untextured, parse_child_id};
 use vec_map::VecMap;
 
 pub trait LevelVisitor: Sized {
@@ -414,11 +414,14 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let bias = (v2 - v1).normalized() * POLY_BIAS;
         let (v1, v2) = (v1 - bias, v2 + bias);
         let (low, high) = match (size, peg) {
-            (Some(size), Peg::TopFloat) => (from_wad_height(low + side.y_offset),
-                                            from_wad_height(low + size[1] as i16 + side.y_offset)),
-            (Some(size), Peg::BottomFloat) =>
+            (Some(size), Peg::TopFloat) => {
+                (from_wad_height(low + side.y_offset),
+                 from_wad_height(low + size[1] as i16 + side.y_offset))
+            }
+            (Some(size), Peg::BottomFloat) => {
                 (from_wad_height(high + side.y_offset - size[1] as i16),
-                 from_wad_height(high + side.y_offset)),
+                 from_wad_height(high + side.y_offset))
+            }
             _ => (from_wad_height(low), from_wad_height(high)),
         };
 
@@ -442,14 +445,16 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let s1 = seg.offset as f32 + side.x_offset as f32;
         let s2 = s1 + (v2 - v1).norm() * 100.0;
         let (t1, t2) = match (size, peg) {
-            (Some(_), Peg::Top) | (None, _) => (height, 0.0),
+            (Some(_), Peg::Top) |
+            (None, _) => (height, 0.0),
             (Some(size), Peg::Bottom) => (size[1], size[1] - height),
             (Some(size), Peg::BottomLower) => {
                 // As far as I can tell, this is a special case.
                 let sector_height = (sector.ceiling_height - sector.floor_height) as f32;
                 (size[1] + sector_height, size[1] - height + sector_height)
             }
-            (Some(size), Peg::TopFloat) | (Some(size), Peg::BottomFloat) => (size[1], 0.0),
+            (Some(size), Peg::TopFloat) |
+            (Some(size), Peg::BottomFloat) => (size[1], 0.0),
         };
         let (t1, t2) = (t1 + side.y_offset as f32, t2 + side.y_offset as f32);
 

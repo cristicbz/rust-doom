@@ -1,17 +1,17 @@
-use archive::{Archive, InArchive};
-use error::ErrorKind::BadImage;
-use error::Result;
 use gfx::Bounds;
-use image::Image;
 use math::{Vec2, Vec2f};
-use name::WadName;
 use num::{Float, Zero};
-use read::WadRead;
 use std::cmp;
 use std::collections::BTreeMap;
 use std::mem;
+use super::archive::{Archive, InArchive};
+use super::error::ErrorKind::BadImage;
+use super::error::Result;
+use super::image::Image;
+use super::name::WadName;
+use super::read::WadRead;
+use super::types::{WadTextureHeader, WadTexturePatchRef};
 use time;
-use types::{WadTextureHeader, WadTexturePatchRef};
 
 pub type Palette = [u8; 256 * 3];
 pub type Colormap = [u8; 256];
@@ -395,26 +395,30 @@ fn ordered_atlas_entries<'a, 'b, N, I, L>(animations: &'b [Vec<WadName>],
     let mut entries = Vec::with_capacity(frames_by_first_frame.len());
     for (&name, maybe_frames) in frames_by_first_frame.into_iter() {
         match maybe_frames {
-            Some(frames) => for (offset, &frame) in frames.iter().enumerate() {
-                if let Some(image) = image_lookup(frame) {
-                    entries.push(AtlasEntry {
-                        name: frame,
-                        image: image,
-                        frame_offset: offset,
-                        num_frames: frames.len(),
-                    });
-                } else {
-                    warn!("Unable to find texture/sprite: {}", frame);
+            Some(frames) => {
+                for (offset, &frame) in frames.iter().enumerate() {
+                    if let Some(image) = image_lookup(frame) {
+                        entries.push(AtlasEntry {
+                            name: frame,
+                            image: image,
+                            frame_offset: offset,
+                            num_frames: frames.len(),
+                        });
+                    } else {
+                        warn!("Unable to find texture/sprite: {}", frame);
+                    }
                 }
-            },
-            None => if let Some(image) = image_lookup(name) {
-                entries.push(AtlasEntry {
-                    name: name,
-                    image: image,
-                    frame_offset: 0,
-                    num_frames: 1,
-                });
-            },
+            }
+            None => {
+                if let Some(image) = image_lookup(name) {
+                    entries.push(AtlasEntry {
+                        name: name,
+                        image: image,
+                        frame_offset: 0,
+                        num_frames: 1,
+                    });
+                }
+            }
         }
     }
     entries

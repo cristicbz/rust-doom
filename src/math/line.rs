@@ -1,5 +1,5 @@
 use num::{Float, NumCast};
-use vector::{Field, Vec2, Vector};
+use super::vector::{Field, Vec2, Vector};
 
 pub type Line2f = Line2<f32>;
 

@@ -1,8 +1,0 @@
-[package]
-name = "common"
-version = "0.0.1"
-authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
-
-[lib]
-name = "common"
-path = "lib.rs"

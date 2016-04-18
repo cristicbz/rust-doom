@@ -1,4 +1,4 @@
-use Vec3f;
+use super::Vec3f;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ContactInfo {

@@ -1,11 +1,11 @@
-use read::WadRead;
 use math::Vec2;
 use sdl2::pixels::PixelFormatEnum;
-use std::path::Path;
-use std::vec::Vec;
-use types::WadTextureHeader;
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Display};
+use std::path::Path;
+use std::vec::Vec;
+use super::read::WadRead;
+use super::types::WadTextureHeader;
 
 pub struct Image {
     width: usize,
