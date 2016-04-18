@@ -1,5 +1,5 @@
 use gfx::{Scene, SceneBuilder};
-use math::{Vec2f, Vec3f, Vector};
+use math::{Vec2f, Vec3f};
 use num::Zero;
 use std::error::Error;
 use super::lights::LightBuffer;
