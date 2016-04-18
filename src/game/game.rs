@@ -35,7 +35,7 @@ pub struct Game {
 
 impl Game {
     pub fn new(config: GameConfig) -> Result<Game, Box<Error>> {
-        let sdl = try!(sdl2::init().map_err(|e| GeneralError(e.0)));
+        let sdl = try!(sdl2::init().map_err(GeneralError));
         let window = try!(Window::new(&sdl, config.width, config.height));
         let wad = try!(Archive::open(&config.wad_file, &config.metadata_file));
         let textures = try!(TextureDirectory::from_archive(&wad));
@@ -49,8 +49,7 @@ impl Game {
         let mut player = Player::new(config.fov, window.aspect_ratio() * 1.2, Default::default());
         player.set_position(level.start_pos());
 
-        let control = GameController::new(&sdl,
-                                          try!(sdl.event_pump().map_err(|e| GeneralError(e.0))));
+        let control = GameController::new(&sdl, try!(sdl.event_pump().map_err(GeneralError)));
 
         let text = try!(TextRenderer::new(&window));
 

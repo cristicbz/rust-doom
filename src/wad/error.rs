@@ -1,4 +1,3 @@
-use byteorder::Error as ByteOrderError;
 use std::error::Error as StdError;
 use std::fmt::{Display, Formatter};
 use std::fmt::Result as FmtResult;
@@ -36,7 +35,6 @@ impl Display for Error {
 #[derive(Debug)]
 pub enum ErrorKind {
     Io(IoError),
-    ByteOrder(ByteOrderError),
     BadWadHeader,
     BadWadName(Vec<u8>),
     MissingRequiredLump(String),
@@ -50,7 +48,6 @@ impl ErrorKind {
     fn description(&self) -> &str {
         match *self {
             ErrorKind::Io(ref inner) => inner.description(),
-            ErrorKind::ByteOrder(ref inner) => inner.description(),
             ErrorKind::BadWadHeader => "invalid header",
             ErrorKind::BadWadName(..) => "invalid wad name",
             ErrorKind::MissingRequiredLump(..) => "missing required lump",
@@ -67,7 +64,6 @@ impl Display for ErrorKind {
         let desc = self.description();
         match *self {
             ErrorKind::Io(ref inner) => write!(fmt, "{}", inner),
-            ErrorKind::ByteOrder(ref inner) => write!(fmt, "{}", inner),
             ErrorKind::BadWadHeader => write!(fmt, "{}", desc),
             ErrorKind::BadWadName(ref name) => write!(fmt, "{} ({:?})", desc, name),
             ErrorKind::MissingRequiredLump(ref name) => write!(fmt, "{} ({})", desc, name),
@@ -89,11 +85,6 @@ impl From<IoError> for Error {
     }
 }
 
-impl From<ByteOrderError> for Error {
-    fn from(cause: ByteOrderError) -> Error {
-        ErrorKind::ByteOrder(cause).into()
-    }
-}
 
 impl From<TomlDecodeError> for Error {
     fn from(cause: TomlDecodeError) -> Error {

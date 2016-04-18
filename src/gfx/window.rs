@@ -3,7 +3,7 @@ use glium_sdl2::{DisplayBuild, SDL2Facade};
 use sdl2;
 use sdl2::Sdl;
 use sdl2::video::GLProfile;
-use super::error::Result;
+use super::error::{Result, Error};
 use super::platform;
 
 
@@ -19,7 +19,7 @@ pub struct Window {
 
 impl Window {
     pub fn new(sdl: &Sdl, width: u32, height: u32) -> Result<Window> {
-        let video = try!(sdl.video());
+        let video = try!(sdl.video().map_err(Error::Sdl));
         let gl_attr = video.gl_attr();
         gl_attr.set_context_profile(GLProfile::Core);
         gl_attr.set_context_major_version(platform::GL_MAJOR_VERSION);

@@ -3,15 +3,15 @@ use std::fmt::{Display, Formatter};
 use std::fmt::Result as FmtResult;
 use std::io::Error as IoError;
 use std::result::Result as StdResult;
-use sdl2::ErrorMessage as SdlError;
 use glium::{self, GliumCreationError};
+use glium_sdl2::GliumSdl2Error;
 
 pub type Result<T> = StdResult<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
     Io(IoError),
-    Sdl(SdlError),
+    Sdl(String),
     Shader {
         log: String,
         needed_by: String,
@@ -30,7 +30,7 @@ impl StdError for Error {
     fn description(&self) -> &str {
         match *self {
             Error::Io(ref inner) => inner.description(),
-            Error::Sdl(ref inner) => &inner.0[..],
+            Error::Sdl(ref inner) => &inner[..],
             Error::IncompatibleOpenGl(ref inner) => &inner[..],
             Error::Shader { .. } => "shader compilation/linking error",
             Error::UnsupportedFeature { .. } => "unsupported required feature",
@@ -52,16 +52,10 @@ impl From<IoError> for Error {
     }
 }
 
-impl From<SdlError> for Error {
-    fn from(err: SdlError) -> Error {
-        Error::Sdl(err)
-    }
-}
-
-impl From<GliumCreationError<SdlError>> for Error {
-    fn from(err: GliumCreationError<SdlError>) -> Error {
+impl From<GliumCreationError<GliumSdl2Error>> for Error {
+    fn from(err: GliumCreationError<GliumSdl2Error>) -> Error {
         match err {
-            GliumCreationError::BackendCreationError(err) => Error::Sdl(err),
+            GliumCreationError::BackendCreationError(err) => Error::Sdl(err.to_string()),
             GliumCreationError::IncompatibleOpenGl(msg) => Error::IncompatibleOpenGl(msg),
         }
     }
@@ -156,6 +150,10 @@ impl<S> NeededBy for StdResult<S, glium::ProgramCreationError> {
                     needed_by: by.to_owned(),
                     log: log,
                 },
+                BinaryHeaderError => Error::Shader {
+                    needed_by: by.to_owned(),
+                    log: "Binary header error.".to_owned(),
+                },
 
                 e@ShaderTypeNotSupported |
                 e@CompilationNotSupported |
@@ -201,6 +199,9 @@ impl<S> NeededBy for StdResult<S, glium::DrawError> {
                 e@TessellationWithoutPatches |
                 e@InstancesCountMismatch |
                 e@VerticesSourcesLengthMismatch |
+                e@SubroutineNotFound { .. } |
+                e@SubroutineUniformMissing { .. } |
+                e@SubroutineUniformToValue { .. } |
                 e@WrongQueryOperation => panic!("Invalid draw call: {:?}", e),
             }
         })

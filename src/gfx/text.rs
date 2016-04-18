@@ -10,7 +10,6 @@ use sdl2::rect::Rect;
 use sdl2::render::BlendMode;
 use sdl2::surface::Surface as SdlSurface;
 use sdl2_ttf as ttf;
-use sdl2_ttf::Error as TtfError;
 use sdl2_ttf::Font;
 use sdl2_ttf::Sdl2TtfContext;
 use slab::Slab;
@@ -36,9 +35,8 @@ pub struct TextRenderer {
 
 impl TextRenderer {
     pub fn new(win: &Window) -> Result<TextRenderer, Error> {
-        CONTEXT.as_ref().unwrap();
         Ok(TextRenderer {
-            font: Font::from_file(FONT_PATH.as_ref(), POINT_SIZE).unwrap(),
+            font: CONTEXT.load_font(FONT_PATH.as_ref(), POINT_SIZE).unwrap(),
             slab: Slab::new(MAX_TEXT),
             program: Program::from_source(win.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
             draw_params: DrawParameters {
@@ -104,13 +102,12 @@ impl TextRenderer {
 
     fn text_to_surface(&self, text: &str, padding: u32) -> Result<SdlSurface<'static>, Error> {
         let wrap_length = text.lines()
-                              .filter_map(|line| self.font.size(line).ok())
+                              .filter_map(|line| self.font.size_of(line).ok())
                               .map(|size| size.0)
                               .fold(0, cmp::max) + 10;
         let mut text = self.font
-                           .render(text,
-                                   ttf::blended_wrapped(Color::RGBA(255, 255, 255, 255),
-                                                        wrap_length))
+                           .render(text)
+                           .blended_wrapped(Color::RGBA(255, 255, 255, 255), wrap_length)
                            .unwrap();
         let mut surface = SdlSurface::new(text.width() + padding * 2,
                                           text.height() + padding * 2,
@@ -122,10 +119,7 @@ impl TextRenderer {
         text.set_blend_mode(BlendMode::Blend).unwrap();
         text.blit(None,
                   &mut surface,
-                  Some(Rect::new_unwrap(padding as i32,
-                                        padding as i32,
-                                        text.width(),
-                                        text.height())))
+                  Some(Rect::new(padding as i32, padding as i32, text.width(), text.height())))
             .unwrap();
         Ok(surface)
     }
@@ -176,9 +170,9 @@ impl Text {
 
 // Use a lazy static to initialise the ttf context only once.
 lazy_static! {
-    static ref CONTEXT: Result<Sdl2TtfContext, TtfError> = {
+    static ref CONTEXT: Sdl2TtfContext = {
         info!("Initialising SDL2_ttf: {}", ttf::get_linked_version());
-        ttf::init()
+        ttf::init().unwrap()
     };
 }
 
@@ -186,7 +180,7 @@ lazy_static! {
 const FONT_PATH: &'static str = "ttf/OpenSans-Regular.ttf";
 
 /// Hard-coded font size.
-const POINT_SIZE: i32 = 18;
+const POINT_SIZE: u16 = 18;
 
 /// Hard-coded maximum number of `Text objects`.
 const MAX_TEXT: usize = 32;
