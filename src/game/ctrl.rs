@@ -27,6 +27,8 @@ pub enum Analog2d {
 
     // (xpos, xneg, ypos, yneg, step)
     Gestures(Gesture, Gesture, Gesture, Gesture, Sensitivity),
+
+    Sum(Vec<Analog2d>),
 }
 
 pub struct GameController {
@@ -129,6 +131,9 @@ impl GameController {
 
     pub fn poll_analog2d(&self, motion: &Analog2d) -> Vec2f {
         match *motion {
+            Analog2d::Sum(ref analogs) => analogs.iter()
+                                                 .map(|analog| self.poll_analog2d(analog))
+                                                 .fold(Vec2f::zero(), |x, y| x + y),
             Analog2d::Mouse(sensitivity) => self.mouse_rel * sensitivity,
             Analog2d::Gestures(ref xpos, ref xneg, ref ypos, ref yneg, step) => {
                 Vec2f::new(if self.poll_gesture(xpos) {
