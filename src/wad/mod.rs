@@ -20,5 +20,6 @@ pub use self::meta::ThingMetadata;
 pub use self::name::WadName;
 pub use self::tex::TextureDirectory;
 pub use self::error::{Error, Result};
-pub use self::visitor::{Branch, LevelVisitor, LevelWalker, Marker};
+pub use self::visitor::{Branch, LevelVisitor, LevelWalker, Marker, StaticQuad, StaticPoly, SkyQuad};
+pub use self::visitor::{SkyPoly, Decor};
 pub use self::light::{LightEffect, LightEffectKind, LightInfo};

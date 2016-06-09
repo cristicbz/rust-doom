@@ -238,7 +238,7 @@ impl TextureDirectory {
         assert!(positions.len() == entries.len());
         // TODO(cristicbz): This should probably split things into multiple atlases or
         // something, but realistically, I'm never going to implement that.
-        let mut atlas = Image::new(atlas_size[0], atlas_size[1]).ok().expect("atlas too big");
+        let mut atlas = Image::new(atlas_size[0], atlas_size[1]).expect("atlas too big");
         let mut bound_map = BTreeMap::new();
         for (i, entry) in entries.iter().enumerate() {
             atlas.blit(entry.image, positions[i].offset, true);
@@ -389,7 +389,7 @@ fn ordered_atlas_entries<'a, 'b, N, I, L>(animations: &'b [Vec<WadName>],
     let mut frames_by_first_frame = BTreeMap::new();
     for name in names_iter {
         let maybe_frames = search_for_frame(name, animations);
-        let first_frame = maybe_frames.map(|f| &f[0]).unwrap_or(name);
+        let first_frame = maybe_frames.map_or(name, |f| &f[0]);
         frames_by_first_frame.insert(first_frame, maybe_frames);
     }
     let mut entries = Vec::with_capacity(frames_by_first_frame.len());

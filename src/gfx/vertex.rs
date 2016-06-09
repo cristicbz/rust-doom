@@ -23,8 +23,14 @@ pub struct StaticVertex {
 }
 
 implement_vertex!(StaticVertex,
-                  a_pos, a_atlas_uv, a_tile_uv, a_tile_size, a_scroll_rate, a_row_height,
-                  a_num_frames, a_light);
+                  a_pos,
+                  a_atlas_uv,
+                  a_tile_uv,
+                  a_tile_size,
+                  a_scroll_rate,
+                  a_row_height,
+                  a_num_frames,
+                  a_light);
 
 pub struct FlatBufferBuilder(Vec<StaticVertex>);
 
@@ -49,6 +55,12 @@ impl FlatBufferBuilder {
 
     pub fn build(&self, window: &Window) -> Result<StaticBuffer> {
         VertexBuffer::immutable(window.facade(), &self.0).needed_by("flats vertex buffer")
+    }
+}
+
+impl Default for FlatBufferBuilder {
+    fn default() -> FlatBufferBuilder {
+        FlatBufferBuilder::new()
     }
 }
 
@@ -86,6 +98,12 @@ impl WallBufferBuilder {
     }
 }
 
+impl Default for WallBufferBuilder {
+    fn default() -> WallBufferBuilder {
+        WallBufferBuilder::new()
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct SpriteVertex {
@@ -99,7 +117,13 @@ pub struct SpriteVertex {
 }
 
 implement_vertex!(SpriteVertex,
-                  a_pos, a_atlas_uv, a_tile_uv, a_tile_size, a_local_x, a_num_frames, a_light);
+                  a_pos,
+                  a_atlas_uv,
+                  a_tile_uv,
+                  a_tile_size,
+                  a_local_x,
+                  a_num_frames,
+                  a_light);
 
 pub struct DecorBufferBuilder(Vec<SpriteVertex>);
 
@@ -133,6 +157,12 @@ impl DecorBufferBuilder {
     }
 }
 
+impl Default for DecorBufferBuilder {
+    fn default() -> DecorBufferBuilder {
+        DecorBufferBuilder::new()
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct SkyVertex {
@@ -155,5 +185,11 @@ impl SkyBufferBuilder {
 
     pub fn build(&self, window: &Window) -> Result<SkyBuffer> {
         VertexBuffer::immutable(window.facade(), &self.0).needed_by("sky vertex buffer")
+    }
+}
+
+impl Default for SkyBufferBuilder {
+    fn default() -> SkyBufferBuilder {
+        SkyBufferBuilder::new()
     }
 }

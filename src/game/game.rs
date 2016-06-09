@@ -139,7 +139,7 @@ impl Game {
             }
 
             // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
-            frame.finish().ok().expect("Cannot handle context loss currently :(");
+            frame.finish().expect("Cannot handle context loss currently :(");
         }
         Ok(())
     }

@@ -95,7 +95,7 @@ impl Archive {
         where WadName: Borrow<Q>,
               Q: Hash + Eq
     {
-        self.index_map.get(name).map(|x| *x)
+        self.index_map.get(name).cloned()
     }
 
     pub fn required_named_lump_index<Q>(&self, name: &Q) -> Result<usize>
@@ -103,7 +103,7 @@ impl Archive {
               Q: Hash + Eq + Debug
     {
         self.named_lump_index(name)
-            .ok_or(MissingRequiredLump(format!("{:?}", name)))
+            .ok_or_else(|| MissingRequiredLump(format!("{:?}", name)))
             .in_archive(self)
     }
 
