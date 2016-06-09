@@ -200,10 +200,9 @@ fn main() {
     if let Err(error) = run(&args) {
         let filename = Path::new(&args[0])
             .file_name()
-            .map(|n| n.to_string_lossy())
-            .unwrap_or(Cow::Borrowed("<cannot determine filename>"));
+            .map_or_else(|| Cow::Borrowed("<cannot determine filename>"),
+            |n| n.to_string_lossy());
         writeln!(io::stderr(), "{}: {}", filename, error)
-            .ok()
             .expect("failed to  write to stderr");
     }
 }

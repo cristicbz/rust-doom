@@ -5,6 +5,7 @@ use super::camera::Camera;
 use super::ctrl::{Analog2d, Gesture};
 use super::ctrl::GameController;
 use super::level::Level;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 
 pub struct PlayerBindings {
@@ -18,17 +19,27 @@ pub struct PlayerBindings {
 impl Default for PlayerBindings {
     fn default() -> PlayerBindings {
         PlayerBindings {
-            movement: Analog2d::Gestures(Gesture::KeyHold(Scancode::D),
-                                         Gesture::KeyHold(Scancode::A),
-                                         Gesture::KeyHold(Scancode::W),
-                                         Gesture::KeyHold(Scancode::S),
-                                         1.0),
-            look: Analog2d::Sum(vec![Analog2d::Gestures(Gesture::KeyHold(Scancode::Right),
-                                                        Gesture::KeyHold(Scancode::Left),
-                                                        Gesture::KeyHold(Scancode::Down),
-                                                        Gesture::KeyHold(Scancode::Up),
-                                                        0.05),
-                                     Analog2d::Mouse(0.002)]),
+            movement: Analog2d::Gestures {
+                x_positive: Gesture::KeyHold(Scancode::D),
+                x_negative: Gesture::KeyHold(Scancode::A),
+                y_positive: Gesture::KeyHold(Scancode::W),
+                y_negative: Gesture::KeyHold(Scancode::S),
+                step: 1.0,
+            },
+            look: Analog2d::Sum {
+                analogs: vec![
+                    Analog2d::Gestures {
+                        x_positive: Gesture::KeyHold(Scancode::Right),
+                        x_negative: Gesture::KeyHold(Scancode::Left),
+                        y_positive: Gesture::KeyHold(Scancode::Down),
+                        y_negative: Gesture::KeyHold(Scancode::Up),
+                        step: 0.05,
+                    },
+                    Analog2d::Mouse {
+                        sensitivity: 0.002
+                    },
+                ],
+            },
             jump: Gesture::KeyHold(Scancode::Space),
             fly: Gesture::KeyTrigger(Scancode::F),
             clip: Gesture::KeyTrigger(Scancode::C),
@@ -58,7 +69,7 @@ pub struct Player {
 impl Player {
     pub fn new(fov: f32, aspect_ratio: f32, bindings: PlayerBindings) -> Player {
         let mut camera = Camera::new(fov, aspect_ratio, 0.01, 100.0);
-        camera.set_yaw(3.1415926538);
+        camera.set_yaw(PI);
 
         Player {
             bindings: bindings,
@@ -159,7 +170,7 @@ impl Player {
         let look = ctrl.poll_analog2d(&self.bindings.look);
         let jump = ctrl.poll_gesture(&self.bindings.jump);
         let yaw = self.camera.yaw() + look[0];
-        let pitch = clamp(self.camera.pitch() + look[1], (-3.14 / 2.0, 3.14 / 2.0));
+        let pitch = clamp(self.camera.pitch() + look[1], (-FRAC_PI_2, FRAC_PI_2));
         self.camera.set_yaw(yaw);
         self.camera.set_pitch(pitch);
 
@@ -202,8 +213,6 @@ impl Player {
                                                            .sweep_sphere(&feet, &feet_probe) {
             if contact.time < 1.0 {
                 (self.height * contact.time, Some(contact.normal))
-            } else if contact.time < 1.0 {
-                (self.height, Some(contact.normal))
             } else {
                 (self.height, None)
             }

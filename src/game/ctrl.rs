@@ -22,13 +22,21 @@ pub enum Gesture {
 pub enum Analog2d {
     NoAnalog2d,
 
-    // (mouse_sensitivity)
-    Mouse(Sensitivity),
+    Mouse {
+        sensitivity: Sensitivity,
+    },
 
-    // (xpos, xneg, ypos, yneg, step)
-    Gestures(Gesture, Gesture, Gesture, Gesture, Sensitivity),
+    Gestures {
+        x_positive: Gesture,
+        x_negative: Gesture,
+        y_positive: Gesture,
+        y_negative: Gesture,
+        step: Sensitivity,
+    },
 
-    Sum(Vec<Analog2d>),
+    Sum {
+        analogs: Vec<Analog2d>,
+    },
 }
 
 pub struct GameController {
@@ -75,7 +83,7 @@ impl GameController {
                 Event::Quit { .. } => {
                     self.quit_requested_index = self.current_update_index;
                 }
-                Event::KeyDown{ scancode: Some(scancode), .. } => {
+                Event::KeyDown { scancode: Some(scancode), .. } => {
                     self.keyboard_state[scancode as usize] =
                         ButtonState::Down(self.current_update_index);
                 }
@@ -83,9 +91,9 @@ impl GameController {
                     self.keyboard_state[scancode as usize] =
                         ButtonState::Up(self.current_update_index);
                 }
-                Event::MouseMotion { xrel, yrel, .. } => {
+                Event::MouseMotion { xrel: x_relative, yrel: y_relative, .. } => {
                     if self.mouse_enabled {
-                        self.mouse_rel = Vec2f::new(xrel as f32, yrel as f32);
+                        self.mouse_rel = Vec2f::new(x_relative as f32, y_relative as f32);
                     } else {
                         self.mouse_rel = Vec2f::zero();
                     }
@@ -97,17 +105,19 @@ impl GameController {
 
     pub fn poll_gesture(&self, gesture: &Gesture) -> bool {
         match *gesture {
-            Gesture::QuitTrigger => {
-                self.quit_requested_index == self.current_update_index
+            Gesture::QuitTrigger => self.quit_requested_index == self.current_update_index,
+            Gesture::KeyHold(code) => {
+                match self.keyboard_state[code as usize] {
+                    ButtonState::Down(_) => true,
+                    _ => false,
+                }
             }
-            Gesture::KeyHold(code) => match self.keyboard_state[code as usize] {
-                ButtonState::Down(_) => true,
-                _ => false,
-            },
-            Gesture::KeyTrigger(code) => match self.keyboard_state[code as usize] {
-                ButtonState::Down(index) => self.current_update_index == index,
-                _ => false,
-            },
+            Gesture::KeyTrigger(code) => {
+                match self.keyboard_state[code as usize] {
+                    ButtonState::Down(index) => self.current_update_index == index,
+                    _ => false,
+                }
+            }
             Gesture::AnyOf(ref subs) => {
                 for subgesture in subs.iter() {
                     if self.poll_gesture(subgesture) {
@@ -131,21 +141,27 @@ impl GameController {
 
     pub fn poll_analog2d(&self, motion: &Analog2d) -> Vec2f {
         match *motion {
-            Analog2d::Sum(ref analogs) => analogs.iter()
-                                                 .map(|analog| self.poll_analog2d(analog))
-                                                 .fold(Vec2f::zero(), |x, y| x + y),
-            Analog2d::Mouse(sensitivity) => self.mouse_rel * sensitivity,
-            Analog2d::Gestures(ref xpos, ref xneg, ref ypos, ref yneg, step) => {
-                Vec2f::new(if self.poll_gesture(xpos) {
+            Analog2d::Sum { ref analogs } => {
+                analogs.iter()
+                       .map(|analog| self.poll_analog2d(analog))
+                       .fold(Vec2f::zero(), |x, y| x + y)
+            }
+            Analog2d::Mouse { sensitivity } => self.mouse_rel * sensitivity,
+            Analog2d::Gestures { ref x_positive,
+                                 ref x_negative,
+                                 ref y_positive,
+                                 ref y_negative,
+                                 step } => {
+                Vec2f::new(if self.poll_gesture(x_positive) {
                                step
-                           } else if self.poll_gesture(xneg) {
+                           } else if self.poll_gesture(x_negative) {
                                -step
                            } else {
                                0.0
                            },
-                           if self.poll_gesture(ypos) {
+                           if self.poll_gesture(y_positive) {
                                step
-                           } else if self.poll_gesture(yneg) {
+                           } else if self.poll_gesture(y_negative) {
                                -step
                            } else {
                                0.0

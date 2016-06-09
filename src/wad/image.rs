@@ -289,7 +289,7 @@ impl<S> ToError for Option<S> {
     type Success = S;
 
     fn to_err(self, message: &'static str) -> Result<Self::Success, ImageError> {
-        self.ok_or(ImageError(Cow::Borrowed(message)))
+        self.ok_or_else(|| ImageError(Cow::Borrowed(message)))
     }
 
     fn to_err_with<F: FnOnce() -> String>(self, with: F) -> Result<Self::Success, ImageError> {

@@ -65,9 +65,7 @@ impl Sphere {
         }
 
         // Sphere against edges.
-        for i in 0..3 {
-            let e1 = triangle[i];
-            let e2 = triangle[(i + 1) % 3];
+        for (&e1, &e2) in triangle.iter().zip(triangle.iter().skip(1).chain(Some(&triangle[0]))) {
             let edge = e2 - e1;
             let edge_normal = nvel.cross(edge).normalized();
             let edge_intercept = -edge_normal.dot(&e1);
@@ -174,8 +172,5 @@ fn is_point_inside_triangle(verts: &[Vec3f; 3], point: &Vec3f) -> bool {
     let beta = w.cross(v).dot(&n) / n2;
     let alpha = 1.0 - gamma - beta;
 
-    let a = 0.0;
-    let b = 1.0 - a;
-
-    a <= alpha && alpha <= b && a <= gamma && gamma <= b && a <= beta && beta <= b
+    0.0 <= alpha && alpha <= 1.0 && 0.0 <= gamma && gamma <= 1.0 && 0.0 <= beta && beta <= 1.0
 }

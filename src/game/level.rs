@@ -1,12 +1,13 @@
 use gfx::{Scene, SceneBuilder};
-use math::{Vec2f, Vec3f};
+use math::Vec3f;
 use num::Zero;
 use std::error::Error;
 use super::lights::LightBuffer;
 use super::world::World;
 use wad::Archive;
 use wad::Level as WadLevel;
-use wad::{LevelVisitor, LevelWalker, LightInfo, Marker};
+use wad::{Decor, LevelVisitor, LevelWalker, LightInfo, Marker, SkyPoly, SkyQuad, StaticPoly};
+use wad::StaticQuad;
 use wad::{SkyMetadata, TextureDirectory, WadMetadata};
 use wad::tex::BoundsLookup;
 use wad::tex::{OpaqueImage, TransparentImage};
@@ -195,15 +196,16 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
 
 impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
     // TODO(cristicbz): Change some types here and unify as much as possible.
-    fn visit_wall_quad(&mut self,
-                       &(ref v1, ref v2): &(Vec2f, Vec2f),
-                       (s1, t1): (f32, f32),
-                       (s2, t2): (f32, f32),
-                       (low, high): (f32, f32),
-                       light_info: &LightInfo,
-                       scroll: f32,
-                       tex_name: Option<&WadName>,
-                       _blocking: bool) {
+    fn visit_wall_quad(&mut self, quad: &StaticQuad) {
+        let &StaticQuad { tex_name,
+                          light_info,
+                          scroll,
+                          vertices: &(ref v1, ref v2),
+                          height_range: (low, high),
+                          tex_start: (s1, t1),
+                          tex_end: (s2, t2),
+                          .. } = quad;
+
         let tex_name = if let Some(tex_name) = tex_name {
             tex_name
         } else {
@@ -227,10 +229,7 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
     }
 
     fn visit_floor_poly(&mut self,
-                        points: &[Vec2f],
-                        height: f32,
-                        light_info: &LightInfo,
-                        tex_name: &WadName) {
+                        &StaticPoly { vertices, height, light_info, tex_name }: &StaticPoly) {
         let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name) {
             bounds
         } else {
@@ -238,9 +237,8 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             return;
         };
         let light_info = self.add_light_info(light_info);
-        let v0 = points[0];
-        for i in 2..points.len() {
-            let (v1, v2) = (points[i - 1], points[i]);
+        let v0 = vertices[0];
+        for (v1, v2) in vertices.iter().zip(vertices.iter().skip(1)) {
             self.scene
                 .flats_buffer()
                 .push(&v0, height, light_info, bounds)
@@ -250,10 +248,7 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
     }
 
     fn visit_ceil_poly(&mut self,
-                       points: &[Vec2f],
-                       height: f32,
-                       light_info: &LightInfo,
-                       tex_name: &WadName) {
+                       &StaticPoly { vertices, height, light_info, tex_name }: &StaticPoly) {
         let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name) {
             bounds
         } else {
@@ -261,9 +256,8 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             return;
         };
         let light_info = self.add_light_info(light_info);
-        let v0 = points[0];
-        for i in 2..points.len() {
-            let (v1, v2) = (points[i - 1], points[i]);
+        let v0 = vertices[0];
+        for (v1, v2) in vertices.iter().zip(vertices.iter().skip(1)) {
             self.scene
                 .flats_buffer()
                 .push(&v2, height, light_info, bounds)
@@ -272,23 +266,22 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         }
     }
 
-    fn visit_floor_sky_poly(&mut self, points: &[Vec2f], height: f32) {
-        let v0 = points[0];
-        for i in 1..points.len() {
-            let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
+    fn visit_floor_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
+        let v0 = vertices[0];
+        for (v1, v2) in vertices.iter().skip(1).zip(vertices.iter().skip(2)) {
             self.scene.sky_buffer().push(&v0, height).push(&v1, height).push(&v2, height);
         }
     }
 
-    fn visit_ceil_sky_poly(&mut self, points: &[Vec2f], height: f32) {
-        let v0 = points[0];
-        for i in 1..points.len() {
-            let (v1, v2) = (points[i], points[(i + 1) % points.len()]);
+    fn visit_ceil_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
+        let v0 = vertices[0];
+        for (v1, v2) in vertices.iter().skip(1).zip(vertices.iter().skip(2)) {
             self.scene.sky_buffer().push(&v2, height).push(&v1, height).push(&v0, height);
         }
     }
 
-    fn visit_sky_quad(&mut self, &(ref v1, ref v2): &(Vec2f, Vec2f), (low, high): (f32, f32)) {
+    fn visit_sky_quad(&mut self, quad: &SkyQuad) {
+        let &SkyQuad { vertices: &(ref v1, ref v2), height_range: (low, high) } = quad;
         self.scene
             .sky_buffer()
             .push(v1, low)
@@ -300,18 +293,12 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
     }
 
     fn visit_marker(&mut self, pos: Vec3f, marker: Marker) {
-        match marker {
-            Marker::StartPos { player: 0 } => *self.start_pos = pos + Vec3f::new(0.0, 0.5, 0.0),
-            _ => {}
+        if let Marker::StartPos { player: 0 } = marker {
+            *self.start_pos = pos + Vec3f::new(0.0, 0.5, 0.0)
         }
     }
 
-    fn visit_decor(&mut self,
-                   low: &Vec3f,
-                   high: &Vec3f,
-                   half_width: f32,
-                   light_info: &LightInfo,
-                   tex_name: &WadName) {
+    fn visit_decor(&mut self, &Decor { low, high, half_width, light_info, tex_name }: &Decor) {
         let light_info = self.add_light_info(light_info);
         let bounds = if let Some(bounds) = self.bounds.decors.get(tex_name) {
             bounds

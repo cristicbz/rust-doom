@@ -1,5 +1,5 @@
 use regex::Regex;
-use rustc_serialize::{Decodable, Encodable};
+use rustc_serialize::Decodable;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;

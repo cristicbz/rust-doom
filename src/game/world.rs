@@ -1,8 +1,7 @@
-use math::{Line2f, Vec2f, Vec3f, Vector, ContactInfo, Sphere};
+use math::{ContactInfo, Line2f, Sphere, Vec2f, Vec3f, Vector};
 use num::Zero;
-use std::{i32, f32};
-use wad::types::WadName;
-use wad::{LevelVisitor, LightInfo, Branch};
+use std::{f32, i32};
+use wad::{Branch, LevelVisitor, SkyPoly, SkyQuad, StaticPoly, StaticQuad};
 use std::cell::RefCell;
 
 
@@ -110,16 +109,22 @@ impl World {
     }
 }
 
+impl Default for World {
+    fn default() -> Self {
+        World::new()
+    }
+}
+
 impl LevelVisitor for World {
     fn visit_bsp_root(&mut self, line: &Line2f) {
         let index = self.nodes.len();
-        self.nodes.push(Node::new(line.clone()));
+        self.nodes.push(Node::new(*line));
         self.node_stack.borrow_mut().push(index);
     }
 
     fn visit_bsp_node(&mut self, line: &Line2f, branch: Branch) {
         let index = self.nodes.len();
-        self.nodes.push(Node::new(line.clone()));
+        self.nodes.push(Node::new(*line));
         self.link_child(Child::Node(index), branch);
         self.node_stack.borrow_mut().push(index);
     }
@@ -142,47 +147,42 @@ impl LevelVisitor for World {
         self.node_stack.borrow_mut().pop().expect("too many calls to visit_bsp_node_end");
     }
 
-    fn visit_floor_sky_poly(&mut self, points: &[Vec2f], height: f32) {
-        self.add_polygon(points.iter().map(|v| Vec3f::new(v[0], height, v[1])),
+    fn visit_floor_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
+        self.add_polygon(vertices.iter().map(|v| Vec3f::new(v[0], height, v[1])),
                          Vec3f::new(0.0, 1.0, 0.0));
     }
 
-    fn visit_ceil_sky_poly(&mut self, points: &[Vec2f], height: f32) {
-        self.add_polygon(points.iter().rev().map(|v| Vec3f::new(v[0], height, v[1])),
+    fn visit_ceil_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
+        self.add_polygon(vertices.iter().rev().map(|v| Vec3f::new(v[0], height, v[1])),
                          Vec3f::new(0.0, -1.0, 0.0));
     }
 
-    fn visit_floor_poly(&mut self,
-                        points: &[Vec2f],
-                        height: f32,
-                        _light_info: &LightInfo,
-                        _tex_name: &WadName) {
-        self.visit_floor_sky_poly(points, height);
+    fn visit_floor_poly(&mut self, &StaticPoly { vertices, height, .. }: &StaticPoly) {
+        self.visit_floor_sky_poly(&SkyPoly {
+            vertices: vertices,
+            height: height,
+        });
     }
 
-    fn visit_ceil_poly(&mut self,
-                       points: &[Vec2f],
-                       height: f32,
-                       _light_info: &LightInfo,
-                       _tex_name: &WadName) {
-        self.visit_ceil_sky_poly(points, height);
+    fn visit_ceil_poly(&mut self, &StaticPoly { vertices, height, .. }: &StaticPoly) {
+        self.visit_ceil_sky_poly(&SkyPoly {
+            vertices: vertices,
+            height: height,
+        });
     }
 
     fn visit_wall_quad(&mut self,
-                       verts: &(Vec2f, Vec2f),
-                       _tex_start: (f32, f32),
-                       _tex_end: (f32, f32),
-                       height_range: (f32, f32),
-                       _light_info: &LightInfo,
-                       _scroll: f32,
-                       _tex_name: Option<&WadName>,
-                       blocking: bool) {
-        if blocking {
-            self.visit_sky_quad(verts, height_range);
+                       &StaticQuad { vertices, height_range, blocker, .. }: &StaticQuad) {
+        if blocker {
+            self.visit_sky_quad(&SkyQuad {
+                vertices: vertices,
+                height_range: height_range,
+            });
         }
     }
 
-    fn visit_sky_quad(&mut self, &(ref v1, ref v2): &(Vec2f, Vec2f), (low, high): (f32, f32)) {
+    fn visit_sky_quad(&mut self, quad: &SkyQuad) {
+        let &SkyQuad { vertices: &(ref v1, ref v2), height_range: (low, high) } = quad;
         let edge = (*v2 - *v1).normalized();
         let normal = Vec3f::new(-edge[1], 0.0, edge[0]);
         self.add_polygon(Some(Vec3f::new(v1[0], low, v1[1]))
@@ -279,4 +279,4 @@ impl Node {
 }
 
 type NodeIntersectIter = ::std::iter::Chain<::std::option::IntoIter<Child>,
-                                            ::std::option::IntoIter<Child>>;
+                                              ::std::option::IntoIter<Child>>;

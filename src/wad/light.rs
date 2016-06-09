@@ -1,5 +1,6 @@
 use super::level::Level;
 use super::types::{LightLevel, SectorType, WadSector};
+use std::f32::EPSILON;
 
 #[derive(PartialEq, Clone)]
 pub struct LightInfo {
@@ -29,7 +30,7 @@ pub fn new_light(level: &Level, sector: &WadSector) -> LightInfo {
         FLASH | FAST_STROBE_1 | FAST_STROBE_2 | FAST_STROBE_SYNC | SLOW_STROBE |
         SLOW_STROBE_SYNC | GLOW | FLICKER => {
             let alt_level = light_to_f32(level.sector_min_light(sector));
-            if alt_level == base_level {
+            if (alt_level - base_level).abs() < EPSILON {
                 return LightInfo {
                     level: base_level,
                     effect: None,

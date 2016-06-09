@@ -7,7 +7,7 @@ use super::vector::Vec3f;
 pub type Scalar = f32;
 
 /// A 4x4 matrix type stored in column-major order for interoperability with
-/// OpenGL.
+/// `OpenGL`.
 ///
 /// Supports the creation of isometries and projections in homogenous
 /// coordinates.  In terms of operations, only transposition and multiplication

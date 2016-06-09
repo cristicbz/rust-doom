@@ -25,7 +25,7 @@ use super::window::Window;
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct TextId(usize);
 
-/// Handles rendering of debug text to OpenGL
+/// Handles rendering of debug text to `OpenGL`.
 pub struct TextRenderer {
     font: Font,
     slab: Slab<Text, usize>,
