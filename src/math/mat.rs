@@ -1,4 +1,3 @@
-use num::Float;
 use std::fmt;
 use std::ops::{Add, Index, IndexMut, Mul, Sub};
 use super::vector::Vec3f;

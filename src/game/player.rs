@@ -1,5 +1,5 @@
 use math::{Sphere, Vec3f, Vector};
-use num::{Float, Zero};
+use num::Zero;
 use sdl2::keyboard::Scancode;
 use super::camera::Camera;
 use super::ctrl::{Analog2d, Gesture};
