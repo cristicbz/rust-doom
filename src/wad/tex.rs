@@ -1,6 +1,6 @@
 use gfx::Bounds;
 use math::{Vec2, Vec2f};
-use num::{Float, Zero};
+use num::Zero;
 use std::cmp;
 use std::collections::BTreeMap;
 use std::mem;
