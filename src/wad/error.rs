@@ -1,13 +1,12 @@
+use super::image::ImageError;
+use super::name::WadName;
 use std::error::Error as StdError;
 use std::fmt::{Display, Formatter};
 use std::fmt::Result as FmtResult;
 use std::io::Error as IoError;
 use std::path::{Path, PathBuf};
 use std::result::Result as StdResult;
-use super::image::ImageError;
-use super::name::WadName;
-use toml::DecodeError as TomlDecodeError;
-use toml::ParserError as TomlParserError;
+use toml::de::Error as TomlDecodeError;
 
 pub type Result<T> = StdResult<T, Error>;
 
@@ -40,7 +39,6 @@ pub enum ErrorKind {
     MissingRequiredLump(String),
     // MissingRequiredPatch(WadName, WadName),
     BadMetadataSchema(TomlDecodeError),
-    BadMetadataSyntax(Vec<TomlParserError>),
     BadImage(WadName, ImageError),
 }
 
@@ -53,7 +51,6 @@ impl ErrorKind {
             ErrorKind::MissingRequiredLump(..) => "missing required lump",
             // ErrorKind::MissingRequiredPatch(..) => "missing required patch",
             ErrorKind::BadMetadataSchema(..) => "invalid data in metadata",
-            ErrorKind::BadMetadataSyntax(..) => "TOML syntax error in metadata",
             ErrorKind::BadImage(..) => "Bad image",
         }
     }
@@ -71,7 +68,6 @@ impl Display for ErrorKind {
             //    write!(fmt, "{} ({}, required by {})", desc, patch, texture)
             // },
             ErrorKind::BadMetadataSchema(ref err) => write!(fmt, "{}: {}", desc, err),
-            ErrorKind::BadMetadataSyntax(ref errors) => write!(fmt, "{}: {:?}", desc, errors),
             ErrorKind::BadImage(ref name, ref inner) => {
                 write!(fmt, "{}: in {}: {}", desc, name, inner)
             }

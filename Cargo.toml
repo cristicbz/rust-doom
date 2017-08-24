@@ -1,27 +1,28 @@
 [package]
 authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 name = "rs_doom"
-version = "0.0.7"
+version = "0.0.8"
 
 [[bin]]
 name = "rs_doom"
 
 [dependencies]
-byteorder = "0.5.1"
-env_logger = "0.3.3"
+byteorder = "1.1.0"
+env_logger = "0.4.3"
 getopts = "0.2.14"
 lazy_static = "0.2.0"
 libc = "0.2.10"
 log = "0.3.6"
 num = "0.1.32"
-regex = "0.1.66"
-rustc-serialize = "0.3.19"
-sdl2 = "0.18.0"
-slab = "0.1.3"
+regex = "0.2.2"
+sdl2 = { version="0.30.0", features=["ttf"] }
+slab = "0.4.0"
 time = "0.1.35"
-toml = "0.1.28"
-vec_map = "0.6.0"
-glium = "0.14.0"
+toml = "0.4.5"
+vec_map = "0.8.0"
+glium = "0.17.0"
+serde ="1.0"
+serde_derive ="1.0"
 
 # Because both `glium_sdl2` and `sdl2_ttf` depend on `sdl2` and all three
 # libraries are pre 1.0, I provide branches of these dependencies that are
@@ -32,9 +33,4 @@ glium = "0.14.0"
 # glium_sdl2 = "0.12.0"
 [dependencies.glium_sdl2]
 git = "https://github.com/cristicbz/glium-sdl2"
-branch = "for-rust-doom"
-
-# sdl2_ttf = "0.16.2"
-[dependencies.sdl2_ttf]
-git = "https://github.com/cristicbz/rust-sdl2_ttf"
 branch = "for-rust-doom"

@@ -1,9 +1,9 @@
 use math::Vec2f;
 use num::Zero;
+use sdl2::{EventPump, Sdl};
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
-use sdl2::mouse::{Mouse, MouseUtil};
-use sdl2::{EventPump, Sdl};
+use sdl2::mouse::MouseUtil;
 use std::vec::Vec;
 
 pub type Sensitivity = f32;
@@ -12,8 +12,8 @@ pub enum Gesture {
     NoGesture,
     KeyHold(Scancode),
     KeyTrigger(Scancode),
-    ButtonHold(Mouse),
-    ButtonTrigger(Mouse),
+    //ButtonHold(Mouse),
+    //ButtonTrigger(Mouse),
     AnyOf(Vec<Gesture>),
     AllOf(Vec<Gesture>),
     QuitTrigger,
@@ -22,9 +22,7 @@ pub enum Gesture {
 pub enum Analog2d {
     NoAnalog2d,
 
-    Mouse {
-        sensitivity: Sensitivity,
-    },
+    Mouse { sensitivity: Sensitivity },
 
     Gestures {
         x_positive: Gesture,
@@ -34,9 +32,7 @@ pub enum Analog2d {
         step: Sensitivity,
     },
 
-    Sum {
-        analogs: Vec<Analog2d>,
-    },
+    Sum { analogs: Vec<Analog2d> },
 }
 
 pub struct GameController {
@@ -91,7 +87,11 @@ impl GameController {
                     self.keyboard_state[scancode as usize] =
                         ButtonState::Up(self.current_update_index);
                 }
-                Event::MouseMotion { xrel: x_relative, yrel: y_relative, .. } => {
+                Event::MouseMotion {
+                    xrel: x_relative,
+                    yrel: y_relative,
+                    ..
+                } => {
                     if self.mouse_enabled {
                         self.mouse_rel = Vec2f::new(x_relative as f32, y_relative as f32);
                     } else {
@@ -135,37 +135,41 @@ impl GameController {
                 true
             }
             Gesture::NoGesture => false,
-            _ => panic!("Unimplemented gesture type."),
         }
     }
 
     pub fn poll_analog2d(&self, motion: &Analog2d) -> Vec2f {
         match *motion {
             Analog2d::Sum { ref analogs } => {
-                analogs.iter()
-                       .map(|analog| self.poll_analog2d(analog))
-                       .fold(Vec2f::zero(), |x, y| x + y)
+                analogs
+                    .iter()
+                    .map(|analog| self.poll_analog2d(analog))
+                    .fold(Vec2f::zero(), |x, y| x + y)
             }
             Analog2d::Mouse { sensitivity } => self.mouse_rel * sensitivity,
-            Analog2d::Gestures { ref x_positive,
-                                 ref x_negative,
-                                 ref y_positive,
-                                 ref y_negative,
-                                 step } => {
-                Vec2f::new(if self.poll_gesture(x_positive) {
-                               step
-                           } else if self.poll_gesture(x_negative) {
-                               -step
-                           } else {
-                               0.0
-                           },
-                           if self.poll_gesture(y_positive) {
-                               step
-                           } else if self.poll_gesture(y_negative) {
-                               -step
-                           } else {
-                               0.0
-                           })
+            Analog2d::Gestures {
+                ref x_positive,
+                ref x_negative,
+                ref y_positive,
+                ref y_negative,
+                step,
+            } => {
+                Vec2f::new(
+                    if self.poll_gesture(x_positive) {
+                        step
+                    } else if self.poll_gesture(x_negative) {
+                        -step
+                    } else {
+                        0.0
+                    },
+                    if self.poll_gesture(y_positive) {
+                        step
+                    } else if self.poll_gesture(y_negative) {
+                        -step
+                    } else {
+                        0.0
+                    },
+                )
             }
             Analog2d::NoAnalog2d => Vec2f::zero(),
         }
