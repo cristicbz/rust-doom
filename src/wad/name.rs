@@ -1,4 +1,6 @@
-use rustc_serialize::{Decodable, Decoder, Encodable, Encoder};
+use super::error::{ErrorKind, Result};
+use super::read::{WadRead, WadReadFrom};
+use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use std::ascii::AsciiExt;
 use std::borrow::Borrow;
 use std::fmt;
@@ -8,8 +10,6 @@ use std::io::Read;
 use std::ops::Deref;
 use std::result::Result as StdResult;
 use std::str::{self, FromStr};
-use super::error::{ErrorKind, Result};
-use super::read::{WadRead, WadReadFrom};
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct WadName([u8; 8]);
@@ -28,7 +28,9 @@ impl WadName {
         for (dest, src) in name.iter_mut().zip(value.iter()) {
             if !src.is_ascii() {
                 debug!("Bailed on non-ascii {}", src);
-                return Err(ErrorKind::BadWadName(value.iter().cloned().collect()).into());
+                return Err(
+                    ErrorKind::BadWadName(value.iter().cloned().collect()).into(),
+                );
             }
 
             let new_byte = match src.to_ascii_uppercase() {
@@ -40,17 +42,23 @@ impl WadName {
                 }
                 b => {
                     debug!("Bailed on ascii {}", b);
-                    return Err(ErrorKind::BadWadName(value.iter().cloned().collect()).into());
+                    return Err(
+                        ErrorKind::BadWadName(value.iter().cloned().collect()).into(),
+                    );
                 }
             };
             *dest = new_byte;
         }
         if !nulled && value.len() > 8 {
-            debug!("Bailed on '{:?}' {} {}",
-                   str::from_utf8(value),
-                   value.len(),
-                   !nulled);
-            Err(ErrorKind::BadWadName(value.iter().cloned().collect()).into())
+            debug!(
+                "Bailed on '{:?}' {} {}",
+                str::from_utf8(value),
+                value.len(),
+                !nulled
+            );
+            Err(
+                ErrorKind::BadWadName(value.iter().cloned().collect()).into(),
+            )
         } else {
             Ok(WadName(name))
         }
@@ -71,37 +79,49 @@ impl Display for WadName {
 }
 impl Debug for WadName {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter,
-               "WadName({:?})",
-               str::from_utf8(&self[..]).unwrap())
-    }
-}
-impl Encodable for WadName {
-    fn encode<S: Encoder>(&self, encoder: &mut S) -> StdResult<(), <S as Encoder>::Error> {
-        str::from_utf8(&self[..]).unwrap().encode(encoder)
+        write!(
+            formatter,
+            "WadName({:?})",
+            str::from_utf8(&self[..]).unwrap()
+        )
     }
 }
 
-impl Decodable for WadName {
-    fn decode<S: Decoder>(decoder: &mut S) -> StdResult<WadName, <S as Decoder>::Error> {
-        decoder.read_str()
-               .and_then(|s| {
-                   WadName::from_str(&s).map_err(|_| decoder.error("Could not decode WadName."))
-               })
+impl<'de> Deserialize<'de> for WadName {
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(
+            WadName::from_str(<&'de str>::deserialize(deserializer)?).unwrap(),
+        )
+    }
+}
+
+impl Serialize for WadName {
+    fn serialize<S>(&self, serializer: S) -> StdResult<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        str::from_utf8(&self[..]).unwrap().serialize(serializer)
     }
 }
 
 impl WadReadFrom for WadName {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         let bytes = try!(reader.wad_read::<u64>());
-        WadName::from_bytes(&[(bytes & 0xff) as u8,
-                              ((bytes >> 8) & 0xff) as u8,
-                              ((bytes >> 16) & 0xff) as u8,
-                              ((bytes >> 24) & 0xff) as u8,
-                              ((bytes >> 32) & 0xff) as u8,
-                              ((bytes >> 40) & 0xff) as u8,
-                              ((bytes >> 48) & 0xff) as u8,
-                              ((bytes >> 56) & 0xff) as u8])
+        WadName::from_bytes(
+            &[
+                (bytes & 0xff) as u8,
+                ((bytes >> 8) & 0xff) as u8,
+                ((bytes >> 16) & 0xff) as u8,
+                ((bytes >> 24) & 0xff) as u8,
+                ((bytes >> 32) & 0xff) as u8,
+                ((bytes >> 40) & 0xff) as u8,
+                ((bytes >> 48) & 0xff) as u8,
+                ((bytes >> 56) & 0xff) as u8,
+            ],
+        )
     }
 }
 
@@ -132,8 +152,10 @@ mod test {
     fn test_wad_name() {
         assert_eq!(&WadName::from_str("").unwrap(), b"\0\0\0\0\0\0\0\0");
         assert_eq!(&WadName::from_str("\0").unwrap(), b"\0\0\0\0\0\0\0\0");
-        assert_eq!(&WadName::from_str("\01234567").unwrap(),
-                   b"\0\0\0\0\0\0\0\0");
+        assert_eq!(
+            &WadName::from_str("\01234567").unwrap(),
+            b"\0\0\0\0\0\0\0\0"
+        );
         assert_eq!(&WadName::from_str("A").unwrap(), b"A\0\0\0\0\0\0\0");
         assert_eq!(&WadName::from_str("1234567").unwrap(), b"1234567\0");
         assert_eq!(&WadName::from_str("12345678").unwrap(), b"12345678");

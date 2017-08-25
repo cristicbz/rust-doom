@@ -1,3 +1,4 @@
+use super::window::Window;
 use glium::{Blend, Surface, VertexBuffer};
 use glium::{DrawParameters, Program};
 use glium::Frame;
@@ -9,9 +10,7 @@ use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::BlendMode;
 use sdl2::surface::Surface as SdlSurface;
-use sdl2_ttf as ttf;
-use sdl2_ttf::Font;
-use sdl2_ttf::Sdl2TtfContext;
+use sdl2::ttf::{self, Font, Sdl2TtfContext};
 use slab::Slab;
 use std::borrow::Cow;
 use std::cmp;
@@ -19,7 +18,6 @@ use std::error::Error as StdError;
 use std::fmt::{Display, Formatter};
 use std::fmt::Result as FmtResult;
 use std::ops::{Index, IndexMut};
-use super::window::Window;
 
 /// A handle to a piece of text created with a `TextRenderer`.
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -27,8 +25,8 @@ pub struct TextId(usize);
 
 /// Handles rendering of debug text to `OpenGL`.
 pub struct TextRenderer {
-    font: Font,
-    slab: Slab<Text, usize>,
+    font: Font<'static, 'static>,
+    slab: Slab<Text>,
     program: Program,
     draw_params: DrawParameters<'static>,
 }
@@ -36,8 +34,8 @@ pub struct TextRenderer {
 impl TextRenderer {
     pub fn new(win: &Window) -> Result<TextRenderer, Error> {
         Ok(TextRenderer {
-            font: CONTEXT.load_font(FONT_PATH.as_ref(), POINT_SIZE).unwrap(),
-            slab: Slab::new(MAX_TEXT),
+            font: CONTEXT.load_font(FONT_PATH, POINT_SIZE).unwrap(),
+            slab: Slab::new(),
             program: Program::from_source(win.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
             draw_params: DrawParameters {
                 blend: Blend::alpha_blending(),
@@ -49,29 +47,35 @@ impl TextRenderer {
     pub fn insert(&mut self, win: &Window, text: &str, pos: Vec2f, padding: u32) -> TextId {
         let surface = self.text_to_surface(text, padding).unwrap();
         let texture = surface.with_lock(|pixels| {
-            Texture2d::new(win.facade(),
-                           RawImage2d {
-                               data: Cow::Borrowed(pixels),
-                               width: surface.width(),
-                               height: surface.height(),
-                               format: ClientFormat::U8U8U8U8,
-                           })
-                .unwrap()
+            Texture2d::new(
+                win.facade(),
+                RawImage2d {
+                    data: Cow::Borrowed(pixels),
+                    width: surface.width(),
+                    height: surface.height(),
+                    format: ClientFormat::U8U8U8U8,
+                },
+            ).unwrap()
         });
-        let (w, h) = (surface.width() as f32 / win.width() as f32 * 2.0,
-                      surface.height() as f32 / win.height() as f32 * 2.0);
+        let (w, h) = (
+            surface.width() as f32 / win.width() as f32 * 2.0,
+            surface.height() as f32 / win.height() as f32 * 2.0,
+        );
         let (x, y) = (pos[0] * 2.0 - 1.0, 1.0 - pos[1] * 2.0 - h);
         let text = Text {
-            buffer: VertexBuffer::immutable(win.facade(),
-                                            &[vertex(x, y, 0.0, 1.0),
-                                              vertex(x, y + h, 0.0, 0.0),
-                                              vertex(x + w, y, 1.0, 1.0),
-                                              vertex(x + w, y + h, 1.0, 0.0)])
-                        .unwrap(),
+            buffer: VertexBuffer::immutable(
+                win.facade(),
+                &[
+                    vertex(x, y, 0.0, 1.0),
+                    vertex(x, y + h, 0.0, 0.0),
+                    vertex(x + w, y, 1.0, 1.0),
+                    vertex(x + w, y + h, 1.0, 0.0),
+                ],
+            ).unwrap(),
             texture: texture,
             visible: true,
         };
-        TextId(self.slab.insert(text).ok().expect("too many text objects."))
+        TextId(self.slab.insert(text))
     }
 
     pub fn text(&self, id: TextId) -> Option<&Text> {
@@ -83,44 +87,55 @@ impl TextRenderer {
     }
 
     pub fn render(&self, frame: &mut Frame) -> Result<(), Error> {
-        for text in &self.slab {
+        for (_, text) in &self.slab {
             if !text.visible {
                 continue;
             }
-            let uniforms = uniform! {
+            let uniforms =
+                uniform! {
                 u_tex: &text.texture,
             };
-            frame.draw(&text.buffer,
-                       NoIndices(PrimitiveType::TriangleStrip),
-                       &self.program,
-                       &uniforms,
-                       &self.draw_params)
-                 .unwrap();
+            frame
+                .draw(
+                    &text.buffer,
+                    NoIndices(PrimitiveType::TriangleStrip),
+                    &self.program,
+                    &uniforms,
+                    &self.draw_params,
+                )
+                .unwrap();
         }
         Ok(())
     }
 
     fn text_to_surface(&self, text: &str, padding: u32) -> Result<SdlSurface<'static>, Error> {
         let wrap_length = text.lines()
-                              .filter_map(|line| self.font.size_of(line).ok())
-                              .map(|size| size.0)
-                              .fold(0, cmp::max) + 10;
+            .filter_map(|line| self.font.size_of(line).ok())
+            .map(|size| size.0)
+            .fold(0, cmp::max) + 10;
         let mut text = self.font
-                           .render(text)
-                           .blended_wrapped(Color::RGBA(255, 255, 255, 255), wrap_length)
-                           .unwrap();
-        let mut surface = SdlSurface::new(text.width() + padding * 2,
-                                          text.height() + padding * 2,
-                                          PixelFormatEnum::ARGB8888)
-                              .unwrap();
+            .render(text)
+            .blended_wrapped(Color::RGBA(255, 255, 255, 255), wrap_length)
+            .unwrap();
+        let mut surface = SdlSurface::new(
+            text.width() + padding * 2,
+            text.height() + padding * 2,
+            PixelFormatEnum::ARGB8888,
+        ).unwrap();
         surface.set_blend_mode(BlendMode::None).unwrap();
         surface.fill_rect(None, Color::RGBA(0, 0, 0, 128)).unwrap();
         surface.set_blend_mode(BlendMode::Blend).unwrap();
         text.set_blend_mode(BlendMode::Blend).unwrap();
-        text.blit(None,
-                  &mut surface,
-                  Some(Rect::new(padding as i32, padding as i32, text.width(), text.height())))
-            .unwrap();
+        text.blit(
+            None,
+            &mut surface,
+            Some(Rect::new(
+                padding as i32,
+                padding as i32,
+                text.width(),
+                text.height(),
+            )),
+        ).unwrap();
         Ok(surface)
     }
 }
@@ -181,9 +196,6 @@ const FONT_PATH: &'static str = "ttf/OpenSans-Regular.ttf";
 
 /// Hard-coded font size.
 const POINT_SIZE: u16 = 18;
-
-/// Hard-coded maximum number of `Text objects`.
-const MAX_TEXT: usize = 32;
 
 const VERTEX_SRC: &'static str = r#"
     #version 140

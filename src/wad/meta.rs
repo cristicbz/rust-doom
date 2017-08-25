@@ -1,15 +1,13 @@
-use regex::Regex;
-use rustc_serialize::Decodable;
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
-use super::error::ErrorKind::BadMetadataSyntax;
 use super::error::{InFile, Result};
 use super::name::WadName;
 use super::types::ThingType;
-use toml::{Decoder, Parser, Value};
+use regex::Regex;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
+use toml;
 
-#[derive(Debug, RustcDecodable, RustcEncodable)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SkyMetadata {
     pub texture_name: WadName,
     pub level_pattern: String,
@@ -17,14 +15,14 @@ pub struct SkyMetadata {
 }
 
 
-#[derive(Debug, RustcDecodable, RustcEncodable)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AnimationMetadata {
     pub flats: Vec<Vec<WadName>>,
     pub walls: Vec<Vec<WadName>>,
 }
 
 
-#[derive(Debug, RustcDecodable, RustcEncodable)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ThingMetadata {
     pub thing_type: ThingType,
     pub sprite: String,
@@ -34,7 +32,7 @@ pub struct ThingMetadata {
 }
 
 
-#[derive(Debug, RustcDecodable, RustcEncodable)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ThingDirectoryMetadata {
     pub decorations: Vec<ThingMetadata>,
     pub weapons: Vec<ThingMetadata>,
@@ -46,7 +44,7 @@ pub struct ThingDirectoryMetadata {
 }
 
 
-#[derive(Debug, RustcDecodable, RustcEncodable)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct WadMetadata {
     pub sky: Vec<SkyMetadata>,
     pub animations: AnimationMetadata,
@@ -61,12 +59,7 @@ impl WadMetadata {
     }
 
     pub fn from_text(text: &str) -> Result<WadMetadata> {
-        let mut parser = Parser::new(text);
-        parser.parse()
-              .ok_or_else(move || BadMetadataSyntax(parser.errors).into())
-              .and_then(|value| {
-                  Decodable::decode(&mut Decoder::new(Value::Table(value))).map_err(|e| e.into())
-              })
+        Ok(toml::from_str(text)?)
     }
 
     pub fn sky_for(&self, name: &WadName) -> Option<&SkyMetadata> {
@@ -76,22 +69,24 @@ impl WadMetadata {
                 Regex::new(&sky.level_pattern)
                     .map(|r| r.is_match(name.as_ref()))
                     .unwrap_or_else(|_| {
-                        warn!("Invalid level pattern {} for sky {}.",
-                              sky.level_pattern,
-                              sky.texture_name);
+                        warn!(
+                            "Invalid level pattern {} for sky {}.",
+                            sky.level_pattern,
+                            sky.texture_name
+                        );
                         false
                     })
             })
-            .or_else(|| {
-                if let Some(sky) = self.sky.get(0) {
-                    warn!("No sky found for level {}, using {}.",
-                          name,
-                          sky.texture_name);
-                    Some(sky)
-                } else {
-                    error!("No sky metadata provided.");
-                    None
-                }
+            .or_else(|| if let Some(sky) = self.sky.get(0) {
+                warn!(
+                    "No sky found for level {}, using {}.",
+                    name,
+                    sky.texture_name
+                );
+                Some(sky)
+            } else {
+                error!("No sky metadata provided.");
+                None
             })
     }
 
@@ -100,12 +95,32 @@ impl WadMetadata {
             .decorations
             .iter()
             .find(|t| t.thing_type == thing_type)
-            .or_else(|| self.things.weapons.iter().find(|t| t.thing_type == thing_type))
-            .or_else(|| self.things.powerups.iter().find(|t| t.thing_type == thing_type))
-            .or_else(|| self.things.artifacts.iter().find(|t| t.thing_type == thing_type))
-            .or_else(|| self.things.ammo.iter().find(|t| t.thing_type == thing_type))
-            .or_else(|| self.things.keys.iter().find(|t| t.thing_type == thing_type))
-            .or_else(|| self.things.monsters.iter().find(|t| t.thing_type == thing_type))
+            .or_else(|| {
+                self.things.weapons.iter().find(
+                    |t| t.thing_type == thing_type,
+                )
+            })
+            .or_else(|| {
+                self.things.powerups.iter().find(
+                    |t| t.thing_type == thing_type,
+                )
+            })
+            .or_else(|| {
+                self.things.artifacts.iter().find(
+                    |t| t.thing_type == thing_type,
+                )
+            })
+            .or_else(|| {
+                self.things.ammo.iter().find(|t| t.thing_type == thing_type)
+            })
+            .or_else(|| {
+                self.things.keys.iter().find(|t| t.thing_type == thing_type)
+            })
+            .or_else(|| {
+                self.things.monsters.iter().find(
+                    |t| t.thing_type == thing_type,
+                )
+            })
     }
 }
 
@@ -115,7 +130,8 @@ mod test {
 
     #[test]
     fn test_wad_metadata() {
-        WadMetadata::from_text(r#"
+        WadMetadata::from_text(
+            r#"
             [[sky]]
                 level_pattern = "MAP(0[1-9]|10|11)"
                 texture_name = "SKY1"
@@ -138,21 +154,70 @@ mod test {
                     ["DBRAIN1", "DBRAIN2", "DBRAIN3",  "DBRAIN4"],
                 ]
             [things]
-                [[things.decoration]]
+                [[things.decorations]]
                     thing_type = 10
+                    radius = 16
                     sprite = "PLAY"
                     sequence = "W"
                     obstacle = false
                     hanging = false
 
-                [[things.decoration]]
+                [[things.decorations]]
                     thing_type = 12
+                    radius = 8
                     sprite = "PLAY"
                     sequence = "W"
                     obstacle = false
                     hanging = false
-        "#)
-            .ok()
-            .expect("test: could not parse test metadata");
+
+                [[things.weapons]]
+                    # BFG 9000
+                    thing_type = 2006
+                    radius = 20
+                    sprite = "BFUG"
+                    sequence = "A"
+                    hanging = false
+
+                [[things.artifacts]]
+                    # Computer map
+                    thing_type = 2026
+                    radius = 20
+                    sprite = "PMAP"
+                    sequence = "ABCDCB"
+                    hanging = false
+
+                [[things.ammo]]
+                    # Box of ammo
+                    thing_type = 2048
+                    radius = 20
+                    sprite = "AMMO"
+                    sequence = "A"
+                    hanging = false
+
+                [[things.powerups]]
+                    # Backpack
+                    thing_type = 8
+                    radius = 20
+                    sprite = "BPAK"
+                    sequence = "A"
+                    hanging = false
+
+                [[things.keys]]
+                    # Red keycard
+                    thing_type = 13
+                    radius = 20
+                    sprite = "RKEY"
+                    sequence = "AB"
+                    hanging = false
+
+                [[things.monsters]]
+                    # Baron of Hell
+                    thing_type = 3003
+                    radius = 24
+                    sprite = "BOSS"
+                    sequence = "A"
+                    hanging = false
+        "#,
+        ).expect("test: could not parse test metadata");
     }
 }

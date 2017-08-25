@@ -1,25 +1,25 @@
 #[macro_use]
 extern crate log;
 #[macro_use]
-extern crate regex;
-#[macro_use]
 extern crate glium;
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate serde_derive;
 
 extern crate byteorder;
 extern crate env_logger;
+extern crate getopts;
 extern crate glium_sdl2;
 extern crate libc;
 extern crate num;
-extern crate rustc_serialize;
+extern crate regex;
 extern crate sdl2;
-extern crate sdl2_ttf;
+extern crate serde;
 extern crate slab;
 extern crate time;
 extern crate toml;
 extern crate vec_map;
-extern crate getopts;
 
 pub mod common;
 pub mod game;
@@ -54,43 +54,67 @@ pub enum RunMode {
 impl RunMode {
     pub fn from_args(args: &[String]) -> Result<RunMode, Box<Error>> {
         let mut opts = Options::new();
-        opts.optopt("i",
-                    "iwad",
-                    "initial WAD file to use [default='doom1.wad']",
-                    "FILE");
-        opts.optopt("m",
-                    "metadata",
-                    "path to TOML metadata file [default='doom.toml']",
-                    "FILE");
-        opts.optopt("r",
-                    "resolution",
-                    "the size of the game window [default=1280x720]",
-                    "WIDTHxHEIGHT");
-        opts.optopt("l",
-                    "level",
-                    "the index of the level to render [default=0]",
-                    "N");
-        opts.optopt("f",
-                    "fov",
-                    "horizontal field of view to please TotalBiscuit [default=65]",
-                    "FOV");
-        opts.optflag("",
-                     "check",
-                     "load metadata and all levels in WAD, then exit");
-        opts.optflag("",
-                     "list-levels",
-                     "list the names and indices of all the levels in the WAD, then exit");
+        opts.optopt(
+            "i",
+            "iwad",
+            "initial WAD file to use [default='doom1.wad']",
+            "FILE",
+        );
+        opts.optopt(
+            "m",
+            "metadata",
+            "path to TOML metadata file [default='doom.toml']",
+            "FILE",
+        );
+        opts.optopt(
+            "r",
+            "resolution",
+            "the size of the game window [default=1280x720]",
+            "WIDTHxHEIGHT",
+        );
+        opts.optopt(
+            "l",
+            "level",
+            "the index of the level to render [default=0]",
+            "N",
+        );
+        opts.optopt(
+            "f",
+            "fov",
+            "horizontal field of view to please TotalBiscuit [default=65]",
+            "FOV",
+        );
+        opts.optflag(
+            "",
+            "check",
+            "load metadata and all levels in WAD, then exit",
+        );
+        opts.optflag(
+            "",
+            "list-levels",
+            "list the names and indices of all the levels in the WAD, then exit",
+        );
         opts.optflag("h", "help", "print this help message and exit");
-        let matches = try!(opts.parse(&args[1..]).map_err(|e| GeneralError(e.to_string())));
+        let matches = try!(opts.parse(&args[1..]).map_err(
+            |e| GeneralError(e.to_string()),
+        ));
 
         if matches.opt_present("h") {
-            return Ok(RunMode::DisplayHelp(opts.usage("rs_doom 0.0.7: A Rust Doom I/II \
-                                                       Renderer.")));
+            return Ok(RunMode::DisplayHelp(opts.usage(
+                "rs_doom 0.0.7: A Rust Doom I/II \
+                                                       Renderer.",
+            )));
         }
 
 
-        let wad = matches.opt_str("iwad").unwrap_or("doom1.wad".to_owned()).into();
-        let metadata = matches.opt_str("metadata").unwrap_or("doom.toml".to_owned()).into();
+        let wad = matches
+            .opt_str("iwad")
+            .unwrap_or("doom1.wad".to_owned())
+            .into();
+        let metadata = matches
+            .opt_str("metadata")
+            .unwrap_or("doom.toml".to_owned())
+            .into();
 
         Ok(if matches.opt_present("check") {
             RunMode::Check {
@@ -103,17 +127,23 @@ impl RunMode {
                 metadata_file: metadata,
             }
         } else {
-            let (width, height) = try!(parse_window_size(&matches.opt_str("resolution")
-                                                         .unwrap_or("1280x720"
-                                                                    .to_owned())));
-            let fov = try!(matches.opt_str("fov")
-                           .unwrap_or("64".to_owned())
-                           .parse::<f32>()
-                           .map_err(|_| GeneralError("invalid value for fov".into())));
-            let level = try!(matches.opt_str("level")
-                             .unwrap_or("0".to_owned())
-                             .parse::<usize>()
-                             .map_err(|_| GeneralError("invalid value for fov".into())));
+            let (width, height) = try!(parse_window_size(&matches.opt_str("resolution").unwrap_or(
+                "1280x720".to_owned(),
+            )));
+            let fov = try!(
+                matches
+                    .opt_str("fov")
+                    .unwrap_or("64".to_owned())
+                    .parse::<f32>()
+                    .map_err(|_| GeneralError("invalid value for fov".into()))
+            );
+            let level = try!(
+                matches
+                    .opt_str("level")
+                    .unwrap_or("0".to_owned())
+                    .parse::<usize>()
+                    .map_err(|_| GeneralError("invalid value for fov".into()))
+            );
 
             RunMode::Play(GameConfig {
                 wad_file: wad,
@@ -128,22 +158,21 @@ impl RunMode {
 }
 
 fn parse_window_size(size_str: &str) -> Result<(u32, u32), GeneralError> {
-    size_str.find('x')
-        .and_then(|x_index| {
-            if x_index == 0 || x_index + 1 == size_str.len() {
-                None
-            } else {
-                Some((&size_str[..x_index], &size_str[x_index + 1..]))
-            }
+    size_str
+        .find('x')
+        .and_then(|x_index| if x_index == 0 || x_index + 1 == size_str.len() {
+            None
+        } else {
+            Some((&size_str[..x_index], &size_str[x_index + 1..]))
         })
-    .map(|(width, height)| (width.parse::<u32>(), height.parse::<u32>()))
-        .and_then(|size| {
-            match size {
-                (Ok(w), Ok(h)) => Some((w, h)),
-                _ => None,
-            }
+        .map(|(width, height)| {
+            (width.parse::<u32>(), height.parse::<u32>())
         })
-    .ok_or_else(|| GeneralError("invalid window size (WIDTHxHEIGHT)".into()))
+        .and_then(|size| match size {
+            (Ok(w), Ok(h)) => Some((w, h)),
+            _ => None,
+        })
+        .ok_or_else(|| GeneralError("invalid window size (WIDTHxHEIGHT)".into()))
 }
 
 #[cfg(not(test))]
@@ -151,13 +180,19 @@ fn run(args: &[String]) -> Result<(), Box<Error>> {
     try!(env_logger::init());
 
     match try!(RunMode::from_args(args)) {
-        RunMode::ListLevelNames { wad_file, metadata_file } => {
+        RunMode::ListLevelNames {
+            wad_file,
+            metadata_file,
+        } => {
             let wad = try!(Archive::open(&wad_file, &metadata_file));
             for i_level in 0..wad.num_levels() {
                 println!("{:3} {:8}", i_level, wad.level_name(i_level));
             }
         }
-        RunMode::Check { wad_file, metadata_file } => {
+        RunMode::Check {
+            wad_file,
+            metadata_file,
+        } => {
             let sdl = try!(sdl2::init().map_err(GeneralError));
             let win = try!(Window::new(&sdl, 128, 128));
 
@@ -174,8 +209,10 @@ fn run(args: &[String]) -> Result<(), Box<Error>> {
                     error!("building scene for level {}: {}", level_index, e);
                 }
             }
-            info!("Done loading all levels in {:.4}s. Shutting down...",
-                  time::precise_time_s() - t0);
+            info!(
+                "Done loading all levels in {:.4}s. Shutting down...",
+                time::precise_time_s() - t0
+            );
         }
         RunMode::DisplayHelp(help) => {
             println!("{}", help);
@@ -198,11 +235,12 @@ fn main() {
     let args = env::args().collect::<Vec<_>>();
 
     if let Err(error) = run(&args) {
-        let filename = Path::new(&args[0])
-            .file_name()
-            .map_or_else(|| Cow::Borrowed("<cannot determine filename>"),
-            |n| n.to_string_lossy());
-        writeln!(io::stderr(), "{}: {}", filename, error)
-            .expect("failed to  write to stderr");
+        let filename = Path::new(&args[0]).file_name().map_or_else(
+            || {
+                Cow::Borrowed("<cannot determine filename>")
+            },
+            |n| n.to_string_lossy(),
+        );
+        writeln!(io::stderr(), "{}: {}", filename, error).expect("failed to  write to stderr");
     }
 }
