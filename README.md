@@ -3,11 +3,11 @@
 Rust Doom
 =========
 
-A little Doom 1 & 2 Renderer written in [Rust](https://github.com/rust-lang/rust). I wanted to learn the language and was inspired by Notch's [Dart Doom renderer](https://github.com/xNotch/Dark), who is using his project to learn Dart better. That said, pull requests are most welcome!
+A little Doom 1 & 2 Renderer written in [Rust](https://github.com/rust-lang/rust). Mostly written while I was learning the language about 2 years ago, so it might not the best example of Rust code! PR-s are welcome.
 
-The code is mostly based on the endlessly useful [Doom Wiki](http://doomwiki.org) and the [Unofficial Doom Specs](http://aiforge.net/test/wadview/dmspec16.txt). It is **not** a port of the original Doom C source code into Rust; I'm doing my best to make the code as idiomatic as possible and have not looked at the original in a long time.
+The code is mostly based on the endlessly useful [Doom Wiki](http://doomwiki.org) and the [Unofficial Doom Specs](http://aiforge.net/test/wadview/dmspec16.txt). It is **not** a port of the original Doom C source code into Rust; I've been doing my best to make the code as idiomatic as possible and have not looked at the original in a long time.
 
-*Note: You need a WAD file to try this. Get a [shareware one](http://distro.ibiblio.org/pub/linux/distributions/slitaz/sources/packages/d/doom1.wad) if you don't own the game.*
+*Note: You need a WAD file to try this. Get a [shareware one](http://www.pc-freak.net/files/doom-wad-files/Doom1.WAD) if you don't own the game.*
 
 ## Screenshots
 ![Zig-zag Screenshot](screenshots/readme2.png)
@@ -40,7 +40,7 @@ with '-h' for a list of options.
 ## Goals
 _(subject to change)_
 
-* **Modern OpenGL 3 renderer.** No immediate mode shenanigans: it's all VBO-s and shaders. Unlike some GL ports, the floors are actually rendered as convex polygons computed from the BSP. The downside of this (or upside depending on your perspective) is that some visual glitches (like [slime trails](http://doom.wikia.com/wiki/Slime_trail)) don't show up.
+* **Modern OpenGL 3+ renderer.** No immediate mode shenanigans: it's all VBO-s and shaders. Unlike some GL ports, the floors are actually rendered as convex polygons computed from the BSP. The downside of this (or upside depending on your perspective) is that some visual glitches (like [slime trails](http://doom.wikia.com/wiki/Slime_trail)) don't show up.
 * **Correct 256 color palette.** Uses the original palette and colormaps to replicate the original lighting effects (mostly you'll notice things get darker in visible steps and they also get greyer as they get darker). Doing 256 color palette lookups in a fragment shader is wonderfully anachronistic.
 * **Free flying camera.** Mouse & keyboard control for full 6 degrees of freedom.
 * **100% safe code.** No pesky `unsafe` blocks anywhere.
