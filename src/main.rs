@@ -225,7 +225,7 @@ fn main() {
     use std::path::Path;
 
     if let Err(error) = run() {
-        let program = env::args().next().unwrap_or(String::new());
+        let program = env::args().next().unwrap_or_default();
         let filename = Path::new(&program).file_name().map_or_else(
             || {
                 Cow::Borrowed("<cannot determine filename>")

@@ -1,6 +1,7 @@
 pub mod camera;
 pub mod ctrl;
-pub mod game;
+#[cfg_attr(feature = "cargo-clippy", allow(module_inception))]
+mod game;
 pub mod level;
 pub mod lights;
 pub mod player;

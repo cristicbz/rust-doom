@@ -147,7 +147,7 @@ impl Archive {
         let mut file = self.file.borrow_mut();
         let info = &self.lumps[index];
         assert!(info.size > 0);
-        assert!(info.size % mem::size_of::<T>() == 0);
+        assert_eq!(info.size % mem::size_of::<T>(), 0);
         let num_elems = info.size / mem::size_of::<T>();
         file.seek(SeekFrom::Start(info.offset)).in_archive(self)?;
         Ok(file.wad_read_many(num_elems).in_archive(self)?)
@@ -156,7 +156,7 @@ impl Archive {
     pub fn read_lump_single<T: WadReadFrom>(&self, index: usize) -> Result<T> {
         let mut file = self.file.borrow_mut();
         let info = &self.lumps[index];
-        assert!(info.size == mem::size_of::<T>());
+        assert_eq!(info.size, mem::size_of::<T>());
         file.seek(SeekFrom::Start(info.offset)).in_archive(self)?;
         Ok(file.wad_read().in_archive(self)?)
     }

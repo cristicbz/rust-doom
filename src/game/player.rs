@@ -123,7 +123,7 @@ impl Player {
         let mut time_left = delta_time;
         for _ in 0..100 {
             let displacement = self.velocity * time_left;
-            if let Some(contact) = level.volume().sweep_sphere(&head, &displacement) {
+            if let Some(contact) = level.volume().sweep_sphere(head, &displacement) {
                 let adjusted_time = contact.time - 0.001 / displacement.norm();
                 if adjusted_time < 1.0 {
                     let time = clamp(contact.time, (0.0, 1.0));

@@ -28,9 +28,7 @@ impl WadName {
         for (dest, src) in name.iter_mut().zip(value.iter()) {
             if !src.is_ascii() {
                 debug!("Bailed on non-ascii {}", src);
-                return Err(
-                    ErrorKind::BadWadName(value.iter().cloned().collect()).into(),
-                );
+                return Err(ErrorKind::BadWadName(value.to_owned()).into());
             }
 
             let new_byte = match src.to_ascii_uppercase() {
@@ -42,9 +40,7 @@ impl WadName {
                 }
                 b => {
                     debug!("Bailed on ascii {}", b);
-                    return Err(
-                        ErrorKind::BadWadName(value.iter().cloned().collect()).into(),
-                    );
+                    return Err(ErrorKind::BadWadName(value.to_owned()).into());
                 }
             };
             *dest = new_byte;
@@ -56,9 +52,7 @@ impl WadName {
                 value.len(),
                 !nulled
             );
-            Err(
-                ErrorKind::BadWadName(value.iter().cloned().collect()).into(),
-            )
+            Err(ErrorKind::BadWadName(value.to_owned()).into())
         } else {
             Ok(WadName(name))
         }

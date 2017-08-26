@@ -51,7 +51,7 @@ impl Level {
         let mut start_pos = Vec3f::zero();
         LevelBuilder::build(
             &level,
-            &wad.metadata(),
+            wad.metadata(),
             textures,
             &texture_maps,
             &mut start_pos,
@@ -168,7 +168,7 @@ fn build_decor_atlas(
             let n2 = WadName::from_bytes(&s);
             n1.into_iter().chain(n2)
         })
-        .filter(|name| !is_untextured(&name))
+        .filter(|name| !is_untextured(name))
         .collect::<Vec<_>>();
     let (TransparentImage { pixels, size }, lookup) =
         textures.build_texture_atlas(tex_names.iter());
@@ -184,6 +184,7 @@ struct LevelBuilder<'a, 'b: 'a> {
 }
 
 impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
+    #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
     fn build(
         level: &WadLevel,
         meta: &WadMetadata,
@@ -259,8 +260,8 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             self.scene
                 .flats_buffer()
                 .push(&v0, height, light_info, bounds)
-                .push(&v1, height, light_info, bounds)
-                .push(&v2, height, light_info, bounds);
+                .push(v1, height, light_info, bounds)
+                .push(v2, height, light_info, bounds);
         }
     }
 
@@ -277,8 +278,8 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         for (v1, v2) in vertices.iter().zip(vertices.iter().skip(1)) {
             self.scene
                 .flats_buffer()
-                .push(&v2, height, light_info, bounds)
-                .push(&v1, height, light_info, bounds)
+                .push(v2, height, light_info, bounds)
+                .push(v1, height, light_info, bounds)
                 .push(&v0, height, light_info, bounds);
         }
     }
@@ -289,8 +290,8 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             self.scene
                 .sky_buffer()
                 .push(&v0, height)
-                .push(&v1, height)
-                .push(&v2, height);
+                .push(v1, height)
+                .push(v2, height);
         }
     }
 
@@ -299,8 +300,8 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         for (v1, v2) in vertices.iter().skip(1).zip(vertices.iter().skip(2)) {
             self.scene
                 .sky_buffer()
-                .push(&v2, height)
-                .push(&v1, height)
+                .push(v2, height)
+                .push(v1, height)
                 .push(&v0, height);
         }
     }
@@ -336,25 +337,25 @@ fn visit_decor(&mut self, &Decor { low, high, half_width, light_info, tex_name }
         };
         self.scene
             .decors_buffer()
-            .push(&low, -half_width, 0.0, bounds.size[1], bounds, light_info)
+            .push(low, -half_width, 0.0, bounds.size[1], bounds, light_info)
             .push(
-                &low,
+                low,
                 half_width,
                 bounds.size[0],
                 bounds.size[1],
                 bounds,
                 light_info,
             )
-            .push(&high, -half_width, 0.0, 0.0, bounds, light_info)
+            .push(high, -half_width, 0.0, 0.0, bounds, light_info)
             .push(
-                &low,
+                low,
                 half_width,
                 bounds.size[0],
                 bounds.size[1],
                 bounds,
                 light_info,
             )
-            .push(&high, half_width, bounds.size[0], 0.0, bounds, light_info)
-            .push(&high, -half_width, 0.0, 0.0, bounds, light_info);
+            .push(high, half_width, bounds.size[0], 0.0, bounds, light_info)
+            .push(high, -half_width, 0.0, 0.0, bounds, light_info);
     }
 }

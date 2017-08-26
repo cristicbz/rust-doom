@@ -170,7 +170,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 return;
             }
         };
-        let partition = partition_line(&root);
+        let partition = partition_line(root);
         self.visitor.visit_bsp_root(&partition);
         self.children(root, partition);
         self.visitor.visit_bsp_node_end();
@@ -193,7 +193,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             warn!("Missing entire node with id {}, skipping.", id);
             return;
         };
-        let partition = partition_line(&node);
+        let partition = partition_line(node);
         self.visitor.visit_bsp_node(&partition, branch);
         self.children(node, partition);
         self.visitor.visit_bsp_node_end();
@@ -269,16 +269,13 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 };
 
                 let dist = |l: &Line2f| l.signed_distance(&point);
-
+                let within_bsp = |d: f32| d >= -BSP_TOLERANCE;
+                let within_seg = |d: f32| d <= SEG_TOLERANCE;
                 // The intersection point must lie both within the BSP volume
                 // and the segs volume.
-                if self.bsp_lines.iter().map(|x| dist(x)).all(|d| {
-                    d >= -BSP_TOLERANCE
-                }) &&
-                    self.subsector_seg_lines.iter().map(dist).all(|d| {
-                        d <= SEG_TOLERANCE
-                    })
-                {
+                let inside_bsp_and_segs = self.bsp_lines.iter().map(&dist).all(within_bsp) &&
+                    self.subsector_seg_lines.iter().map(&dist).all(within_seg);
+                if inside_bsp_and_segs {
                     self.subsector_points.push(point);
                 }
             }
@@ -405,6 +402,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         );
     }
 
+    #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
     fn wall_quad(
         &mut self,
         sector: &WadSector,
@@ -457,7 +455,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         };
 
         let light_info_with_contrast;
-        let light_info = light_info(&mut self.light_cache, &self.level, sector);
+        let light_info = light_info(&mut self.light_cache, self.level, sector);
         let light_info = if light_info.effect.is_none() {
             if (v1[0] - v2[0]).abs() < EPSILON {
                 light_info_with_contrast = light::with_contrast(light_info, Contrast::Brighten);
@@ -507,7 +505,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
     }
 
     fn flat_poly(&mut self, sector: &WadSector) {
-        let light_info = light_info(&mut self.light_cache, &self.level, sector);
+        let light_info = light_info(&mut self.light_cache, self.level, sector);
         let (floor_tex, ceil_tex) = (&sector.floor_texture, &sector.ceiling_texture);
         let (floor_sky, ceil_sky) = (is_sky_flat(floor_tex), is_sky_flat(ceil_tex));
         let floor_y = from_wad_height(if floor_sky {
@@ -698,7 +696,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             low: &low,
             high: &high,
             half_width: half_width,
-            light_info: light_info(&mut self.light_cache, &self.level, sector),
+            light_info: light_info(&mut self.light_cache, self.level, sector),
             tex_name: &name,
         });
     }
@@ -742,7 +740,7 @@ fn min_max_height(level: &Level) -> (WadCoord, WadCoord) {
         .sectors
         .iter()
         .map(|s| (s.floor_height, s.ceiling_height))
-        .fold((32767, -32768), |(min, max), (f, c)| {
+        .fold((32_767, -32_768), |(min, max), (f, c)| {
             (cmp::min(min, f), cmp::max(max, c))
         });
     (min, max + 32)
