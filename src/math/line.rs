@@ -1,5 +1,5 @@
-use num::{Float, NumCast};
 use super::vector::{Field, Vec2, Vector};
+use num::{Float, NumCast};
 
 pub type Line2f = Line2<f32>;
 
@@ -39,12 +39,16 @@ impl<T: Copy + Field + Float + NumCast> Line2<T> {
         if numerator.abs() < <T as NumCast>::from(1e-16).unwrap() {
             None
         } else {
-            Some((other.origin - self.origin).cross(&other.displace) / numerator)
+            Some(
+                (other.origin - self.origin).cross(&other.displace) / numerator,
+            )
         }
     }
 
     pub fn intersect_point(&self, other: &Line2<T>) -> Option<Vec2<T>> {
-        self.intersect_offset(other).map(|offset| self.at_offset(offset))
+        self.intersect_offset(other).map(
+            |offset| self.at_offset(offset),
+        )
     }
 
     pub fn at_offset(&self, offset: T) -> Vec2<T> {

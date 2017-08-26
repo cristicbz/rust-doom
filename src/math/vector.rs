@@ -5,13 +5,17 @@ pub type Vec2f = Vec2<f32>;
 pub type Vec3f = Vec3<f32>;
 pub type Vec4f = Vec4<f32>;
 
-pub trait Vector: Mul<<Self as Vector>::Scalar, Output=Self>
-                + Div<<Self as Vector>::Scalar, Output=Self>
-                + Add<Output=Self> + Sub<Output=Self> + Zero
-                + Clone + PartialEq + PartialOrd
-                + Index<usize, Output=<Self as Vector>::Scalar>
-                + IndexMut<usize> {
-
+pub trait Vector
+    : Mul<<Self as Vector>::Scalar, Output = Self>
+    + Div<<Self as Vector>::Scalar, Output = Self>
+    + Add<Output = Self>
+    + Sub<Output = Self>
+    + Zero
+    + Clone
+    + PartialEq
+    + PartialOrd
+    + Index<usize, Output = <Self as Vector>::Scalar>
+    + IndexMut<usize> {
     type Scalar: Field;
 
     fn dot(&self, rhs: &Self) -> Self::Scalar;
@@ -23,21 +27,24 @@ pub trait Vector: Mul<<Self as Vector>::Scalar, Output=Self>
 
     #[inline]
     fn norm(&self) -> Self::Scalar
-        where Self::Scalar: Float
+    where
+        Self::Scalar: Float,
     {
         self.squared_norm().sqrt()
     }
 
     #[inline]
     fn normalize(&mut self)
-        where Self::Scalar: Float
+    where
+        Self::Scalar: Float,
     {
         *self = self.clone().normalized();
     }
 
     #[inline]
     fn normalized(self) -> Self
-        where Self::Scalar: Float
+    where
+        Self::Scalar: Float,
     {
         let norm = self.norm();
         if norm == Self::Scalar::zero() {
@@ -49,14 +56,32 @@ pub trait Vector: Mul<<Self as Vector>::Scalar, Output=Self>
 }
 
 
-pub trait Field: Mul<Output=Self> + Div<Output=Self>
-               + Add<Output=Self> + Sub<Output=Self>
-               + Zero + One + Copy + Clone + PartialEq + PartialOrd {}
+pub trait Field
+    : Mul<Output = Self>
+    + Div<Output = Self>
+    + Add<Output = Self>
+    + Sub<Output = Self>
+    + Zero
+    + One
+    + Copy
+    + Clone
+    + PartialEq
+    + PartialOrd {
+}
 
 impl<S> Field for S
-    where S: Mul<Output=S> + Div<Output=S>
-           + Add<Output=S> + Sub<Output=S>
-           + Zero + One + Copy + PartialEq + PartialOrd {}
+where
+    S: Mul<Output = S>
+        + Div<Output = S>
+        + Add<Output = S>
+        + Sub<Output = S>
+        + Zero
+        + One
+        + Copy
+        + PartialEq
+        + PartialOrd,
+{
+}
 
 
 // Vec2
@@ -77,14 +102,16 @@ impl<Scalar: Field> Vec2<Scalar> {
 
     #[inline]
     pub fn angle(&self) -> Scalar
-        where Scalar: Float
+    where
+        Scalar: Float,
     {
         self[1].atan2(self[0])
     }
 
     #[inline]
     pub fn normal(self) -> Vec2<Scalar>
-        where Scalar: Neg<Output = Scalar>
+    where
+        Scalar: Neg<Output = Scalar>,
     {
         Vec2::new(-self[1], self[0])
     }
@@ -95,7 +122,7 @@ impl<Scalar: Field> Vec2<Scalar> {
     }
 }
 
-impl<Scalar: Field + Neg<Output=Scalar>> Neg for Vec2<Scalar> {
+impl<Scalar: Field + Neg<Output = Scalar>> Neg for Vec2<Scalar> {
     type Output = Self;
 
     #[inline]
@@ -193,9 +220,7 @@ impl<Scalar: Field> Vec3<Scalar> {
     pub fn cross(self, rhs: Vec3<Scalar>) -> Vec3<Scalar> {
         let (lx, ly, lz) = (self[0], self[1], self[2]);
         let (rx, ry, rz) = (rhs[0], rhs[1], rhs[2]);
-        Vec3::new(ly * rz - lz * ry,
-                  lz * rx - lx * rz,
-                  lx * ry - ly * rx)
+        Vec3::new(ly * rz - lz * ry, lz * rx - lx * rz, lx * ry - ly * rx)
     }
 }
 
@@ -220,7 +245,7 @@ impl<Scalar: Field> Zero for Vec3<Scalar> {
     }
 }
 
-impl<Scalar: Field + Neg<Output=Scalar>> Neg for Vec3<Scalar> {
+impl<Scalar: Field + Neg<Output = Scalar>> Neg for Vec3<Scalar> {
     type Output = Self;
 
     #[inline]
@@ -306,7 +331,12 @@ impl<Scalar: Field> Vector for Vec4<Scalar> {
 impl<Scalar: Field> Zero for Vec4<Scalar> {
     #[inline]
     fn zero() -> Self {
-        Vec4::new(Scalar::zero(), Scalar::zero(), Scalar::zero(), Scalar::zero())
+        Vec4::new(
+            Scalar::zero(),
+            Scalar::zero(),
+            Scalar::zero(),
+            Scalar::zero(),
+        )
     }
 
     #[inline]
@@ -315,7 +345,7 @@ impl<Scalar: Field> Zero for Vec4<Scalar> {
     }
 }
 
-impl<Scalar: Field + Neg<Output=Scalar>> Neg for Vec4<Scalar> {
+impl<Scalar: Field + Neg<Output = Scalar>> Neg for Vec4<Scalar> {
     type Output = Self;
 
     #[inline]
@@ -347,7 +377,14 @@ impl<Scalar: Field> Add<Vec4<Scalar>> for Vec4<Scalar> {
 
     #[inline]
     fn add(self, rhs: Vec4<Scalar>) -> Self {
-        Vec4([self[0] + rhs[0], self[1] + rhs[1], self[2] + rhs[2], self[3] + rhs[3]])
+        Vec4(
+            [
+                self[0] + rhs[0],
+                self[1] + rhs[1],
+                self[2] + rhs[2],
+                self[3] + rhs[3],
+            ],
+        )
     }
 }
 
@@ -356,7 +393,14 @@ impl<Scalar: Field> Sub<Vec4<Scalar>> for Vec4<Scalar> {
 
     #[inline]
     fn sub(self, rhs: Vec4<Scalar>) -> Self {
-        Vec4([self[0] - rhs[0], self[1] - rhs[1], self[2] - rhs[2], self[3] - rhs[3]])
+        Vec4(
+            [
+                self[0] - rhs[0],
+                self[1] - rhs[1],
+                self[2] - rhs[2],
+                self[3] - rhs[3],
+            ],
+        )
     }
 }
 

@@ -1,6 +1,6 @@
-use num::Zero;
 use super::contact::ContactInfo;
 use super::vector::{Vec2f, Vec3f, Vector};
+use num::Zero;
 
 pub struct Sphere {
     pub center: Vec3f,
@@ -15,11 +15,12 @@ impl Sphere {
         }
     }
 
-    pub fn sweep_triangle(&self,
-                          triangle: &[Vec3f; 3],
-                          normal: &Vec3f,
-                          vel: &Vec3f)
-                          -> Option<ContactInfo> {
+    pub fn sweep_triangle(
+        &self,
+        triangle: &[Vec3f; 3],
+        normal: &Vec3f,
+        vel: &Vec3f,
+    ) -> Option<ContactInfo> {
         let Sphere { ref center, radius } = *self;
         let speed = vel.norm();
         if speed == 0.0 {
@@ -65,7 +66,10 @@ impl Sphere {
         }
 
         // Sphere against edges.
-        for (&e1, &e2) in triangle.iter().zip(triangle.iter().skip(1).chain(Some(&triangle[0]))) {
+        for (&e1, &e2) in triangle.iter().zip(triangle.iter().skip(1).chain(
+            Some(&triangle[0]),
+        ))
+        {
             let edge = e2 - e1;
             let edge_normal = nvel.cross(edge).normalized();
             let edge_intercept = -edge_normal.dot(&e1);
@@ -82,11 +86,14 @@ impl Sphere {
             let circle_center_to_on_line = (on_line - circle_center).normalized();
             let candidate = circle_center_to_on_line * circle_radius + circle_center;
 
-            let edge_normal_abs = Vec3f::new(edge_normal[0].abs(),
-                                             edge_normal[1].abs(),
-                                             edge_normal[2].abs());
+            let edge_normal_abs = Vec3f::new(
+                edge_normal[0].abs(),
+                edge_normal[1].abs(),
+                edge_normal[2].abs(),
+            );
             let (dim1, dim2) = if edge_normal_abs[0] > edge_normal_abs[1] &&
-                                  edge_normal_abs[0] > edge_normal_abs[2] {
+                edge_normal_abs[0] > edge_normal_abs[2]
+            {
                 (1, 2)
             } else if edge_normal_abs[1] > edge_normal_abs[2] {
                 (0, 2)
@@ -95,11 +102,12 @@ impl Sphere {
             };
 
             let candidate_plus_nvel = candidate + nvel;
-            let t = match intersect_line_line(&Vec2f::new(candidate[dim1], candidate[dim2]),
-                                              &Vec2f::new(candidate_plus_nvel[dim1],
-                                                          candidate_plus_nvel[dim2]),
-                                              &Vec2f::new(e1[dim1], e1[dim2]),
-                                              &Vec2f::new(e2[dim1], e2[dim2])) {
+            let t = match intersect_line_line(
+                &Vec2f::new(candidate[dim1], candidate[dim2]),
+                &Vec2f::new(candidate_plus_nvel[dim1], candidate_plus_nvel[dim2]),
+                &Vec2f::new(e1[dim1], e1[dim2]),
+                &Vec2f::new(e2[dim1], e2[dim2]),
+            ) {
                 Some(distance) if distance >= 0.0 && distance < min_distance => distance,
                 _ => continue,
             };
@@ -141,11 +149,7 @@ fn lowest_quadratic_root(a: f32, b: f32, c: f32) -> Option<f32> {
         let a2 = 2.0 * a;
         let i1 = (-b + i) / a2;
         let i2 = (-b - i) / a2;
-        if i1 < i2 {
-            Some(i1)
-        } else {
-            Some(i2)
-        }
+        if i1 < i2 { Some(i1) } else { Some(i2) }
     }
 }
 

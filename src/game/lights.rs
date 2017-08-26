@@ -59,7 +59,9 @@ fn light_level_at(info: &LightInfo, time: f32) -> f32 {
 }
 
 fn noise(sync: f32, time: f32) -> f32 {
-    fract(1.0 + ((sync + time / 1000.0) * 12.9898 + sync * 78.233).sin() * 43758.5453)
+    fract(
+        1.0 + ((sync + time / 1000.0) * 12.9898 + sync * 78.233).sin() * 43758.5453,
+    )
 }
 
 fn fract(x: f32) -> f32 {

@@ -1,17 +1,17 @@
 mod error;
 mod platform;
 mod scene;
+mod text;
 mod vertex;
 mod window;
-mod text;
 
 pub use self::error::{Error, Result};
 pub use self::scene::{Scene, SceneBuilder};
-pub use self::window::Window;
-pub use self::vertex::{SkyBuffer, SkyVertex, SpriteBuffer, SpriteVertex, StaticBuffer};
-pub use self::vertex::{StaticVertex, DecorBufferBuilder, FlatBufferBuilder, SkyBufferBuilder};
-pub use self::vertex::WallBufferBuilder;
 pub use self::text::{Text, TextId, TextRenderer};
+pub use self::vertex::{StaticVertex, DecorBufferBuilder, FlatBufferBuilder, SkyBufferBuilder};
+pub use self::vertex::{SkyBuffer, SkyVertex, SpriteBuffer, SpriteVertex, StaticBuffer};
+pub use self::vertex::WallBufferBuilder;
+pub use self::window::Window;
 
 use math::Vec2f;
 

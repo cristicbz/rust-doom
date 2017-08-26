@@ -1,5 +1,5 @@
-use math::{Vec2, Vec2f};
 use super::types::{ChildId, WadCoord, WadInfo, WadName};
+use math::{Vec2, Vec2f};
 
 #[derive(Copy, Clone)]
 pub enum WadType {

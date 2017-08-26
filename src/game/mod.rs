@@ -1,9 +1,9 @@
 pub mod camera;
 pub mod ctrl;
-pub mod player;
+pub mod game;
 pub mod level;
 pub mod lights;
-pub mod game;
+pub mod player;
 pub mod world;
 
 pub use self::game::{Game, GameConfig};

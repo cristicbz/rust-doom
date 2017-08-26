@@ -29,7 +29,6 @@ pub mod gfx;
 pub mod math;
 pub mod wad;
 
-
 use clap::{App, Arg, AppSettings};
 use common::GeneralError;
 use game::{Game, GameConfig, Level};

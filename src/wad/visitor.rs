@@ -1,15 +1,15 @@
-use math::{Line2f, Vec2f, Vec3f, Vector};
-use num::Zero;
-use std::cmp;
-use std::cmp::Ordering;
 use super::level::Level;
 use super::light::{self, Contrast, LightInfo};
 use super::meta::WadMetadata;
 use super::tex::TextureDirectory;
 use super::types::{ChildId, ThingType, WadCoord, WadName, WadNode, WadSector, WadSeg, WadThing};
 use super::util::{from_wad_coords, from_wad_height, is_sky_flat, is_untextured, parse_child_id};
-use vec_map::VecMap;
+use math::{Line2f, Vec2f, Vec3f, Vector};
+use num::Zero;
+use std::cmp;
+use std::cmp::Ordering;
 use std::f32::EPSILON;
+use vec_map::VecMap;
 
 pub struct StaticQuad<'a> {
     pub vertices: &'a (Vec2f, Vec2f),
@@ -100,9 +100,10 @@ pub trait LevelVisitor: Sized {
         // Default impl is empty to allow visitors to mix and match.
     }
 
-    fn chain<'a, 'b, V: LevelVisitor>(&'a mut self,
-                                      other: &'b mut V)
-                                      -> VisitorChain<'a, 'b, Self, V> {
+    fn chain<'a, 'b, V: LevelVisitor>(
+        &'a mut self,
+        other: &'b mut V,
+    ) -> VisitorChain<'a, 'b, Self, V> {
         VisitorChain {
             first: self,
             second: other,
@@ -118,9 +119,7 @@ pub enum Branch {
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub enum Marker {
-    StartPos {
-        player: usize,
-    },
+    StartPos { player: usize },
     TeleportStart,
     TeleportEnd,
 }
@@ -144,11 +143,12 @@ pub struct LevelWalker<'a, V: LevelVisitor + 'a> {
 }
 
 impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
-    pub fn new(level: &'a Level,
-               tex: &'a TextureDirectory,
-               meta: &'a WadMetadata,
-               visitor: &'a mut V)
-               -> LevelWalker<'a, V> {
+    pub fn new(
+        level: &'a Level,
+        tex: &'a TextureDirectory,
+        meta: &'a WadMetadata,
+        visitor: &'a mut V,
+    ) -> LevelWalker<'a, V> {
         LevelWalker {
             level: level,
             tex: tex,
@@ -250,7 +250,9 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             };
             self.subsector_points.push(v1);
             self.subsector_points.push(v2);
-            self.subsector_seg_lines.push(Line2f::from_two_points(v1, v2));
+            self.subsector_seg_lines.push(
+                Line2f::from_two_points(v1, v2),
+            );
 
             // Also push the wall segments.
             self.seg(sector, seg, (v1, v2));
@@ -270,22 +272,31 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
 
                 // The intersection point must lie both within the BSP volume
                 // and the segs volume.
-                if self.bsp_lines.iter().map(|x| dist(x)).all(|d| d >= -BSP_TOLERANCE) &&
-                   self.subsector_seg_lines.iter().map(dist).all(|d| d <= SEG_TOLERANCE) {
+                if self.bsp_lines.iter().map(|x| dist(x)).all(|d| {
+                    d >= -BSP_TOLERANCE
+                }) &&
+                    self.subsector_seg_lines.iter().map(dist).all(|d| {
+                        d <= SEG_TOLERANCE
+                    })
+                {
                     self.subsector_points.push(point);
                 }
             }
         }
         if self.subsector_points.len() < 3 {
-            warn!("Degenerate source polygon {} ({} vertices).",
-                  id,
-                  self.subsector_points.len());
+            warn!(
+                "Degenerate source polygon {} ({} vertices).",
+                id,
+                self.subsector_points.len()
+            );
         }
-        points_to_polygon(&mut self.subsector_points);  // Sort and remove duplicates.
+        points_to_polygon(&mut self.subsector_points); // Sort and remove duplicates.
         if self.subsector_points.len() < 3 {
-            warn!("Degenerate cannonicalised polygon {} ({} vertices).",
-                  id,
-                  self.subsector_points.len());
+            warn!(
+                "Degenerate cannonicalised polygon {} ({} vertices).",
+                id,
+                self.subsector_points.len()
+            );
         } else {
             self.flat_poly(sector);
         }
@@ -309,17 +320,15 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let unpeg_lower = line.lower_unpegged();
         let back_sector = match self.level.seg_back_sector(seg) {
             None => {
-                self.wall_quad(sector,
-                               seg,
-                               vertices,
-                               (floor, ceil),
-                               &sidedef.middle_texture,
-                               if unpeg_lower {
-                                   Peg::Bottom
-                               } else {
-                                   Peg::Top
-                               },
-                               true);
+                self.wall_quad(
+                    sector,
+                    seg,
+                    vertices,
+                    (floor, ceil),
+                    &sidedef.middle_texture,
+                    if unpeg_lower { Peg::Bottom } else { Peg::Top },
+                    true,
+                );
                 if is_sky_flat(&sector.ceiling_texture) {
                     self.sky_quad(vertices, (ceil, max));
                 }
@@ -342,66 +351,70 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let back_floor = back_sector.floor_height;
         let back_ceil = back_sector.ceiling_height;
         let floor = if back_floor > floor {
-            self.wall_quad(sector,
-                           seg,
-                           vertices,
-                           (floor, back_floor),
-                           &sidedef.lower_texture,
-                           if unpeg_lower {
-                               Peg::BottomLower
-                           } else {
-                               Peg::Top
-                           },
-                           true);
+            self.wall_quad(
+                sector,
+                seg,
+                vertices,
+                (floor, back_floor),
+                &sidedef.lower_texture,
+                if unpeg_lower {
+                    Peg::BottomLower
+                } else {
+                    Peg::Top
+                },
+                true,
+            );
             back_floor
         } else {
             floor
         };
         let ceil = if back_ceil < ceil {
             if !is_sky_flat(&back_sector.ceiling_texture) {
-                self.wall_quad(sector,
-                               seg,
-                               vertices,
-                               (back_ceil, ceil),
-                               &sidedef.upper_texture,
-                               if unpeg_upper {
-                                   Peg::Top
-                               } else {
-                                   Peg::Bottom
-                               },
-                               true);
+                self.wall_quad(
+                    sector,
+                    seg,
+                    vertices,
+                    (back_ceil, ceil),
+                    &sidedef.upper_texture,
+                    if unpeg_upper { Peg::Top } else { Peg::Bottom },
+                    true,
+                );
             }
             back_ceil
         } else {
             ceil
         };
-        self.wall_quad(sector,
-                       seg,
-                       vertices,
-                       (floor, ceil),
-                       &sidedef.middle_texture,
-                       if unpeg_lower {
-                           if is_untextured(&sidedef.upper_texture) {
-                               Peg::TopFloat
-                           } else {
-                               Peg::Bottom
-                           }
-                       } else if is_untextured(&sidedef.lower_texture) {
-                           Peg::BottomFloat
-                       } else {
-                           Peg::Top
-                       },
-                       line.impassable());
+        self.wall_quad(
+            sector,
+            seg,
+            vertices,
+            (floor, ceil),
+            &sidedef.middle_texture,
+            if unpeg_lower {
+                if is_untextured(&sidedef.upper_texture) {
+                    Peg::TopFloat
+                } else {
+                    Peg::Bottom
+                }
+            } else if is_untextured(&sidedef.lower_texture) {
+                Peg::BottomFloat
+            } else {
+                Peg::Top
+            },
+            line.impassable(),
+        );
     }
 
-    fn wall_quad(&mut self,
-                 sector: &WadSector,
-                 seg: &WadSeg,
-                 (v1, v2): (Vec2f, Vec2f),
-                 (low, high): (WadCoord, WadCoord),
-                 texture_name: &WadName,
-                 peg: Peg,
-                 blocker: bool) {
+    fn wall_quad(
+        &mut self,
+        sector: &WadSector,
+        seg: &WadSeg,
+        (v1, v2): (Vec2f, Vec2f),
+        (low, high): (WadCoord, WadCoord),
+        texture_name: &WadName,
+        peg: Peg,
+        blocker: bool,
+    ) {
         if low >= high {
             return;
         }
@@ -429,12 +442,16 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let (v1, v2) = (v1 - bias, v2 + bias);
         let (low, high) = match (size, peg) {
             (Some(size), Peg::TopFloat) => {
-                (from_wad_height(low + sidedef.y_offset),
-                 from_wad_height(low + size[1] as i16 + sidedef.y_offset))
+                (
+                    from_wad_height(low + sidedef.y_offset),
+                    from_wad_height(low + size[1] as i16 + sidedef.y_offset),
+                )
             }
             (Some(size), Peg::BottomFloat) => {
-                (from_wad_height(high + sidedef.y_offset - size[1] as i16),
-                 from_wad_height(high + sidedef.y_offset))
+                (
+                    from_wad_height(high + sidedef.y_offset - size[1] as i16),
+                    from_wad_height(high + sidedef.y_offset),
+                )
             }
             _ => (from_wad_height(low), from_wad_height(high)),
         };
@@ -473,11 +490,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let (t1, t2) = (t1 + sidedef.y_offset as f32, t2 + sidedef.y_offset as f32);
 
         // TODO(cristicbz): Magic numbers below.
-        let scroll = if line.special_type == 0x30 {
-            35.0
-        } else {
-            0.0
-        };
+        let scroll = if line.special_type == 0x30 { 35.0 } else { 0.0 };
 
         let (low, high) = (low - POLY_BIAS, high + POLY_BIAS);
 
@@ -574,15 +587,9 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             let (id, is_leaf) = parse_child_id(child_id);
             if is_leaf {
                 let segs = self.level
-                               .ssector(id)
-                               .and_then(|subsector| self.level.ssector_segs(subsector))
-                               .and_then(|segs| {
-                                   if segs.is_empty() {
-                                       None
-                                   } else {
-                                       Some(segs)
-                                   }
-                               });
+                    .ssector(id)
+                    .and_then(|subsector| self.level.ssector_segs(subsector))
+                    .and_then(|segs| if segs.is_empty() { None } else { Some(segs) });
                 let segs = if let Some(segs) = segs {
                     segs
                 } else {
@@ -594,9 +601,10 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                     return None;
                 };
                 return if segs.iter()
-                              .filter_map(|seg| self.level.seg_vertices(seg))
-                              .map(|(v1, v2)| Line2f::from_two_points(v1, v2))
-                              .all(|line| line.signed_distance(pos) <= SEG_TOLERANCE) {
+                    .filter_map(|seg| self.level.seg_vertices(seg))
+                    .map(|(v1, v2)| Line2f::from_two_points(v1, v2))
+                    .all(|line| line.signed_distance(pos) <= SEG_TOLERANCE)
+                {
                     Some(sector)
                 } else {
                     None
@@ -607,10 +615,10 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 } else {
                     return None;
                 };
-                let partition = Line2f::from_origin_and_displace(from_wad_coords(node.line_x,
-                                                                                 node.line_y),
-                                                                 from_wad_coords(node.step_x,
-                                                                                 node.step_y));
+                let partition = Line2f::from_origin_and_displace(
+                    from_wad_coords(node.line_x, node.line_y),
+                    from_wad_coords(node.step_x, node.step_y),
+                );
                 if partition.signed_distance(pos) > 0.0f32 {
                     child_id = node.left;
                 } else {
@@ -644,16 +652,20 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                     } else if let Some(image) = self.tex.texture(&n2) {
                         (n2, image.size())
                     } else {
-                        warn!("No such sprite {} for thing {}",
-                              meta.sprite,
-                              thing.thing_type);
+                        warn!(
+                            "No such sprite {} for thing {}",
+                            meta.sprite,
+                            thing.thing_type
+                        );
                         return;
                     }
                 }
                 _ => {
-                    warn!("Metadata sprite name ({}) for thing type {} is not a valid WadName.",
-                          meta.sprite,
-                          thing.thing_type);
+                    warn!(
+                        "Metadata sprite name ({}) for thing type {} is not a valid WadName.",
+                        meta.sprite,
+                        thing.thing_type
+                    );
                     return;
                 }
             }
@@ -662,15 +674,23 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
 
         // TODO(cristicbz): Get rid of / 100.0 below.
         let (low, high) = if meta.hanging {
-            (Vec3f::new(pos[0],
-                        (sector.ceiling_height as f32 - size[1]) / 100.0,
-                        pos[1]),
-             Vec3f::new(pos[0], sector.ceiling_height as f32 / 100.0, pos[1]))
+            (
+                Vec3f::new(
+                    pos[0],
+                    (sector.ceiling_height as f32 - size[1]) / 100.0,
+                    pos[1],
+                ),
+                Vec3f::new(pos[0], sector.ceiling_height as f32 / 100.0, pos[1]),
+            )
         } else {
-            (Vec3f::new(pos[0], sector.floor_height as f32 / 100.0, pos[1]),
-             Vec3f::new(pos[0],
-                        (sector.floor_height as f32 + size[1]) / 100.0,
-                        pos[1]))
+            (
+                Vec3f::new(pos[0], sector.floor_height as f32 / 100.0, pos[1]),
+                Vec3f::new(
+                    pos[0],
+                    (sector.floor_height as f32 + size[1]) / 100.0,
+                    pos[1],
+                ),
+            )
         };
         let half_width = size[0] / 100.0 * 0.5;
 
@@ -684,17 +704,21 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
     }
 }
 
-fn light_info<'a>(cache: &'a mut VecMap<LightInfo>,
-                  level: &Level,
-                  sector: &WadSector)
-                  -> &'a LightInfo {
-    cache.entry(level.sector_id(sector) as usize)
-         .or_insert_with(|| light::new_light(level, sector))
+fn light_info<'a>(
+    cache: &'a mut VecMap<LightInfo>,
+    level: &Level,
+    sector: &WadSector,
+) -> &'a LightInfo {
+    cache
+        .entry(level.sector_id(sector) as usize)
+        .or_insert_with(|| light::new_light(level, sector))
 }
 
 fn partition_line(node: &WadNode) -> Line2f {
-    Line2f::from_origin_and_displace(from_wad_coords(node.line_x, node.line_y),
-                                     from_wad_coords(node.step_x, node.step_y))
+    Line2f::from_origin_and_displace(
+        from_wad_coords(node.line_x, node.line_y),
+        from_wad_coords(node.step_x, node.step_y),
+    )
 }
 
 // Distance on the wrong side of a BSP and seg line allowed.
@@ -714,11 +738,13 @@ enum Peg {
 }
 
 fn min_max_height(level: &Level) -> (WadCoord, WadCoord) {
-    let (min, max) = level.sectors
-                          .iter()
-                          .map(|s| (s.floor_height, s.ceiling_height))
-                          .fold((32767, -32768),
-                                |(min, max), (f, c)| (cmp::min(min, f), cmp::max(max, c)));
+    let (min, max) = level
+        .sectors
+        .iter()
+        .map(|s| (s.floor_height, s.ceiling_height))
+        .fold((32767, -32768), |(min, max), (f, c)| {
+            (cmp::min(min, f), cmp::max(max, c))
+        });
     (min, max + 32)
 }
 
