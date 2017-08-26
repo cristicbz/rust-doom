@@ -8,29 +8,25 @@ name = "rs_doom"
 
 [dependencies]
 byteorder = "1.1.0"
+clap = "2.26.0"
 env_logger = "0.4.3"
-getopts = "0.2.14"
+glium = "0.17.0"
 lazy_static = "0.2.0"
 libc = "0.2.10"
 log = "0.3.6"
 num = "0.1.32"
 regex = "0.2.2"
-sdl2 = { version="0.30.0", features=["ttf"] }
+serde = "1.0"
+serde_derive = "1.0"
 slab = "0.4.0"
 time = "0.1.35"
 toml = "0.4.5"
 vec_map = "0.8.0"
-glium = "0.17.0"
-serde ="1.0"
-serde_derive ="1.0"
 
-# Because both `glium_sdl2` and `sdl2_ttf` depend on `sdl2` and all three
-# libraries are pre 1.0, I provide branches of these dependencies that are
-# pinned to the same version of sdl2.
-#
-# I kept getting breakages otherwise :(
-
-# glium_sdl2 = "0.12.0"
 [dependencies.glium_sdl2]
-git = "https://github.com/cristicbz/glium-sdl2"
 branch = "for-rust-doom"
+git = "https://github.com/cristicbz/glium-sdl2"
+
+[dependencies.sdl2]
+features = ["ttf"]
+version = "0.30.0"

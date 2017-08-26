@@ -36,7 +36,7 @@ impl Default for PlayerBindings {
                         step: 0.05,
                     },
                     Analog2d::Mouse {
-                        sensitivity: 0.002
+                        sensitivity: 0.004,
                     },
                 ],
             },
