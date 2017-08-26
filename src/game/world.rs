@@ -1,8 +1,8 @@
 use math::{ContactInfo, Line2f, Sphere, Vec2f, Vec3f, Vector};
 use num::Zero;
 use std::{f32, i32};
-use wad::{Branch, LevelVisitor, SkyPoly, SkyQuad, StaticPoly, StaticQuad};
 use std::cell::RefCell;
+use wad::{Branch, LevelVisitor, SkyPoly, SkyQuad, StaticPoly, StaticQuad};
 
 
 pub struct World {
@@ -45,14 +45,15 @@ impl World {
                 };
                 let tris = &self.triangles[chunk.tri_start as usize..chunk.tri_end as usize];
                 first_contact = tris.iter()
-                                    .filter_map(|tri| self.sweep_sphere_triangle(sphere, vel, tri))
-                                    .fold(first_contact, |first, current| {
-                                        if first.time < current.time {
-                                            first
-                                        } else {
-                                            current
-                                        }
-                                    });
+                    .filter_map(|tri| self.sweep_sphere_triangle(sphere, vel, tri))
+                    .fold(
+                        first_contact,
+                        |first, current| if first.time < current.time {
+                            first
+                        } else {
+                            current
+                        },
+                    );
             }
         }
         if first_contact.time < f32::INFINITY {
@@ -62,23 +63,25 @@ impl World {
         }
     }
 
-    fn sweep_sphere_triangle(&self,
-                             sphere: &Sphere,
-                             vel: &Vec3f,
-                             triangle: &Triangle)
-                             -> Option<ContactInfo> {
+    fn sweep_sphere_triangle(
+        &self,
+        sphere: &Sphere,
+        vel: &Vec3f,
+        triangle: &Triangle,
+    ) -> Option<ContactInfo> {
         let normal = self.verts[triangle.normal as usize];
-        let triangle = [self.verts[triangle.v1 as usize],
-                        self.verts[triangle.v2 as usize],
-                        self.verts[triangle.v3 as usize]];
+        let triangle = [
+            self.verts[triangle.v1 as usize],
+            self.verts[triangle.v2 as usize],
+            self.verts[triangle.v3 as usize],
+        ];
         sphere.sweep_triangle(&triangle, &normal, vel)
     }
 
     fn link_child(&mut self, child: Child, branch: Branch) {
-        let parent_index = *self.node_stack
-                                .borrow()
-                                .last()
-                                .expect("called link_child on root node");
+        let parent_index = *self.node_stack.borrow().last().expect(
+            "called link_child on root node",
+        );
         let parent = &mut self.nodes[parent_index];
 
         match branch {
@@ -144,17 +147,25 @@ impl LevelVisitor for World {
     }
 
     fn visit_bsp_node_end(&mut self) {
-        self.node_stack.borrow_mut().pop().expect("too many calls to visit_bsp_node_end");
+        self.node_stack.borrow_mut().pop().expect(
+            "too many calls to visit_bsp_node_end",
+        );
     }
 
     fn visit_floor_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
-        self.add_polygon(vertices.iter().map(|v| Vec3f::new(v[0], height, v[1])),
-                         Vec3f::new(0.0, 1.0, 0.0));
+        self.add_polygon(
+            vertices.iter().map(|v| Vec3f::new(v[0], height, v[1])),
+            Vec3f::new(0.0, 1.0, 0.0),
+        );
     }
 
     fn visit_ceil_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
-        self.add_polygon(vertices.iter().rev().map(|v| Vec3f::new(v[0], height, v[1])),
-                         Vec3f::new(0.0, -1.0, 0.0));
+        self.add_polygon(
+            vertices.iter().rev().map(
+                |v| Vec3f::new(v[0], height, v[1]),
+            ),
+            Vec3f::new(0.0, -1.0, 0.0),
+        );
     }
 
     fn visit_floor_poly(&mut self, &StaticPoly { vertices, height, .. }: &StaticPoly) {
@@ -172,7 +183,7 @@ impl LevelVisitor for World {
     }
 
     fn visit_wall_quad(&mut self,
-                       &StaticQuad { vertices, height_range, blocker, .. }: &StaticQuad) {
+&StaticQuad { vertices, height_range, blocker, .. }: &StaticQuad){
         if blocker {
             self.visit_sky_quad(&SkyQuad {
                 vertices: vertices,
@@ -182,15 +193,20 @@ impl LevelVisitor for World {
     }
 
     fn visit_sky_quad(&mut self, quad: &SkyQuad) {
-        let &SkyQuad { vertices: &(ref v1, ref v2), height_range: (low, high) } = quad;
+        let &SkyQuad {
+            vertices: &(ref v1, ref v2),
+            height_range: (low, high),
+        } = quad;
         let edge = (*v2 - *v1).normalized();
         let normal = Vec3f::new(-edge[1], 0.0, edge[0]);
-        self.add_polygon(Some(Vec3f::new(v1[0], low, v1[1]))
-                             .into_iter()
-                             .chain(Some(Vec3f::new(v2[0], low, v2[1])))
-                             .chain(Some(Vec3f::new(v2[0], high, v2[1])))
-                             .chain(Some(Vec3f::new(v1[0], high, v1[1]))),
-                         normal);
+        self.add_polygon(
+            Some(Vec3f::new(v1[0], low, v1[1]))
+                .into_iter()
+                .chain(Some(Vec3f::new(v2[0], low, v2[1])))
+                .chain(Some(Vec3f::new(v2[0], high, v2[1])))
+                .chain(Some(Vec3f::new(v1[0], high, v1[1]))),
+            normal,
+        );
     }
 }
 
@@ -258,9 +274,13 @@ impl Node {
 
     fn intersect_sphere(&self, sphere: &Sphere, vel: &Vec3f) -> NodeIntersectIter {
         let Sphere { ref center, radius } = *sphere;
-        let dist1 = self.partition.signed_distance(&Vec2f::new(center[0], center[2]));
-        let dist2 = self.partition
-                        .signed_distance(&Vec2f::new(center[0] + vel[0], center[2] + vel[2]));
+        let dist1 = self.partition.signed_distance(
+            &Vec2f::new(center[0], center[2]),
+        );
+        let dist2 = self.partition.signed_distance(&Vec2f::new(
+            center[0] + vel[0],
+            center[2] + vel[2],
+        ));
 
         let pos = if dist1 >= -radius || dist2 >= -radius {
             Some(Child::unpack(self.positive))
@@ -278,5 +298,7 @@ impl Node {
     }
 }
 
-type NodeIntersectIter = ::std::iter::Chain<::std::option::IntoIter<Child>,
-                                              ::std::option::IntoIter<Child>>;
+type NodeIntersectIter = ::std::iter::Chain<
+    ::std::option::IntoIter<Child>,
+    ::std::option::IntoIter<Child>,
+>;
