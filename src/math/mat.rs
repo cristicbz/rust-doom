@@ -21,6 +21,7 @@ pub struct Mat4 {
 
 impl Mat4 {
     #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
     pub fn new(m00: Scalar, m01: Scalar, m02: Scalar, m03: Scalar,
                m10: Scalar, m11: Scalar, m12: Scalar, m13: Scalar,
                m20: Scalar, m21: Scalar, m22: Scalar, m23: Scalar,
@@ -134,11 +135,11 @@ impl fmt::Debug for Mat4 {
     }
 }
 
-impl<'a, 'b> Mul<&'a Mat4> for &'b Mat4 {
+impl Mul<Mat4> for Mat4 {
     type Output = Mat4;
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
-    fn mul(self, rhs: &'a Mat4) -> Mat4 {
+    fn mul(self, rhs: Mat4) -> Mat4 {
         let l = &self.data;
         let r = &rhs.data;
         Mat4 {
@@ -165,11 +166,11 @@ impl<'a, 'b> Mul<&'a Mat4> for &'b Mat4 {
     }
 }
 
-impl<'a, 'b> Add<&'a Mat4> for &'b Mat4 {
+impl Add<Mat4> for Mat4 {
     type Output = Mat4;
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
-    fn add(self, rhs: &'a Mat4) -> Mat4 {
+    fn add(self, rhs: Mat4) -> Mat4 {
         let l = &self.data;
         let r = &rhs.data;
         Mat4 {
@@ -181,11 +182,11 @@ impl<'a, 'b> Add<&'a Mat4> for &'b Mat4 {
     }
 }
 
-impl<'a, 'b> Sub<&'a Mat4> for &'b Mat4 {
+impl Sub<Mat4> for Mat4 {
     type Output = Mat4;
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
-    fn sub(self, rhs: &'a Mat4) -> Mat4 {
+    fn sub(self, rhs: Mat4) -> Mat4 {
         let l = &self.data;
         let r = &rhs.data;
         Mat4 {
@@ -197,29 +198,30 @@ impl<'a, 'b> Sub<&'a Mat4> for &'b Mat4 {
     }
 }
 
-impl Mul<Mat4> for Mat4 {
+impl<'a, 'b> Mul<&'a Mat4> for &'b Mat4 {
     type Output = Mat4;
 
-    fn mul(self, rhs: Mat4) -> Mat4 {
-        &self * &rhs
+    fn mul(self, rhs: &'a Mat4) -> Mat4 {
+        *self * *rhs
     }
 }
 
-impl Add<Mat4> for Mat4 {
+impl<'a, 'b> Add<&'a Mat4> for &'b Mat4 {
     type Output = Mat4;
 
-    fn add(self, rhs: Mat4) -> Mat4 {
-        &self + &rhs
+    fn add(self, rhs: &'a Mat4) -> Mat4 {
+        *self + *rhs
     }
 }
 
-impl Sub<Mat4> for Mat4 {
+impl<'a, 'b> Sub<&'a Mat4> for &'b Mat4 {
     type Output = Mat4;
 
-    fn sub(self, rhs: Mat4) -> Mat4 {
-        &self - &rhs
+    fn sub(self, rhs: &'a Mat4) -> Mat4 {
+        *self - *rhs
     }
 }
+
 
 impl Index<usize> for Mat4 {
     type Output = [f32];

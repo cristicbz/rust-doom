@@ -112,7 +112,7 @@ pub enum Contrast {
 }
 
 fn id_to_sync(id: u16) -> f32 {
-    ((id as u64 * 1664525 + 1013904223) & 0xffff) as f32 / 15.0
+    ((id as u64 * 1_664_525 + 1_013_904_223) & 0xffff) as f32 / 15.0
 }
 
 fn light_to_f32(level: LightLevel) -> f32 {

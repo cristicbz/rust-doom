@@ -231,8 +231,8 @@ impl<'window> SceneBuilder<'window> {
             walls_texture: self.walls_texture.expect(
                 "missing walls texture from SceneBuilder",
             ),
-            flats_buffer: self.flats_buffer.build(&self.window)?,
-            walls_buffer: self.walls_buffer.build(&self.window)?,
+            flats_buffer: self.flats_buffer.build(self.window)?,
+            walls_buffer: self.walls_buffer.build(self.window)?,
 
             sprite_program: self.sprite_program.expect(
                 "missing sprite program from SceneBuilder",
@@ -240,7 +240,7 @@ impl<'window> SceneBuilder<'window> {
             decors_texture: self.decors_texture.expect(
                 "missing decors texture from SceneBuilder",
             ),
-            decors_buffer: self.decors_buffer.build(&self.window)?,
+            decors_buffer: self.decors_buffer.build(self.window)?,
         })
     }
 
@@ -368,7 +368,7 @@ impl<'scene> StaticStep<'scene> {
             .draw(
                 self.buffer,
                 NoIndices(PrimitiveType::TrianglesList),
-                &self.program,
+                self.program,
                 &self,
                 &self.scene.draw_params,
             )

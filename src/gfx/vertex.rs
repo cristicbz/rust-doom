@@ -73,6 +73,7 @@ impl WallBufferBuilder {
         WallBufferBuilder(Vec::with_capacity(256))
     }
 
+    #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
     pub fn push(
         &mut self,
         xz: &Vec2f,

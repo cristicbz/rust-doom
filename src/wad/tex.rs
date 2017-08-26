@@ -238,7 +238,7 @@ impl TextureDirectory {
         }
         let atlas_size = atlas_size;
 
-        assert!(positions.len() == entries.len());
+        assert_eq!(positions.len(), entries.len());
         // TODO(cristicbz): This should probably split things into multiple atlases or
         // something, but realistically, I'm never going to implement that.
         let mut atlas = Image::new(atlas_size[0], atlas_size[1]).expect("atlas too big");
@@ -289,7 +289,7 @@ impl TextureDirectory {
             image,
             frame_offset,
             num_frames,
-        } in names.into_iter()
+        } in names
         {
             let offset = Vec2::new(column * 64, row * 64);
             if frame_offset == 0 {
@@ -411,7 +411,7 @@ where
         frames_by_first_frame.insert(first_frame, maybe_frames);
     }
     let mut entries = Vec::with_capacity(frames_by_first_frame.len());
-    for (&name, maybe_frames) in frames_by_first_frame.into_iter() {
+    for (&name, maybe_frames) in frames_by_first_frame {
         match maybe_frames {
             Some(frames) => {
                 for (offset, &frame) in frames.iter().enumerate() {
