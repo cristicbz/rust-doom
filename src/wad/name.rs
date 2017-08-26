@@ -109,7 +109,7 @@ impl Serialize for WadName {
 
 impl WadReadFrom for WadName {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-        let bytes = try!(reader.wad_read::<u64>());
+        let bytes = reader.wad_read::<u64>()?;
         WadName::from_bytes(
             &[
                 (bytes & 0xff) as u8,

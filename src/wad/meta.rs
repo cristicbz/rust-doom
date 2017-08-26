@@ -54,7 +54,7 @@ impl WadMetadata {
     pub fn from_file<P: AsRef<Path>>(path: &P) -> Result<WadMetadata> {
         let mut contents = String::new();
         let path = path.as_ref();
-        try!(try!(File::open(path)).read_to_string(&mut contents));
+        File::open(path)?.read_to_string(&mut contents)?;
         WadMetadata::from_text(&contents).in_file(path)
     }
 

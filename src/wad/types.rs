@@ -1,7 +1,7 @@
-pub use super::name::WadName;
-use std::io::Read;
 use super::error::Result;
+pub use super::name::WadName;
 use super::read::{WadRead, WadReadFrom};
+use std::io::Read;
 
 pub type LightLevel = i16;
 pub type LinedefFlags = u16;
@@ -29,14 +29,16 @@ pub struct WadInfo {
 
 impl WadReadFrom for WadInfo {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-        let identifier = try!(reader.wad_read::<u32>());
+        let identifier = reader.wad_read::<u32>()?;
         Ok(WadInfo {
-            identifier: [(identifier & 0xff) as u8,
-                         ((identifier >> 8) & 0xff) as u8,
-                         ((identifier >> 16) & 0xff) as u8,
-                         ((identifier >> 24) & 0xff) as u8],
-            num_lumps: try!(reader.wad_read()),
-            info_table_offset: try!(reader.wad_read()),
+            identifier: [
+                (identifier & 0xff) as u8,
+                ((identifier >> 8) & 0xff) as u8,
+                ((identifier >> 16) & 0xff) as u8,
+                ((identifier >> 24) & 0xff) as u8,
+            ],
+            num_lumps: reader.wad_read()?,
+            info_table_offset: reader.wad_read()?,
         })
     }
 }
@@ -52,9 +54,9 @@ pub struct WadLump {
 impl WadReadFrom for WadLump {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(WadLump {
-            file_pos: try!(reader.wad_read()),
-            size: try!(reader.wad_read()),
-            name: try!(reader.wad_read()),
+            file_pos: reader.wad_read()?,
+            size: reader.wad_read()?,
+            name: reader.wad_read()?,
         })
     }
 }
@@ -72,11 +74,11 @@ pub struct WadThing {
 impl WadReadFrom for WadThing {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(WadThing {
-            x: try!(reader.wad_read()),
-            y: try!(reader.wad_read()),
-            angle: try!(reader.wad_read()),
-            thing_type: try!(reader.wad_read()),
-            flags: try!(reader.wad_read()),
+            x: reader.wad_read()?,
+            y: reader.wad_read()?,
+            angle: reader.wad_read()?,
+            thing_type: reader.wad_read()?,
+            flags: reader.wad_read()?,
         })
     }
 }
@@ -91,8 +93,8 @@ pub struct WadVertex {
 impl WadReadFrom for WadVertex {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(WadVertex {
-            x: try!(reader.wad_read()),
-            y: try!(reader.wad_read()),
+            x: reader.wad_read()?,
+            y: reader.wad_read()?,
         })
     }
 }
@@ -142,13 +144,13 @@ impl WadLinedef {
 impl WadReadFrom for WadLinedef {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(WadLinedef {
-            start_vertex: try!(reader.wad_read()),
-            end_vertex: try!(reader.wad_read()),
-            flags: try!(reader.wad_read()),
-            special_type: try!(reader.wad_read()),
-            sector_tag: try!(reader.wad_read()),
-            right_side: try!(reader.wad_read()),
-            left_side: try!(reader.wad_read()),
+            start_vertex: reader.wad_read()?,
+            end_vertex: reader.wad_read()?,
+            flags: reader.wad_read()?,
+            special_type: reader.wad_read()?,
+            sector_tag: reader.wad_read()?,
+            right_side: reader.wad_read()?,
+            left_side: reader.wad_read()?,
         })
     }
 }
@@ -167,12 +169,12 @@ pub struct WadSidedef {
 impl WadReadFrom for WadSidedef {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(WadSidedef {
-            x_offset: try!(reader.wad_read()),
-            y_offset: try!(reader.wad_read()),
-            upper_texture: try!(reader.wad_read()),
-            lower_texture: try!(reader.wad_read()),
-            middle_texture: try!(reader.wad_read()),
-            sector: try!(reader.wad_read()),
+            x_offset: reader.wad_read()?,
+            y_offset: reader.wad_read()?,
+            upper_texture: reader.wad_read()?,
+            lower_texture: reader.wad_read()?,
+            middle_texture: reader.wad_read()?,
+            sector: reader.wad_read()?,
         })
     }
 }
@@ -192,13 +194,13 @@ pub struct WadSector {
 impl WadReadFrom for WadSector {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(WadSector {
-            floor_height: try!(reader.wad_read()),
-            ceiling_height: try!(reader.wad_read()),
-            floor_texture: try!(reader.wad_read()),
-            ceiling_texture: try!(reader.wad_read()),
-            light: try!(reader.wad_read()),
-            sector_type: try!(reader.wad_read()),
-            tag: try!(reader.wad_read()),
+            floor_height: reader.wad_read()?,
+            ceiling_height: reader.wad_read()?,
+            floor_texture: reader.wad_read()?,
+            ceiling_texture: reader.wad_read()?,
+            light: reader.wad_read()?,
+            sector_type: reader.wad_read()?,
+            tag: reader.wad_read()?,
         })
     }
 }
@@ -213,8 +215,8 @@ pub struct WadSubsector {
 impl WadReadFrom for WadSubsector {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(WadSubsector {
-            num_segs: try!(reader.wad_read()),
-            first_seg: try!(reader.wad_read()),
+            num_segs: reader.wad_read()?,
+            first_seg: reader.wad_read()?,
         })
     }
 }
@@ -233,12 +235,12 @@ pub struct WadSeg {
 impl WadReadFrom for WadSeg {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(WadSeg {
-            start_vertex: try!(reader.wad_read()),
-            end_vertex: try!(reader.wad_read()),
-            angle: try!(reader.wad_read()),
-            linedef: try!(reader.wad_read()),
-            direction: try!(reader.wad_read()),
-            offset: try!(reader.wad_read()),
+            start_vertex: reader.wad_read()?,
+            end_vertex: reader.wad_read()?,
+            angle: reader.wad_read()?,
+            linedef: reader.wad_read()?,
+            direction: reader.wad_read()?,
+            offset: reader.wad_read()?,
         })
     }
 }
@@ -265,20 +267,20 @@ pub struct WadNode {
 impl WadReadFrom for WadNode {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(WadNode {
-            line_x: try!(reader.wad_read()),
-            line_y: try!(reader.wad_read()),
-            step_x: try!(reader.wad_read()),
-            step_y: try!(reader.wad_read()),
-            right_y_max: try!(reader.wad_read()),
-            right_y_min: try!(reader.wad_read()),
-            right_x_max: try!(reader.wad_read()),
-            right_x_min: try!(reader.wad_read()),
-            left_y_max: try!(reader.wad_read()),
-            left_y_min: try!(reader.wad_read()),
-            left_x_max: try!(reader.wad_read()),
-            left_x_min: try!(reader.wad_read()),
-            right: try!(reader.wad_read()),
-            left: try!(reader.wad_read()),
+            line_x: reader.wad_read()?,
+            line_y: reader.wad_read()?,
+            step_x: reader.wad_read()?,
+            step_y: reader.wad_read()?,
+            right_y_max: reader.wad_read()?,
+            right_y_min: reader.wad_read()?,
+            right_x_max: reader.wad_read()?,
+            right_x_min: reader.wad_read()?,
+            left_y_max: reader.wad_read()?,
+            left_y_min: reader.wad_read()?,
+            left_x_max: reader.wad_read()?,
+            left_x_min: reader.wad_read()?,
+            right: reader.wad_read()?,
+            left: reader.wad_read()?,
         })
     }
 }
@@ -297,12 +299,12 @@ pub struct WadTextureHeader {
 impl WadReadFrom for WadTextureHeader {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(WadTextureHeader {
-            name: try!(reader.wad_read()),
-            masked: try!(reader.wad_read()),
-            width: try!(reader.wad_read()),
-            height: try!(reader.wad_read()),
-            column_directory: try!(reader.wad_read()),
-            num_patches: try!(reader.wad_read()),
+            name: reader.wad_read()?,
+            masked: reader.wad_read()?,
+            width: reader.wad_read()?,
+            height: reader.wad_read()?,
+            column_directory: reader.wad_read()?,
+            num_patches: reader.wad_read()?,
         })
     }
 }
@@ -320,11 +322,11 @@ pub struct WadTexturePatchRef {
 impl WadReadFrom for WadTexturePatchRef {
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         Ok(WadTexturePatchRef {
-            origin_x: try!(reader.wad_read()),
-            origin_y: try!(reader.wad_read()),
-            patch: try!(reader.wad_read()),
-            stepdir: try!(reader.wad_read()),
-            colormap: try!(reader.wad_read()),
+            origin_x: reader.wad_read()?,
+            origin_y: reader.wad_read()?,
+            patch: reader.wad_read()?,
+            stepdir: reader.wad_read()?,
+            colormap: reader.wad_read()?,
         })
     }
 }

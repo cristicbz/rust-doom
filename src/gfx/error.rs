@@ -52,7 +52,7 @@ impl From<GliumSdl2Error> for Error {
 
 impl Display for Error {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        try!(write!(fmt, "graphics error: "));
+        write!(fmt, "graphics error: ")?;
         match *self {
             Error::Io(ref e) => write!(fmt, "I/O: {}", e),
             Error::Sdl(ref e) => write!(fmt, "SDL: {}", e),
