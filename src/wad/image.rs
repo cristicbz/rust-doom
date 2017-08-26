@@ -1,11 +1,11 @@
+use super::read::WadRead;
+use super::types::WadTextureHeader;
 use math::Vec2;
 use sdl2::pixels::PixelFormatEnum;
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Display};
 use std::path::Path;
 use std::vec::Vec;
-use super::read::WadRead;
-use super::types::WadTextureHeader;
 
 pub struct Image {
     width: usize,
@@ -37,14 +37,14 @@ impl Image {
 
     pub fn from_buffer(buffer: &[u8]) -> Result<Image, ImageError> {
         let mut reader = buffer;
-        let width = try!(reader.wad_read::<u16>().to_err("missing width")) as usize;
-        let height = try!(reader.wad_read::<u16>().to_err("missing height")) as usize;
+        let width = reader.wad_read::<u16>().to_err("missing width")? as usize;
+        let height = reader.wad_read::<u16>().to_err("missing height")? as usize;
         if width >= 4096 || height >= 4096 {
             return Err(format!("image too large {}x{}", width, height).into());
         }
 
-        let x_offset = try!(reader.wad_read::<i16>().to_err("missing x offset")) as isize;
-        let y_offset = try!(reader.wad_read::<i16>().to_err("missing y offset")) as isize;
+        let x_offset = reader.wad_read::<i16>().to_err("missing x offset")? as isize;
+        let y_offset = reader.wad_read::<i16>().to_err("missing y offset")? as isize;
 
         let mut pixels = vec![!0; width * height];
 
@@ -52,31 +52,27 @@ impl Image {
         for i_column in 0..width {
             // Each column is defined as a number of vertical `runs' which are
             // defined starting at `offset' in the buffer.
-            let offset = try!(reader.wad_read::<u32>()
-                                    .to_err_with(|| {
-                                        format!("unfinished column {}, {}x{}",
-                                                i_column,
-                                                width,
-                                                height)
-                                    })) as isize;
+            let offset = reader.wad_read::<u32>().to_err_with(|| {
+                format!("unfinished column {}, {}x{}", i_column, width, height)
+            })? as isize;
             if offset >= buffer.len() as isize {
-                return Err(format!("invalid column offset in {}, offset={}, size={}",
-                                   i_column,
-                                   offset,
-                                   buffer.len())
-                               .into());
+                return Err(
+                    format!(
+                        "invalid column offset in {}, offset={}, size={}",
+                        i_column,
+                        offset,
+                        buffer.len()
+                    ).into(),
+                );
             }
             let mut source = buffer[offset as usize..].iter();
             let mut i_run = 0;
             loop {
                 // The first byte contains the vertical coordinate of the run's
                 // start.
-                let row_start = *try!(source.next()
-                                            .to_err_with(|| {
-                                                format!("unfinshed column {}, run {}",
-                                                        i_column,
-                                                        i_run)
-                                            })) as usize;
+                let row_start = *source.next().to_err_with(|| {
+                    format!("unfinshed column {}, run {}", i_column, i_run)
+                })? as usize;
 
                 // The special value of 255 means this is the last run in the
                 // column, so move on to the next one.
@@ -86,59 +82,60 @@ impl Image {
 
                 // The second byte is the length of this run. Skip an additional
                 // byte which is ignored for some reason.
-                let run_length = *try!(source.next()
-                                             .to_err_with(|| {
-                                                 format!("missing run length: column {}, run {}",
-                                                         i_column,
-                                                         i_run)
-                                             })) as usize;
+                let run_length = *source.next().to_err_with(|| {
+                    format!("missing run length: column {}, run {}", i_column, i_run)
+                })? as usize;
 
                 // Check that the run fits in the image.
                 if row_start + run_length > height {
-                    return Err(format!("run too big: column {}, run {} ({} +{}), size {}x{}",
-                                       i_column,
-                                       i_run,
-                                       row_start,
-                                       run_length,
-                                       width,
-                                       height)
-                                   .into());
+                    return Err(
+                        format!(
+                            "run too big: column {}, run {} ({} +{}), size {}x{}",
+                            i_column,
+                            i_run,
+                            row_start,
+                            run_length,
+                            width,
+                            height
+                        ).into(),
+                    );
                 }
 
                 // An ignored padding byte.
-                try!(source.next()
-                           .to_err_with(|| {
-                               format!("missing padding byte 1: column {}, run {}", i_column, i_run)
-                           }));
+                source.next().to_err_with(|| {
+                    format!("missing padding byte 1: column {}, run {}", i_column, i_run)
+                })?;
 
                 // Iterator to the beginning of the run in `pixels`. Guaranteed to be in bounds
                 // by the check above.
                 let mut destination = pixels[row_start * width + i_column..]
-                                          .chunks_mut(width)
-                                          .map(|row| &mut row[0])
-                                          .take(run_length);
+                    .chunks_mut(width)
+                    .map(|row| &mut row[0])
+                    .take(run_length);
 
                 // Copy the bytes from source to destination, but first check there's enough of
                 // those left.
                 if source.size_hint().0 < run_length {
-                    return Err(format!("source underrun: column {}, run {} ({}, +{}), bytes \
+                    return Err(
+                        format!(
+                            "source underrun: column {}, run {} ({}, +{}), bytes \
                                         left {}",
-                                       i_column,
-                                       i_run,
-                                       row_start,
-                                       run_length,
-                                       source.size_hint().0)
-                                   .into());
+                            i_column,
+                            i_run,
+                            row_start,
+                            run_length,
+                            source.size_hint().0
+                        ).into(),
+                    );
                 }
                 for dest_pixel in &mut destination {
                     *dest_pixel = *source.next().expect("missing pixel despite check") as u16;
                 }
 
                 // And another ignored byte after the run.
-                try!(source.next()
-                           .to_err_with(|| {
-                               format!("missing padding byte 2: column {}, run {}", i_column, i_run)
-                           }));
+                source.next().to_err_with(|| {
+                    format!("missing padding byte 2: column {}, run {}", i_column, i_run)
+                })?;
                 i_run += 1;
             }
         }
@@ -183,15 +180,18 @@ impl Image {
         let (x_start, y_start) = (x_start as usize, y_start as usize);
 
         let src_rows = &source.pixels[x_start + y_start * src_pitch..];
-        let src_rows = src_rows.chunks(src_pitch)
-                               .take(copy_height)
-                               .map(|row| &row[..copy_width]);
+        let src_rows = src_rows.chunks(src_pitch).take(copy_height).map(|row| {
+            &row[..copy_width]
+        });
 
         let dest_rows = &mut self.pixels[(x_start as isize + offset[0]) as usize +
-                                         (y_start as isize + offset[1]) as usize * dest_pitch..];
-        let dest_rows = dest_rows.chunks_mut(dest_pitch)
-                                 .take(copy_height)
-                                 .map(|row| &mut row[..copy_width]);
+                                             (y_start as isize + offset[1]) as usize *
+                                                 dest_pitch..];
+        let dest_rows = dest_rows.chunks_mut(dest_pitch).take(copy_height).map(
+            |row| {
+                &mut row[..copy_width]
+            },
+        );
 
         if ignore_transparency {
             // If we don't care about transparency we can copy row by row.
@@ -244,10 +244,11 @@ impl Image {
         self.pixels
     }
 
-    pub fn save_bmp<P: AsRef<Path> + Debug>(&self,
-                                            palette: &[[u8; 3]; 256],
-                                            path: &P)
-                                            -> Result<(), ImageError> {
+    pub fn save_bmp<P: AsRef<Path> + Debug>(
+        &self,
+        palette: &[[u8; 3]; 256],
+        path: &P,
+    ) -> Result<(), ImageError> {
         use sdl2::surface::Surface;
         let mut pixels = vec![0u8; 3 * self.width * self.height];
         for (index, pixel) in self.pixels.iter().enumerate() {
@@ -256,13 +257,17 @@ impl Image {
             pixels[index * 3 + 1] = pixel[1];
             pixels[index * 3 + 2] = pixel[0];
         }
-        let surface = try!(Surface::from_data(&mut pixels[..],
-                                              self.width as u32,
-                                              self.height as u32,
-                                              self.width as u32 * 3,
-                                              PixelFormatEnum::BGR24)
-                               .to_err("failed to create surface"));
-        surface.save_bmp(path).to_err_with(|| format!("failed to save bmp {:?}", path))
+        let surface = Surface::from_data(
+            &mut pixels[..],
+            self.width as u32,
+            self.height as u32,
+            self.width as u32 * 3,
+            PixelFormatEnum::BGR24,
+        ).to_err("failed to create surface")?;
+
+        surface.save_bmp(path).to_err_with(|| {
+            format!("failed to save bmp {:?}", path)
+        })
     }
 }
 

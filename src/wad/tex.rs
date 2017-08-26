@@ -1,9 +1,3 @@
-use gfx::Bounds;
-use math::{Vec2, Vec2f};
-use num::Zero;
-use std::cmp;
-use std::collections::BTreeMap;
-use std::mem;
 use super::archive::{Archive, InArchive};
 use super::error::ErrorKind::BadImage;
 use super::error::Result;
@@ -11,6 +5,12 @@ use super::image::Image;
 use super::name::WadName;
 use super::read::WadRead;
 use super::types::{WadTextureHeader, WadTexturePatchRef};
+use gfx::Bounds;
+use math::{Vec2, Vec2f};
+use num::Zero;
+use std::cmp;
+use std::collections::BTreeMap;
+use std::mem;
 use time;
 
 pub type Palette = [u8; 256 * 3];
@@ -49,13 +49,13 @@ impl TextureDirectory {
         info!("Reading texture directory...");
 
         // Read palettes & colormaps.
-        let palettes = try!(wad.read_required_named_lump(b"PLAYPAL\0"));
-        let colormaps = try!(wad.read_required_named_lump(b"COLORMAP"));
+        let palettes = wad.read_required_named_lump(b"PLAYPAL\0")?;
+        let colormaps = wad.read_required_named_lump(b"COLORMAP")?;
         info!("  {:4} palettes", palettes.len());
         info!("  {:4} colormaps", colormaps.len());
 
         // Read patches.
-        let patches = try!(read_patches(wad).in_archive(wad));
+        let patches = read_patches(wad).in_archive(wad)?;
         info!("  {:4} patches", patches.len());
 
         // Read textures.
@@ -70,22 +70,22 @@ impl TextureDirectory {
                     continue;
                 }
             };
-            let num_textures = try!(read_textures(&try!(wad.read_lump(lump_index)),
-                                                  &patches,
-                                                  &mut textures)
-                                        .in_archive(wad));
-            info!("  {:4} textures in {}",
-                  num_textures,
-                  String::from_utf8_lossy(lump_name));
+            let num_textures = read_textures(&wad.read_lump(lump_index)?, &patches, &mut textures)
+                .in_archive(wad)?;
+            info!(
+                "  {:4} textures in {}",
+                num_textures,
+                String::from_utf8_lossy(lump_name)
+            );
         }
         info!("Done in {:.4}s.", time::precise_time_s() - t0);
 
         // Read flats.
-        let flats = try!(read_flats(wad));
+        let flats = read_flats(wad)?;
         info!("  {:4} flats", flats.len());
 
         // Read sprites.
-        let num_sprites = try!(read_sprites(wad, &mut textures));
+        let num_sprites = read_sprites(wad, &mut textures)?;
         info!("  {:4} sprites", num_sprites);
 
         Ok(TextureDirectory {
@@ -127,11 +127,12 @@ impl TextureDirectory {
         &self.colormaps[index]
     }
 
-    pub fn build_palette_texture(&self,
-                                 palette: usize,
-                                 colormap_start: usize,
-                                 colormap_end: usize)
-                                 -> MappedPalette {
+    pub fn build_palette_texture(
+        &self,
+        palette: usize,
+        colormap_start: usize,
+        colormap_end: usize,
+    ) -> MappedPalette {
         let num_colormaps = colormap_end - colormap_start;
         let mut data = vec![0u8; 256 * num_colormaps * 3];
         let palette = &self.palettes[palette];
@@ -152,7 +153,8 @@ impl TextureDirectory {
 
 
     pub fn build_texture_atlas<'a, T>(&'a self, names_iter: T) -> (TransparentImage, BoundsLookup)
-        where T: IntoIterator<Item = &'a WadName>
+    where
+        T: IntoIterator<Item = &'a WadName>,
     {
         let entries = ordered_atlas_entries(&self.animated_walls, |n| self.texture(&n), names_iter);
         let max_image_width = if let Some(width) = entries.iter().map(|e| e.image.width()).max() {
@@ -164,25 +166,26 @@ impl TextureDirectory {
             };
             return (image, BoundsLookup::new());
         };
-        let num_pixels = entries.iter().map(|e| e.image.num_pixels()).fold(0, |x, y| x + y);
+        let num_pixels = entries.iter().map(|e| e.image.num_pixels()).fold(
+            0,
+            |x, y| x + y,
+        );
         let min_atlas_size = Vec2::new(cmp::min(128, next_pow2(max_image_width)), 128);
         let max_size = 4096;
 
-        let next_size = |size: &mut Vec2<usize>| {
-            loop {
-                if size[0] <= size[1] {
-                    if size[0] == max_size {
-                        panic!("Could not fit wall atlas.");
-                    }
-                    size[0] *= 2;
-                    size[1] = 128;
-                } else {
-                    size[1] *= 2;
+        let next_size = |size: &mut Vec2<usize>| loop {
+            if size[0] <= size[1] {
+                if size[0] == max_size {
+                    panic!("Could not fit wall atlas.");
                 }
+                size[0] *= 2;
+                size[1] = 128;
+            } else {
+                size[1] *= 2;
+            }
 
-                if size[0] * size[1] >= num_pixels {
-                    break;
-                }
+            if size[0] * size[1] >= num_pixels {
+                break;
             }
         };
 
@@ -242,8 +245,10 @@ impl TextureDirectory {
         let mut bound_map = BTreeMap::new();
         for (i, entry) in entries.iter().enumerate() {
             atlas.blit(entry.image, positions[i].offset, true);
-            bound_map.insert(entry.name,
-                             img_bound(&positions[i - entry.frame_offset], entry));
+            bound_map.insert(
+                entry.name,
+                img_bound(&positions[i - entry.frame_offset], entry),
+            );
         }
 
         let tex = TransparentImage {
@@ -256,7 +261,8 @@ impl TextureDirectory {
     }
 
     pub fn build_flat_atlas<'a, T>(&'a self, names_iter: T) -> (OpaqueImage, BoundsLookup)
-        where T: IntoIterator<Item = &'a WadName>
+    where
+        T: IntoIterator<Item = &'a WadName>,
     {
         let names = ordered_atlas_entries(&self.animated_flats, |n| self.flat(&n), names_iter);
         let num_names = names.len();
@@ -270,24 +276,34 @@ impl TextureDirectory {
         let mut offsets = BTreeMap::new();
         let mut data = vec![255u8; width * height];
         let (mut row, mut column) = (0, 0);
-        info!("Flat atlas size: {}x{} ({}, {})",
-              width,
-              height,
-              flats_per_row,
-              num_rows);
+        info!(
+            "Flat atlas size: {}x{} ({}, {})",
+            width,
+            height,
+            flats_per_row,
+            num_rows
+        );
         let mut anim_start_pos = Vec2::zero();
-        for AtlasEntry { name, image, frame_offset, num_frames } in names.into_iter() {
+        for AtlasEntry {
+            name,
+            image,
+            frame_offset,
+            num_frames,
+        } in names.into_iter()
+        {
             let offset = Vec2::new(column * 64, row * 64);
             if frame_offset == 0 {
                 anim_start_pos = Vec2::new(offset[0] as f32, offset[1] as f32);
             }
-            offsets.insert(name,
-                           Bounds {
-                               pos: anim_start_pos,
-                               size: Vec2::new(64.0, 64.0),
-                               num_frames: num_frames,
-                               row_height: 64,
-                           });
+            offsets.insert(
+                name,
+                Bounds {
+                    pos: anim_start_pos,
+                    size: Vec2::new(64.0, 64.0),
+                    num_frames: num_frames,
+                    row_height: 64,
+                },
+            );
 
             for y in 0..64 {
                 for x in 0..64 {
@@ -334,10 +350,10 @@ fn next_pow2(x: usize) -> usize {
 const TEXTURE_LUMP_NAMES: &'static [&'static [u8; 8]] = &[b"TEXTURE1", b"TEXTURE2"];
 
 fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
-    let pnames_buffer = try!(wad.read_required_named_lump(b"PNAMES\0\0"));
+    let pnames_buffer = wad.read_required_named_lump(b"PNAMES\0\0")?;
     let mut lump = &pnames_buffer[..];
 
-    let num_patches = try!(lump.wad_read::<u32>()) as usize;
+    let num_patches = lump.wad_read::<u32>()? as usize;
     let mut patches = Vec::with_capacity(num_patches);
 
     patches.reserve(num_patches);
@@ -345,10 +361,10 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     info!("Reading {} patches....", num_patches);
     let t0 = time::precise_time_s();
     for _ in 0..num_patches {
-        let name = try!(lump.wad_read::<WadName>());
+        let name = lump.wad_read::<WadName>()?;
         match wad.named_lump_index(&name) {
             Some(index) => {
-                let image = match Image::from_buffer(&try!(wad.read_lump(index))) {
+                let image = match Image::from_buffer(&wad.read_lump(index)?) {
                     Ok(i) => Some(i),
                     Err(e) => {
                         warn!("Skipping patch: {}", BadImage(name, e));
@@ -378,13 +394,15 @@ fn img_bound(pos: &AtlasPosition, entry: &AtlasEntry<Image>) -> Bounds {
     }
 }
 
-fn ordered_atlas_entries<'a, 'b, N, I, L>(animations: &'b [Vec<WadName>],
-                                          image_lookup: L,
-                                          names_iter: N)
-                                          -> Vec<AtlasEntry<I>>
-    where N: IntoIterator<Item = &'a WadName>,
-          L: Fn(WadName) -> Option<&'b I>,
-          'a: 'b
+fn ordered_atlas_entries<'a, 'b, N, I, L>(
+    animations: &'b [Vec<WadName>],
+    image_lookup: L,
+    names_iter: N,
+) -> Vec<AtlasEntry<I>>
+where
+    N: IntoIterator<Item = &'a WadName>,
+    L: Fn(WadName) -> Option<&'b I>,
+    'a: 'b,
 {
     let mut frames_by_first_frame = BTreeMap::new();
     for name in names_iter {
@@ -424,23 +442,27 @@ fn ordered_atlas_entries<'a, 'b, N, I, L>(animations: &'b [Vec<WadName>],
     entries
 }
 
-fn search_for_frame<'a>(search_for: &WadName,
-                        animations: &'a [Vec<WadName>])
-                        -> Option<&'a [WadName]> {
-    animations.iter()
-              .find(|animation| animation.iter().any(|frame| frame == search_for))
-              .map(|animation| &animation[..])
+fn search_for_frame<'a>(
+    search_for: &WadName,
+    animations: &'a [Vec<WadName>],
+) -> Option<&'a [WadName]> {
+    animations
+        .iter()
+        .find(|animation| {
+            animation.iter().any(|frame| frame == search_for)
+        })
+        .map(|animation| &animation[..])
 }
 
 
 fn read_sprites(wad: &Archive, textures: &mut BTreeMap<WadName, Image>) -> Result<usize> {
-    let start_index = try!(wad.required_named_lump_index(b"S_START\0")) + 1;
-    let end_index = try!(wad.required_named_lump_index(b"S_END\0\0\0"));
+    let start_index = wad.required_named_lump_index(b"S_START\0")? + 1;
+    let end_index = wad.required_named_lump_index(b"S_END\0\0\0")?;
     info!("Reading {} sprites....", end_index - start_index);
     let t0 = time::precise_time_s();
     for index in start_index..end_index {
         let name = *wad.lump_name(index);
-        match Image::from_buffer(&try!(wad.read_lump(index))) {
+        match Image::from_buffer(&wad.read_lump(index)?) {
             Ok(texture) => {
                 textures.insert(name, texture);
             }
@@ -455,18 +477,19 @@ fn read_sprites(wad: &Archive, textures: &mut BTreeMap<WadName, Image>) -> Resul
     Ok(end_index - start_index)
 }
 
-fn read_textures(lump_buffer: &[u8],
-                 patches: &[(WadName, Option<Image>)],
-                 textures: &mut BTreeMap<WadName, Image>)
-                 -> Result<usize> {
+fn read_textures(
+    lump_buffer: &[u8],
+    patches: &[(WadName, Option<Image>)],
+    textures: &mut BTreeMap<WadName, Image>,
+) -> Result<usize> {
     let mut lump = lump_buffer;
-    let num_textures = try!(lump.wad_read::<u32>()) as usize;
+    let num_textures = lump.wad_read::<u32>()? as usize;
 
     let mut offsets = &lump[..num_textures * mem::size_of::<u32>()];
 
     for _ in 0..num_textures {
-        lump = &lump_buffer[try!(offsets.wad_read::<u32>()) as usize..];
-        let header = try!(lump.wad_read::<WadTextureHeader>());
+        lump = &lump_buffer[offsets.wad_read::<u32>()? as usize..];
+        let header = lump.wad_read::<WadTextureHeader>()?;
         let mut image = match Image::new_from_header(&header) {
             Ok(image) => image,
             Err(e) => {
@@ -476,27 +499,33 @@ fn read_textures(lump_buffer: &[u8],
         };
 
         for i_patch in 0..header.num_patches {
-            let pref = try!(lump.wad_read::<WadTexturePatchRef>());
-            let offset = Vec2::new(pref.origin_x as isize,
-                                   if pref.origin_y <= 0 {
-                                       0
-                                   } else {
-                                       pref.origin_y as isize
-                                   });
+            let pref = lump.wad_read::<WadTexturePatchRef>()?;
+            let offset = Vec2::new(
+                pref.origin_x as isize,
+                if pref.origin_y <= 0 {
+                    0
+                } else {
+                    pref.origin_y as isize
+                },
+            );
             match patches.get(pref.patch as usize) {
                 Some(&(_, Some(ref patch))) => {
                     image.blit(patch, offset, i_patch == 0);
                 }
                 Some(&(ref patch_name, None)) => {
-                    warn!("PatchRef {}, required by {} is missing.",
-                          patch_name,
-                          header.name);
+                    warn!(
+                        "PatchRef {}, required by {} is missing.",
+                        patch_name,
+                        header.name
+                    );
                 }
                 None => {
-                    warn!("PatchRef index {} out of bounds ({}) in {}, skipping.",
-                          pref.patch,
-                          patches.len(),
-                          header.name);
+                    warn!(
+                        "PatchRef index {} out of bounds ({}) in {}, skipping.",
+                        pref.patch,
+                        patches.len(),
+                        header.name
+                    );
                 }
             }
         }
@@ -507,14 +536,14 @@ fn read_textures(lump_buffer: &[u8],
 }
 
 fn read_flats(wad: &Archive) -> Result<BTreeMap<WadName, Flat>> {
-    let start = try!(wad.required_named_lump_index(b"F_START\0"));
-    let end = try!(wad.required_named_lump_index(b"F_END\0\0\0"));
+    let start = wad.required_named_lump_index(b"F_START\0")?;
+    let end = wad.required_named_lump_index(b"F_END\0\0\0")?;
     let mut flats = BTreeMap::new();
     for i_lump in start..end {
         if wad.is_virtual_lump(i_lump) {
             continue;
         }
-        let lump = try!(wad.read_lump(i_lump));
+        let lump = wad.read_lump(i_lump)?;
         flats.insert(*wad.lump_name(i_lump), lump);
     }
 

@@ -1,10 +1,10 @@
+use super::error::{Result, Error};
+use super::platform;
 use glium::{Frame, Surface};
 use glium_sdl2::{DisplayBuild, SDL2Facade};
 use sdl2;
 use sdl2::Sdl;
 use sdl2::video::GLProfile;
-use super::error::{Result, Error};
-use super::platform;
 
 
 const WINDOW_TITLE: &'static str = "Rusty Doom v0.0.7";
@@ -19,7 +19,7 @@ pub struct Window {
 
 impl Window {
     pub fn new(sdl: &Sdl, width: u32, height: u32) -> Result<Window> {
-        let video = try!(sdl.video().map_err(Error::Sdl));
+        let video = sdl.video().map_err(Error::Sdl)?;
         let gl_attr = video.gl_attr();
         gl_attr.set_context_profile(GLProfile::Core);
         gl_attr.set_context_major_version(platform::GL_MAJOR_VERSION);
@@ -27,11 +27,12 @@ impl Window {
         gl_attr.set_depth_size(OPENGL_DEPTH_SIZE);
         gl_attr.set_double_buffer(true);
 
-        let facade = try!(video.window(WINDOW_TITLE, width as u32, height as u32)
-                               .position_centered()
-                               .opengl()
-                               .resizable()
-                               .build_glium());
+        let facade = video
+            .window(WINDOW_TITLE, width as u32, height as u32)
+            .position_centered()
+            .opengl()
+            .resizable()
+            .build_glium()?;
 
         sdl2::clear_error();
         Ok(Window {

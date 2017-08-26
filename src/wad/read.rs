@@ -1,9 +1,9 @@
+use super::error::Result;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::Error as IoError;
 use std::io::ErrorKind as IoErrorKind;
 use std::io::Read;
 use std::io::Result as IoResult;
-use super::error::Result;
 
 
 pub trait WadReadFrom: Sized {
@@ -18,13 +18,13 @@ pub trait WadReadFrom: Sized {
 impl WadReadFrom for u8 {
     #[inline]
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-        Ok(try!(reader.read_u8()))
+        Ok(reader.read_u8()?)
     }
 
     #[inline]
     fn wad_read_many_from<R: Read>(reader: &mut R, n: usize) -> Result<Vec<Self>> {
         let mut buf = vec![0; n];
-        try!(reader.read_buffer(&mut buf));
+        reader.read_buffer(&mut buf)?;
         Ok(buf)
     }
 }
@@ -32,49 +32,49 @@ impl WadReadFrom for u8 {
 impl WadReadFrom for u16 {
     #[inline]
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-        Ok(try!(reader.read_u16::<LittleEndian>()))
+        Ok(reader.read_u16::<LittleEndian>()?)
     }
 }
 
 impl WadReadFrom for u32 {
     #[inline]
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-        Ok(try!(reader.read_u32::<LittleEndian>()))
+        Ok(reader.read_u32::<LittleEndian>()?)
     }
 }
 
 impl WadReadFrom for u64 {
     #[inline]
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-        Ok(try!(reader.read_u64::<LittleEndian>()))
+        Ok(reader.read_u64::<LittleEndian>()?)
     }
 }
 
 impl WadReadFrom for i8 {
     #[inline]
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-        Ok(try!(reader.read_i8()))
+        Ok(reader.read_i8()?)
     }
 }
 
 impl WadReadFrom for i16 {
     #[inline]
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-        Ok(try!(reader.read_i16::<LittleEndian>()))
+        Ok(reader.read_i16::<LittleEndian>()?)
     }
 }
 
 impl WadReadFrom for i32 {
     #[inline]
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-        Ok(try!(reader.read_i32::<LittleEndian>()))
+        Ok(reader.read_i32::<LittleEndian>()?)
     }
 }
 
 impl WadReadFrom for i64 {
     #[inline]
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-        Ok(try!(reader.read_i64::<LittleEndian>()))
+        Ok(reader.read_i64::<LittleEndian>()?)
     }
 }
 
@@ -82,7 +82,7 @@ impl WadReadFrom for [u8; 256] {
     #[inline]
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         let mut ret = [0; 256];
-        try!(reader.read_buffer(&mut ret));
+        reader.read_buffer(&mut ret)?;
         Ok(ret)
     }
 }
@@ -91,7 +91,7 @@ impl WadReadFrom for [u8; 768] {
     #[inline]
     fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
         let mut ret = [0; 768];
-        try!(reader.read_buffer(&mut ret));
+        reader.read_buffer(&mut ret)?;
         Ok(ret)
     }
 }
@@ -120,7 +120,10 @@ pub trait WadRead: Read + Sized {
             }
         }
         if !buf.is_empty() {
-            Err(IoError::new(IoErrorKind::InvalidData, "failed to fill whole buffer"))
+            Err(IoError::new(
+                IoErrorKind::InvalidData,
+                "failed to fill whole buffer",
+            ))
         } else {
             Ok(())
         }

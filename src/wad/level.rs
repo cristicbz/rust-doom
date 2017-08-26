@@ -1,11 +1,11 @@
-use math::Vec2f;
-use std::mem;
-use std::vec::Vec;
 use super::archive::Archive;
 use super::error::Result;
 use super::types::{LightLevel, SectorId, VertexId, WadNode, WadSector};
 use super::types::{WadLinedef, WadSeg, WadSidedef, WadSubsector, WadThing, WadVertex};
 use super::util::from_wad_coords;
+use math::Vec2f;
+use std::mem;
+use std::vec::Vec;
 
 const THINGS_OFFSET: usize = 1;
 const LINEDEFS_OFFSET: usize = 2;
@@ -32,14 +32,14 @@ impl Level {
         let name = *wad.level_name(index);
         info!("Reading level data for '{}'...", name);
         let start_index = wad.level_lump_index(index);
-        let things = try!(wad.read_lump(start_index + THINGS_OFFSET));
-        let linedefs = try!(wad.read_lump(start_index + LINEDEFS_OFFSET));
-        let vertices = try!(wad.read_lump(start_index + VERTICES_OFFSET));
-        let segs = try!(wad.read_lump(start_index + SEGS_OFFSET));
-        let subsectors = try!(wad.read_lump(start_index + SSECTORS_OFFSET));
-        let nodes = try!(wad.read_lump(start_index + NODES_OFFSET));
-        let sidedefs = try!(wad.read_lump::<WadSidedef>(start_index + SIDEDEFS_OFFSET));
-        let sectors = try!(wad.read_lump::<WadSector>(start_index + SECTORS_OFFSET));
+        let things = wad.read_lump(start_index + THINGS_OFFSET)?;
+        let linedefs = wad.read_lump(start_index + LINEDEFS_OFFSET)?;
+        let vertices = wad.read_lump(start_index + VERTICES_OFFSET)?;
+        let segs = wad.read_lump(start_index + SEGS_OFFSET)?;
+        let subsectors = wad.read_lump(start_index + SSECTORS_OFFSET)?;
+        let nodes = wad.read_lump(start_index + NODES_OFFSET)?;
+        let sidedefs = wad.read_lump::<WadSidedef>(start_index + SIDEDEFS_OFFSET)?;
+        let sectors = wad.read_lump::<WadSector>(start_index + SECTORS_OFFSET)?;
 
         info!("Loaded level '{}':", name);
         info!("    {:4} things", things.len());
@@ -64,7 +64,9 @@ impl Level {
     }
 
     pub fn vertex(&self, id: VertexId) -> Option<Vec2f> {
-        self.vertices.get(id as usize).map(|v| from_wad_coords(v.x, v.y))
+        self.vertices.get(id as usize).map(
+            |v| from_wad_coords(v.x, v.y),
+        )
     }
 
     pub fn seg_linedef(&self, seg: &WadSeg) -> Option<&WadLinedef> {
@@ -80,31 +82,35 @@ impl Level {
     }
 
     pub fn seg_sidedef(&self, seg: &WadSeg) -> Option<&WadSidedef> {
-        self.seg_linedef(seg).and_then(|line| {
-            if seg.direction == 0 {
+        self.seg_linedef(seg).and_then(
+            |line| if seg.direction == 0 {
                 self.right_sidedef(line)
             } else {
                 self.left_sidedef(line)
-            }
-        })
+            },
+        )
     }
 
     pub fn seg_back_sidedef(&self, seg: &WadSeg) -> Option<&WadSidedef> {
-        self.seg_linedef(seg).and_then(|line| {
-            if seg.direction == 1 {
+        self.seg_linedef(seg).and_then(
+            |line| if seg.direction == 1 {
                 self.right_sidedef(line)
             } else {
                 self.left_sidedef(line)
-            }
-        })
+            },
+        )
     }
 
     pub fn seg_sector(&self, seg: &WadSeg) -> Option<&WadSector> {
-        self.seg_sidedef(seg).and_then(|side| self.sidedef_sector(side))
+        self.seg_sidedef(seg).and_then(
+            |side| self.sidedef_sector(side),
+        )
     }
 
     pub fn seg_back_sector(&self, seg: &WadSeg) -> Option<&WadSector> {
-        self.seg_back_sidedef(seg).and_then(|side| self.sidedef_sector(side))
+        self.seg_back_sidedef(seg).and_then(
+            |side| self.sidedef_sector(side),
+        )
     }
 
     pub fn left_sidedef(&self, linedef: &WadLinedef) -> Option<&WadSidedef> {
@@ -141,7 +147,7 @@ impl Level {
 
     pub fn sector_id(&self, sector: &WadSector) -> SectorId {
         let sector_id = (sector as *const _ as usize - self.sectors.as_ptr() as usize) /
-                        mem::size_of::<WadSector>();
+            mem::size_of::<WadSector>();
         assert!(sector_id < self.sectors.len());
         sector_id as SectorId
     }
