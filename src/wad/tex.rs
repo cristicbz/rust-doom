@@ -3,18 +3,22 @@ use super::error::ErrorKind::BadImage;
 use super::error::Result;
 use super::image::Image;
 use super::name::WadName;
-use super::read::WadRead;
 use super::types::{WadTextureHeader, WadTexturePatchRef};
+use bincode::{deserialize_from as bincode_read, Infinite};
+use byteorder::{ReadBytesExt, LittleEndian};
 use gfx::Bounds;
 use math::{Vec2, Vec2f};
 use num::Zero;
+use serde::de::{Visitor, Deserialize, SeqAccess, Deserializer, Error as SerdeDeError};
 use std::cmp;
 use std::collections::BTreeMap;
+use std::fmt::{Formatter, Result as FmtResult};
 use std::mem;
+use std::result::Result as StdResult;
 use time;
 
-pub type Palette = [u8; 256 * 3];
-pub type Colormap = [u8; 256];
+pub struct Palette([u8; 256 * 3]);
+pub struct Colormap([u8; 256]);
 pub type Flat = Vec<u8>;
 pub type BoundsLookup = BTreeMap<WadName, Bounds>;
 
@@ -49,8 +53,8 @@ impl TextureDirectory {
         info!("Reading texture directory...");
 
         // Read palettes & colormaps.
-        let palettes = wad.read_required_named_lump(b"PLAYPAL\0")?;
-        let colormaps = wad.read_required_named_lump(b"COLORMAP")?;
+        let palettes: Vec<Palette> = wad.read_required_named_lump(b"PLAYPAL\0")?;
+        let colormaps: Vec<Colormap> = wad.read_required_named_lump(b"COLORMAP")?;
         info!("  {:4} palettes", palettes.len());
         info!("  {:4} colormaps", colormaps.len());
 
@@ -138,7 +142,7 @@ impl TextureDirectory {
         let palette = &self.palettes[palette];
         for i_colormap in colormap_start..colormap_end {
             for i_color in 0..256 {
-                let rgb = &palette[self.colormaps[i_colormap][i_color] as usize * 3..][..3];
+                let rgb = &palette.0[self.colormaps[i_colormap].0[i_color] as usize * 3..][..3];
                 data[i_color * 3 + i_colormap * 256 * 3] = rgb[0];
                 data[1 + i_color * 3 + i_colormap * 256 * 3] = rgb[1];
                 data[2 + i_color * 3 + i_colormap * 256 * 3] = rgb[2];
@@ -353,7 +357,7 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     let pnames_buffer = wad.read_required_named_lump(b"PNAMES\0\0")?;
     let mut lump = &pnames_buffer[..];
 
-    let num_patches = lump.wad_read::<u32>()? as usize;
+    let num_patches = lump.read_u32::<LittleEndian>()? as usize;
     let mut patches = Vec::with_capacity(num_patches);
 
     patches.reserve(num_patches);
@@ -361,7 +365,7 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     info!("Reading {} patches....", num_patches);
     let t0 = time::precise_time_s();
     for _ in 0..num_patches {
-        let name = lump.wad_read::<WadName>()?;
+        let name: WadName = bincode_read(&mut lump, Infinite)?;
         match wad.named_lump_index(&name) {
             Some(index) => {
                 let image = match Image::from_buffer(&wad.read_lump(index)?) {
@@ -483,13 +487,13 @@ fn read_textures(
     textures: &mut BTreeMap<WadName, Image>,
 ) -> Result<usize> {
     let mut lump = lump_buffer;
-    let num_textures = lump.wad_read::<u32>()? as usize;
+    let num_textures = lump.read_u32::<LittleEndian>()? as usize;
 
     let mut offsets = &lump[..num_textures * mem::size_of::<u32>()];
 
     for _ in 0..num_textures {
-        lump = &lump_buffer[offsets.wad_read::<u32>()? as usize..];
-        let header = lump.wad_read::<WadTextureHeader>()?;
+        lump = &lump_buffer[offsets.read_u32::<LittleEndian>()? as usize..];
+        let header: WadTextureHeader = bincode_read(&mut lump, Infinite)?;
         let mut image = match Image::new_from_header(&header) {
             Ok(image) => image,
             Err(e) => {
@@ -499,7 +503,7 @@ fn read_textures(
         };
 
         for i_patch in 0..header.num_patches {
-            let pref = lump.wad_read::<WadTexturePatchRef>()?;
+            let pref: WadTexturePatchRef = bincode_read(&mut lump, Infinite)?;
             let offset = Vec2::new(
                 pref.origin_x as isize,
                 if pref.origin_y <= 0 {
@@ -549,3 +553,64 @@ fn read_flats(wad: &Archive) -> Result<BTreeMap<WadName, Flat>> {
 
     Ok(flats)
 }
+
+struct BytesVisitor<'a>(&'a mut [u8]);
+
+impl<'a, 'de> Visitor<'de> for BytesVisitor<'a> {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut Formatter) -> FmtResult {
+        write!(formatter, "a fixed byte array of size {}", self.0.len())
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> StdResult<(), A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut bad_length = false;
+        for byte in self.0.iter_mut() {
+            *byte = match seq.next_element()? {
+                Some(byte) => byte,
+                None => {
+                    bad_length = true;
+                    break;
+                }
+            };
+        }
+
+        if bad_length {
+            Err(A::Error::invalid_length(self.0.len(), &self))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Palette {
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let mut palette = Palette([0; 256 * 3]);
+        deserializer.deserialize_tuple(
+            palette.0.len(),
+            BytesVisitor(&mut palette.0),
+        )?;
+        Ok(palette)
+    }
+}
+
+impl<'de> Deserialize<'de> for Colormap {
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let mut colormap = Colormap([0; 256]);
+        deserializer.deserialize_tuple(
+            colormap.0.len(),
+            BytesVisitor(&mut colormap.0),
+        )?;
+        Ok(colormap)
+    }
+}
+

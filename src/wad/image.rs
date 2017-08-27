@@ -1,5 +1,5 @@
-use super::read::WadRead;
 use super::types::WadTextureHeader;
+use byteorder::{ReadBytesExt, LittleEndian};
 use math::Vec2;
 use sdl2::pixels::PixelFormatEnum;
 use std::borrow::Cow;
@@ -37,14 +37,14 @@ impl Image {
 
     pub fn from_buffer(buffer: &[u8]) -> Result<Image, ImageError> {
         let mut reader = buffer;
-        let width = reader.wad_read::<u16>().to_err("missing width")? as usize;
-        let height = reader.wad_read::<u16>().to_err("missing height")? as usize;
+        let width = reader.read_u16::<LittleEndian>().to_err("missing width")? as usize;
+        let height = reader.read_u16::<LittleEndian>().to_err("missing height")? as usize;
         if width >= 4096 || height >= 4096 {
             return Err(format!("image too large {}x{}", width, height).into());
         }
 
-        let x_offset = reader.wad_read::<i16>().to_err("missing x offset")? as isize;
-        let y_offset = reader.wad_read::<i16>().to_err("missing y offset")? as isize;
+        let x_offset = reader.read_i16::<LittleEndian>().to_err("missing x offset")? as isize;
+        let y_offset = reader.read_i16::<LittleEndian>().to_err("missing y offset")? as isize;
 
         let mut pixels = vec![!0; width * height];
 
@@ -52,7 +52,7 @@ impl Image {
         for i_column in 0..width {
             // Each column is defined as a number of vertical `runs' which are
             // defined starting at `offset' in the buffer.
-            let offset = reader.wad_read::<u32>().to_err_with(|| {
+            let offset = reader.read_u32::<LittleEndian>().to_err_with(|| {
                 format!("unfinished column {}, {}x{}", i_column, width, height)
             })? as isize;
             if offset >= buffer.len() as isize {

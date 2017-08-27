@@ -1,25 +1,16 @@
 use super::error::{ErrorKind, Result};
-use super::read::{WadRead, WadReadFrom};
-use serde::{Serialize, Deserialize, Serializer, Deserializer};
+use serde::de::{Deserialize, Deserializer, Error as SerdeDeError};
 use std::ascii::AsciiExt;
 use std::borrow::Borrow;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::io::Read;
 use std::ops::Deref;
 use std::result::Result as StdResult;
 use std::str::{self, FromStr};
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct WadName([u8; 8]);
-
-impl Deref for WadName {
-    type Target = [u8; 8];
-    fn deref(&self) -> &[u8; 8] {
-        &self.0
-    }
-}
 
 impl WadName {
     pub fn from_bytes(value: &[u8]) -> Result<WadName> {
@@ -71,50 +62,20 @@ impl Display for WadName {
         write!(formatter, "{}", str::from_utf8(&self[..]).unwrap())
     }
 }
+
+impl Deref for WadName {
+    type Target = [u8; 8];
+    fn deref(&self) -> &[u8; 8] {
+        &self.0
+    }
+}
+
 impl Debug for WadName {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(
             formatter,
             "WadName({:?})",
             str::from_utf8(&self[..]).unwrap()
-        )
-    }
-}
-
-impl<'de> Deserialize<'de> for WadName {
-    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(
-            WadName::from_str(<&'de str>::deserialize(deserializer)?).unwrap(),
-        )
-    }
-}
-
-impl Serialize for WadName {
-    fn serialize<S>(&self, serializer: S) -> StdResult<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        str::from_utf8(&self[..]).unwrap().serialize(serializer)
-    }
-}
-
-impl WadReadFrom for WadName {
-    fn wad_read_from<R: Read>(reader: &mut R) -> Result<Self> {
-        let bytes = reader.wad_read::<u64>()?;
-        WadName::from_bytes(
-            &[
-                (bytes & 0xff) as u8,
-                ((bytes >> 8) & 0xff) as u8,
-                ((bytes >> 16) & 0xff) as u8,
-                ((bytes >> 24) & 0xff) as u8,
-                ((bytes >> 32) & 0xff) as u8,
-                ((bytes >> 40) & 0xff) as u8,
-                ((bytes >> 48) & 0xff) as u8,
-                ((bytes >> 56) & 0xff) as u8,
-            ],
         )
     }
 }
@@ -134,6 +95,15 @@ impl Borrow<[u8; 8]> for WadName {
 impl AsRef<str> for WadName {
     fn as_ref(&self) -> &str {
         str::from_utf8(self.deref()).expect("wad name is not valid utf-8")
+    }
+}
+
+impl<'de> Deserialize<'de> for WadName {
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        WadName::from_bytes(&<[u8; 8]>::deserialize(deserializer)?).map_err(D::Error::custom)
     }
 }
 
