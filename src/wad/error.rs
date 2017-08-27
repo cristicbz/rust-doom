@@ -1,5 +1,6 @@
 use super::image::ImageError;
 use super::name::WadName;
+use bincode::Error as BincodeError;
 use std::error::Error as StdError;
 use std::fmt::{Display, Formatter};
 use std::fmt::Result as FmtResult;
@@ -34,6 +35,7 @@ impl Display for Error {
 #[derive(Debug)]
 pub enum ErrorKind {
     Io(IoError),
+    EncodingError(BincodeError),
     BadWadHeader,
     BadWadName(Vec<u8>),
     MissingRequiredLump(String),
@@ -46,6 +48,7 @@ impl ErrorKind {
     fn description(&self) -> &str {
         match *self {
             ErrorKind::Io(ref inner) => inner.description(),
+            ErrorKind::EncodingError(ref inner) => inner.description(),
             ErrorKind::BadWadHeader => "invalid header",
             ErrorKind::BadWadName(..) => "invalid wad name",
             ErrorKind::MissingRequiredLump(..) => "missing required lump",
@@ -61,6 +64,7 @@ impl Display for ErrorKind {
         let desc = self.description();
         match *self {
             ErrorKind::Io(ref inner) => write!(fmt, "{}", inner),
+            ErrorKind::EncodingError(ref inner) => write!(fmt, "{}", inner),
             ErrorKind::BadWadHeader => write!(fmt, "{}", desc),
             ErrorKind::BadWadName(ref name) => write!(fmt, "{} ({:?})", desc, name),
             ErrorKind::MissingRequiredLump(ref name) => write!(fmt, "{} ({})", desc, name),
@@ -85,6 +89,12 @@ impl From<IoError> for Error {
 impl From<TomlDecodeError> for Error {
     fn from(cause: TomlDecodeError) -> Error {
         ErrorKind::BadMetadataSchema(cause).into()
+    }
+}
+
+impl From<BincodeError> for Error {
+    fn from(kind: BincodeError) -> Error {
+        ErrorKind::EncodingError(kind).into()
     }
 }
 

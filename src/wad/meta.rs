@@ -2,27 +2,33 @@ use super::error::{InFile, Result};
 use super::name::WadName;
 use super::types::ThingType;
 use regex::Regex;
+use serde::{Deserializer, Deserialize};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use std::result::Result as StdResult;
+use std::str::FromStr;
 use toml;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SkyMetadata {
+    #[serde(deserialize_with = "deserialize_name_from_str")]
     pub texture_name: WadName,
     pub level_pattern: String,
     pub tiled_band_size: f32,
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct AnimationMetadata {
+    #[serde(deserialize_with = "deserialize_name_from_vec_vec_str")]
     pub flats: Vec<Vec<WadName>>,
+    #[serde(deserialize_with = "deserialize_name_from_vec_vec_str")]
     pub walls: Vec<Vec<WadName>>,
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ThingMetadata {
     pub thing_type: ThingType,
     pub sprite: String,
@@ -32,7 +38,7 @@ pub struct ThingMetadata {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ThingDirectoryMetadata {
     pub decorations: Vec<ThingMetadata>,
     pub weapons: Vec<ThingMetadata>,
@@ -44,7 +50,7 @@ pub struct ThingDirectoryMetadata {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct WadMetadata {
     pub sky: Vec<SkyMetadata>,
     pub animations: AnimationMetadata,
@@ -123,6 +129,36 @@ impl WadMetadata {
             })
     }
 }
+
+fn deserialize_name_from_str<'de, D>(deserializer: D) -> StdResult<WadName, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(
+        WadName::from_str(<&'de str>::deserialize(deserializer)?).unwrap(),
+    )
+}
+
+fn deserialize_name_from_vec_vec_str<'de, D>(
+    deserializer: D,
+) -> StdResult<Vec<Vec<WadName>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let strings = <Vec<Vec<&'de str>>>::deserialize(deserializer)?;
+    Ok(
+        strings
+            .iter()
+            .map(|strings| {
+                strings
+                    .iter()
+                    .map(|string| WadName::from_str(string).unwrap())
+                    .collect()
+            })
+            .collect(),
+    )
+}
+
 
 #[cfg(test)]
 mod test {

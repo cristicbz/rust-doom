@@ -5,7 +5,6 @@ pub mod level;
 pub mod light;
 pub mod meta;
 pub mod name;
-pub mod read;
 pub mod tex;
 pub mod types;
 pub mod util;

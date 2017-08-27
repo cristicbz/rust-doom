@@ -7,6 +7,7 @@ version = "0.0.8"
 name = "rs_doom"
 
 [dependencies]
+bincode = "0.8.0"
 byteorder = "1.1.0"
 clap = "2.26.0"
 env_logger = "0.4.3"
