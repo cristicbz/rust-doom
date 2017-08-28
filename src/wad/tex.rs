@@ -613,4 +613,3 @@ impl<'de> Deserialize<'de> for Colormap {
         Ok(colormap)
     }
 }
-

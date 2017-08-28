@@ -7,7 +7,7 @@ pub struct GeneralError(pub String);
 
 impl Error for GeneralError {
     fn description(&self) -> &str {
-        &self.0[..]
+        &self.0
     }
 }
 

@@ -59,24 +59,20 @@ impl FromStr for WadName {
 
 impl Display for WadName {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "{}", str::from_utf8(&self[..]).unwrap())
+        write!(formatter, "{}", str::from_utf8(self).unwrap())
     }
 }
 
 impl Deref for WadName {
-    type Target = [u8; 8];
-    fn deref(&self) -> &[u8; 8] {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
         &self.0
     }
 }
 
 impl Debug for WadName {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            formatter,
-            "WadName({:?})",
-            str::from_utf8(&self[..]).unwrap()
-        )
+        write!(formatter, "WadName({:?})", str::from_utf8(self).unwrap())
     }
 }
 
@@ -88,7 +84,13 @@ impl PartialEq<[u8; 8]> for WadName {
 
 impl Borrow<[u8; 8]> for WadName {
     fn borrow(&self) -> &[u8; 8] {
-        self.deref()
+        &self.0
+    }
+}
+
+impl Borrow<[u8]> for WadName {
+    fn borrow(&self) -> &[u8] {
+        &self.0
     }
 }
 
