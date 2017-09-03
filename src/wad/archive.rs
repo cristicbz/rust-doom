@@ -4,10 +4,10 @@ use super::meta::WadMetadata;
 use super::types::{WadInfo, WadLump, WadName};
 use super::util::wad_type_from_info;
 use bincode::{deserialize_from as bincode_read, Infinite};
+use ordermap::OrderMap;
 use serde::de::DeserializeOwned;
 use std::borrow::Borrow;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::hash::Hash;
@@ -20,7 +20,7 @@ use std::vec::Vec;
 
 pub struct Archive {
     file: RefCell<BufReader<File>>,
-    index_map: HashMap<WadName, usize>,
+    index_map: OrderMap<WadName, usize>,
     lumps: Vec<LumpInfo>,
     levels: Vec<usize>,
     meta: WadMetadata,
@@ -46,7 +46,7 @@ impl Archive {
         // Read lump info.
         let mut lumps = Vec::with_capacity(header.num_lumps as usize);
         let mut levels = Vec::with_capacity(64);
-        let mut index_map = HashMap::new();
+        let mut index_map = OrderMap::new();
 
         file.seek(SeekFrom::Start(header.info_table_offset as u64))
             .in_file(&wad_path)?;
