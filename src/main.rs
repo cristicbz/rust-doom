@@ -16,6 +16,7 @@ extern crate env_logger;
 extern crate glium_sdl2;
 extern crate libc;
 extern crate num;
+extern crate ordermap;
 extern crate regex;
 extern crate sdl2;
 extern crate serde;

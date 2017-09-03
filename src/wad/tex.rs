@@ -9,9 +9,9 @@ use byteorder::{ReadBytesExt, LittleEndian};
 use gfx::Bounds;
 use math::{Vec2, Vec2f};
 use num::Zero;
+use ordermap::OrderMap;
 use serde::de::{Visitor, Deserialize, SeqAccess, Deserializer, Error as SerdeDeError};
 use std::cmp;
-use std::collections::BTreeMap;
 use std::fmt::{Formatter, Result as FmtResult};
 use std::mem;
 use std::result::Result as StdResult;
@@ -20,14 +20,14 @@ use time;
 pub struct Palette([u8; 256 * 3]);
 pub struct Colormap([u8; 256]);
 pub type Flat = Vec<u8>;
-pub type BoundsLookup = BTreeMap<WadName, Bounds>;
+pub type BoundsLookup = OrderMap<WadName, Bounds>;
 
 pub struct TextureDirectory {
-    textures: BTreeMap<WadName, Image>,
+    textures: OrderMap<WadName, Image>,
     patches: Vec<(WadName, Option<Image>)>,
     palettes: Vec<Palette>,
     colormaps: Vec<Colormap>,
-    flats: BTreeMap<WadName, Flat>,
+    flats: OrderMap<WadName, Flat>,
     animated_walls: Vec<Vec<WadName>>,
     animated_flats: Vec<Vec<WadName>>,
 }
@@ -65,7 +65,7 @@ impl TextureDirectory {
         // Read textures.
         let t0 = time::precise_time_s();
         info!("Reading & assembling textures...");
-        let mut textures = BTreeMap::new();
+        let mut textures = OrderMap::new();
         for &lump_name in TEXTURE_LUMP_NAMES {
             let lump_index = match wad.named_lump_index(lump_name) {
                 Some(i) => i,
@@ -246,7 +246,7 @@ impl TextureDirectory {
         // TODO(cristicbz): This should probably split things into multiple atlases or
         // something, but realistically, I'm never going to implement that.
         let mut atlas = Image::new(atlas_size[0], atlas_size[1]).expect("atlas too big");
-        let mut bound_map = BTreeMap::new();
+        let mut bound_map = OrderMap::new();
         for (i, entry) in entries.iter().enumerate() {
             atlas.blit(entry.image, positions[i].offset, true);
             bound_map.insert(
@@ -277,7 +277,7 @@ impl TextureDirectory {
         let num_rows = (num_names as f64 / flats_per_row as f64).ceil() as usize;
         let height = next_pow2(num_rows * 64);
 
-        let mut offsets = BTreeMap::new();
+        let mut offsets = OrderMap::new();
         let mut data = vec![255u8; width * height];
         let (mut row, mut column) = (0, 0);
         info!(
@@ -408,7 +408,7 @@ where
     L: Fn(WadName) -> Option<&'b I>,
     'a: 'b,
 {
-    let mut frames_by_first_frame = BTreeMap::new();
+    let mut frames_by_first_frame = OrderMap::new();
     for name in names_iter {
         let maybe_frames = search_for_frame(name, animations);
         let first_frame = maybe_frames.map_or(name, |f| &f[0]);
@@ -459,7 +459,7 @@ fn search_for_frame<'a>(
 }
 
 
-fn read_sprites(wad: &Archive, textures: &mut BTreeMap<WadName, Image>) -> Result<usize> {
+fn read_sprites(wad: &Archive, textures: &mut OrderMap<WadName, Image>) -> Result<usize> {
     let start_index = wad.required_named_lump_index(b"S_START\0")? + 1;
     let end_index = wad.required_named_lump_index(b"S_END\0\0\0")?;
     info!("Reading {} sprites....", end_index - start_index);
@@ -484,7 +484,7 @@ fn read_sprites(wad: &Archive, textures: &mut BTreeMap<WadName, Image>) -> Resul
 fn read_textures(
     lump_buffer: &[u8],
     patches: &[(WadName, Option<Image>)],
-    textures: &mut BTreeMap<WadName, Image>,
+    textures: &mut OrderMap<WadName, Image>,
 ) -> Result<usize> {
     let mut lump = lump_buffer;
     let num_textures = lump.read_u32::<LittleEndian>()? as usize;
@@ -539,10 +539,10 @@ fn read_textures(
     Ok(num_textures)
 }
 
-fn read_flats(wad: &Archive) -> Result<BTreeMap<WadName, Flat>> {
+fn read_flats(wad: &Archive) -> Result<OrderMap<WadName, Flat>> {
     let start = wad.required_named_lump_index(b"F_START\0")?;
     let end = wad.required_named_lump_index(b"F_END\0\0\0")?;
-    let mut flats = BTreeMap::new();
+    let mut flats = OrderMap::new();
     for i_lump in start..end {
         if wad.is_virtual_lump(i_lump) {
             continue;
@@ -613,4 +613,3 @@ impl<'de> Deserialize<'de> for Colormap {
         Ok(colormap)
     }
 }
-
