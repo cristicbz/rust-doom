@@ -1,3 +1,4 @@
+use super::errors::Result;
 use super::window::Window;
 use glium::{Blend, Surface, VertexBuffer};
 use glium::{DrawParameters, Program};
@@ -14,9 +15,6 @@ use sdl2::ttf::{self, Font, Sdl2TtfContext};
 use slab::Slab;
 use std::borrow::Cow;
 use std::cmp;
-use std::error::Error as StdError;
-use std::fmt::{Display, Formatter};
-use std::fmt::Result as FmtResult;
 use std::ops::{Index, IndexMut};
 
 /// A handle to a piece of text created with a `TextRenderer`.
@@ -32,7 +30,7 @@ pub struct TextRenderer {
 }
 
 impl TextRenderer {
-    pub fn new(win: &Window) -> Result<TextRenderer, Error> {
+    pub fn new(win: &Window) -> Result<TextRenderer> {
         Ok(TextRenderer {
             font: CONTEXT.load_font(FONT_PATH, POINT_SIZE).unwrap(),
             slab: Slab::new(),
@@ -86,7 +84,7 @@ impl TextRenderer {
         self.slab.get_mut(id.0)
     }
 
-    pub fn render(&self, frame: &mut Frame) -> Result<(), Error> {
+    pub fn render(&self, frame: &mut Frame) -> Result<()> {
         for (_, text) in &self.slab {
             if !text.visible {
                 continue;
@@ -108,7 +106,7 @@ impl TextRenderer {
         Ok(())
     }
 
-    fn text_to_surface(&self, text: &str, padding: u32) -> Result<SdlSurface<'static>, Error> {
+    fn text_to_surface(&self, text: &str, padding: u32) -> Result<SdlSurface<'static>> {
         let wrap_length = text.lines()
             .filter_map(|line| self.font.size_of(line).ok())
             .map(|size| size.0)
@@ -150,24 +148,6 @@ impl Index<TextId> for TextRenderer {
 impl IndexMut<TextId> for TextRenderer {
     fn index_mut(&mut self, id: TextId) -> &mut Text {
         self.text_mut(id).expect("invalid text id")
-    }
-}
-
-#[derive(Debug)]
-pub enum Error {}
-impl StdError for Error {
-    fn description(&self) -> &str {
-        "FIXME: Text error."
-    }
-
-    fn cause(&self) -> Option<&StdError> {
-        None
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        write!(fmt, "{}", self.description())
     }
 }
 

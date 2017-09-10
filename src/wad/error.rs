@@ -1,140 +1,100 @@
-use super::image::ImageError;
-use super::name::WadName;
-use bincode::Error as BincodeError;
-use std::error::Error as StdError;
-use std::fmt::{Display, Formatter};
-use std::fmt::Result as FmtResult;
-use std::io::Error as IoError;
-use std::path::{Path, PathBuf};
-use std::result::Result as StdResult;
-use toml::de::Error as TomlDecodeError;
+use std::fmt::Debug;
 
-pub type Result<T> = StdResult<T, Error>;
-
-#[derive(Debug)]
-pub struct Error {
-    file: Option<PathBuf>,
-    kind: ErrorKind,
-}
-
-impl StdError for Error {
-    fn description(&self) -> &str {
-        self.kind.description()
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        match self.file {
-            Some(ref path) => write!(fmt, "in '{}': {}", path.to_string_lossy(), self.kind),
-            None => write!(fmt, "{}", self.kind),
+error_chain! {
+    foreign_links {}
+    errors {
+        CorruptMetadata(message: String) {
+            description("Corrupt metadata file.")
+                display("Corrupt metadata file: {}", message)
+        }
+        CorruptWad(message: String) {
+            description("Corrupt WAD file.")
+            display("Corrupt WAD file: {}", message)
+        }
+        Io(message: String) {
+            description("I/O WAD error.")
+            display("I/O WAD error: {}", message)
         }
     }
-}
-
-#[derive(Debug)]
-pub enum ErrorKind {
-    Io(IoError),
-    EncodingError(BincodeError),
-    BadWadHeader,
-    BadWadName(Vec<u8>),
-    MissingRequiredLump(String),
-    // MissingRequiredPatch(WadName, WadName),
-    BadMetadataSchema(TomlDecodeError),
-    BadImage(WadName, ImageError),
+    links {}
 }
 
 impl ErrorKind {
-    fn description(&self) -> &str {
-        match *self {
-            ErrorKind::Io(ref inner) => inner.description(),
-            ErrorKind::EncodingError(ref inner) => inner.description(),
-            ErrorKind::BadWadHeader => "invalid header",
-            ErrorKind::BadWadName(..) => "invalid wad name",
-            ErrorKind::MissingRequiredLump(..) => "missing required lump",
-            // ErrorKind::MissingRequiredPatch(..) => "missing required patch",
-            ErrorKind::BadMetadataSchema(..) => "invalid data in metadata",
-            ErrorKind::BadImage(..) => "Bad image",
-        }
+    pub fn invalid_byte_in_wad_name(byte: u8, bytes: &[u8]) -> ErrorKind {
+        ErrorKind::CorruptWad(format!(
+            "Invalid character `{}` in wad name `{}`.", char::from(byte),
+            String::from_utf8_lossy(bytes),
+        ))
     }
-}
 
-impl Display for ErrorKind {
-    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        let desc = self.description();
-        match *self {
-            ErrorKind::Io(ref inner) => write!(fmt, "{}", inner),
-            ErrorKind::EncodingError(ref inner) => write!(fmt, "{}", inner),
-            ErrorKind::BadWadHeader => write!(fmt, "{}", desc),
-            ErrorKind::BadWadName(ref name) => write!(fmt, "{} ({:?})", desc, name),
-            ErrorKind::MissingRequiredLump(ref name) => write!(fmt, "{} ({})", desc, name),
-            // ErrorKind::MissingRequiredPatch(ref patch, ref texture) => {
-            //    write!(fmt, "{} ({}, required by {})", desc, patch, texture)
-            // },
-            ErrorKind::BadMetadataSchema(ref err) => write!(fmt, "{}: {}", desc, err),
-            ErrorKind::BadImage(ref name, ref inner) => {
-                write!(fmt, "{}: in {}: {}", desc, name, inner)
-            }
-        }
+    pub fn wad_name_too_long(bytes: &[u8]) -> ErrorKind {
+        ErrorKind::CorruptWad(format!(
+            "Wad name too long `{}`.",
+            String::from_utf8_lossy(bytes)
+        ))
     }
-}
 
-impl From<IoError> for Error {
-    fn from(cause: IoError) -> Error {
-        ErrorKind::Io(cause).into()
+    pub fn bad_wad_header() -> ErrorKind {
+        ErrorKind::CorruptWad("Could not read WAD header.".to_owned())
     }
-}
 
-
-impl From<TomlDecodeError> for Error {
-    fn from(cause: TomlDecodeError) -> Error {
-        ErrorKind::BadMetadataSchema(cause).into()
+    pub fn bad_wad_header_identifier(identifier: &[u8]) -> ErrorKind {
+        ErrorKind::CorruptWad(format!(
+            "Invalid header identifier: {}",
+            String::from_utf8_lossy(identifier)
+        ))
     }
-}
 
-impl From<BincodeError> for Error {
-    fn from(kind: BincodeError) -> Error {
-        ErrorKind::EncodingError(kind).into()
+    pub fn on_metadata_read() -> ErrorKind {
+        ErrorKind::Io("Failed to load metadata to memory.".to_owned())
     }
-}
 
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error {
-            kind: kind,
-            file: None,
-        }
+    pub fn on_file_open() -> ErrorKind {
+        ErrorKind::Io("Failed to open file.".to_owned())
     }
-}
 
-pub trait InFile {
-    type Output;
-    fn in_file(self, file: &Path) -> Self::Output;
-}
-
-impl InFile for Error {
-    type Output = Error;
-    fn in_file(self, file: &Path) -> Error {
-        Error {
-            file: Some(file.to_owned()),
-            kind: self.kind,
-        }
+    pub fn bad_lump_info(lump_index: i32) -> ErrorKind {
+        ErrorKind::CorruptWad(format!("Invalid lump info for lump {}", lump_index))
     }
-}
 
-impl InFile for ErrorKind {
-    type Output = Error;
-    fn in_file(self, file: &Path) -> Error {
-        Error {
-            file: Some(file.to_owned()),
-            kind: self,
-        }
+    pub fn bad_lump_element(lump_index: usize, lump_name: &str, element_index: usize) -> ErrorKind {
+        ErrorKind::CorruptWad(format!(
+            "Invalid element {} in lump `{}` (index={})",
+            element_index,
+            lump_name,
+            lump_index
+        ))
     }
-}
 
-impl<S, E: Into<Error>> InFile for StdResult<S, E> {
-    type Output = Result<S>;
-    fn in_file(self, file: &Path) -> Result<S> {
-        self.map_err(|e| e.into().in_file(file))
+    pub fn bad_lump_size(
+        index: usize,
+        name: &str,
+        total_size: usize,
+        element_size: usize,
+    ) -> ErrorKind {
+        ErrorKind::CorruptWad(format!(
+            "Invalid lump size in `{}` (index={}): total={}, element={}, div={}, mod={}",
+            name,
+            index,
+            total_size,
+            element_size,
+            total_size / element_size,
+            total_size % element_size
+        ))
+    }
+
+    pub fn missing_required_lump<N: Debug>(name: &N) -> ErrorKind {
+        ErrorKind::CorruptWad(format!("Missing required lump {:?}", name))
+    }
+
+    pub fn seeking_to_info_table_offset(offset: i32) -> ErrorKind {
+        ErrorKind::Io(format!(
+            "Seeking to `info_table_offset` at {} failed",
+            offset
+        ))
+    }
+
+    pub fn seeking_to_lump(index: usize, name: &str) -> ErrorKind {
+        ErrorKind::Io(format!("Seeking to lump {}, `{}` failed", index, name))
     }
 }

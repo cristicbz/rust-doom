@@ -1,8 +1,6 @@
-use super::error::{Error, ErrorKind, InFile, Result};
-use super::error::ErrorKind::{BadWadHeader, MissingRequiredLump};
+use super::error::{ErrorKind, Result, ResultExt};
 use super::meta::WadMetadata;
 use super::types::{WadInfo, WadLump, WadName};
-use super::util::wad_type_from_info;
 use bincode::{deserialize_from as bincode_read, Infinite};
 use ordermap::OrderMap;
 use serde::de::DeserializeOwned;
@@ -14,9 +12,8 @@ use std::hash::Hash;
 use std::io::{BufReader, Seek, SeekFrom};
 use std::mem;
 use std::path::Path;
-use std::path::PathBuf;
-use std::result::Result as StdResult;
 use std::vec::Vec;
+
 
 pub struct Archive {
     file: RefCell<BufReader<File>>,
@@ -24,7 +21,6 @@ pub struct Archive {
     lumps: Vec<LumpInfo>,
     levels: Vec<usize>,
     meta: WadMetadata,
-    path: PathBuf,
 }
 
 impl Archive {
@@ -34,14 +30,37 @@ impl Archive {
         M: AsRef<Path> + Debug,
     {
         let wad_path = wad_path.as_ref().to_owned();
+        let meta_path = meta_path.as_ref().to_owned();
         info!("Loading wad file '{:?}'...", wad_path);
+        let (file, index_map, lumps, levels) = Archive::open_wad(&wad_path)?;
+        info!("Loading metadata file '{:?}'...", meta_path);
+        let meta = WadMetadata::from_file(&meta_path)?;
 
+        Ok(Archive {
+            file,
+            meta,
+            lumps,
+            index_map,
+            levels,
+        })
+    }
+
+    fn open_wad(
+        wad_path: &Path,
+    ) -> Result<(RefCell<BufReader<File>>, OrderMap<WadName, usize>, Vec<LumpInfo>, Vec<usize>)> {
         // Open file, read and check header.
-        let mut file = BufReader::new(File::open(&wad_path).in_file(&wad_path)?);
-        let header: WadInfo = bincode_read(&mut file, Infinite).in_file(&wad_path)?;
-        wad_type_from_info(&header).ok_or_else(|| {
-            BadWadHeader.in_file(&wad_path)
+        let mut file = BufReader::new(File::open(&wad_path).chain_err(
+            || ErrorKind::on_file_open(),
+        )?);
+
+        let header: WadInfo = bincode_read(&mut file, Infinite).chain_err(|| {
+            ErrorKind::bad_wad_header()
         })?;
+
+        ensure!(
+            &header.identifier == IWAD_HEADER,
+            ErrorKind::bad_wad_header_identifier(&header.identifier)
+        );
 
         // Read lump info.
         let mut lumps = Vec::with_capacity(header.num_lumps as usize);
@@ -49,9 +68,14 @@ impl Archive {
         let mut index_map = OrderMap::new();
 
         file.seek(SeekFrom::Start(header.info_table_offset as u64))
-            .in_file(&wad_path)?;
+            .chain_err(|| {
+                ErrorKind::seeking_to_info_table_offset(header.info_table_offset)
+            })?;
         for i_lump in 0..header.num_lumps {
-            let fileinfo: WadLump = bincode_read(&mut file, Infinite).in_file(&wad_path)?;
+            let fileinfo: WadLump = bincode_read(&mut file, Infinite).chain_err(|| {
+                ErrorKind::bad_lump_info(i_lump)
+            })?;
+
             index_map.insert(fileinfo.name, lumps.len());
             lumps.push(LumpInfo {
                 name: fileinfo.name,
@@ -67,17 +91,7 @@ impl Archive {
             }
         }
 
-        // Read metadata.
-        let meta = WadMetadata::from_file(meta_path)?;
-
-        Ok(Archive {
-            meta: meta,
-            file: RefCell::new(file),
-            lumps: lumps,
-            index_map: index_map,
-            levels: levels,
-            path: wad_path,
-        })
+        Ok((RefCell::new(file), index_map, lumps, levels))
     }
 
     pub fn num_levels(&self) -> usize {
@@ -109,9 +123,9 @@ impl Archive {
         WadName: Borrow<Q>,
         Q: Hash + Eq + Debug,
     {
-        self.named_lump_index(name)
-            .ok_or_else(|| MissingRequiredLump(format!("{:?}", name)))
-            .in_archive(self)
+        self.named_lump_index(name).ok_or_else(|| {
+            ErrorKind::missing_required_lump(name).into()
+        })
     }
 
     pub fn lump_name(&self, lump_index: usize) -> &WadName {
@@ -128,8 +142,8 @@ impl Archive {
         T: DeserializeOwned,
         Q: Hash + Eq + Debug,
     {
-        self.read_named_lump(name).unwrap_or_else(|| {
-            Err(MissingRequiredLump(format!("{:?}", name)).in_archive(self))
+        self.required_named_lump_index(name).and_then(|index| {
+            self.read_lump(index)
         })
     }
 
@@ -145,26 +159,49 @@ impl Archive {
     }
 
     pub fn read_lump<T: DeserializeOwned>(&self, index: usize) -> Result<Vec<T>> {
-        let mut file = self.file.borrow_mut();
-        let info = &self.lumps[index];
-        assert!(info.size > 0);
-        assert_eq!(info.size % mem::size_of::<T>(), 0);
-        let num_elems = info.size / mem::size_of::<T>();
-        file.seek(SeekFrom::Start(info.offset)).in_archive(self)?;
-        let mut elements = Vec::with_capacity(num_elems);
-        for _ in 0..num_elems {
-            elements.push(bincode_read(&mut *file, Infinite).in_archive(self)?);
-        }
-        Ok(elements)
+        let mut file_guard = self.file.borrow_mut();
+        let mut file = &mut *file_guard;
+        let info = &self.lumps.get(index).ok_or_else(|| {
+            ErrorKind::missing_required_lump(&index)
+        })?;
+        let element_size = mem::size_of::<T>();
+        let num_elements = info.size / element_size;
+
+        ensure!(
+            info.size > 0 && (info.size % element_size == 0),
+            ErrorKind::bad_lump_size(index, info.name.as_ref(), info.size, element_size)
+        );
+
+        file.seek(SeekFrom::Start(info.offset)).chain_err(|| {
+            ErrorKind::seeking_to_lump(index, info.name.as_ref())
+        })?;
+
+        (0..num_elements)
+            .map(move |i_element| {
+                bincode_read(file, Infinite).chain_err(|| {
+                    ErrorKind::bad_lump_element(index, info.name.as_ref(), i_element)
+                })
+            })
+            .collect()
     }
 
 
     pub fn read_lump_single<T: DeserializeOwned>(&self, index: usize) -> Result<T> {
+        let element_size = mem::size_of::<T>();
         let mut file = self.file.borrow_mut();
-        let info = &self.lumps[index];
-        assert_eq!(info.size, mem::size_of::<T>());
-        file.seek(SeekFrom::Start(info.offset)).in_archive(self)?;
-        Ok(bincode_read(&mut *file, Infinite).in_archive(self)?)
+        let info = &self.lumps.get(index).ok_or_else(|| {
+            ErrorKind::missing_required_lump(&index)
+        })?;
+        ensure!(
+            info.size > 0 && (info.size == element_size),
+            ErrorKind::bad_lump_size(index, info.name.as_ref(), info.size, element_size)
+        );
+        file.seek(SeekFrom::Start(info.offset)).chain_err(|| {
+            ErrorKind::seeking_to_lump(index, info.name.as_ref())
+        })?;
+        Ok(bincode_read(&mut *file, Infinite).chain_err(|| {
+            ErrorKind::bad_lump_element(index, info.name.as_ref(), 0)
+        })?)
     }
 
     pub fn metadata(&self) -> &WadMetadata {
@@ -172,36 +209,11 @@ impl Archive {
     }
 }
 
-pub trait InArchive {
-    type Output;
-    fn in_archive(self, archive: &Archive) -> Self::Output;
-}
-
-impl InArchive for Error {
-    type Output = Error;
-    fn in_archive(self, archive: &Archive) -> Error {
-        self.in_file(&archive.path)
-    }
-}
-
-impl InArchive for ErrorKind {
-    type Output = Error;
-    fn in_archive(self, archive: &Archive) -> Error {
-        self.in_file(&archive.path)
-    }
-}
-
-impl<S, E: Into<Error>> InArchive for StdResult<S, E> {
-    type Output = Result<S>;
-    fn in_archive(self, archive: &Archive) -> Result<S> {
-        self.map_err(|e| e.into().in_archive(archive))
-    }
-}
-
-
 #[derive(Copy, Clone)]
 struct LumpInfo {
     name: WadName,
     offset: u64,
     size: usize,
 }
+
+const IWAD_HEADER: &'static [u8] = b"IWAD";

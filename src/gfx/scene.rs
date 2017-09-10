@@ -1,4 +1,4 @@
-use super::error::{NeededBy, Result};
+use super::errors::{NeededBy, Result, ResultExt, ErrorKind};
 use super::platform;
 use super::vertex::{DecorBufferBuilder, FlatBufferBuilder, SkyBufferBuilder, WallBufferBuilder};
 use super::vertex::{SkyBuffer, SpriteBuffer, StaticBuffer};
@@ -261,8 +261,12 @@ impl<'window> SceneBuilder<'window> {
             frag_path,
             vert_path
         );
-        read_utf8_file(&frag_path, &mut frag_src)?;
-        read_utf8_file(&vert_path, &mut vert_src)?;
+        read_utf8_file(&frag_path, &mut frag_src).chain_err(|| {
+            ErrorKind::ResourceIo("fragment shader", name.to_owned())
+        })?;
+        read_utf8_file(&vert_path, &mut vert_src).chain_err(|| {
+            ErrorKind::ResourceIo("vertex shader", name.to_owned())
+        })?;
         let program = Program::new(
             self.window.facade(),
             ProgramCreationInput::SourceCode {

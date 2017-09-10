@@ -1,5 +1,5 @@
 use super::Bounds;
-use super::error::{NeededBy, Result};
+use super::errors::{NeededBy, Result};
 use super::window::Window;
 use glium::VertexBuffer;
 use math::{Vec2f, Vec3f};

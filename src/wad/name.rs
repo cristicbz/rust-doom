@@ -16,11 +16,11 @@ impl WadName {
     pub fn from_bytes(value: &[u8]) -> Result<WadName> {
         let mut name = [0u8; 8];
         let mut nulled = false;
-        for (dest, src) in name.iter_mut().zip(value.iter()) {
-            if !src.is_ascii() {
-                debug!("Bailed on non-ascii {}", src);
-                return Err(ErrorKind::BadWadName(value.to_owned()).into());
-            }
+        for (dest, &src) in name.iter_mut().zip(value.iter()) {
+            ensure!(
+                src.is_ascii(),
+                ErrorKind::invalid_byte_in_wad_name(src, value)
+            );
 
             let new_byte = match src.to_ascii_uppercase() {
                 b @ b'A'...b'Z' | b @ b'0'...b'9' | b @ b'_' | b @ b'-' | b @ b'[' | b @ b']' |
@@ -30,23 +30,17 @@ impl WadName {
                     break;
                 }
                 b => {
-                    debug!("Bailed on ascii {}", b);
-                    return Err(ErrorKind::BadWadName(value.to_owned()).into());
+                    bail!(ErrorKind::invalid_byte_in_wad_name(b, value));
                 }
             };
             *dest = new_byte;
         }
-        if !nulled && value.len() > 8 {
-            debug!(
-                "Bailed on '{:?}' {} {}",
-                str::from_utf8(value),
-                value.len(),
-                !nulled
-            );
-            Err(ErrorKind::BadWadName(value.to_owned()).into())
-        } else {
-            Ok(WadName(name))
-        }
+
+        ensure!(
+            nulled || value.len() <= 8,
+            ErrorKind::wad_name_too_long(value)
+        );
+        Ok(WadName(name))
     }
 }
 

@@ -1,14 +1,13 @@
 use super::SHADER_ROOT;
 use super::ctrl::{GameController, Gesture};
+use super::errors::{Result, ErrorKind};
 use super::level::Level;
 use super::player::Player;
-use common::GeneralError;
 use gfx::{Scene, SceneBuilder, Window};
 use gfx::TextRenderer;
 use math::Vec2f;
 use sdl2::{self, Sdl};
 use sdl2::keyboard::Scancode;
-use std::error::Error;
 use std::path::PathBuf;
 use time;
 use wad::{Archive, TextureDirectory};
@@ -34,8 +33,8 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(config: GameConfig) -> Result<Game, Box<Error>> {
-        let sdl = sdl2::init().map_err(GeneralError)?;
+    pub fn new(config: GameConfig) -> Result<Game> {
+        let sdl = sdl2::init().map_err(ErrorKind::Sdl)?;
         let window = Window::new(&sdl, config.width, config.height)?;
         let wad = Archive::open(&config.wad_file, &config.metadata_file)?;
         let textures = TextureDirectory::from_archive(&wad)?;
@@ -49,7 +48,7 @@ impl Game {
         let mut player = Player::new(config.fov, window.aspect_ratio() * 1.2, Default::default());
         player.set_position(level.start_pos());
 
-        let control = GameController::new(&sdl, sdl.event_pump().map_err(GeneralError)?);
+        let control = GameController::new(&sdl, sdl.event_pump().map_err(ErrorKind::Sdl)?);
 
         let text = TextRenderer::new(&window)?;
 
@@ -64,7 +63,7 @@ impl Game {
         })
     }
 
-    pub fn run(&mut self) -> Result<(), Box<Error>> {
+    pub fn run(&mut self) -> Result<()> {
         let quit_gesture = Gesture::AnyOf(vec![
             Gesture::QuitTrigger,
             Gesture::KeyTrigger(Scancode::Escape),

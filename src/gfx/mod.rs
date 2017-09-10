@@ -1,11 +1,11 @@
-mod error;
+mod errors;
 mod platform;
 mod scene;
 mod text;
 mod vertex;
 mod window;
 
-pub use self::error::{Error, Result};
+pub use self::errors::{Error, ErrorKind, Result};
 pub use self::scene::{Scene, SceneBuilder};
 pub use self::text::{Text, TextId, TextRenderer};
 pub use self::vertex::{StaticVertex, DecorBufferBuilder, FlatBufferBuilder, SkyBufferBuilder};
