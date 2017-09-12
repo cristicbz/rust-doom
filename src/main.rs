@@ -180,7 +180,7 @@ fn run() -> Result<()> {
         } => {
             let wad = Archive::open(&wad_file, &metadata_file)?;
             for i_level in 0..wad.num_levels() {
-                println!("{:3} {:8}", i_level, wad.level_name(i_level));
+                println!("{:3} {:8}", i_level, wad.level_lump(i_level)?.name());
             }
         }
         RunMode::Check {

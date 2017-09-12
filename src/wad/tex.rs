@@ -2,22 +2,17 @@ use super::archive::Archive;
 use super::error::{Result, ResultExt, ErrorKind};
 use super::image::Image;
 use super::name::WadName;
-use super::types::{WadTextureHeader, WadTexturePatchRef};
+use super::types::{WadTextureHeader, WadTexturePatchRef, Palette, Colormap};
 use bincode::{deserialize_from as bincode_read, Infinite};
 use byteorder::{ReadBytesExt, LittleEndian};
 use gfx::Bounds;
 use math::{Vec2, Vec2f};
 use num::Zero;
 use ordermap::OrderMap;
-use serde::de::{Visitor, Deserialize, SeqAccess, Deserializer, Error as SerdeDeError};
 use std::cmp;
-use std::fmt::{Formatter, Result as FmtResult};
 use std::mem;
-use std::result::Result as StdResult;
 use time;
 
-pub struct Palette([u8; 256 * 3]);
-pub struct Colormap([u8; 256]);
 pub type Flat = Vec<u8>;
 pub type BoundsLookup = OrderMap<WadName, Bounds>;
 
@@ -52,8 +47,8 @@ impl TextureDirectory {
         info!("Reading texture directory...");
 
         // Read palettes & colormaps.
-        let palettes: Vec<Palette> = wad.read_required_named_lump(b"PLAYPAL\0")?;
-        let colormaps: Vec<Colormap> = wad.read_required_named_lump(b"COLORMAP")?;
+        let palettes: Vec<Palette> = wad.required_named_lump(b"PLAYPAL\0")?.read_blobs()?;
+        let colormaps: Vec<Colormap> = wad.required_named_lump(b"COLORMAP")?.read_blobs()?;
         info!("  {:4} palettes", palettes.len());
         info!("  {:4} colormaps", colormaps.len());
 
@@ -65,19 +60,18 @@ impl TextureDirectory {
         let t0 = time::precise_time_s();
         info!("Reading & assembling textures...");
         let mut textures = OrderMap::new();
+        let mut textures_buffer = Vec::new();
         for &lump_name in TEXTURE_LUMP_NAMES {
-            let lump_index = match wad.named_lump_index(lump_name) {
+            let lump = match wad.named_lump(lump_name)? {
                 Some(i) => i,
                 None => {
                     info!("     0 textures in {}", String::from_utf8_lossy(lump_name));
                     continue;
                 }
             };
-            let num_textures = read_textures(
-                &wad.read_lump(lump_index)?,
-                &patches,
-                &mut textures,
-            )?;
+            textures_buffer.clear();
+            lump.read_bytes_into(&mut textures_buffer)?;
+            let num_textures = read_textures(&textures_buffer, &patches, &mut textures)?;
             info!(
                 "  {:4} textures in {}",
                 num_textures,
@@ -356,7 +350,7 @@ fn next_pow2(x: usize) -> usize {
 const TEXTURE_LUMP_NAMES: &'static [&'static [u8; 8]] = &[b"TEXTURE1", b"TEXTURE2"];
 
 fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
-    let pnames_buffer = wad.read_required_named_lump(b"PNAMES\0\0")?;
+    let pnames_buffer = wad.required_named_lump(b"PNAMES\0\0")?.read_bytes()?;
     let mut lump = &pnames_buffer[..];
 
     let num_patches = lump.read_u32::<LittleEndian>().chain_err(|| {
@@ -368,6 +362,7 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     let mut missing_patches = 0usize;
     info!("Reading {} patches....", num_patches);
     let t0 = time::precise_time_s();
+    let mut image_buffer = Vec::new();
     for i_patch in 0..num_patches {
         let name: WadName = match bincode_read(&mut lump, Infinite) {
             Ok(name) => name,
@@ -380,9 +375,11 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
                 continue;
             }
         };
-        match wad.named_lump_index(&name) {
-            Some(index) => {
-                let image = match Image::from_buffer(&wad.read_lump(index)?) {
+        match wad.named_lump(&name)? {
+            Some(lump) => {
+                image_buffer.clear();
+                lump.read_bytes_into(&mut image_buffer)?;
+                let image = match Image::from_buffer(&image_buffer) {
                     Ok(i) => Some(i),
                     Err(e) => {
                         error!("Skipping patch `{}`: {}", name, e);
@@ -474,18 +471,21 @@ fn search_for_frame<'a>(
 
 
 fn read_sprites(wad: &Archive, textures: &mut OrderMap<WadName, Image>) -> Result<usize> {
-    let start_index = wad.required_named_lump_index(b"S_START\0")? + 1;
-    let end_index = wad.required_named_lump_index(b"S_END\0\0\0")?;
+    let start_index = wad.required_named_lump(b"S_START\0")?.index() + 1;
+    let end_index = wad.required_named_lump(b"S_END\0\0\0")?.index();
     info!("Reading {} sprites....", end_index - start_index);
     let t0 = time::precise_time_s();
+    let mut image_buffer = Vec::new();
     for index in start_index..end_index {
-        let name = *wad.lump_name(index);
-        match Image::from_buffer(&wad.read_lump(index)?) {
+        let lump = wad.lump_by_index(index)?;
+        image_buffer.clear();
+        lump.read_bytes_into(&mut image_buffer)?;
+        match Image::from_buffer(&image_buffer) {
             Ok(texture) => {
-                textures.insert(name, texture);
+                textures.insert(lump.name(), texture);
             }
             Err(e) => {
-                error!("Skipping sprite {}: {}", name, e);
+                error!("Skipping sprite {}: {}", lump.name(), e);
                 continue;
             }
         }
@@ -593,76 +593,15 @@ fn read_textures(
 }
 
 fn read_flats(wad: &Archive) -> Result<OrderMap<WadName, Flat>> {
-    let start = wad.required_named_lump_index(b"F_START\0")?;
-    let end = wad.required_named_lump_index(b"F_END\0\0\0")?;
+    let start = wad.required_named_lump(b"F_START\0")?.index();
+    let end = wad.required_named_lump(b"F_END\0\0\0")?.index();
     let mut flats = OrderMap::new();
     for i_lump in start..end {
-        if wad.is_virtual_lump(i_lump) {
+        let lump = wad.lump_by_index(i_lump)?;
+        if lump.is_virtual() {
             continue;
         }
-        let lump = wad.read_lump(i_lump)?;
-        flats.insert(*wad.lump_name(i_lump), lump);
+        flats.insert(lump.name(), lump.read_bytes()?);
     }
-
     Ok(flats)
-}
-
-struct BytesVisitor<'a>(&'a mut [u8]);
-
-impl<'a, 'de> Visitor<'de> for BytesVisitor<'a> {
-    type Value = ();
-
-    fn expecting(&self, formatter: &mut Formatter) -> FmtResult {
-        write!(formatter, "a fixed byte array of size {}", self.0.len())
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> StdResult<(), A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut bad_length = false;
-        for byte in self.0.iter_mut() {
-            *byte = match seq.next_element()? {
-                Some(byte) => byte,
-                None => {
-                    bad_length = true;
-                    break;
-                }
-            };
-        }
-
-        if bad_length {
-            Err(A::Error::invalid_length(self.0.len(), &self))
-        } else {
-            Ok(())
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for Palette {
-    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let mut palette = Palette([0; 256 * 3]);
-        deserializer.deserialize_tuple(
-            palette.0.len(),
-            BytesVisitor(&mut palette.0),
-        )?;
-        Ok(palette)
-    }
-}
-
-impl<'de> Deserialize<'de> for Colormap {
-    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let mut colormap = Colormap([0; 256]);
-        deserializer.deserialize_tuple(
-            colormap.0.len(),
-            BytesVisitor(&mut colormap.0),
-        )?;
-        Ok(colormap)
-    }
 }

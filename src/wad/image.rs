@@ -218,9 +218,7 @@ impl Image {
         if ignore_transparency {
             // If we don't care about transparency we can copy row by row.
             for (dest_row, source_row) in dest_rows.zip(src_rows) {
-                for (dest_pixel, &source_pixel) in dest_row.iter_mut().zip(source_row.iter()) {
-                    *dest_pixel = source_pixel;
-                }
+                dest_row.copy_from_slice(source_row);
             }
         } else {
             // Only copy pixels whose high bits are not set.

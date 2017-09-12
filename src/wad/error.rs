@@ -97,4 +97,8 @@ impl ErrorKind {
     pub fn seeking_to_lump(index: usize, name: &str) -> ErrorKind {
         ErrorKind::Io(format!("Seeking to lump {}, `{}` failed", index, name))
     }
+
+    pub fn reading_lump(index: usize, name: &str) -> ErrorKind {
+        ErrorKind::Io(format!("Reading lump {}, `{}` failed", index, name))
+    }
 }
