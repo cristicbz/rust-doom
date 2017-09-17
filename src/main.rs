@@ -1,45 +1,39 @@
 #[macro_use]
 extern crate clap;
+extern crate env_logger;
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
-extern crate glium;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate log;
-#[macro_use]
-extern crate serde_derive;
-
-extern crate bincode;
-extern crate byteorder;
-extern crate env_logger;
-extern crate glium_sdl2;
-extern crate num;
-extern crate ordermap;
-extern crate regex;
 extern crate sdl2;
-extern crate serde;
-extern crate slab;
 extern crate time;
-extern crate toml;
-extern crate vec_map;
 
-pub mod game;
-pub mod gfx;
-pub mod math;
-pub mod wad;
-mod errors;
+extern crate game;
+extern crate engine;
+extern crate wad;
 
 use clap::{App, Arg, AppSettings};
+use engine::{Window, SceneBuilder};
 use errors::{Result, Error};
 use game::{Game, GameConfig, Level};
 use game::SHADER_ROOT;
-use gfx::SceneBuilder;
-use gfx::Window;
 use std::path::PathBuf;
 use std::str::FromStr;
 use wad::{Archive, TextureDirectory};
+
+mod errors {
+    error_chain! {
+        foreign_links {
+            Argument(::clap::Error);
+        }
+        errors {}
+        links {
+            Engine(::engine::Error, ::engine::ErrorKind);
+            Game(::game::Error, ::game::ErrorKind);
+            Wad(::wad::Error, ::wad::ErrorKind);
+        }
+    }
+}
 
 pub struct Resolution {
     width: u32,
@@ -106,7 +100,7 @@ impl RunMode {
                     .short("m")
                     .help("path to TOML metadata file")
                     .value_name("FILE")
-                    .default_value("doom.toml"),
+                    .default_value("assets/meta/doom.toml"),
             )
             .arg(
                 Arg::with_name("resolution")

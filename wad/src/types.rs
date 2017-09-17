@@ -2,7 +2,6 @@ pub use super::name::WadName;
 
 pub type LightLevel = i16;
 pub type LinedefFlags = u16;
-pub type LinedefType = u16;
 pub type SectorId = u16;
 pub type SectorTag = u16;
 pub type SectorType = u16;

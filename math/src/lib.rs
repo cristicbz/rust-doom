@@ -1,3 +1,5 @@
+extern crate num;
+
 pub mod contact;
 pub mod line;
 pub mod mat;

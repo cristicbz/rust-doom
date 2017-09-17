@@ -1,4 +1,3 @@
-use super::Bounds;
 use super::errors::{NeededBy, Result};
 use super::window::Window;
 use glium::VertexBuffer;
@@ -8,6 +7,13 @@ pub type SkyBuffer = VertexBuffer<SkyVertex>;
 pub type SpriteBuffer = VertexBuffer<SpriteVertex>;
 pub type StaticBuffer = VertexBuffer<StaticVertex>;
 
+#[derive(Copy, Clone, Debug)]
+pub struct Bounds {
+    pub pos: Vec2f,
+    pub size: Vec2f,
+    pub num_frames: usize,
+    pub row_height: usize,
+}
 
 #[repr(C)]
 #[derive(Copy, Clone)]

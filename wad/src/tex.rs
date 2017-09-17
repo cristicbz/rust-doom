@@ -5,13 +5,20 @@ use super::name::WadName;
 use super::types::{WadTextureHeader, WadTexturePatchRef, Palette, Colormap};
 use bincode::{deserialize_from as bincode_read, Infinite};
 use byteorder::{ReadBytesExt, LittleEndian};
-use gfx::Bounds;
 use math::{Vec2, Vec2f};
 use num::Zero;
 use ordermap::OrderMap;
 use std::cmp;
 use std::mem;
 use time;
+
+#[derive(Copy, Clone, Debug)]
+pub struct Bounds {
+    pub pos: Vec2f,
+    pub size: Vec2f,
+    pub num_frames: usize,
+    pub row_height: usize,
+}
 
 pub type Flat = Vec<u8>;
 pub type BoundsLookup = OrderMap<WadName, Bounds>;
