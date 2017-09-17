@@ -169,3 +169,30 @@ pub struct WadTexturePatchRef {
     pub stepdir: u16,
     pub colormap: u16,
 }
+
+pub const PALETTE_SIZE: usize = 256 * 3;
+pub const COLORMAP_SIZE: usize = 256;
+
+pub struct Palette(pub [u8; PALETTE_SIZE]);
+impl Default for Palette {
+    fn default() -> Self {
+        Palette([0u8; PALETTE_SIZE])
+    }
+}
+impl AsMut<[u8]> for Palette {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+pub struct Colormap(pub [u8; COLORMAP_SIZE]);
+impl Default for Colormap {
+    fn default() -> Self {
+        Colormap([0u8; COLORMAP_SIZE])
+    }
+}
+impl AsMut<[u8]> for Colormap {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}

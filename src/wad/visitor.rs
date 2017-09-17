@@ -471,7 +471,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         };
 
         let height = (high - low) * 100.0;
-        let s1 = seg.offset as f32 + sidedef.x_offset as f32;
+        let s1 = f32::from(seg.offset) + f32::from(sidedef.x_offset);
         let s2 = s1 + (v2 - v1).norm() * 100.0;
         let (t1, t2) = match (size, peg) {
             (Some(_), Peg::Top) |
@@ -479,13 +479,16 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             (Some(size), Peg::Bottom) => (size[1], size[1] - height),
             (Some(size), Peg::BottomLower) => {
                 // As far as I can tell, this is a special case.
-                let sector_height = (sector.ceiling_height - sector.floor_height) as f32;
+                let sector_height = f32::from(sector.ceiling_height - sector.floor_height);
                 (size[1] + sector_height, size[1] - height + sector_height)
             }
             (Some(size), Peg::TopFloat) |
             (Some(size), Peg::BottomFloat) => (size[1], 0.0),
         };
-        let (t1, t2) = (t1 + sidedef.y_offset as f32, t2 + sidedef.y_offset as f32);
+        let (t1, t2) = (
+            t1 + f32::from(sidedef.y_offset),
+            t2 + f32::from(sidedef.y_offset),
+        );
 
         // TODO(cristicbz): Magic numbers below.
         let scroll = if line.special_type == 0x30 { 35.0 } else { 0.0 };
@@ -675,17 +678,17 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             (
                 Vec3f::new(
                     pos[0],
-                    (sector.ceiling_height as f32 - size[1]) / 100.0,
+                    (f32::from(sector.ceiling_height) - size[1]) / 100.0,
                     pos[1],
                 ),
-                Vec3f::new(pos[0], sector.ceiling_height as f32 / 100.0, pos[1]),
+                Vec3f::new(pos[0], f32::from(sector.ceiling_height) / 100.0, pos[1]),
             )
         } else {
             (
-                Vec3f::new(pos[0], sector.floor_height as f32 / 100.0, pos[1]),
+                Vec3f::new(pos[0], f32::from(sector.floor_height) / 100.0, pos[1]),
                 Vec3f::new(
                     pos[0],
-                    (sector.floor_height as f32 + size[1]) / 100.0,
+                    (f32::from(sector.floor_height) + size[1]) / 100.0,
                     pos[1],
                 ),
             )

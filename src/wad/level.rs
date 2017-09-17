@@ -29,19 +29,24 @@ pub struct Level {
 
 impl Level {
     pub fn from_archive(wad: &Archive, index: usize) -> Result<Level> {
-        let name = *wad.level_name(index);
-        info!("Reading level data for '{}'...", name);
-        let start_index = wad.level_lump_index(index);
-        let things = wad.read_lump(start_index + THINGS_OFFSET)?;
-        let linedefs = wad.read_lump(start_index + LINEDEFS_OFFSET)?;
-        let vertices = wad.read_lump(start_index + VERTICES_OFFSET)?;
-        let segs = wad.read_lump(start_index + SEGS_OFFSET)?;
-        let subsectors = wad.read_lump(start_index + SSECTORS_OFFSET)?;
-        let nodes = wad.read_lump(start_index + NODES_OFFSET)?;
-        let sidedefs = wad.read_lump::<WadSidedef>(start_index + SIDEDEFS_OFFSET)?;
-        let sectors = wad.read_lump::<WadSector>(start_index + SECTORS_OFFSET)?;
+        let lump = wad.level_lump(index)?;
+        info!("Reading level data for '{}'...", lump.name());
+        let start_index = lump.index();
+        let things = wad.lump_by_index(start_index + THINGS_OFFSET)?.decode_vec()?;
+        let linedefs = wad.lump_by_index(start_index + LINEDEFS_OFFSET)?
+            .decode_vec()?;
+        let vertices = wad.lump_by_index(start_index + VERTICES_OFFSET)?
+            .decode_vec()?;
+        let segs = wad.lump_by_index(start_index + SEGS_OFFSET)?.decode_vec()?;
+        let subsectors = wad.lump_by_index(start_index + SSECTORS_OFFSET)?
+            .decode_vec()?;
+        let nodes = wad.lump_by_index(start_index + NODES_OFFSET)?.decode_vec()?;
+        let sidedefs = wad.lump_by_index(start_index + SIDEDEFS_OFFSET)?
+            .decode_vec()?;
+        let sectors = wad.lump_by_index(start_index + SECTORS_OFFSET)?
+            .decode_vec()?;
 
-        info!("Loaded level '{}':", name);
+        info!("Loaded level '{}':", lump.name());
         info!("    {:4} things", things.len());
         info!("    {:4} linedefs", linedefs.len());
         info!("    {:4} sidedefs", sidedefs.len());

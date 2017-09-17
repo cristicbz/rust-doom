@@ -37,6 +37,12 @@ impl Game {
         let sdl = sdl2::init().map_err(ErrorKind::Sdl)?;
         let window = Window::new(&sdl, config.width, config.height)?;
         let wad = Archive::open(&config.wad_file, &config.metadata_file)?;
+        ensure!(
+            config.level_index < wad.num_levels(),
+            "Level index was {}, must be between 0..{}, run with --list-levels to see names.",
+            config.level_index,
+            wad.num_levels() - 1
+        );
         let textures = TextureDirectory::from_archive(&wad)?;
         let (level, scene) = {
             let mut scene = SceneBuilder::new(&window, PathBuf::from(SHADER_ROOT));
@@ -135,7 +141,7 @@ impl Game {
             let updates_t1 = time::precise_time_s();
             cum_updates_time += updates_t1 - updates_t0;
 
-            cum_time += delta as f64;
+            cum_time += f64::from(delta);
             num_frames += 1.0;
             if cum_time > 2.0 {
                 let fps = num_frames / cum_time;

@@ -28,8 +28,8 @@ impl Level {
         level_index: usize,
         scene: &mut SceneBuilder,
     ) -> Result<Level> {
-        let name = *wad.level_name(level_index);
-        info!("Building level {}...", name);
+        let lump = wad.level_lump(level_index)?;
+        info!("Building level {}...", lump.name());
         let level = WadLevel::from_archive(wad, level_index)?;
 
         let palette = textures.build_palette_texture(0, 0, 32);
@@ -38,7 +38,7 @@ impl Level {
         scene.sky_program("sky")?;
         scene.static_program("static")?;
         scene.sprite_program("sprite")?;
-        load_sky_texture(wad.metadata().sky_for(&name), textures, scene)?;
+        load_sky_texture(wad.metadata().sky_for(&lump.name()), textures, scene)?;
 
         let texture_maps = TextureMaps {
             flats: build_flats_atlas(&level, textures, scene)?,
