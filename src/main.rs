@@ -159,6 +159,7 @@ impl RunMode {
                 width,
                 height,
                 level_index,
+                version: env!("CARGO_PKG_VERSION")
             })
         })
     }
@@ -182,7 +183,7 @@ fn run() -> Result<()> {
             metadata_file,
         } => {
             let sdl = sdl2::init()?;
-            let win = Window::new(&sdl, 128, 128)?;
+            let win = Window::new(&sdl, 128, 128, "checking levels...")?;
 
             info!("Loading all levels...");
             let t0 = time::precise_time_s();
