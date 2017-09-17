@@ -172,7 +172,7 @@ lazy_static! {
 }
 
 /// Hard-coded path to the TTF file to use for rendering debug text.
-const FONT_PATH: &'static str = "ttf/OpenSans-Regular.ttf";
+const FONT_PATH: &'static str = "assets/ttf/OpenSans-Regular.ttf";
 
 /// Hard-coded font size.
 const POINT_SIZE: u16 = 18;

@@ -1,7 +1,7 @@
 use super::errors::Result;
 use super::lights::LightBuffer;
 use super::world::World;
-use gfx::{Scene, SceneBuilder};
+use engine::{Scene, SceneBuilder, Bounds as EngineBounds};
 use math::Vec3f;
 use num::Zero;
 use time;
@@ -10,8 +10,8 @@ use wad::{SkyMetadata, TextureDirectory, WadMetadata};
 use wad::Archive;
 use wad::Level as WadLevel;
 use wad::StaticQuad;
-use wad::tex::{OpaqueImage, TransparentImage};
-use wad::tex::BoundsLookup;
+use wad::tex::{OpaqueImage, TransparentImage, BoundsLookup};
+use wad::tex::Bounds as WadBounds;
 use wad::types::WadName;
 use wad::util::{is_sky_flat, is_untextured};
 
@@ -284,7 +284,7 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         } else {
             return;
         };
-        let bounds = if let Some(bounds) = self.bounds.walls.get(tex_name) {
+        let bounds = if let Some(bounds) = self.bounds.walls.get(tex_name).map(convert_bounds) {
             bounds
         } else {
             warn!("No such wall texture {}.", tex_name);
@@ -294,12 +294,12 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         self.scene
             .walls_buffer()
             .reserve(6)
-            .push(v1, low, s1, t1, light_info, scroll, bounds)
-            .push(v2, low, s2, t1, light_info, scroll, bounds)
-            .push(v1, high, s1, t2, light_info, scroll, bounds)
-            .push(v2, low, s2, t1, light_info, scroll, bounds)
-            .push(v2, high, s2, t2, light_info, scroll, bounds)
-            .push(v1, high, s1, t2, light_info, scroll, bounds);
+            .push(v1, low, s1, t1, light_info, scroll, &bounds)
+            .push(v2, low, s2, t1, light_info, scroll, &bounds)
+            .push(v1, high, s1, t2, light_info, scroll, &bounds)
+            .push(v2, low, s2, t1, light_info, scroll, &bounds)
+            .push(v2, high, s2, t2, light_info, scroll, &bounds)
+            .push(v1, high, s1, t2, light_info, scroll, &bounds);
     }
 
     fn visit_floor_poly(&mut self, poly: &StaticPoly) {
@@ -310,7 +310,7 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             light_info,
             tex_name,
         } = poly;
-        let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name) {
+        let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name).map(convert_bounds) {
             bounds
         } else {
             warn!("No such floor texture {}.", tex_name);
@@ -322,9 +322,9 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             self.scene
                 .flats_buffer()
                 .reserve(3)
-                .push(&v0, height, light_info, bounds)
-                .push(v1, height, light_info, bounds)
-                .push(v2, height, light_info, bounds);
+                .push(&v0, height, light_info, &bounds)
+                .push(v1, height, light_info, &bounds)
+                .push(v2, height, light_info, &bounds);
         }
     }
 
@@ -336,7 +336,7 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             light_info,
             tex_name,
         } = poly;
-        let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name) {
+        let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name).map(convert_bounds) {
             bounds
         } else {
             warn!("No such ceiling texture {}.", tex_name);
@@ -348,9 +348,9 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             self.scene
                 .flats_buffer()
                 .reserve(3)
-                .push(v2, height, light_info, bounds)
-                .push(v1, height, light_info, bounds)
-                .push(&v0, height, light_info, bounds);
+                .push(v2, height, light_info, &bounds)
+                .push(v1, height, light_info, &bounds)
+                .push(&v0, height, light_info, &bounds);
         }
     }
 
@@ -413,7 +413,7 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             tex_name,
         } = decor;
         let light_info = self.add_light_info(light_info);
-        let bounds = if let Some(bounds) = self.bounds.decors.get(tex_name) {
+        let bounds = if let Some(bounds) = self.bounds.decors.get(tex_name).map(convert_bounds) {
             bounds
         } else {
             warn!("No such decor texture {}.", tex_name);
@@ -422,25 +422,40 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         self.scene
             .decors_buffer()
             .reserve(6)
-            .push(low, -half_width, 0.0, bounds.size[1], bounds, light_info)
+            .push(low, -half_width, 0.0, bounds.size[1], &bounds, light_info)
             .push(
                 low,
                 half_width,
                 bounds.size[0],
                 bounds.size[1],
-                bounds,
+                &bounds,
                 light_info,
             )
-            .push(high, -half_width, 0.0, 0.0, bounds, light_info)
+            .push(high, -half_width, 0.0, 0.0, &bounds, light_info)
             .push(
                 low,
                 half_width,
                 bounds.size[0],
                 bounds.size[1],
-                bounds,
+                &bounds,
                 light_info,
             )
-            .push(high, half_width, bounds.size[0], 0.0, bounds, light_info)
-            .push(high, -half_width, 0.0, 0.0, bounds, light_info);
+            .push(high, half_width, bounds.size[0], 0.0, &bounds, light_info)
+            .push(high, -half_width, 0.0, 0.0, &bounds, light_info);
     }
+}
+
+fn convert_bounds(bounds: &WadBounds) -> EngineBounds {
+    let &WadBounds {
+        pos,
+        size,
+        num_frames,
+        row_height,
+    } = bounds;
+    return EngineBounds {
+        pos,
+        size,
+        num_frames,
+        row_height,
+    };
 }

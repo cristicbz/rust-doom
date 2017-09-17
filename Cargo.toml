@@ -7,28 +7,19 @@ version = "0.0.8"
 name = "rs_doom"
 
 [dependencies]
-bincode = "0.8.0"
-byteorder = "1.1.0"
+wad = { path = "wad" }
+engine = { path = "engine" }
+game = { path = "game" }
+math = { path = "math" }
+
 clap = "2.26.0"
 env_logger = "0.4.3"
 error-chain = "0.11.0"
-glium = "0.17.0"
-lazy_static = "0.2.0"
 log = "0.3.6"
-num = "0.1.32"
-ordermap = "0.2.11"
-regex = "0.2.2"
-serde = "1.0"
-serde_derive = "1.0"
-slab = "0.4.0"
 time = "0.1.35"
-toml = "0.4.5"
-vec_map = "0.8.0"
-
-[dependencies.glium_sdl2]
-branch = "for-rust-doom"
-git = "https://github.com/cristicbz/glium-sdl2"
 
 [dependencies.sdl2]
 features = ["ttf"]
 version = "0.30.0"
+
+[workspace]

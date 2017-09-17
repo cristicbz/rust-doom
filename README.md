@@ -10,8 +10,8 @@ The code is mostly based on the endlessly useful [Doom Wiki](http://doomwiki.org
 *Note: You need a WAD file to try this. Get a [shareware one](http://www.pc-freak.net/files/doom-wad-files/Doom1.WAD) if you don't own the game.*
 
 ## Screenshots
-![Zig-zag Screenshot](screenshots/readme2.png)
-![Doom 2 Screenshot](screenshots/readme1.png)
+![Zig-zag Screenshot](assets/screenshots/readme2.png)
+![Doom 2 Screenshot](assets/screenshots/readme1.png)
 
 ### Build Instructions
 Rust Doom should always build on the latest stable version of Rust (but is also tested on beta and nightly), which you can install using any of the methods described on [the Rust website](https://www.rust-lang.org/downloads.html).

@@ -6,10 +6,7 @@ use sdl2;
 use sdl2::Sdl;
 use sdl2::video::GLProfile;
 
-
-const WINDOW_TITLE: &'static str = concat!("Rusty Doom v", env!("CARGO_PKG_VERSION"));
 const OPENGL_DEPTH_SIZE: u8 = 24;
-
 
 pub struct Window {
     facade: SDL2Facade,
@@ -18,7 +15,7 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(sdl: &Sdl, width: u32, height: u32) -> Result<Window> {
+    pub fn new(sdl: &Sdl, width: u32, height: u32, title: &str) -> Result<Window> {
         let video = sdl.video().map_err(ErrorKind::Sdl)?;
         let gl_attr = video.gl_attr();
         gl_attr.set_context_profile(GLProfile::Core);
@@ -28,7 +25,7 @@ impl Window {
         gl_attr.set_double_buffer(true);
 
         let facade = video
-            .window(WINDOW_TITLE, width as u32, height as u32)
+            .window(title, width, height)
             .position_centered()
             .opengl()
             .resizable()

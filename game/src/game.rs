@@ -3,8 +3,8 @@ use super::ctrl::{GameController, Gesture};
 use super::errors::{Result, ErrorKind};
 use super::level::Level;
 use super::player::Player;
-use gfx::{Scene, SceneBuilder, Window};
-use gfx::TextRenderer;
+use engine::{Scene, SceneBuilder, Window};
+use engine::TextRenderer;
 use math::Vec2f;
 use sdl2::{self, Sdl};
 use sdl2::keyboard::Scancode;
@@ -19,6 +19,7 @@ pub struct GameConfig {
     pub fov: f32,
     pub width: u32,
     pub height: u32,
+    pub version: &'static str,
 }
 
 
@@ -35,7 +36,12 @@ pub struct Game {
 impl Game {
     pub fn new(config: GameConfig) -> Result<Game> {
         let sdl = sdl2::init().map_err(ErrorKind::Sdl)?;
-        let window = Window::new(&sdl, config.width, config.height)?;
+        let window = Window::new(
+            &sdl,
+            config.width,
+            config.height,
+            &format!("Rusty Doom v{}", config.version),
+        )?;
         let wad = Archive::open(&config.wad_file, &config.metadata_file)?;
         ensure!(
             config.level_index < wad.num_levels(),
