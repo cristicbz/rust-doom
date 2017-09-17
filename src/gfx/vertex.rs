@@ -41,6 +41,15 @@ impl FlatBufferBuilder {
         FlatBufferBuilder(Vec::with_capacity(256))
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn reserve(&mut self, additional_capacity: usize) -> &mut Self {
+        self.0.reserve(additional_capacity);
+        self
+    }
+
     pub fn push(&mut self, xz: &Vec2f, y: f32, light_info: u8, bounds: &Bounds) -> &mut Self {
         self.0.push(StaticVertex {
             a_pos: [xz[0], y, xz[1]],
@@ -71,6 +80,15 @@ pub struct WallBufferBuilder(Vec<StaticVertex>);
 impl WallBufferBuilder {
     pub fn new() -> Self {
         WallBufferBuilder(Vec::with_capacity(256))
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn reserve(&mut self, additional_capacity: usize) -> &mut Self {
+        self.0.reserve(additional_capacity);
+        self
     }
 
     #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
@@ -138,6 +156,15 @@ impl DecorBufferBuilder {
         DecorBufferBuilder(Vec::with_capacity(256))
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn reserve(&mut self, additional_capacity: usize) -> &mut Self {
+        self.0.reserve(additional_capacity);
+        self
+    }
+
     pub fn push(
         &mut self,
         pos: &Vec3f,
@@ -183,6 +210,15 @@ pub struct SkyBufferBuilder(Vec<SkyVertex>);
 impl SkyBufferBuilder {
     pub fn new() -> Self {
         SkyBufferBuilder(Vec::with_capacity(256))
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn reserve(&mut self, additional_capacity: usize) -> &mut Self {
+        self.0.reserve(additional_capacity);
+        self
     }
 
     pub fn push(&mut self, xz: &Vec2f, y: f32) -> &mut Self {
