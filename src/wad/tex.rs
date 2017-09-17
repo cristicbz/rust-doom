@@ -78,7 +78,7 @@ impl TextureDirectory {
                 String::from_utf8_lossy(lump_name)
             );
         }
-        info!("Done in {:.4}s.", time::precise_time_s() - t0);
+        info!("Done in {:.2}ms.", (time::precise_time_s() - t0) * 1000.0);
 
         // Read flats.
         let flats = read_flats(wad)?;
@@ -405,8 +405,11 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
             }
         }
     }
-    let time = time::precise_time_s() - t0;
-    info!("Done in {:.4}s; {} missing patches.", time, missing_patches);
+    info!(
+        "Done in {:.2}ms; {} missing patches.",
+        (time::precise_time_s() - t0) * 1000.0,
+        missing_patches
+    );
     Ok(patches)
 }
 
@@ -500,8 +503,7 @@ fn read_sprites(wad: &Archive, textures: &mut OrderMap<WadName, Image>) -> Resul
             }
         }
     }
-    let time = time::precise_time_s() - t0;
-    info!("Done in {:.4}s.", time);
+    info!("Done in {:.2}ms.", (time::precise_time_s() - t0) * 1000.0);
     Ok(end_index - start_index)
 }
 

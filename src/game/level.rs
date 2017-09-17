@@ -4,6 +4,7 @@ use super::world::World;
 use gfx::{Scene, SceneBuilder};
 use math::Vec3f;
 use num::Zero;
+use time;
 use wad::{Decor, LevelVisitor, LevelWalker, LightInfo, Marker, SkyPoly, SkyQuad, StaticPoly};
 use wad::{SkyMetadata, TextureDirectory, WadMetadata};
 use wad::Archive;
@@ -49,16 +50,16 @@ impl Level {
         let mut volume = World::new();
         let mut lights = LightBuffer::new();
         let mut start_pos = Vec3f::zero();
-        LevelBuilder::build(
-            &level,
-            wad.metadata(),
-            textures,
-            &texture_maps,
-            &mut start_pos,
-            &mut lights,
-            &mut volume,
-            scene,
-        );
+        LevelBuilder::build(LevelContext {
+            level: &level,
+            meta: wad.metadata(),
+            tex: textures,
+            bounds: &texture_maps,
+            start_pos: &mut start_pos,
+            lights: &mut lights,
+            volume: &mut volume,
+            scene: scene,
+        });
 
         Ok(Level {
             start_pos: start_pos,
@@ -181,27 +182,80 @@ struct LevelBuilder<'a, 'b: 'a> {
     lights: &'a mut LightBuffer,
     scene: &'a mut SceneBuilder<'b>,
     start_pos: &'a mut Vec3f,
+
+    num_wall_quads: usize,
+    num_floor_polys: usize,
+    num_ceil_polys: usize,
+    num_sky_wall_quads: usize,
+    num_sky_floor_polys: usize,
+    num_sky_ceil_polys: usize,
+    num_decors: usize,
+}
+
+struct LevelContext<'a, 'b: 'a> {
+    level: &'a WadLevel,
+    meta: &'a WadMetadata,
+    tex: &'a TextureDirectory,
+    bounds: &'a TextureMaps,
+    start_pos: &'a mut Vec3f,
+    lights: &'a mut LightBuffer,
+    volume: &'a mut World,
+    scene: &'a mut SceneBuilder<'b>,
 }
 
 impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
-    #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
-    fn build(
-        level: &WadLevel,
-        meta: &WadMetadata,
-        tex: &TextureDirectory,
-        bounds: &TextureMaps,
-        start_pos: &mut Vec3f,
-        lights: &mut LightBuffer,
-        volume: &mut World,
-        scene: &mut SceneBuilder,
-    ) {
+    fn build(context: LevelContext<'a, 'b>) {
+        let LevelContext {
+            level,
+            meta,
+            tex,
+            bounds,
+            start_pos,
+            lights,
+            volume,
+            scene,
+        } = context;
         let mut builder = LevelBuilder {
             bounds: bounds,
             lights: lights,
             scene: scene,
             start_pos: start_pos,
+
+            num_wall_quads: 0,
+            num_floor_polys: 0,
+            num_ceil_polys: 0,
+            num_sky_wall_quads: 0,
+            num_sky_floor_polys: 0,
+            num_sky_ceil_polys: 0,
+            num_decors: 0,
         };
+        info!("Walking level...");
+        let start_time = time::precise_time_s();
         LevelWalker::new(level, tex, meta, &mut builder.chain(volume)).walk();
+        info!(
+            "Level built in {:.2}ms:\n\
+            \tnum_wall_quads = {}\n\
+            \tnum_floor_polys = {}\n\
+            \tnum_ceil_polys = {}\n\
+            \tnum_sky_wall_quads = {}\n\
+            \tnum_sky_floor_polys = {}\n\
+            \tnum_sky_ceil_polys = {}\n\
+            \tnum_decors = {}\n\
+            \tnum_static_tris = {}\n\
+            \tnum_sky_tris = {}\n\
+            \tnum_sprite_tris = {}",
+            (time::precise_time_s() - start_time) * 1000.0,
+            builder.num_wall_quads,
+            builder.num_floor_polys,
+            builder.num_ceil_polys,
+            builder.num_sky_wall_quads,
+            builder.num_sky_floor_polys,
+            builder.num_sky_ceil_polys,
+            builder.num_decors,
+            (builder.scene.walls_buffer().len() + builder.scene.flats_buffer().len()) / 3,
+            builder.scene.sky_buffer().len() / 3,
+            builder.scene.decors_buffer().len() / 3
+        );
     }
 
     fn add_light_info(&mut self, light_info: &LightInfo) -> u8 {
@@ -213,6 +267,7 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
 impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
     // TODO(cristicbz): Change some types here and unify as much as possible.
     fn visit_wall_quad(&mut self, quad: &StaticQuad) {
+        self.num_wall_quads += 1;
         let &StaticQuad {
             tex_name,
             light_info,
@@ -238,6 +293,7 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         let light_info = self.add_light_info(light_info);
         self.scene
             .walls_buffer()
+            .reserve(6)
             .push(v1, low, s1, t1, light_info, scroll, bounds)
             .push(v2, low, s2, t1, light_info, scroll, bounds)
             .push(v1, high, s1, t2, light_info, scroll, bounds)
@@ -246,8 +302,14 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             .push(v1, high, s1, t2, light_info, scroll, bounds);
     }
 
-    fn visit_floor_poly(&mut self,
-&StaticPoly { vertices, height, light_info, tex_name }: &StaticPoly){
+    fn visit_floor_poly(&mut self, poly: &StaticPoly) {
+        self.num_floor_polys += 1;
+        let &StaticPoly {
+            vertices,
+            height,
+            light_info,
+            tex_name,
+        } = poly;
         let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name) {
             bounds
         } else {
@@ -259,14 +321,21 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         for (v1, v2) in vertices.iter().zip(vertices.iter().skip(1)) {
             self.scene
                 .flats_buffer()
+                .reserve(3)
                 .push(&v0, height, light_info, bounds)
                 .push(v1, height, light_info, bounds)
                 .push(v2, height, light_info, bounds);
         }
     }
 
-    fn visit_ceil_poly(&mut self,
-&StaticPoly { vertices, height, light_info, tex_name }: &StaticPoly){
+    fn visit_ceil_poly(&mut self, poly: &StaticPoly) {
+        self.num_ceil_polys += 1;
+        let &StaticPoly {
+            vertices,
+            height,
+            light_info,
+            tex_name,
+        } = poly;
         let bounds = if let Some(bounds) = self.bounds.flats.get(tex_name) {
             bounds
         } else {
@@ -278,6 +347,7 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         for (v1, v2) in vertices.iter().zip(vertices.iter().skip(1)) {
             self.scene
                 .flats_buffer()
+                .reserve(3)
                 .push(v2, height, light_info, bounds)
                 .push(v1, height, light_info, bounds)
                 .push(&v0, height, light_info, bounds);
@@ -285,10 +355,12 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
     }
 
     fn visit_floor_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
+        self.num_sky_floor_polys += 1;
         let v0 = vertices[0];
         for (v1, v2) in vertices.iter().skip(1).zip(vertices.iter().skip(2)) {
             self.scene
                 .sky_buffer()
+                .reserve(3)
                 .push(&v0, height)
                 .push(v1, height)
                 .push(v2, height);
@@ -296,10 +368,12 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
     }
 
     fn visit_ceil_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
+        self.num_sky_ceil_polys += 1;
         let v0 = vertices[0];
         for (v1, v2) in vertices.iter().skip(1).zip(vertices.iter().skip(2)) {
             self.scene
                 .sky_buffer()
+                .reserve(3)
                 .push(v2, height)
                 .push(v1, height)
                 .push(&v0, height);
@@ -307,12 +381,14 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
     }
 
     fn visit_sky_quad(&mut self, quad: &SkyQuad) {
+        self.num_sky_wall_quads += 1;
         let &SkyQuad {
             vertices: &(ref v1, ref v2),
             height_range: (low, high),
         } = quad;
         self.scene
             .sky_buffer()
+            .reserve(6)
             .push(v1, low)
             .push(v2, low)
             .push(v1, high)
@@ -327,7 +403,15 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
         }
     }
 
-fn visit_decor(&mut self, &Decor { low, high, half_width, light_info, tex_name }: &Decor){
+    fn visit_decor(&mut self, decor: &Decor) {
+        self.num_decors += 1;
+        let &Decor {
+            low,
+            high,
+            half_width,
+            light_info,
+            tex_name,
+        } = decor;
         let light_info = self.add_light_info(light_info);
         let bounds = if let Some(bounds) = self.bounds.decors.get(tex_name) {
             bounds
@@ -337,6 +421,7 @@ fn visit_decor(&mut self, &Decor { low, high, half_width, light_info, tex_name }
         };
         self.scene
             .decors_buffer()
+            .reserve(6)
             .push(low, -half_width, 0.0, bounds.size[1], bounds, light_info)
             .push(
                 low,

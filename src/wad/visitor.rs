@@ -317,15 +317,15 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let unpeg_lower = line.lower_unpegged();
         let back_sector = match self.level.seg_back_sector(seg) {
             None => {
-                self.wall_quad(
+                self.wall_quad(InternalWallQuad {
                     sector,
                     seg,
                     vertices,
-                    (floor, ceil),
-                    &sidedef.middle_texture,
-                    if unpeg_lower { Peg::Bottom } else { Peg::Top },
-                    true,
-                );
+                    height_range: (floor, ceil),
+                    texture_name: sidedef.middle_texture,
+                    peg: if unpeg_lower { Peg::Bottom } else { Peg::Top },
+                    blocker: true,
+                });
                 if is_sky_flat(&sector.ceiling_texture) {
                     self.sky_quad(vertices, (ceil, max));
                 }
@@ -348,46 +348,46 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let back_floor = back_sector.floor_height;
         let back_ceil = back_sector.ceiling_height;
         let floor = if back_floor > floor {
-            self.wall_quad(
+            self.wall_quad(InternalWallQuad {
                 sector,
                 seg,
                 vertices,
-                (floor, back_floor),
-                &sidedef.lower_texture,
-                if unpeg_lower {
+                height_range: (floor, back_floor),
+                texture_name: sidedef.lower_texture,
+                peg: if unpeg_lower {
                     Peg::BottomLower
                 } else {
                     Peg::Top
                 },
-                true,
-            );
+                blocker: true,
+            });
             back_floor
         } else {
             floor
         };
         let ceil = if back_ceil < ceil {
             if !is_sky_flat(&back_sector.ceiling_texture) {
-                self.wall_quad(
+                self.wall_quad(InternalWallQuad {
                     sector,
                     seg,
                     vertices,
-                    (back_ceil, ceil),
-                    &sidedef.upper_texture,
-                    if unpeg_upper { Peg::Top } else { Peg::Bottom },
-                    true,
-                );
+                    height_range: (back_ceil, ceil),
+                    texture_name: sidedef.upper_texture,
+                    peg: if unpeg_upper { Peg::Top } else { Peg::Bottom },
+                    blocker: true,
+                });
             }
             back_ceil
         } else {
             ceil
         };
-        self.wall_quad(
+        self.wall_quad(InternalWallQuad {
             sector,
             seg,
             vertices,
-            (floor, ceil),
-            &sidedef.middle_texture,
-            if unpeg_lower {
+            height_range: (floor, ceil),
+            texture_name: sidedef.middle_texture,
+            peg: if unpeg_lower {
                 if is_untextured(&sidedef.upper_texture) {
                     Peg::TopFloat
                 } else {
@@ -398,21 +398,20 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             } else {
                 Peg::Top
             },
-            line.impassable(),
-        );
+            blocker: line.impassable(),
+        });
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
-    fn wall_quad(
-        &mut self,
-        sector: &WadSector,
-        seg: &WadSeg,
-        (v1, v2): (Vec2f, Vec2f),
-        (low, high): (WadCoord, WadCoord),
-        texture_name: &WadName,
-        peg: Peg,
-        blocker: bool,
-    ) {
+    fn wall_quad(&mut self, quad: InternalWallQuad) {
+        let InternalWallQuad {
+            sector,
+            seg,
+            vertices: (v1, v2),
+            height_range: (low, high),
+            ref texture_name,
+            peg,
+            blocker,
+        } = quad;
         if low >= high {
             return;
         }
@@ -899,6 +898,15 @@ impl<'a, 'b, A: LevelVisitor, B: LevelVisitor> LevelVisitor for VisitorChain<'a,
     }
 }
 
+struct InternalWallQuad<'a> {
+    sector: &'a WadSector,
+    seg: &'a WadSeg,
+    vertices: (Vec2f, Vec2f),
+    height_range: (WadCoord, WadCoord),
+    texture_name: WadName,
+    peg: Peg,
+    blocker: bool,
+}
 
 const THING_TYPE_PLAYER1_START: ThingType = 1;
 const THING_TYPE_PLAYER2_START: ThingType = 2;
