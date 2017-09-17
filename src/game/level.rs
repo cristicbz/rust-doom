@@ -1,9 +1,9 @@
+use super::errors::Result;
 use super::lights::LightBuffer;
 use super::world::World;
 use gfx::{Scene, SceneBuilder};
 use math::Vec3f;
 use num::Zero;
-use std::error::Error;
 use wad::{Decor, LevelVisitor, LevelWalker, LightInfo, Marker, SkyPoly, SkyQuad, StaticPoly};
 use wad::{SkyMetadata, TextureDirectory, WadMetadata};
 use wad::Archive;
@@ -27,7 +27,7 @@ impl Level {
         textures: &TextureDirectory,
         level_index: usize,
         scene: &mut SceneBuilder,
-    ) -> Result<Level, Box<Error>> {
+    ) -> Result<Level> {
         let name = *wad.level_name(level_index);
         info!("Building level {}...", name);
         let level = WadLevel::from_archive(wad, level_index)?;
@@ -93,7 +93,7 @@ fn load_sky_texture(
     meta: Option<&SkyMetadata>,
     textures: &TextureDirectory,
     scene: &mut SceneBuilder,
-) -> Result<(), Box<Error>> {
+) -> Result<()> {
     if let Some((Some(image), band)) =
         meta.map(|m| (textures.texture(&m.texture_name), m.tiled_band_size))
     {
@@ -112,7 +112,7 @@ fn build_flats_atlas(
     level: &WadLevel,
     textures: &TextureDirectory,
     scene: &mut SceneBuilder,
-) -> Result<BoundsLookup, Box<Error>> {
+) -> Result<BoundsLookup> {
     let flat_name_iter = level
         .sectors
         .iter()
@@ -132,7 +132,7 @@ fn build_walls_atlas(
     level: &WadLevel,
     textures: &TextureDirectory,
     scene: &mut SceneBuilder,
-) -> Result<BoundsLookup, Box<Error>> {
+) -> Result<BoundsLookup> {
     let tex_name_iter = level
         .sidedefs
         .iter()
@@ -153,7 +153,7 @@ fn build_decor_atlas(
     archive: &Archive,
     textures: &TextureDirectory,
     scene: &mut SceneBuilder,
-) -> Result<BoundsLookup, Box<Error>> {
+) -> Result<BoundsLookup> {
     let tex_names = level
         .things
         .iter()

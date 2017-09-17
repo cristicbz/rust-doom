@@ -1,25 +1,5 @@
-use super::types::{ChildId, WadCoord, WadInfo, WadName};
+use super::types::{ChildId, WadCoord, WadName};
 use math::{Vec2, Vec2f};
-
-#[derive(Copy, Clone)]
-pub enum WadType {
-    Initial,
-    Patch,
-}
-
-const IWAD_HEADER: &'static [u8] = b"IWAD";
-const PWAD_HEADER: &'static [u8] = b"PWAD";
-
-pub fn wad_type_from_info(wad_info: &WadInfo) -> Option<WadType> {
-    let id = &wad_info.identifier;
-    if id == IWAD_HEADER {
-        Some(WadType::Initial)
-    } else if id == PWAD_HEADER {
-        Some(WadType::Patch)
-    } else {
-        None
-    }
-}
 
 pub fn is_untextured(name: &WadName) -> bool {
     name[0] == b'-' && name[1] == b'\0'

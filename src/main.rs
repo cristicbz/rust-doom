@@ -1,20 +1,20 @@
 #[macro_use]
-extern crate log;
+extern crate clap;
+#[macro_use]
+extern crate error_chain;
 #[macro_use]
 extern crate glium;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
-extern crate serde_derive;
-
+extern crate log;
 #[macro_use]
-extern crate clap;
+extern crate serde_derive;
 
 extern crate bincode;
 extern crate byteorder;
 extern crate env_logger;
 extern crate glium_sdl2;
-extern crate libc;
 extern crate num;
 extern crate ordermap;
 extern crate regex;
@@ -25,20 +25,18 @@ extern crate time;
 extern crate toml;
 extern crate vec_map;
 
-pub mod common;
 pub mod game;
 pub mod gfx;
 pub mod math;
 pub mod wad;
+mod errors;
 
 use clap::{App, Arg, AppSettings};
-use common::GeneralError;
+use errors::{Result, Error};
 use game::{Game, GameConfig, Level};
 use game::SHADER_ROOT;
 use gfx::SceneBuilder;
 use gfx::Window;
-use std::borrow::Cow;
-use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
 use wad::{Archive, TextureDirectory};
@@ -49,9 +47,9 @@ pub struct Resolution {
 }
 
 impl FromStr for Resolution {
-    type Err = GeneralError;
-    fn from_str(size_str: &str) -> Result<Self, GeneralError> {
-        size_str
+    type Err = Error;
+    fn from_str(size_str: &str) -> Result<Self> {
+        let size_if_ok = size_str
             .find('x')
             .and_then(|x_index| if x_index == 0 || x_index + 1 == size_str.len() {
                 None
@@ -64,10 +62,13 @@ impl FromStr for Resolution {
             .and_then(|size| match size {
                 (Ok(width), Ok(height)) => Some(Resolution { width, height }),
                 _ => None,
-            })
-            .ok_or_else(|| {
-                GeneralError("resolution format must be WIDTHxHEIGHT".into())
-            })
+            });
+
+        if let Some(size) = size_if_ok {
+            Ok(size)
+        } else {
+            bail!("resolution format must be WIDTHxHEIGHT");
+        }
     }
 }
 
@@ -85,7 +86,7 @@ pub enum RunMode {
 }
 
 impl RunMode {
-    pub fn from_args() -> Result<RunMode, Box<Error>> {
+    pub fn from_args() -> Result<RunMode> {
         let matches = App::new("Rust Doom")
             .version("0.0.8")
             .author("Cristi Cobzarenco <cristi.cobzarenco@gmail.com>")
@@ -169,9 +170,8 @@ impl RunMode {
     }
 }
 
-#[cfg(not(test))]
-fn run() -> Result<(), Box<Error>> {
-    env_logger::init()?;
+fn run() -> Result<()> {
+    env_logger::init().expect("Failed to set up logging.");
 
     match RunMode::from_args()? {
         RunMode::ListLevelNames {
@@ -187,7 +187,7 @@ fn run() -> Result<(), Box<Error>> {
             wad_file,
             metadata_file,
         } => {
-            let sdl = sdl2::init().map_err(GeneralError)?;
+            let sdl = sdl2::init()?;
             let win = Window::new(&sdl, 128, 128)?;
 
             info!("Loading all levels...");
@@ -219,21 +219,4 @@ fn run() -> Result<(), Box<Error>> {
     Ok(())
 }
 
-#[cfg(not(test))]
-fn main() {
-    use std::io;
-    use std::io::Write;
-    use std::env;
-    use std::path::Path;
-
-    if let Err(error) = run() {
-        let program = env::args().next().unwrap_or_default();
-        let filename = Path::new(&program).file_name().map_or_else(
-            || {
-                Cow::Borrowed("<cannot determine filename>")
-            },
-            |n| n.to_string_lossy(),
-        );
-        writeln!(io::stderr(), "{}: {}", filename, error).expect("failed to  write to stderr");
-    }
-}
+quick_main!(run);

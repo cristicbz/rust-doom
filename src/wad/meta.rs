@@ -1,8 +1,8 @@
-use super::error::{InFile, Result};
+use super::error::{Result, ResultExt, ErrorKind};
 use super::name::WadName;
 use super::types::ThingType;
 use regex::Regex;
-use serde::{Deserializer, Deserialize};
+use serde::de::{Deserialize, Deserializer, Error as SerdeDeError};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -14,7 +14,8 @@ use toml;
 pub struct SkyMetadata {
     #[serde(deserialize_with = "deserialize_name_from_str")]
     pub texture_name: WadName,
-    pub level_pattern: String,
+    #[serde(deserialize_with = "deserialize_regex_from_str")]
+    pub level_pattern: Regex,
     pub tiled_band_size: f32,
 }
 
@@ -60,29 +61,20 @@ impl WadMetadata {
     pub fn from_file<P: AsRef<Path>>(path: &P) -> Result<WadMetadata> {
         let mut contents = String::new();
         let path = path.as_ref();
-        File::open(path)?.read_to_string(&mut contents)?;
-        WadMetadata::from_text(&contents).in_file(path)
+        File::open(path)
+            .and_then(|mut file| file.read_to_string(&mut contents))
+            .chain_err(|| ErrorKind::on_metadata_read())?;
+        WadMetadata::from_text(&contents)
     }
 
     pub fn from_text(text: &str) -> Result<WadMetadata> {
-        Ok(toml::from_str(text)?)
+        Ok(toml::from_str(text).chain_err(|| "Invalid metadata.")?)
     }
 
     pub fn sky_for(&self, name: &WadName) -> Option<&SkyMetadata> {
         self.sky
             .iter()
-            .find(|sky| {
-                Regex::new(&sky.level_pattern)
-                    .map(|r| r.is_match(name.as_ref()))
-                    .unwrap_or_else(|_| {
-                        warn!(
-                            "Invalid level pattern {} for sky {}.",
-                            sky.level_pattern,
-                            sky.texture_name
-                        );
-                        false
-                    })
-            })
+            .find(|sky| sky.level_pattern.is_match(name.as_ref()))
             .or_else(|| if let Some(sky) = self.sky.get(0) {
                 warn!(
                     "No sky found for level {}, using {}.",
@@ -130,13 +122,18 @@ impl WadMetadata {
     }
 }
 
+fn deserialize_regex_from_str<'de, D>(deserializer: D) -> StdResult<Regex, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Regex::new(<&'de str>::deserialize(deserializer)?).map_err(D::Error::custom)
+}
+
 fn deserialize_name_from_str<'de, D>(deserializer: D) -> StdResult<WadName, D::Error>
 where
     D: Deserializer<'de>,
 {
-    Ok(
-        WadName::from_str(<&'de str>::deserialize(deserializer)?).unwrap(),
-    )
+    WadName::from_str(<&'de str>::deserialize(deserializer)?).map_err(D::Error::custom)
 }
 
 fn deserialize_name_from_vec_vec_str<'de, D>(
@@ -146,17 +143,16 @@ where
     D: Deserializer<'de>,
 {
     let strings = <Vec<Vec<&'de str>>>::deserialize(deserializer)?;
-    Ok(
-        strings
-            .iter()
-            .map(|strings| {
-                strings
-                    .iter()
-                    .map(|string| WadName::from_str(string).unwrap())
-                    .collect()
-            })
-            .collect(),
-    )
+    strings
+        .iter()
+        .map(|strings| {
+            strings
+                .iter()
+                .map(|string| WadName::from_str(string))
+                .collect::<Result<Vec<_>>>()
+        })
+        .collect::<Result<Vec<Vec<_>>>>()
+        .map_err(D::Error::custom)
 }
 
 

@@ -1,6 +1,5 @@
-use super::archive::{Archive, InArchive};
-use super::error::ErrorKind::BadImage;
-use super::error::Result;
+use super::archive::Archive;
+use super::error::{Result, ResultExt, ErrorKind};
 use super::image::Image;
 use super::name::WadName;
 use super::types::{WadTextureHeader, WadTexturePatchRef};
@@ -59,7 +58,7 @@ impl TextureDirectory {
         info!("  {:4} colormaps", colormaps.len());
 
         // Read patches.
-        let patches = read_patches(wad).in_archive(wad)?;
+        let patches = read_patches(wad)?;
         info!("  {:4} patches", patches.len());
 
         // Read textures.
@@ -74,8 +73,11 @@ impl TextureDirectory {
                     continue;
                 }
             };
-            let num_textures = read_textures(&wad.read_lump(lump_index)?, &patches, &mut textures)
-                .in_archive(wad)?;
+            let num_textures = read_textures(
+                &wad.read_lump(lump_index)?,
+                &patches,
+                &mut textures,
+            )?;
             info!(
                 "  {:4} textures in {}",
                 num_textures,
@@ -357,21 +359,33 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     let pnames_buffer = wad.read_required_named_lump(b"PNAMES\0\0")?;
     let mut lump = &pnames_buffer[..];
 
-    let num_patches = lump.read_u32::<LittleEndian>()? as usize;
+    let num_patches = lump.read_u32::<LittleEndian>().chain_err(|| {
+        ErrorKind::CorruptWad("Missing number of patches in PNAMES".to_owned())
+    })? as usize;
     let mut patches = Vec::with_capacity(num_patches);
 
     patches.reserve(num_patches);
     let mut missing_patches = 0usize;
     info!("Reading {} patches....", num_patches);
     let t0 = time::precise_time_s();
-    for _ in 0..num_patches {
-        let name: WadName = bincode_read(&mut lump, Infinite)?;
+    for i_patch in 0..num_patches {
+        let name: WadName = match bincode_read(&mut lump, Infinite) {
+            Ok(name) => name,
+            Err(error) => {
+                error!(
+                    "Failed to read patch name with index {}: {}",
+                    i_patch,
+                    error
+                );
+                continue;
+            }
+        };
         match wad.named_lump_index(&name) {
             Some(index) => {
                 let image = match Image::from_buffer(&wad.read_lump(index)?) {
                     Ok(i) => Some(i),
                     Err(e) => {
-                        warn!("Skipping patch: {}", BadImage(name, e));
+                        error!("Skipping patch `{}`: {}", name, e);
                         None
                     }
                 };
@@ -427,7 +441,7 @@ where
                             num_frames: frames.len(),
                         });
                     } else {
-                        warn!("Unable to find texture/sprite: {}", frame);
+                        error!("Unable to find texture/sprite: {}", frame);
                     }
                 }
             }
@@ -471,7 +485,7 @@ fn read_sprites(wad: &Archive, textures: &mut OrderMap<WadName, Image>) -> Resul
                 textures.insert(name, texture);
             }
             Err(e) => {
-                warn!("Skipping sprite: {}", BadImage(name, e));
+                error!("Skipping sprite {}: {}", name, e);
                 continue;
             }
         }
@@ -487,23 +501,62 @@ fn read_textures(
     textures: &mut OrderMap<WadName, Image>,
 ) -> Result<usize> {
     let mut lump = lump_buffer;
-    let num_textures = lump.read_u32::<LittleEndian>()? as usize;
+    let num_textures = lump.read_u32::<LittleEndian>().chain_err(|| {
+        ErrorKind::CorruptWad("Misisng number of textures.".to_owned())
+    })? as usize;
 
-    let mut offsets = &lump[..num_textures * mem::size_of::<u32>()];
+    let offsets_end = num_textures * mem::size_of::<u32>();
+    ensure!(
+        offsets_end < lump.len(),
+        ErrorKind::CorruptWad(format!(
+            "Textures lump too small for offsets {} < {}",
+            lump.len(),
+            offsets_end
+        ))
+    );
+    let mut offsets = &lump[..offsets_end];
 
-    for _ in 0..num_textures {
-        lump = &lump_buffer[offsets.read_u32::<LittleEndian>()? as usize..];
-        let header: WadTextureHeader = bincode_read(&mut lump, Infinite)?;
+    for i_texture in 0..num_textures {
+        let offset = offsets.read_u32::<LittleEndian>().expect(
+            "could not read from size-checked offset buffer in texture lump",
+        ) as usize;
+        ensure!(
+            offset < lump_buffer.len(),
+            ErrorKind::CorruptWad(format!(
+                "Textures lump too small for offsets {} < {}",
+                lump.len(),
+                offsets_end
+            ))
+        );
+
+        lump = &lump_buffer[offset..];
+        let header: WadTextureHeader = match bincode_read(&mut lump, Infinite) {
+            Ok(header) => header,
+            Err(e) => {
+                error!(
+                    "Skipping texture {}: could not read header: {}",
+                    i_texture,
+                    e
+                );
+                continue;
+            }
+        };
         let mut image = match Image::new_from_header(&header) {
             Ok(image) => image,
             Err(e) => {
-                warn!("Skipping texture: {}", BadImage(header.name, e));
+                error!("Skipping texture {}: {}", header.name, e);
                 continue;
             }
         };
 
         for i_patch in 0..header.num_patches {
-            let pref: WadTexturePatchRef = bincode_read(&mut lump, Infinite)?;
+            let pref: WadTexturePatchRef = match bincode_read(&mut lump, Infinite) {
+                Ok(image) => image,
+                Err(e) => {
+                    error!("Skipping patch {} in image {}: {}", i_patch, header.name, e);
+                    continue;
+                }
+            };
             let offset = Vec2::new(
                 pref.origin_x as isize,
                 if pref.origin_y <= 0 {
@@ -517,14 +570,14 @@ fn read_textures(
                     image.blit(patch, offset, i_patch == 0);
                 }
                 Some(&(ref patch_name, None)) => {
-                    warn!(
+                    error!(
                         "PatchRef {}, required by {} is missing.",
                         patch_name,
                         header.name
                     );
                 }
                 None => {
-                    warn!(
+                    error!(
                         "PatchRef index {} out of bounds ({}) in {}, skipping.",
                         pref.patch,
                         patches.len(),
