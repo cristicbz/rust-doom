@@ -10,7 +10,7 @@ pub fn is_sky_flat(name: &WadName) -> bool {
 }
 
 pub fn from_wad_height(x: WadCoord) -> f32 {
-    (x as f32) / 100.0
+    f32::from(x) / 100.0
 }
 
 pub fn from_wad_coords(x: WadCoord, y: WadCoord) -> Vec2f {

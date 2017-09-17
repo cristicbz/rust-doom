@@ -141,7 +141,7 @@ impl Game {
             let updates_t1 = time::precise_time_s();
             cum_updates_time += updates_t1 - updates_t0;
 
-            cum_time += delta as f64;
+            cum_time += f64::from(delta);
             num_frames += 1.0;
             if cum_time > 2.0 {
                 let fps = num_frames / cum_time;

@@ -24,6 +24,13 @@ pub struct Archive {
     meta: WadMetadata,
 }
 
+struct OpenWad {
+    file: RefCell<BufReader<File>>,
+    index_map: OrderMap<WadName, usize>,
+    lumps: Vec<LumpInfo>,
+    levels: Vec<usize>,
+}
+
 impl Archive {
     pub fn open<W, M>(wad_path: &W, meta_path: &M) -> Result<Archive>
     where
@@ -33,7 +40,12 @@ impl Archive {
         let wad_path = wad_path.as_ref().to_owned();
         let meta_path = meta_path.as_ref().to_owned();
         info!("Loading wad file '{:?}'...", wad_path);
-        let (file, index_map, lumps, levels) = Archive::open_wad(&wad_path)?;
+        let OpenWad {
+            file,
+            index_map,
+            lumps,
+            levels,
+        } = Archive::open_wad(&wad_path)?;
         info!("Loading metadata file '{:?}'...", meta_path);
         let meta = WadMetadata::from_file(&meta_path)?;
 
@@ -46,20 +58,16 @@ impl Archive {
         })
     }
 
-    fn open_wad(
-        wad_path: &Path,
-    ) -> Result<(RefCell<BufReader<File>>, OrderMap<WadName, usize>, Vec<LumpInfo>, Vec<usize>)> {
+    fn open_wad(wad_path: &Path) -> Result<OpenWad> {
         // Open file, read and check header.
-        let mut file = BufReader::new(File::open(&wad_path).chain_err(
-            || ErrorKind::on_file_open(),
-        )?);
+        let mut file = BufReader::new(File::open(&wad_path).chain_err(ErrorKind::on_file_open)?);
 
-        let header: WadInfo = bincode_read(&mut file, Infinite).chain_err(|| {
-            ErrorKind::bad_wad_header()
-        })?;
+        let header: WadInfo = bincode_read(&mut file, Infinite).chain_err(
+            ErrorKind::bad_wad_header,
+        )?;
 
         ensure!(
-            &header.identifier == IWAD_HEADER,
+            header.identifier == IWAD_HEADER,
             ErrorKind::bad_wad_header_identifier(&header.identifier)
         );
 
@@ -92,7 +100,12 @@ impl Archive {
             }
         }
 
-        Ok((RefCell::new(file), index_map, lumps, levels))
+        Ok(OpenWad {
+            file: RefCell::new(file),
+            index_map,
+            lumps,
+            levels,
+        })
     }
 
     pub fn metadata(&self) -> &WadMetadata {
@@ -161,7 +174,7 @@ impl<'a> LumpReader<'a> {
 
     pub fn decode_vec<T: DeserializeOwned>(&self) -> Result<Vec<T>> {
         let LumpReader { info, index, .. } = *self;
-        self.read(|mut file| {
+        self.read(|file| {
             let element_size = mem::size_of::<T>();
             let num_elements = info.size / element_size;
 
@@ -182,7 +195,7 @@ impl<'a> LumpReader<'a> {
 
     pub fn decode_one<T: DeserializeOwned>(&self) -> Result<T> {
         let LumpReader { info, index, .. } = *self;
-        self.read(|mut file| {
+        self.read(|file| {
             let element_size = mem::size_of::<T>();
             ensure!(
                 info.size > 0 && (info.size == element_size),
@@ -199,7 +212,7 @@ impl<'a> LumpReader<'a> {
         B: Default + AsMut<[u8]>,
     {
         let LumpReader { info, index, .. } = *self;
-        self.read(|mut file| {
+        self.read(|file| {
             let blob_size = B::default().as_mut().len();
             assert!(blob_size > 0);
             ensure!(
@@ -219,7 +232,7 @@ impl<'a> LumpReader<'a> {
 
     pub fn read_bytes_into(&self, bytes: &mut Vec<u8>) -> Result<()> {
         let LumpReader { info, index, .. } = *self;
-        self.read(|mut file| {
+        self.read(|file| {
             let old_size = bytes.len();
             bytes.resize(old_size + info.size, 0u8);
             file.read_exact(&mut bytes[old_size..]).chain_err(|| {

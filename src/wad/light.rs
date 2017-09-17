@@ -112,11 +112,11 @@ pub enum Contrast {
 }
 
 fn id_to_sync(id: u16) -> f32 {
-    ((id as u64 * 1_664_525 + 1_013_904_223) & 0xffff) as f32 / 15.0
+    ((u64::from(id) * 1_664_525 + 1_013_904_223) & 0xffff) as f32 / 15.0
 }
 
 fn light_to_f32(level: LightLevel) -> f32 {
-    (level >> 3) as f32 / 31.0
+    f32::from(level >> 3) / 31.0
 }
 
 const FLASH_SPEED: f32 = 20.0;

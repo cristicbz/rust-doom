@@ -148,7 +148,7 @@ impl Image {
                     source.size_hint().0
                 );
                 for dest_pixel in &mut destination {
-                    *dest_pixel = *source.next().expect("missing pixel despite check") as u16;
+                    *dest_pixel = u16::from(*source.next().expect("missing pixel despite check"));
                 }
 
                 // And another ignored byte after the run.

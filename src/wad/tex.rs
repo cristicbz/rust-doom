@@ -134,19 +134,29 @@ impl TextureDirectory {
         colormap_end: usize,
     ) -> MappedPalette {
         let num_colormaps = colormap_end - colormap_start;
-        let mut data = vec![0u8; 256 * num_colormaps * 3];
+        let mut mapped = vec![0u8; 256 * num_colormaps * 3];
         let palette = &self.palettes[palette];
-        for i_colormap in colormap_start..colormap_end {
-            for i_color in 0..256 {
-                let rgb = &palette.0[self.colormaps[i_colormap].0[i_color] as usize * 3..][..3];
-                data[i_color * 3 + i_colormap * 256 * 3] = rgb[0];
-                data[1 + i_color * 3 + i_colormap * 256 * 3] = rgb[1];
-                data[2 + i_color * 3 + i_colormap * 256 * 3] = rgb[2];
+
+        let colormaps_with_offsets =
+            self.colormaps
+                .iter()
+                .enumerate()
+                .take(colormap_end)
+                .skip(colormap_start)
+                .map(|(i_colormap, colormap)| (i_colormap * 256 * 3, colormap));
+
+        for (offset, colormap) in colormaps_with_offsets {
+            for (i_color, color) in colormap.0.iter().enumerate() {
+                mapped[i_color * 3 + offset..][..3].copy_from_slice(
+                    &palette.0[usize::from(*color) *
+                                   3..]
+                        [..3],
+                );
             }
         }
 
         MappedPalette {
-            pixels: data,
+            pixels: mapped,
             colormaps: colormap_end - colormap_start + 1,
         }
     }

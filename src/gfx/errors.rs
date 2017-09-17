@@ -1,6 +1,7 @@
 use glium;
 use std::result::Result as StdResult;
 
+#[cfg_attr(feature = "cargo-clippy", allow(unused_doc_comment))]
 error_chain! {
     errors {
         CreateWindow(width: u32, height: u32) {

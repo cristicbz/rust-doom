@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+#[cfg_attr(feature = "cargo-clippy", allow(unused_doc_comment))]
 error_chain! {
     foreign_links {}
     errors {
