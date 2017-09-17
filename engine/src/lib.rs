@@ -22,9 +22,11 @@ mod text;
 mod vertex;
 mod window;
 mod camera;
+mod input;
 
 pub use camera::Camera;
 pub use errors::{Error, ErrorKind, Result};
+pub use input::{Input, Analog2d, Gesture, Scancode, MouseButton};
 pub use scene::{Scene, SceneBuilder};
 pub use text::{Text, TextId, TextRenderer};
 pub use vertex::{SkyBuffer, SkyVertex, SpriteBuffer, SpriteVertex, StaticBuffer, Bounds};

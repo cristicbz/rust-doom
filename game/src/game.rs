@@ -1,13 +1,10 @@
 use super::SHADER_ROOT;
-use super::ctrl::{GameController, Gesture};
-use super::errors::{Result, ErrorKind};
+use super::errors::Result;
 use super::level::Level;
 use super::player::Player;
-use engine::{Scene, SceneBuilder, Window};
+use engine::{Input, Gesture, Scene, SceneBuilder, Window, Scancode};
 use engine::TextRenderer;
 use math::Vec2f;
-use sdl2::{self, Sdl};
-use sdl2::keyboard::Scancode;
 use std::path::PathBuf;
 use time;
 use wad::{Archive, TextureDirectory};
@@ -29,15 +26,12 @@ pub struct Game {
     text: TextRenderer,
     player: Player,
     level: Level,
-    _sdl: Sdl,
-    control: GameController,
+    input: Input,
 }
 
 impl Game {
     pub fn new(config: GameConfig) -> Result<Game> {
-        let sdl = sdl2::init().map_err(ErrorKind::Sdl)?;
         let window = Window::new(
-            &sdl,
             config.width,
             config.height,
             &format!("Rusty Doom v{}", config.version),
@@ -60,8 +54,7 @@ impl Game {
         let mut player = Player::new(config.fov, window.aspect_ratio() * 1.2, Default::default());
         player.set_position(level.start_pos());
 
-        let control = GameController::new(&sdl, sdl.event_pump().map_err(ErrorKind::Sdl)?);
-
+        let input = Input::new(&window)?;
         let text = TextRenderer::new(&window)?;
 
         Ok(Game {
@@ -70,8 +63,7 @@ impl Game {
             level: level,
             scene: scene,
             text: text,
-            _sdl: sdl,
-            control: control,
+            input: input,
         })
     }
 
@@ -104,6 +96,8 @@ impl Game {
         let mut t0 = time::precise_time_s();
         let mut mouse_grabbed = true;
         let mut running = true;
+        self.input.set_mouse_enabled(true);
+        self.input.set_cursor_grabbed(true);
         while running {
             let mut frame = self.window.draw();
             let t1 = time::precise_time_s();
@@ -116,14 +110,14 @@ impl Game {
 
             let updates_t0 = time::precise_time_s();
 
-            self.control.update();
-            if self.control.poll_gesture(&quit_gesture) {
+            self.input.update();
+            if self.input.poll_gesture(&quit_gesture) {
                 running = false;
-            } else if self.control.poll_gesture(&grab_toggle_gesture) {
+            } else if self.input.poll_gesture(&grab_toggle_gesture) {
                 mouse_grabbed = !mouse_grabbed;
-                self.control.set_mouse_enabled(mouse_grabbed);
-                self.control.set_cursor_grabbed(mouse_grabbed);
-            } else if self.control.poll_gesture(&help_gesture) {
+                self.input.set_mouse_enabled(mouse_grabbed);
+                self.input.set_cursor_grabbed(mouse_grabbed);
+            } else if self.input.poll_gesture(&help_gesture) {
                 current_help = current_help % 2 + 1;
                 match current_help {
                     0 => self.text[short_help].set_visible(true),
@@ -136,7 +130,7 @@ impl Game {
                 }
             }
 
-            self.player.update(delta, &self.control, &self.level);
+            self.player.update(delta, &self.input, &self.level);
             self.scene.set_modelview(&self.player.camera().modelview());
             self.scene.set_projection(self.player.camera().projection());
             self.level.update(delta, &mut self.scene);

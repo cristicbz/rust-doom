@@ -5,14 +5,12 @@ extern crate error_chain;
 extern crate log;
 
 extern crate num;
-extern crate sdl2;
 extern crate time;
 
 extern crate wad;
 extern crate math;
 extern crate engine;
 
-mod ctrl;
 mod level;
 mod lights;
 mod player;

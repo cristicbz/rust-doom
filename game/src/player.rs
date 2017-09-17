@@ -1,12 +1,9 @@
-use engine::Camera;
+use super::level::Level;
+
+use engine::{Analog2d, Gesture, Input, Scancode, Camera};
 use math::{Sphere, Vec3f, Vector};
 use num::Zero;
-use sdl2::keyboard::Scancode;
 use std::f32::consts::{FRAC_PI_2, PI};
-
-use super::ctrl::{Analog2d, Gesture};
-use super::ctrl::GameController;
-use super::level::Level;
 
 pub struct PlayerBindings {
     pub movement: Analog2d,
@@ -93,12 +90,12 @@ impl Player {
     }
 
 
-    pub fn update(&mut self, delta_time: f32, controller: &GameController, level: &Level) {
-        if controller.poll_gesture(&self.bindings.fly) {
+    pub fn update(&mut self, delta_time: f32, input: &Input, level: &Level) {
+        if input.poll_gesture(&self.bindings.fly) {
             self.fly = !self.fly;
         }
 
-        if controller.poll_gesture(&self.bindings.clip) {
+        if input.poll_gesture(&self.bindings.clip) {
             self.clip = !self.clip;
         }
 
@@ -106,7 +103,7 @@ impl Player {
             center: *self.camera.position() - Vec3f::new(0.0, 0.12, 0.0),
             radius: self.radius,
         };
-        let force = self.force(&head, delta_time, controller, level);
+        let force = self.force(&head, delta_time, input, level);
         if self.clip {
             self.clip(delta_time, &mut head, level);
         } else {
@@ -167,10 +164,10 @@ impl Player {
         }
     }
 
-    fn move_force(&mut self, delta_time: f32, grounded: bool, ctrl: &GameController) -> Vec3f {
-        let movement = ctrl.poll_analog2d(&self.bindings.movement);
-        let look = ctrl.poll_analog2d(&self.bindings.look);
-        let jump = ctrl.poll_gesture(&self.bindings.jump);
+    fn move_force(&mut self, delta_time: f32, grounded: bool, input: &Input) -> Vec3f {
+        let movement = input.poll_analog2d(&self.bindings.movement);
+        let look = input.poll_analog2d(&self.bindings.look);
+        let jump = input.poll_gesture(&self.bindings.jump);
         let yaw = self.camera.yaw() + look[0];
         let pitch = clamp(self.camera.pitch() + look[1], (-FRAC_PI_2, FRAC_PI_2));
         self.camera.set_yaw(yaw);
@@ -201,13 +198,7 @@ impl Player {
         }
     }
 
-    fn force(
-        &mut self,
-        head: &Sphere,
-        delta_time: f32,
-        ctrl: &GameController,
-        level: &Level,
-    ) -> Vec3f {
+    fn force(&mut self, head: &Sphere, delta_time: f32, input: &Input, level: &Level) -> Vec3f {
         let feet = Sphere {
             radius: 0.2,
             ..*head
@@ -223,7 +214,7 @@ impl Player {
             } else {
                 (self.height, None)
             };
-        let mut force: Vec3f = self.move_force(delta_time, normal.is_some(), ctrl);
+        let mut force: Vec3f = self.move_force(delta_time, normal.is_some(), input);
         let speed = self.velocity.norm();
         if speed > 0.0 {
             let mut slowdown = if self.fly {
