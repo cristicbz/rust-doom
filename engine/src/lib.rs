@@ -8,6 +8,7 @@ extern crate lazy_static;
 extern crate log;
 
 extern crate glium_sdl2;
+extern crate num;
 extern crate sdl2;
 extern crate slab;
 extern crate time;
@@ -20,7 +21,9 @@ mod scene;
 mod text;
 mod vertex;
 mod window;
+mod camera;
 
+pub use camera::Camera;
 pub use errors::{Error, ErrorKind, Result};
 pub use scene::{Scene, SceneBuilder};
 pub use text::{Text, TextId, TextRenderer};

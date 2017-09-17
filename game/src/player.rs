@@ -1,12 +1,12 @@
-use super::camera::Camera;
-use super::ctrl::{Analog2d, Gesture};
-use super::ctrl::GameController;
-use super::level::Level;
+use engine::Camera;
 use math::{Sphere, Vec3f, Vector};
 use num::Zero;
 use sdl2::keyboard::Scancode;
 use std::f32::consts::{FRAC_PI_2, PI};
 
+use super::ctrl::{Analog2d, Gesture};
+use super::ctrl::GameController;
+use super::level::Level;
 
 pub struct PlayerBindings {
     pub movement: Analog2d,

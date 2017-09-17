@@ -12,7 +12,6 @@ extern crate wad;
 extern crate math;
 extern crate engine;
 
-mod camera;
 mod ctrl;
 mod level;
 mod lights;
