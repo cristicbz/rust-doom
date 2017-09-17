@@ -2,7 +2,7 @@ use super::SHADER_ROOT;
 use super::errors::Result;
 use super::level::Level;
 use super::player::Player;
-use engine::{Input, Gesture, Scene, SceneBuilder, Window, Scancode};
+use engine::{Input, Gesture, Scene, SceneBuilder, Window, Scancode, Camera};
 use engine::TextRenderer;
 use math::Vec2f;
 use std::path::PathBuf;
@@ -25,6 +25,7 @@ pub struct Game {
     scene: Scene,
     text: TextRenderer,
     player: Player,
+    camera: Camera,
     level: Level,
     input: Input,
 }
@@ -51,23 +52,35 @@ impl Game {
             (level, scene)
         };
 
-        let mut player = Player::new(config.fov, window.aspect_ratio() * 1.2, Default::default());
-        player.set_position(level.start_pos());
+        let mut camera = Camera::new(config.fov, window.aspect_ratio() * 1.2, NEAR, FAR);
+        let mut player = Player::new(Default::default());
+        player.setup(&mut camera, level.start_pos(), level.start_yaw());
 
         let input = Input::new(&window)?;
         let text = TextRenderer::new(&window)?;
 
         Ok(Game {
-            window: window,
-            player: player,
-            level: level,
-            scene: scene,
-            text: text,
-            input: input,
+            window,
+            player,
+            camera,
+            level,
+            scene,
+            text,
+            input,
         })
     }
 
     pub fn run(&mut self) -> Result<()> {
+        let Game {
+            ref mut window,
+            ref mut player,
+            ref mut camera,
+            ref mut level,
+            ref mut scene,
+            ref mut text,
+            ref mut input,
+        } = *self;
+
         let quit_gesture = Gesture::AnyOf(vec![
             Gesture::QuitTrigger,
             Gesture::KeyTrigger(Scancode::Escape),
@@ -75,19 +88,9 @@ impl Game {
         let grab_toggle_gesture = Gesture::KeyTrigger(Scancode::Grave);
         let help_gesture = Gesture::KeyTrigger(Scancode::H);
 
-        let short_help = self.text.insert(
-            &self.window,
-            SHORT_HELP,
-            Vec2f::new(0.0, 0.0),
-            6,
-        );
-        let long_help = self.text.insert(
-            &self.window,
-            LONG_HELP,
-            Vec2f::new(0.0, 0.0),
-            6,
-        );
-        self.text[long_help].set_visible(false);
+        let short_help = text.insert(window, SHORT_HELP, Vec2f::new(0.0, 0.0), 6);
+        let long_help = text.insert(window, LONG_HELP, Vec2f::new(0.0, 0.0), 6);
+        text[long_help].set_visible(false);
         let mut current_help = 0;
 
         let mut cum_time = 0.0;
@@ -96,10 +99,10 @@ impl Game {
         let mut t0 = time::precise_time_s();
         let mut mouse_grabbed = true;
         let mut running = true;
-        self.input.set_mouse_enabled(true);
-        self.input.set_cursor_grabbed(true);
+        input.set_mouse_enabled(true);
+        input.set_cursor_grabbed(true);
         while running {
-            let mut frame = self.window.draw();
+            let mut frame = window.draw();
             let t1 = time::precise_time_s();
             let mut delta = (t1 - t0) as f32;
             if delta < 1e-10 {
@@ -110,33 +113,33 @@ impl Game {
 
             let updates_t0 = time::precise_time_s();
 
-            self.input.update();
-            if self.input.poll_gesture(&quit_gesture) {
+            input.update();
+            if input.poll_gesture(&quit_gesture) {
                 running = false;
-            } else if self.input.poll_gesture(&grab_toggle_gesture) {
+            } else if input.poll_gesture(&grab_toggle_gesture) {
                 mouse_grabbed = !mouse_grabbed;
-                self.input.set_mouse_enabled(mouse_grabbed);
-                self.input.set_cursor_grabbed(mouse_grabbed);
-            } else if self.input.poll_gesture(&help_gesture) {
+                input.set_mouse_enabled(mouse_grabbed);
+                input.set_cursor_grabbed(mouse_grabbed);
+            } else if input.poll_gesture(&help_gesture) {
                 current_help = current_help % 2 + 1;
                 match current_help {
-                    0 => self.text[short_help].set_visible(true),
+                    0 => text[short_help].set_visible(true),
                     1 => {
-                        self.text[short_help].set_visible(false);
-                        self.text[long_help].set_visible(true);
+                        text[short_help].set_visible(false);
+                        text[long_help].set_visible(true);
                     }
-                    2 => self.text[long_help].set_visible(false),
+                    2 => text[long_help].set_visible(false),
                     _ => unreachable!(),
                 }
             }
 
-            self.player.update(delta, &self.input, &self.level);
-            self.scene.set_modelview(&self.player.camera().modelview());
-            self.scene.set_projection(self.player.camera().projection());
-            self.level.update(delta, &mut self.scene);
+            player.update(camera, delta, input, level);
+            scene.set_modelview(&camera.modelview());
+            scene.set_projection(camera.projection());
+            level.update(delta, scene);
 
-            self.scene.render(&mut frame, delta)?;
-            self.text.render(&mut frame)?;
+            scene.render(&mut frame, delta)?;
+            text.render(&mut frame)?;
 
             let updates_t1 = time::precise_time_s();
             cum_updates_time += updates_t1 - updates_t0;
@@ -165,6 +168,9 @@ impl Game {
         Ok(())
     }
 }
+
+const NEAR: f32 = 0.01;
+const FAR: f32 = 100.0;
 
 const SHORT_HELP: &'static str = "Press 'h' for help.";
 const LONG_HELP: &'static str = r"Use WASD or arrow keys to move and the mouse to aim.

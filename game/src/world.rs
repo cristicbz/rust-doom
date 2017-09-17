@@ -200,11 +200,13 @@ impl LevelVisitor for World {
         let edge = (*v2 - *v1).normalized();
         let normal = Vec3f::new(-edge[1], 0.0, edge[0]);
         self.add_polygon(
-            Some(Vec3f::new(v1[0], low, v1[1]))
-                .into_iter()
-                .chain(Some(Vec3f::new(v2[0], low, v2[1])))
-                .chain(Some(Vec3f::new(v2[0], high, v2[1])))
-                .chain(Some(Vec3f::new(v1[0], high, v1[1]))),
+            [
+                Vec3f::new(v1[0], low, v1[1]),
+                Vec3f::new(v2[0], low, v2[1]),
+                Vec3f::new(v2[0], high, v2[1]),
+                Vec3f::new(v1[0], high, v1[1]),
+            ].iter()
+                .cloned(),
             normal,
         );
     }

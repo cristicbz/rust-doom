@@ -17,6 +17,7 @@ use wad::util::{is_sky_flat, is_untextured};
 
 pub struct Level {
     start_pos: Vec3f,
+    start_yaw: f32,
     time: f32,
     lights: LightBuffer,
     volume: World,
@@ -50,27 +51,34 @@ impl Level {
         let mut volume = World::new();
         let mut lights = LightBuffer::new();
         let mut start_pos = Vec3f::zero();
+        let mut start_yaw = 0.0f32;
         LevelBuilder::build(LevelContext {
             level: &level,
             meta: wad.metadata(),
             tex: textures,
             bounds: &texture_maps,
             start_pos: &mut start_pos,
+            start_yaw: &mut start_yaw,
             lights: &mut lights,
             volume: &mut volume,
             scene: scene,
         });
 
         Ok(Level {
-            start_pos: start_pos,
+            start_pos,
+            start_yaw,
+            lights,
+            volume,
             time: 0.0,
-            lights: lights,
-            volume: volume,
         })
     }
 
     pub fn start_pos(&self) -> &Vec3f {
         &self.start_pos
+    }
+
+    pub fn start_yaw(&self) -> f32 {
+        self.start_yaw
     }
 
     pub fn volume(&self) -> &World {
@@ -182,6 +190,7 @@ struct LevelBuilder<'a, 'b: 'a> {
     lights: &'a mut LightBuffer,
     scene: &'a mut SceneBuilder<'b>,
     start_pos: &'a mut Vec3f,
+    start_yaw: &'a mut f32,
 
     num_wall_quads: usize,
     num_floor_polys: usize,
@@ -198,6 +207,7 @@ struct LevelContext<'a, 'b: 'a> {
     tex: &'a TextureDirectory,
     bounds: &'a TextureMaps,
     start_pos: &'a mut Vec3f,
+    start_yaw: &'a mut f32,
     lights: &'a mut LightBuffer,
     volume: &'a mut World,
     scene: &'a mut SceneBuilder<'b>,
@@ -211,15 +221,17 @@ impl<'a, 'b: 'a> LevelBuilder<'a, 'b> {
             tex,
             bounds,
             start_pos,
+            start_yaw,
             lights,
             volume,
             scene,
         } = context;
         let mut builder = LevelBuilder {
-            bounds: bounds,
-            lights: lights,
-            scene: scene,
-            start_pos: start_pos,
+            bounds,
+            lights,
+            scene,
+            start_pos,
+            start_yaw,
 
             num_wall_quads: 0,
             num_floor_polys: 0,
@@ -397,9 +409,10 @@ impl<'a, 'b: 'a> LevelVisitor for LevelBuilder<'a, 'b> {
             .push(v1, high);
     }
 
-    fn visit_marker(&mut self, pos: Vec3f, marker: Marker) {
+    fn visit_marker(&mut self, pos: Vec3f, yaw: f32, marker: Marker) {
         if let Marker::StartPos { player: 0 } = marker {
-            *self.start_pos = pos + Vec3f::new(0.0, 0.5, 0.0)
+            *self.start_pos = pos + Vec3f::new(0.0, 0.5, 32.0 / 100.0);
+            *self.start_yaw = yaw;
         }
     }
 
