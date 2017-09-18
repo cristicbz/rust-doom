@@ -327,7 +327,7 @@ impl Scene {
         writer(&mut *self.lights.map())
     }
 
-    pub fn render(&mut self, frame: &mut Frame, camera: &Camera, delta_time: f32) -> Result<()> {
+    pub fn render(&mut self, delta_time: f32, camera: &Camera, frame: &mut Frame) -> Result<()> {
         self.time += delta_time;
         self.projection = mat4_to_uniform(camera.projection());
         self.modelview = mat4_to_uniform(&camera.modelview());

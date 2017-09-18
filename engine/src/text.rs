@@ -5,6 +5,7 @@ use glium::{DrawParameters, Program};
 use glium::Frame;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{ClientFormat, RawImage2d, Texture2d};
+use idcontain::{IdSlab, Id};
 use math::Vec2f;
 use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
@@ -12,19 +13,18 @@ use sdl2::rect::Rect;
 use sdl2::render::BlendMode;
 use sdl2::surface::Surface as SdlSurface;
 use sdl2::ttf::{self, Font, Sdl2TtfContext};
-use slab::Slab;
 use std::borrow::Cow;
 use std::cmp;
 use std::ops::{Index, IndexMut};
 
 /// A handle to a piece of text created with a `TextRenderer`.
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub struct TextId(usize);
+pub struct TextId(Id<Text>);
 
 /// Handles rendering of debug text to `OpenGL`.
 pub struct TextRenderer {
     font: Font<'static, 'static>,
-    slab: Slab<Text>,
+    slab: IdSlab<Text>,
     program: Program,
     draw_params: DrawParameters<'static>,
 }
@@ -33,7 +33,7 @@ impl TextRenderer {
     pub fn new(win: &Window) -> Result<TextRenderer> {
         Ok(TextRenderer {
             font: CONTEXT.load_font(FONT_PATH, POINT_SIZE).unwrap(),
-            slab: Slab::new(),
+            slab: IdSlab::with_capacity(16),
             program: Program::from_source(win.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
             draw_params: DrawParameters {
                 blend: Blend::alpha_blending(),
@@ -85,7 +85,7 @@ impl TextRenderer {
     }
 
     pub fn render(&self, frame: &mut Frame) -> Result<()> {
-        for (_, text) in &self.slab {
+        for text in &self.slab {
             if !text.visible {
                 continue;
             }

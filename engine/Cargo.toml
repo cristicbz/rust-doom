@@ -11,8 +11,8 @@ glium = "0.17.0"
 lazy_static = "0.2.0"
 log = "0.3.6"
 num = "0.1.32"
-slab = "0.4.0"
 time = "0.1.35"
+idcontain = "0.7.2"
 
 [dependencies.glium_sdl2]
 branch = "for-rust-doom"

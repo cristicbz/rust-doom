@@ -62,8 +62,8 @@ pub struct Player {
 
 
 impl Player {
-    pub fn new(bindings: PlayerBindings) -> Player {
-        Player {
+    pub fn new(bindings: PlayerBindings, camera: &mut Camera, level: &Level) -> Player {
+        let mut player = Player {
             bindings: bindings,
             velocity: Vec3f::zero(),
             move_force: 60.0,
@@ -78,12 +78,12 @@ impl Player {
             fly: false,
             clip: true,
             last_height_diff: 0.0,
-        }
-    }
+        };
 
-    pub fn setup(&mut self, camera: &mut Camera, initial_position: &Vec3f, initial_yaw: f32) {
-        self.set_position(camera, initial_position);
-        camera.set_yaw(initial_yaw);
+        player.set_position(camera, level.start_pos());
+        camera.set_yaw(level.start_yaw());
+
+        player
     }
 
     pub fn set_position(&mut self, camera: &mut Camera, new_pos: &Vec3f) {
@@ -97,7 +97,7 @@ impl Player {
         };
     }
 
-    pub fn update(&mut self, camera: &mut Camera, delta_time: f32, input: &Input, level: &Level) {
+    pub fn update(&mut self, delta_time: f32, input: &Input, level: &Level, camera: &mut Camera) {
         if input.poll_gesture(&self.bindings.fly) {
             self.fly = !self.fly;
         }

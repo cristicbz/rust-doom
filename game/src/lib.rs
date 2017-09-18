@@ -17,6 +17,7 @@ mod player;
 mod world;
 mod game;
 mod errors;
+mod hud;
 
 pub use errors::{Error, Result, ErrorKind};
 pub use game::{Game, GameConfig};
