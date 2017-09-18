@@ -102,7 +102,6 @@ impl Game {
         input.set_mouse_enabled(true);
         input.set_cursor_grabbed(true);
         while running {
-            let mut frame = window.draw();
             let t1 = time::precise_time_s();
             let mut delta = (t1 - t0) as f32;
             if delta < 1e-10 {
@@ -134,12 +133,15 @@ impl Game {
             }
 
             player.update(camera, delta, input, level);
-            scene.set_modelview(&camera.modelview());
-            scene.set_projection(camera.projection());
             level.update(delta, scene);
 
-            scene.render(&mut frame, delta)?;
+            let mut frame = window.draw();
+            scene.render(&mut frame, camera, delta)?;
             text.render(&mut frame)?;
+            // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
+            frame.finish().expect(
+                "Cannot handle context loss currently :(",
+            );
 
             let updates_t1 = time::precise_time_s();
             cum_updates_time += updates_t1 - updates_t0;
@@ -160,10 +162,6 @@ impl Game {
                 num_frames = 0.0;
             }
 
-            // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
-            frame.finish().expect(
-                "Cannot handle context loss currently :(",
-            );
         }
         Ok(())
     }
