@@ -9,13 +9,15 @@ use sdl2::video::GLProfile;
 const OPENGL_DEPTH_SIZE: u8 = 24;
 
 pub struct Window {
+    sdl: Sdl,
     facade: SDL2Facade,
     width: u32,
     height: u32,
 }
 
 impl Window {
-    pub fn new(sdl: &Sdl, width: u32, height: u32, title: &str) -> Result<Window> {
+    pub fn new(width: u32, height: u32, title: &str) -> Result<Window> {
+        let sdl = sdl2::init().map_err(ErrorKind::Sdl)?;
         let video = sdl.video().map_err(ErrorKind::Sdl)?;
         let gl_attr = video.gl_attr();
         gl_attr.set_context_profile(GLProfile::Core);
@@ -34,10 +36,15 @@ impl Window {
 
         sdl2::clear_error();
         Ok(Window {
+            sdl: sdl,
             facade: facade,
             width: width,
             height: height,
         })
+    }
+
+    pub fn sdl(&self) -> &Sdl {
+        &self.sdl
     }
 
     pub fn width(&self) -> u32 {

@@ -3,7 +3,8 @@ use super::light::{self, Contrast, LightInfo};
 use super::meta::WadMetadata;
 use super::tex::TextureDirectory;
 use super::types::{ChildId, ThingType, WadCoord, WadName, WadNode, WadSector, WadSeg, WadThing};
-use super::util::{from_wad_coords, from_wad_height, is_sky_flat, is_untextured, parse_child_id};
+use super::util::{from_wad_coords, to_wad_height, from_wad_height, is_sky_flat, is_untextured,
+                  parse_child_id};
 use math::{Line2f, Vec2f, Vec3f, Vector};
 use num::Zero;
 use std::cmp;
@@ -72,7 +73,7 @@ pub trait LevelVisitor: Sized {
         // Default impl is empty to allow visitors to mix and match.
     }
 
-    fn visit_marker(&mut self, _pos: Vec3f, _marker: Marker) {
+    fn visit_marker(&mut self, _pos: Vec3f, _yaw: f32, _marker: Marker) {
         // Default impl is empty to allow visitors to mix and match.
     }
 
@@ -469,9 +470,9 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             light_info
         };
 
-        let height = (high - low) * 100.0;
+        let height = to_wad_height(high - low);
         let s1 = f32::from(seg.offset) + f32::from(sidedef.x_offset);
-        let s2 = s1 + (v2 - v1).norm() * 100.0;
+        let s2 = s1 + to_wad_height((v2 - v1).norm());
         let (t1, t2) = match (size, peg) {
             (Some(_), Peg::Top) |
             (None, _) => (height, 0.0),
@@ -567,6 +568,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
     fn things(&mut self) {
         for thing in &self.level.things {
             let pos = from_wad_coords(thing.x, thing.y);
+            let yaw = -(f32::round(f32::from(thing.angle) / 45.0) * 45.0).to_radians();
             let sector = match self.sector_at(&pos) {
                 Some(sector) => sector,
                 None => continue,
@@ -574,7 +576,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
 
             if let Some(marker) = Marker::from(thing.thing_type) {
                 let pos = Vec3f::new(pos[0], from_wad_height(sector.floor_height), pos[1]);
-                self.visitor.visit_marker(pos, marker);
+                self.visitor.visit_marker(pos, yaw, marker);
             } else if let Some(sector) = self.sector_at(&pos) {
                 self.decor(thing, &pos, sector);
             }
@@ -615,10 +617,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 } else {
                     return None;
                 };
-                let partition = Line2f::from_origin_and_displace(
-                    from_wad_coords(node.line_x, node.line_y),
-                    from_wad_coords(node.step_x, node.step_y),
-                );
+                let partition = partition_line(node);
                 if partition.signed_distance(pos) > 0.0f32 {
                     child_id = node.left;
                 } else {
@@ -670,29 +669,31 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 }
             }
         };
-        let size = Vec2f::new(size[0] as f32, size[1] as f32);
+        let size = Vec2f::new(
+            from_wad_height(size[0] as i16),
+            from_wad_height(size[1] as i16),
+        );
 
-        // TODO(cristicbz): Get rid of / 100.0 below.
         let (low, high) = if meta.hanging {
             (
                 Vec3f::new(
                     pos[0],
-                    (f32::from(sector.ceiling_height) - size[1]) / 100.0,
+                    from_wad_height(sector.ceiling_height) - size[1],
                     pos[1],
                 ),
-                Vec3f::new(pos[0], f32::from(sector.ceiling_height) / 100.0, pos[1]),
+                Vec3f::new(pos[0], from_wad_height(sector.ceiling_height), pos[1]),
             )
         } else {
             (
-                Vec3f::new(pos[0], f32::from(sector.floor_height) / 100.0, pos[1]),
+                Vec3f::new(pos[0], from_wad_height(sector.floor_height), pos[1]),
                 Vec3f::new(
                     pos[0],
-                    (f32::from(sector.floor_height) + size[1]) / 100.0,
+                    from_wad_height(sector.floor_height) + size[1],
                     pos[1],
                 ),
             )
         };
-        let half_width = size[0] / 100.0 * 0.5;
+        let half_width = size[0] * 0.5;
 
         self.visitor.visit_decor(&Decor {
             low: &low,
@@ -715,9 +716,9 @@ fn light_info<'a>(
 }
 
 fn partition_line(node: &WadNode) -> Line2f {
-    Line2f::from_origin_and_displace(
+    Line2f::from_two_points(
         from_wad_coords(node.line_x, node.line_y),
-        from_wad_coords(node.step_x, node.step_y),
+        from_wad_coords(node.line_x + node.step_x, node.line_y + node.step_y),
     )
 }
 
@@ -862,9 +863,9 @@ impl<'a, 'b, A: LevelVisitor, B: LevelVisitor> LevelVisitor for VisitorChain<'a,
         self.second.visit_sky_quad(quad);
     }
 
-    fn visit_marker(&mut self, pos: Vec3f, marker: Marker) {
-        self.first.visit_marker(pos, marker);
-        self.second.visit_marker(pos, marker);
+    fn visit_marker(&mut self, pos: Vec3f, yaw: f32, marker: Marker) {
+        self.first.visit_marker(pos, yaw, marker);
+        self.second.visit_marker(pos, yaw, marker);
     }
 
     fn visit_decor(&mut self, decor: &Decor) {

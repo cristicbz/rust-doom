@@ -1,8 +1,11 @@
+use super::errors::{Result, ErrorKind};
+use super::window::Window;
 use math::Vec2f;
 use num::Zero;
-use sdl2::{EventPump, Sdl};
+use sdl2::EventPump;
 use sdl2::event::Event;
-use sdl2::keyboard::Scancode;
+pub use sdl2::keyboard::Scancode;
+pub use sdl2::mouse::MouseButton;
 use sdl2::mouse::MouseUtil;
 use std::vec::Vec;
 
@@ -12,8 +15,8 @@ pub enum Gesture {
     NoGesture,
     KeyHold(Scancode),
     KeyTrigger(Scancode),
-    //ButtonHold(Mouse),
-    //ButtonTrigger(Mouse),
+    ButtonHold(MouseButton),
+    ButtonTrigger(MouseButton),
     AnyOf(Vec<Gesture>),
     AllOf(Vec<Gesture>),
     QuitTrigger,
@@ -35,10 +38,11 @@ pub enum Analog2d {
     Sum { analogs: Vec<Analog2d> },
 }
 
-pub struct GameController {
+pub struct Input {
     current_update_index: UpdateIndex,
 
     keyboard_state: [ButtonState; NUM_SCAN_CODES],
+    mouse_button_state: [ButtonState; NUM_MOUSE_BUTTONS],
     quit_requested_index: UpdateIndex,
 
     mouse_enabled: bool,
@@ -48,19 +52,20 @@ pub struct GameController {
     pump: EventPump,
 }
 
-impl GameController {
-    pub fn new(sdl: &Sdl, pump: EventPump) -> GameController {
-        let mouse_util = sdl.mouse();
-        mouse_util.set_relative_mouse_mode(true);
-        GameController {
+impl Input {
+    pub fn new(window: &Window) -> Result<Input> {
+        let pump = window.sdl().event_pump().map_err(ErrorKind::Sdl)?;
+        let mouse_util = window.sdl().mouse();
+        Ok(Input {
             current_update_index: 1,
             keyboard_state: [ButtonState::Up(0); NUM_SCAN_CODES],
+            mouse_button_state: [ButtonState::Up(0); NUM_MOUSE_BUTTONS],
             quit_requested_index: 0,
             mouse_util: mouse_util,
             mouse_enabled: true,
             mouse_rel: Vec2f::zero(),
             pump: pump,
-        }
+        })
     }
 
     pub fn set_cursor_grabbed(&mut self, grabbed: bool) {
@@ -98,6 +103,17 @@ impl GameController {
                         self.mouse_rel = Vec2f::zero();
                     }
                 }
+                Event::MouseButtonDown { mouse_btn, .. } => {
+                    if let Some(index) = mouse_button_to_index(mouse_btn) {
+                        self.mouse_button_state[index] =
+                            ButtonState::Down(self.current_update_index);
+                    }
+                }
+                Event::MouseButtonUp { mouse_btn, .. } => {
+                    if let Some(index) = mouse_button_to_index(mouse_btn) {
+                        self.mouse_button_state[index] = ButtonState::Up(self.current_update_index);
+                    }
+                }
                 _ => {}
             }
         }
@@ -109,30 +125,46 @@ impl GameController {
             Gesture::KeyHold(code) => {
                 match self.keyboard_state[code as usize] {
                     ButtonState::Down(_) => true,
-                    _ => false,
+                    ButtonState::Up(_) => false,
                 }
             }
             Gesture::KeyTrigger(code) => {
                 match self.keyboard_state[code as usize] {
                     ButtonState::Down(index) => self.current_update_index == index,
-                    _ => false,
+                    ButtonState::Up(_) => false,
                 }
             }
-            Gesture::AnyOf(ref subs) => {
-                for subgesture in subs.iter() {
-                    if self.poll_gesture(subgesture) {
-                        return true;
+            Gesture::ButtonHold(button) => {
+                match mouse_button_to_index(button) {
+                    Some(index) => {
+                        match self.mouse_button_state[index] {
+                            ButtonState::Down(_) => true,
+                            ButtonState::Up(_) => false,
+                        }
                     }
+                    None => false,
                 }
-                false
             }
-            Gesture::AllOf(ref subs) => {
-                for subgesture in subs.iter() {
-                    if !self.poll_gesture(subgesture) {
-                        return false;
+            Gesture::ButtonTrigger(button) => {
+                match mouse_button_to_index(button) {
+                    Some(index) => {
+                        match self.mouse_button_state[index] {
+                            ButtonState::Down(index) => self.current_update_index == index,
+                            ButtonState::Up(_) => false,
+                        }
                     }
+                    None => false,
                 }
-                true
+            }
+            Gesture::AnyOf(ref subgestures) => {
+                subgestures.iter().any(
+                    |subgesture| self.poll_gesture(subgesture),
+                )
+            }
+            Gesture::AllOf(ref subgestures) => {
+                subgestures.iter().all(
+                    |subgesture| self.poll_gesture(subgesture),
+                )
             }
             Gesture::NoGesture => false,
         }
@@ -177,6 +209,7 @@ impl GameController {
 }
 
 const NUM_SCAN_CODES: usize = 512;
+const NUM_MOUSE_BUTTONS: usize = 256;
 
 type UpdateIndex = u32;
 
@@ -184,4 +217,15 @@ type UpdateIndex = u32;
 enum ButtonState {
     Up(UpdateIndex),
     Down(UpdateIndex),
+}
+
+fn mouse_button_to_index(button: MouseButton) -> Option<usize> {
+    Some(match button {
+        MouseButton::Left => 0,
+        MouseButton::Middle => 1,
+        MouseButton::Right => 2,
+        MouseButton::X1 => 3,
+        MouseButton::X2 => 4,
+        MouseButton::Unknown => return None,
+    })
 }

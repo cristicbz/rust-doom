@@ -5,21 +5,19 @@ extern crate error_chain;
 extern crate log;
 
 extern crate num;
-extern crate sdl2;
 extern crate time;
 
 extern crate wad;
 extern crate math;
 extern crate engine;
 
-mod camera;
-mod ctrl;
 mod level;
 mod lights;
 mod player;
 mod world;
 mod game;
 mod errors;
+mod hud;
 
 pub use errors::{Error, Result, ErrorKind};
 pub use game::{Game, GameConfig};

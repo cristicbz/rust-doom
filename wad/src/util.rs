@@ -13,8 +13,12 @@ pub fn from_wad_height(x: WadCoord) -> f32 {
     f32::from(x) / 100.0
 }
 
+pub fn to_wad_height(x: f32) -> f32 {
+    x * 100.0
+}
+
 pub fn from_wad_coords(x: WadCoord, y: WadCoord) -> Vec2f {
-    Vec2::new(-from_wad_height(x), from_wad_height(y))
+    Vec2::new(-from_wad_height(y), -from_wad_height(x))
 }
 
 pub fn parse_child_id(id: ChildId) -> (usize, bool) {

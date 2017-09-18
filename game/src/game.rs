@@ -1,15 +1,11 @@
 use super::SHADER_ROOT;
-use super::ctrl::{GameController, Gesture};
-use super::errors::{Result, ErrorKind};
+use super::errors::Result;
 use super::level::Level;
 use super::player::Player;
-use engine::{Scene, SceneBuilder, Window};
+use engine::{Input, Scene, SceneBuilder, Window, Camera, FrameTimers};
 use engine::TextRenderer;
-use math::Vec2f;
-use sdl2::{self, Sdl};
-use sdl2::keyboard::Scancode;
+use hud::Hud;
 use std::path::PathBuf;
-use time;
 use wad::{Archive, TextureDirectory};
 
 pub struct GameConfig {
@@ -28,20 +24,15 @@ pub struct Game {
     scene: Scene,
     text: TextRenderer,
     player: Player,
+    camera: Camera,
     level: Level,
-    _sdl: Sdl,
-    control: GameController,
+    input: Input,
+    hud: Hud,
+    timers: FrameTimers,
 }
 
 impl Game {
     pub fn new(config: GameConfig) -> Result<Game> {
-        let sdl = sdl2::init().map_err(ErrorKind::Sdl)?;
-        let window = Window::new(
-            &sdl,
-            config.width,
-            config.height,
-            &format!("Rusty Doom v{}", config.version),
-        )?;
         let wad = Archive::open(&config.wad_file, &config.metadata_file)?;
         ensure!(
             config.level_index < wad.num_levels(),
@@ -49,6 +40,14 @@ impl Game {
             config.level_index,
             wad.num_levels() - 1
         );
+
+        let timers = FrameTimers::new();
+        let window = Window::new(
+            config.width,
+            config.height,
+            &format!("Rusty Doom v{}", config.version),
+        )?;
+        let mut text = TextRenderer::new(&window)?;
         let textures = TextureDirectory::from_archive(&wad)?;
         let (level, scene) = {
             let mut scene = SceneBuilder::new(&window, PathBuf::from(SHADER_ROOT));
@@ -57,112 +56,48 @@ impl Game {
             (level, scene)
         };
 
-        let mut player = Player::new(config.fov, window.aspect_ratio() * 1.2, Default::default());
-        player.set_position(level.start_pos());
-
-        let control = GameController::new(&sdl, sdl.event_pump().map_err(ErrorKind::Sdl)?);
-
-        let text = TextRenderer::new(&window)?;
+        let mut input = Input::new(&window)?;
+        let mut camera = Camera::new(config.fov, window.aspect_ratio() * 1.2, NEAR, FAR);
+        let player = Player::new(Default::default(), &mut camera, &level);
+        let hud = Hud::new(Default::default(), &window, &mut input, &mut text);
 
         Ok(Game {
-            window: window,
-            player: player,
-            level: level,
-            scene: scene,
-            text: text,
-            _sdl: sdl,
-            control: control,
+            window,
+            player,
+            camera,
+            level,
+            scene,
+            text,
+            input,
+            timers,
+            hud,
         })
     }
 
-    pub fn run(&mut self) -> Result<()> {
-        let quit_gesture = Gesture::AnyOf(vec![
-            Gesture::QuitTrigger,
-            Gesture::KeyTrigger(Scancode::Escape),
-        ]);
-        let grab_toggle_gesture = Gesture::KeyTrigger(Scancode::Grave);
-        let help_gesture = Gesture::KeyTrigger(Scancode::H);
+    pub fn run(self) -> Result<()> {
+        let Game {
+            window,
+            mut player,
+            mut camera,
+            mut level,
+            mut scene,
+            mut text,
+            mut input,
+            mut timers,
+            mut hud,
+        } = self;
+        let frame_timer = timers.new_stopped("frame");
+        while !hud.quit_requested() {
+            let delta = timers.start(frame_timer).unwrap_or(1.0 / 60.0);
 
-        let short_help = self.text.insert(
-            &self.window,
-            SHORT_HELP,
-            Vec2f::new(0.0, 0.0),
-            6,
-        );
-        let long_help = self.text.insert(
-            &self.window,
-            LONG_HELP,
-            Vec2f::new(0.0, 0.0),
-            6,
-        );
-        self.text[long_help].set_visible(false);
-        let mut current_help = 0;
+            input.update();
+            hud.update(&mut input, &mut text);
+            player.update(delta, &input, &level, &mut camera);
+            level.update(delta, &mut scene);
 
-        let mut cum_time = 0.0;
-        let mut cum_updates_time = 0.0;
-        let mut num_frames = 0.0;
-        let mut t0 = time::precise_time_s();
-        let mut mouse_grabbed = true;
-        let mut running = true;
-        while running {
-            let mut frame = self.window.draw();
-            let t1 = time::precise_time_s();
-            let mut delta = (t1 - t0) as f32;
-            if delta < 1e-10 {
-                delta = 1.0 / 60.0;
-            }
-            let delta = delta;
-            t0 = t1;
-
-            let updates_t0 = time::precise_time_s();
-
-            self.control.update();
-            if self.control.poll_gesture(&quit_gesture) {
-                running = false;
-            } else if self.control.poll_gesture(&grab_toggle_gesture) {
-                mouse_grabbed = !mouse_grabbed;
-                self.control.set_mouse_enabled(mouse_grabbed);
-                self.control.set_cursor_grabbed(mouse_grabbed);
-            } else if self.control.poll_gesture(&help_gesture) {
-                current_help = current_help % 2 + 1;
-                match current_help {
-                    0 => self.text[short_help].set_visible(true),
-                    1 => {
-                        self.text[short_help].set_visible(false);
-                        self.text[long_help].set_visible(true);
-                    }
-                    2 => self.text[long_help].set_visible(false),
-                    _ => unreachable!(),
-                }
-            }
-
-            self.player.update(delta, &self.control, &self.level);
-            self.scene.set_modelview(&self.player.camera().modelview());
-            self.scene.set_projection(self.player.camera().projection());
-            self.level.update(delta, &mut self.scene);
-
-            self.scene.render(&mut frame, delta)?;
-            self.text.render(&mut frame)?;
-
-            let updates_t1 = time::precise_time_s();
-            cum_updates_time += updates_t1 - updates_t0;
-
-            cum_time += f64::from(delta);
-            num_frames += 1.0;
-            if cum_time > 2.0 {
-                let fps = num_frames / cum_time;
-                let cpums = 1000.0 * cum_updates_time / num_frames;
-                info!(
-                    "Frame time: {:.2}ms ({:.2}ms cpu, FPS: {:.2})",
-                    1000.0 / fps,
-                    cpums,
-                    fps
-                );
-                cum_time = 0.0;
-                cum_updates_time = 0.0;
-                num_frames = 0.0;
-            }
-
+            let mut frame = window.draw();
+            scene.render(delta, &camera, &mut frame)?;
+            text.render(&mut frame)?;
             // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
             frame.finish().expect(
                 "Cannot handle context loss currently :(",
@@ -172,12 +107,5 @@ impl Game {
     }
 }
 
-const SHORT_HELP: &'static str = "Press 'h' for help.";
-const LONG_HELP: &'static str = r"Use WASD or arrow keys to move and the mouse to aim.
-Other keys:
-    ESC - to quit
-    SPACEBAR - jump
-    ` - to toggle mouse grab (backtick)
-    f - to toggle fly mode
-    c - to toggle clipping (wall collisions)
-    h - toggle this help message";
+const NEAR: f32 = 0.01;
+const FAR: f32 = 100.0;

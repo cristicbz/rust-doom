@@ -13,7 +13,3 @@ glium = "0.17.0"
 log = "0.3.6"
 num = "0.1.32"
 time = "0.1.35"
-
-[dependencies.sdl2]
-features = ["ttf"]
-version = "0.30.0"

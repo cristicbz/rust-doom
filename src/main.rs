@@ -5,7 +5,6 @@ extern crate env_logger;
 extern crate error_chain;
 #[macro_use]
 extern crate log;
-extern crate sdl2;
 extern crate time;
 
 extern crate game;
@@ -182,8 +181,7 @@ fn run() -> Result<()> {
             wad_file,
             metadata_file,
         } => {
-            let sdl = sdl2::init()?;
-            let win = Window::new(&sdl, 128, 128, "checking levels...")?;
+            let win = Window::new(128, 128, "checking levels...")?;
 
             info!("Loading all levels...");
             let t0 = time::precise_time_s();
