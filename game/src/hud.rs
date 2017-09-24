@@ -1,9 +1,12 @@
-use engine::{TextRenderer, Input, Gesture, Scancode, TextId, Window};
+use super::level::Level;
+use engine::{TextRenderer, Input, Gesture, Scancode, TextId, Window, ControlFlow, InfallibleSystem};
 use math::Vec2f;
 use num::Zero;
 
 pub struct Bindings {
     pub quit: Gesture,
+    pub next_level: Gesture,
+    pub previous_level: Gesture,
     pub toggle_mouse: Gesture,
     pub toggle_help: Gesture,
 }
@@ -15,59 +18,92 @@ impl Default for Bindings {
                 Gesture::QuitTrigger,
                 Gesture::KeyTrigger(Scancode::Escape),
             ]),
+            next_level: Gesture::AllOf(vec![
+                Gesture::KeyHold(Scancode::LCtrl),
+                Gesture::KeyTrigger(Scancode::N),
+            ]),
+            previous_level: Gesture::AllOf(vec![
+                Gesture::KeyHold(Scancode::LCtrl),
+                Gesture::KeyTrigger(Scancode::P),
+            ]),
             toggle_mouse: Gesture::KeyTrigger(Scancode::Grave),
             toggle_help: Gesture::KeyTrigger(Scancode::H),
         }
     }
 }
 
+derive_dependencies_from! {
+    pub struct Dependencies<'context> {
+        bindings: &'context Bindings,
+        window: &'context Window,
+        input: &'context mut Input,
+        text: &'context mut TextRenderer,
+        control_flow: &'context mut ControlFlow,
+
+        level: &'context mut Level,
+    }
+}
+
 pub struct Hud {
-    bindings: Bindings,
     mouse_grabbed: bool,
-    quit_requested: bool,
     current_help: HelpState,
     prompt_text: TextId,
     help_text: TextId,
 }
 
-impl Hud {
-    pub fn new(
-        bindings: Bindings,
-        window: &Window,
-        input: &mut Input,
-        text: &mut TextRenderer,
-    ) -> Self {
+impl<'context> InfallibleSystem<'context> for Hud {
+    type Dependencies = Dependencies<'context>;
 
-        input.set_mouse_enabled(true);
-        input.set_cursor_grabbed(true);
+    fn debug_name() -> &'static str {
+        "hud"
+    }
 
-        let prompt_text = text.insert(window, PROMPT_TEXT, Vec2f::zero(), HELP_PADDING);
-        let help_text = text.insert(window, HELP_TEXT, Vec2f::zero(), HELP_PADDING);
+    fn create(deps: Dependencies) -> Self {
+        deps.input.set_mouse_enabled(true);
+        deps.input.set_cursor_grabbed(true);
 
-        text[help_text].set_visible(false);
+        let prompt_text = deps.text.insert(
+            deps.window,
+            PROMPT_TEXT,
+            Vec2f::zero(),
+            HELP_PADDING,
+        );
+        let help_text = deps.text.insert(
+            deps.window,
+            HELP_TEXT,
+            Vec2f::zero(),
+            HELP_PADDING,
+        );
+        deps.text[help_text].set_visible(false);
 
         Hud {
-            bindings,
             prompt_text,
             help_text,
             mouse_grabbed: true,
-            quit_requested: false,
             current_help: HelpState::Prompt,
         }
     }
 
-    pub fn quit_requested(&self) -> bool {
-        self.quit_requested
-    }
+    fn update(&mut self, deps: Dependencies) {
+        let Dependencies {
+            input,
+            text,
+            control_flow,
+            bindings,
+            ..
+        } = deps;
 
-    pub fn update(&mut self, input: &mut Input, text: &mut TextRenderer) {
-        if input.poll_gesture(&self.bindings.quit) {
-            self.quit_requested = true;
-        } else if input.poll_gesture(&self.bindings.toggle_mouse) {
+        if input.poll_gesture(&bindings.quit) {
+            control_flow.quit_requested = true
+        }
+
+        if input.poll_gesture(&bindings.toggle_mouse) {
             self.mouse_grabbed = !self.mouse_grabbed;
             input.set_mouse_enabled(self.mouse_grabbed);
             input.set_cursor_grabbed(self.mouse_grabbed);
-        } else if input.poll_gesture(&self.bindings.toggle_help) {
+        }
+
+        if input.poll_gesture(&bindings.toggle_help) {
             self.current_help = match self.current_help {
                 HelpState::Prompt => {
                     text[self.prompt_text].set_visible(false);
@@ -85,6 +121,20 @@ impl Hud {
             };
         }
 
+        if input.poll_gesture(&bindings.next_level) {
+            let index = deps.level.level_index();
+            deps.level.change_level(index + 1);
+        } else if input.poll_gesture(&bindings.previous_level) {
+            let index = deps.level.level_index();
+            if index > 0 {
+                deps.level.change_level(index - 1);
+            }
+        }
+    }
+
+    fn teardown(&mut self, deps: Dependencies) {
+        deps.text.remove(self.help_text);
+        deps.text.remove(self.prompt_text);
     }
 }
 
@@ -103,4 +153,6 @@ Other keys:
     ` - to toggle mouse grab (backtick)
     f - to toggle fly mode
     c - to toggle clipping (wall collisions)
+    Ctrl-N - to change to next level
+    Ctrl-P - to change to previous level
     h - toggle this help message";

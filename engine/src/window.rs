@@ -1,5 +1,7 @@
-use super::errors::{Result, ResultExt, ErrorKind};
+
+use super::errors::{Result, ResultExt, ErrorKind, Error};
 use super::platform;
+use super::system::System;
 use glium::{Frame, Surface};
 use glium_sdl2::{DisplayBuild, SDL2Facade};
 use sdl2;
@@ -7,6 +9,12 @@ use sdl2::Sdl;
 use sdl2::video::GLProfile;
 
 const OPENGL_DEPTH_SIZE: u8 = 24;
+
+pub struct WindowConfig {
+    pub width: u32,
+    pub height: u32,
+    pub title: String,
+}
 
 pub struct Window {
     sdl: Sdl,
@@ -16,33 +24,6 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(width: u32, height: u32, title: &str) -> Result<Window> {
-        let sdl = sdl2::init().map_err(ErrorKind::Sdl)?;
-        let video = sdl.video().map_err(ErrorKind::Sdl)?;
-        let gl_attr = video.gl_attr();
-        gl_attr.set_context_profile(GLProfile::Core);
-        gl_attr.set_context_major_version(platform::GL_MAJOR_VERSION);
-        gl_attr.set_context_minor_version(platform::GL_MINOR_VERSION);
-        gl_attr.set_depth_size(OPENGL_DEPTH_SIZE);
-        gl_attr.set_double_buffer(true);
-
-        let facade = video
-            .window(title, width, height)
-            .position_centered()
-            .opengl()
-            .resizable()
-            .build_glium()
-            .chain_err(|| ErrorKind::CreateWindow(width, height))?;
-
-        sdl2::clear_error();
-        Ok(Window {
-            sdl: sdl,
-            facade: facade,
-            width: width,
-            height: height,
-        })
-    }
-
     pub fn sdl(&self) -> &Sdl {
         &self.sdl
     }
@@ -67,5 +48,41 @@ impl Window {
 
     pub fn facade(&self) -> &SDL2Facade {
         &self.facade
+    }
+}
+
+impl<'context> System<'context> for Window {
+    type Dependencies = &'context WindowConfig;
+    type Error = Error;
+
+    fn create(config: &'context WindowConfig) -> Result<Self> {
+        let sdl = sdl2::init().map_err(ErrorKind::Sdl)?;
+        let video = sdl.video().map_err(ErrorKind::Sdl)?;
+        let gl_attr = video.gl_attr();
+        gl_attr.set_context_profile(GLProfile::Core);
+        gl_attr.set_context_major_version(platform::GL_MAJOR_VERSION);
+        gl_attr.set_context_minor_version(platform::GL_MINOR_VERSION);
+        gl_attr.set_depth_size(OPENGL_DEPTH_SIZE);
+        gl_attr.set_double_buffer(true);
+
+        let facade = video
+            .window(&config.title, config.width, config.height)
+            .position_centered()
+            .opengl()
+            .resizable()
+            .build_glium()
+            .chain_err(|| ErrorKind::CreateWindow(config.width, config.height))?;
+
+        sdl2::clear_error();
+        Ok(Window {
+            sdl: sdl,
+            facade: facade,
+            width: config.width,
+            height: config.height,
+        })
+    }
+
+    fn debug_name() -> &'static str {
+        "window"
     }
 }

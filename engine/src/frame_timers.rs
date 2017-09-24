@@ -1,3 +1,4 @@
+use super::system::InfallibleSystem;
 use idcontain::{IdSlab, Id};
 use std::borrow::Cow;
 use std::fmt::Write;
@@ -14,78 +15,24 @@ pub struct FrameTimerId(Id<FrameTimer>);
 /// and stopped during a frame surrounding the different stages.
 ///
 /// Periodically, a summary of all the timer averages is printed to the `info` log.
-///
-/// Example
-/// ---
-///
-/// ```
-/// # fn prepare_frame() {}
-/// # fn do_stage_1() {}
-/// # fn prepare_stage2() {}
-/// # fn do_stage_2a() {}
-/// # fn do_stage_2b() {}
-/// # fn end_frame() {}
-/// # use engine::FrameTimers;
-/// let mut timers = FrameTimers::new();
-///
-/// let total_timer = timers.new_stopped("frame");
-/// let stage1_timer = timers.new_stopped("stage_1");
-/// let stage2_timer = timers.new_stopped("stage_2");
-/// let stage2a_timer = timers.new_stopped("stage_2a");
-/// let stage2b_timer = timers.new_stopped("stage_2b");
-///
-/// for _ in 0..100 {
-///     timers.start(total_timer);  // This timer is never explicitly stopped, so the call to start
-///                                 // atomically measures the elapsed time and resets it.
-///     prepare_frame();
-///
-///     // Measure stage1's time.
-///     timers.start(stage1_timer);
-///     do_stage_1();
-///     timers.stop(stage1_timer);
-///
-///     // Measure stage2's time.
-///     timers.start(stage2_timer);
-///     prepare_stage2();
-///
-///     // Calls to start can be 'nested' or 'interleaved', timers are fully independent from each
-///     // other.
-///     timers.start(stage2a_timer);
-///     do_stage_2a();
-///     timers.stop(stage2a_timer);
-///
-///     timers.start(stage2b_timer);
-///     do_stage_2b();
-///     timers.stop(stage2b_timer);
-///
-///     timers.stop(stage2_timer);
-///     end_frame();
-/// }
-/// ```
 pub struct FrameTimers {
     timers: IdSlab<FrameTimer>,
     last_logged: Option<Instant>,
     log_buffer: String,
+
+    total_timer: FrameTimerId,
+    delta_time: f32,
 }
 
 impl FrameTimers {
-    /// Creates a new `FrameTimers`.
-    pub fn new() -> Self {
-        FrameTimers {
-            timers: IdSlab::with_capacity(16),
-            last_logged: None,
-            log_buffer: String::with_capacity(512),
-        }
+    /// Returns the duration of the last frame in seconds.
+    pub fn delta_time(&self) -> f32 {
+        self.delta_time
     }
 
     /// Creates a new frame timer, returning its id.
     ///
     /// The `debug_name` is used when logging the periodic summary.
-    ///
-    /// Panics
-    /// ---
-    /// If too many timers are created (a very large amount, more likely pointing to an infinite
-    /// loop creating them.
     pub fn new_stopped<S: Into<Cow<'static, str>>>(&mut self, debug_name: S) -> FrameTimerId {
         FrameTimerId(self.timers.insert(FrameTimer {
             debug_name: debug_name.into(),
@@ -95,55 +42,47 @@ impl FrameTimers {
         }))
     }
 
-    // // Removes a timer, given its id.
-    // pub fn remove(&mut self, timer_id: FrameTimerId) {
-    //    self.timers.remove(timer_id.0).expect("Invalid timer id.");
-    // }
+    /// Removes a timer, given its id.
+    pub fn remove(&mut self, timer_id: FrameTimerId) {
+        self.timers.remove(timer_id.0).expect("Invalid timer id.");
+    }
 
     /// Starts a previously created frame timer.
     ///
     /// Starting an already started timer restarts it and returns the elapsed time since it was
     /// last started.
     pub fn start(&mut self, timer_id: FrameTimerId) -> Option<f32> {
-        let time = {
-            let &mut FrameTimer {
-                ref mut last_start,
-                ref mut seconds_since_logged,
-                ref mut times_since_logged,
-                ..
-            } = &mut self.timers[timer_id.0];
-            let current_time = Instant::now();
-            mem::replace(last_start, Some(current_time)).map(|last_start| {
-                let elapsed = duration_to_seconds(current_time.duration_since(last_start));
-                *seconds_since_logged += elapsed;
-                *times_since_logged += 1.0;
-                elapsed
-            })
-        };
-        self.maybe_log();
-        time
+        let &mut FrameTimer {
+            ref mut last_start,
+            ref mut seconds_since_logged,
+            ref mut times_since_logged,
+            ..
+        } = &mut self.timers[timer_id.0];
+        let current_time = Instant::now();
+        mem::replace(last_start, Some(current_time)).map(|last_start| {
+            let elapsed = duration_to_seconds(current_time.duration_since(last_start));
+            *seconds_since_logged += elapsed;
+            *times_since_logged += 1.0;
+            elapsed
+        })
     }
 
     /// Stops a previously created frame timer and returns the elapsed time in seconds.
     ///
     /// Stopping an already stopped timer is a no-op and will return `None` instead.
     pub fn stop(&mut self, timer_id: FrameTimerId) -> Option<f32> {
-        let time = {
-            let &mut FrameTimer {
-                ref mut last_start,
-                ref mut seconds_since_logged,
-                ref mut times_since_logged,
-                ..
-            } = &mut self.timers[timer_id.0];
-            mem::replace(last_start, None).map(|last_start| {
-                let elapsed = duration_to_seconds(last_start.elapsed());
-                *seconds_since_logged += elapsed;
-                *times_since_logged += 1.0;
-                elapsed
-            })
-        };
-        self.maybe_log();
-        time
+        let &mut FrameTimer {
+            ref mut last_start,
+            ref mut seconds_since_logged,
+            ref mut times_since_logged,
+            ..
+        } = &mut self.timers[timer_id.0];
+        mem::replace(last_start, None).map(|last_start| {
+            let elapsed = duration_to_seconds(last_start.elapsed());
+            *seconds_since_logged += elapsed;
+            *times_since_logged += 1.0;
+            elapsed
+        })
     }
 
     /// Queries a frame timer and returns the elapsed time in seconds.
@@ -189,6 +128,38 @@ impl FrameTimers {
             );
         }
         info!("Frame timer summary:{}", self.log_buffer);
+    }
+}
+
+impl<'context> InfallibleSystem<'context> for FrameTimers {
+    type Dependencies = ();
+
+    fn debug_name() -> &'static str {
+        "frame_timers"
+    }
+
+    fn create(_deps: ()) -> Self {
+        let mut this = FrameTimers {
+            timers: IdSlab::with_capacity(16),
+            last_logged: None,
+            log_buffer: String::with_capacity(512),
+
+            total_timer: FrameTimerId(Id::invalid()),
+            delta_time: 1.0 / 60.0,
+        };
+        let total_timer = this.new_stopped("frame");
+        this.total_timer = total_timer;
+        this
+    }
+
+    fn update(&mut self, _deps: ()) {
+        let FrameTimers {
+            total_timer,
+            delta_time,
+            ..
+        } = *self;
+        self.delta_time = self.start(total_timer).unwrap_or(delta_time);
+        self.maybe_log();
     }
 }
 

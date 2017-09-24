@@ -169,9 +169,9 @@ impl TextureDirectory {
     }
 
 
-    pub fn build_texture_atlas<'a, T>(&'a self, names_iter: T) -> (TransparentImage, BoundsLookup)
+    pub fn build_texture_atlas<T>(&self, names_iter: T) -> (TransparentImage, BoundsLookup)
     where
-        T: IntoIterator<Item = &'a WadName>,
+        T: IntoIterator<Item = WadName>,
     {
         let entries = ordered_atlas_entries(&self.animated_walls, |n| self.texture(&n), names_iter);
         let max_image_width = if let Some(width) = entries.iter().map(|e| e.image.width()).max() {
@@ -273,13 +273,13 @@ impl TextureDirectory {
             pixels: atlas.into_pixels(),
         };
 
-        info!("Wall texture atlas size: {:?}", atlas_size);
+        info!("Texture atlas size: {:?}", atlas_size);
         (tex, bound_map)
     }
 
-    pub fn build_flat_atlas<'a, T>(&'a self, names_iter: T) -> (OpaqueImage, BoundsLookup)
+    pub fn build_flat_atlas<T>(&self, names_iter: T) -> (OpaqueImage, BoundsLookup)
     where
-        T: IntoIterator<Item = &'a WadName>,
+        T: IntoIterator<Item = WadName>,
     {
         let names = ordered_atlas_entries(&self.animated_flats, |n| self.flat(&n), names_iter);
         let num_names = names.len();
@@ -429,24 +429,23 @@ fn img_bound(pos: &AtlasPosition, entry: &AtlasEntry<Image>) -> Bounds {
     }
 }
 
-fn ordered_atlas_entries<'a, 'b, N, I, L>(
-    animations: &'b [Vec<WadName>],
+fn ordered_atlas_entries<'a, N, I, L>(
+    animations: &'a [Vec<WadName>],
     image_lookup: L,
     names_iter: N,
 ) -> Vec<AtlasEntry<I>>
 where
-    N: IntoIterator<Item = &'a WadName>,
-    L: Fn(WadName) -> Option<&'b I>,
-    'a: 'b,
+    N: IntoIterator<Item = WadName>,
+    L: Fn(WadName) -> Option<&'a I>,
 {
     let mut frames_by_first_frame = OrderMap::new();
     for name in names_iter {
         let maybe_frames = search_for_frame(name, animations);
-        let first_frame = maybe_frames.map_or(name, |f| &f[0]);
+        let first_frame = maybe_frames.map_or(name, |f| f[0]);
         frames_by_first_frame.insert(first_frame, maybe_frames);
     }
     let mut entries = Vec::with_capacity(frames_by_first_frame.len());
-    for (&name, maybe_frames) in frames_by_first_frame {
+    for (name, maybe_frames) in frames_by_first_frame {
         match maybe_frames {
             Some(frames) => {
                 for (offset, &frame) in frames.iter().enumerate() {
@@ -477,14 +476,14 @@ where
     entries
 }
 
-fn search_for_frame<'a>(
-    search_for: &WadName,
-    animations: &'a [Vec<WadName>],
-) -> Option<&'a [WadName]> {
+fn search_for_frame(
+    search_for: WadName,
+    animations: &[Vec<WadName>],
+) -> Option<&[WadName]> {
     animations
         .iter()
         .find(|animation| {
-            animation.iter().any(|frame| frame == search_for)
+            animation.iter().any(|&frame| frame == search_for)
         })
         .map(|animation| &animation[..])
 }

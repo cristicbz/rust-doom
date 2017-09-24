@@ -1,4 +1,5 @@
 use glium;
+use idcontain::Id;
 use std::result::Result as StdResult;
 
 #[cfg_attr(feature = "cargo-clippy", allow(unused_doc_comment))]
@@ -29,6 +30,10 @@ error_chain! {
             description("Out of video memory.")
             display("Out of video memory when trying to allocate `{}`.", needed_by)
         }
+        NoSuchEntity(context: &'static str, needed_by: Option<&'static str>, id: Id<()>) {
+            description("No such entity.")
+            display("No entity with id `{:?}`, needed by `{:?}` when `{}`", id, needed_by, context)
+        }
     }
 }
 
@@ -47,6 +52,17 @@ impl<S> NeededBy for StdResult<S, glium::vertex::BufferCreationError> {
         })
     }
 }
+
+impl<S> NeededBy for StdResult<S, glium::index::BufferCreationError> {
+    type Success = S;
+
+    fn needed_by(self, by: &str) -> Result<Self::Success> {
+        self.map_err(|e| {
+            ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into()
+        })
+    }
+}
+
 
 impl<S> NeededBy for StdResult<S, glium::texture::TextureCreationError> {
     type Success = S;

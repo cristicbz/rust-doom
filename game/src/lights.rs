@@ -1,13 +1,12 @@
 use wad::{LightEffectKind, LightInfo};
 
-#[derive(Default)]
-pub struct LightBuffer {
+pub struct Lights {
     lights: Vec<LightInfo>,
 }
 
-impl LightBuffer {
-    pub fn new() -> LightBuffer {
-        Default::default()
+impl Lights {
+    pub fn new() -> Lights {
+        Lights { lights: Vec::with_capacity(256) }
     }
 
     pub fn push(&mut self, light_info: &LightInfo) -> u8 {

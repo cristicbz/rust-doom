@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
+
 #[macro_use]
 extern crate error_chain;
 
@@ -9,7 +11,12 @@ extern crate time;
 
 extern crate wad;
 extern crate math;
+
+#[macro_use]
 extern crate engine;
+
+#[macro_use]
+extern crate glium;
 
 mod level;
 mod lights;
@@ -18,6 +25,8 @@ mod world;
 mod game;
 mod errors;
 mod hud;
+mod vertex;
+mod wad_system;
 
 pub use errors::{Error, Result, ErrorKind};
 pub use game::{Game, GameConfig};
