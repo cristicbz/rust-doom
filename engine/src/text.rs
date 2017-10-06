@@ -1,4 +1,7 @@
-use super::errors::Result;
+#![cfg_attr(feature = "cargo-clippy", allow(forget_copy))]
+
+use super::errors::{Result, Error};
+use super::system::System;
 use super::window::Window;
 use glium::{Blend, Surface, VertexBuffer};
 use glium::{DrawParameters, Program};
@@ -30,11 +33,11 @@ pub struct TextRenderer {
 }
 
 impl TextRenderer {
-    pub fn new(win: &Window) -> Result<TextRenderer> {
+    pub fn new(window: &Window) -> Result<Self> {
         Ok(TextRenderer {
             font: CONTEXT.load_font(FONT_PATH, POINT_SIZE).unwrap(),
             slab: IdSlab::with_capacity(16),
-            program: Program::from_source(win.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
+            program: Program::from_source(window.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
             draw_params: DrawParameters {
                 blend: Blend::alpha_blending(),
                 ..DrawParameters::default()
@@ -43,6 +46,7 @@ impl TextRenderer {
     }
 
     pub fn insert(&mut self, win: &Window, text: &str, pos: Vec2f, padding: u32) -> TextId {
+        debug!("Creating text...");
         let surface = self.text_to_surface(text, padding).unwrap();
         let texture = surface.with_lock(|pixels| {
             Texture2d::new(
@@ -73,7 +77,14 @@ impl TextRenderer {
             texture: texture,
             visible: true,
         };
-        TextId(self.slab.insert(text))
+        let id = self.slab.insert(text);
+        debug!("Created text {:?}.", id);
+        TextId(id)
+    }
+
+    pub fn remove(&mut self, id: TextId) -> bool {
+        debug!("Removed text {:?}.", id.0);
+        self.slab.remove(id.0).is_some()
     }
 
     pub fn text(&self, id: TextId) -> Option<&Text> {
@@ -151,6 +162,26 @@ impl IndexMut<TextId> for TextRenderer {
     }
 }
 
+impl<'context> System<'context> for TextRenderer {
+    type Dependencies = &'context Window;
+    type Error = Error;
+
+    fn create(window: &Window) -> Result<Self> {
+        Self::new(window)
+    }
+
+    fn destroy(self, _window: &Window) -> Result<()> {
+        if self.slab.len() > 0 {
+            error!("Text leaked, {} instances.", self.slab.len());
+        }
+        Ok(())
+    }
+
+    fn debug_name() -> &'static str {
+        "text_renderer"
+    }
+}
+
 pub struct Text {
     texture: Texture2d,
     buffer: VertexBuffer<TextVertex>,
@@ -162,6 +193,7 @@ impl Text {
         self.visible = visible;
     }
 }
+
 
 // Use a lazy static to initialise the ttf context only once.
 lazy_static! {

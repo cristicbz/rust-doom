@@ -568,7 +568,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
     fn things(&mut self) {
         for thing in &self.level.things {
             let pos = from_wad_coords(thing.x, thing.y);
-            let yaw = -(f32::round(f32::from(thing.angle) / 45.0) * 45.0).to_radians();
+            let yaw = (f32::round(f32::from(thing.angle) / 45.0) * 45.0).to_radians();
             let sector = match self.sector_at(&pos) {
                 Some(sector) => sector,
                 None => continue,
@@ -636,20 +636,19 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             }
         };
         let (name, size) = {
-            let mut s = meta.sprite.as_bytes().to_owned();
-            s.push(meta.sequence.as_bytes()[0]);
-            s.push(b'0');
-            let n1 = WadName::from_bytes(&s);
-            s.pop();
-            s.push(b'1');
-            let n2 = WadName::from_bytes(&s);
+            let mut sprite0 = meta.sprite;
+            // Ignore the error: if this fails, so will the `sprite0` and `sprite1` pushes below.
+            let _ = sprite0.push(meta.sequence.as_bytes()[0]);
+            let mut sprite1 = sprite0;
+            let sprite0 = sprite0.push(b'0').ok().map(|_| sprite0);
+            let sprite1 = sprite1.push(b'1').ok().map(|_| sprite1);
 
-            match (n1, n2) {
-                (Ok(n1), Ok(n2)) => {
-                    if let Some(image) = self.tex.texture(&n1) {
-                        (n1, image.size())
-                    } else if let Some(image) = self.tex.texture(&n2) {
-                        (n2, image.size())
+            match (sprite0, sprite1) {
+                (Some(sprite0), Some(sprite1)) => {
+                    if let Some(image) = self.tex.texture(&sprite0) {
+                        (sprite0, image.size())
+                    } else if let Some(image) = self.tex.texture(&sprite1) {
+                        (sprite1, image.size())
                     } else {
                         warn!(
                             "No such sprite {} for thing {}",

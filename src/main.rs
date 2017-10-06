@@ -12,13 +12,11 @@ extern crate engine;
 extern crate wad;
 
 use clap::{App, Arg, AppSettings};
-use engine::{Window, SceneBuilder};
 use errors::{Result, Error};
-use game::{Game, GameConfig, Level};
-use game::SHADER_ROOT;
+use game::{Game, GameConfig};
 use std::path::PathBuf;
 use std::str::FromStr;
-use wad::{Archive, TextureDirectory};
+use wad::Archive;
 
 mod errors {
     error_chain! {
@@ -67,14 +65,8 @@ impl FromStr for Resolution {
 
 pub enum RunMode {
     DisplayHelp(String),
-    Check {
-        wad_file: PathBuf,
-        metadata_file: PathBuf,
-    },
-    ListLevelNames {
-        wad_file: PathBuf,
-        metadata_file: PathBuf,
-    },
+    Check(GameConfig),
+    ListLevelNames(GameConfig),
     Play(GameConfig),
 }
 
@@ -135,31 +127,25 @@ impl RunMode {
 
         let wad_file: PathBuf = value_t!(matches, "iwad", String)?.into();
         let metadata_file: PathBuf = value_t!(matches, "metadata", String)?.into();
+        let Resolution { width, height } = value_t!(matches, "resolution", Resolution)?;
+        let fov = value_t!(matches, "fov", f32)?;
+        let level_index = value_t!(matches, "level", usize)?;
+        let config = GameConfig {
+            wad_file,
+            metadata_file,
+            fov,
+            width,
+            height,
+            version: env!("CARGO_PKG_VERSION"),
+            initial_level_index: level_index,
+        };
 
         Ok(if matches.is_present("check") {
-            RunMode::Check {
-                wad_file,
-                metadata_file,
-            }
+            RunMode::Check(config)
         } else if matches.is_present("list-levels") {
-            RunMode::ListLevelNames {
-                wad_file,
-                metadata_file,
-            }
+            RunMode::ListLevelNames(config)
         } else {
-            let Resolution { width, height } = value_t!(matches, "resolution", Resolution)?;
-            let fov = value_t!(matches, "fov", f32)?;
-            let level_index = value_t!(matches, "level", usize)?;
-
-            RunMode::Play(GameConfig {
-                wad_file,
-                metadata_file,
-                fov,
-                width,
-                height,
-                level_index,
-                version: env!("CARGO_PKG_VERSION")
-            })
+            RunMode::Play(config)
         })
     }
 }
@@ -168,33 +154,25 @@ fn run() -> Result<()> {
     env_logger::init().expect("Failed to set up logging.");
 
     match RunMode::from_args()? {
-        RunMode::ListLevelNames {
-            wad_file,
-            metadata_file,
-        } => {
+        RunMode::ListLevelNames(GameConfig {
+                                    wad_file,
+                                    metadata_file,
+                                    ..
+                                }) => {
             let wad = Archive::open(&wad_file, &metadata_file)?;
             for i_level in 0..wad.num_levels() {
                 println!("{:3} {:8}", i_level, wad.level_lump(i_level)?.name());
             }
         }
-        RunMode::Check {
-            wad_file,
-            metadata_file,
-        } => {
-            let win = Window::new(128, 128, "checking levels...")?;
-
+        RunMode::Check(config) => {
+            let mut game = Game::new(GameConfig {
+                initial_level_index: 0,
+                ..config
+            })?;
             info!("Loading all levels...");
             let t0 = time::precise_time_s();
-            let wad = Archive::open(&wad_file, &metadata_file)?;
-            let textures = TextureDirectory::from_archive(&wad)?;
-            for level_index in 0..wad.num_levels() {
-                let mut scene = SceneBuilder::new(&win, PathBuf::from(SHADER_ROOT));
-                if let Err(e) = Level::new(&wad, &textures, level_index, &mut scene) {
-                    error!("reading level {}: {}", level_index, e);
-                }
-                if let Err(e) = scene.build() {
-                    error!("building scene for level {}: {}", level_index, e);
-                }
+            for level_index in 1..game.num_levels() {
+                game.load_level(level_index)?;
             }
             info!(
                 "Done loading all levels in {:.4}s. Shutting down...",
@@ -205,10 +183,12 @@ fn run() -> Result<()> {
             println!("{}", help);
         }
         RunMode::Play(config) => {
-            Game::new(config)?.run()?;
-            info!("Game main loop ended, shutting down.");
+            let mut game = Game::new(config)?;
+            game.run()?;
+            info!("Game main loop ended, shutting down...");
         }
     }
+    info!("Normal shutdown.");
     Ok(())
 }
 

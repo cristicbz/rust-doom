@@ -1,4 +1,5 @@
-use super::errors::{Result, ErrorKind};
+use super::errors::{Result, ErrorKind, Error};
+use super::system::System;
 use super::window::Window;
 use math::Vec2f;
 use num::Zero;
@@ -52,6 +53,7 @@ pub struct Input {
     pump: EventPump,
 }
 
+
 impl Input {
     pub fn new(window: &Window) -> Result<Input> {
         let pump = window.sdl().event_pump().map_err(ErrorKind::Sdl)?;
@@ -74,49 +76,6 @@ impl Input {
 
     pub fn set_mouse_enabled(&mut self, enable: bool) {
         self.mouse_enabled = enable;
-    }
-
-    pub fn update(&mut self) {
-        self.current_update_index += 1;
-        self.mouse_rel = Vec2f::zero();
-        for event in self.pump.poll_iter() {
-            match event {
-                Event::Quit { .. } => {
-                    self.quit_requested_index = self.current_update_index;
-                }
-                Event::KeyDown { scancode: Some(scancode), .. } => {
-                    self.keyboard_state[scancode as usize] =
-                        ButtonState::Down(self.current_update_index);
-                }
-                Event::KeyUp { scancode: Some(scancode), .. } => {
-                    self.keyboard_state[scancode as usize] =
-                        ButtonState::Up(self.current_update_index);
-                }
-                Event::MouseMotion {
-                    xrel: x_relative,
-                    yrel: y_relative,
-                    ..
-                } => {
-                    if self.mouse_enabled {
-                        self.mouse_rel = Vec2f::new(x_relative as f32, y_relative as f32);
-                    } else {
-                        self.mouse_rel = Vec2f::zero();
-                    }
-                }
-                Event::MouseButtonDown { mouse_btn, .. } => {
-                    if let Some(index) = mouse_button_to_index(mouse_btn) {
-                        self.mouse_button_state[index] =
-                            ButtonState::Down(self.current_update_index);
-                    }
-                }
-                Event::MouseButtonUp { mouse_btn, .. } => {
-                    if let Some(index) = mouse_button_to_index(mouse_btn) {
-                        self.mouse_button_state[index] = ButtonState::Up(self.current_update_index);
-                    }
-                }
-                _ => {}
-            }
-        }
     }
 
     pub fn poll_gesture(&self, gesture: &Gesture) -> bool {
@@ -205,6 +164,63 @@ impl Input {
             }
             Analog2d::NoAnalog2d => Vec2f::zero(),
         }
+    }
+}
+
+impl<'context> System<'context> for Input {
+    type Dependencies = &'context Window;
+    type Error = Error;
+
+    fn create(window: &Window) -> Result<Self> {
+        Self::new(window)
+    }
+
+    fn debug_name() -> &'static str {
+        "input"
+    }
+
+    fn update(&mut self, _: &Window) -> Result<()> {
+        self.current_update_index += 1;
+        self.mouse_rel = Vec2f::zero();
+        for event in self.pump.poll_iter() {
+            match event {
+                Event::Quit { .. } => {
+                    self.quit_requested_index = self.current_update_index;
+                }
+                Event::KeyDown { scancode: Some(scancode), .. } => {
+                    self.keyboard_state[scancode as usize] =
+                        ButtonState::Down(self.current_update_index);
+                }
+                Event::KeyUp { scancode: Some(scancode), .. } => {
+                    self.keyboard_state[scancode as usize] =
+                        ButtonState::Up(self.current_update_index);
+                }
+                Event::MouseMotion {
+                    xrel: x_relative,
+                    yrel: y_relative,
+                    ..
+                } => {
+                    if self.mouse_enabled {
+                        self.mouse_rel = Vec2f::new(x_relative as f32, y_relative as f32);
+                    } else {
+                        self.mouse_rel = Vec2f::zero();
+                    }
+                }
+                Event::MouseButtonDown { mouse_btn, .. } => {
+                    if let Some(index) = mouse_button_to_index(mouse_btn) {
+                        self.mouse_button_state[index] =
+                            ButtonState::Down(self.current_update_index);
+                    }
+                }
+                Event::MouseButtonUp { mouse_btn, .. } => {
+                    if let Some(index) = mouse_button_to_index(mouse_btn) {
+                        self.mouse_button_state[index] = ButtonState::Up(self.current_update_index);
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 }
 

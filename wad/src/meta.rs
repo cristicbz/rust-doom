@@ -32,7 +32,8 @@ pub struct AnimationMetadata {
 #[derive(Debug, Deserialize)]
 pub struct ThingMetadata {
     pub thing_type: ThingType,
-    pub sprite: String,
+    #[serde(deserialize_with = "deserialize_name_from_str")]
+    pub sprite: WadName,
     pub sequence: String,
     pub hanging: bool,
     pub radius: u32,

@@ -46,6 +46,7 @@ impl Image {
         Image::new(header.width as usize, header.height as usize)
     }
 
+    #[cfg_attr(feature = "cargo-clippy", allow(needless_range_loop))]
     pub fn from_buffer(buffer: &[u8]) -> Result<Image> {
         let mut reader = buffer;
         let width = reader.read_u16::<LittleEndian>().chain_err(

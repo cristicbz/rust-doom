@@ -1,11 +1,11 @@
 use super::level::Level;
-
-use engine::{Analog2d, Gesture, Input, Scancode, Camera};
-use math::{Sphere, Vec3f, Vector};
+use engine::{Analog2d, Gesture, Input, Scancode, Transforms, EntityId, Window, FrameTimers,
+             Entities, Projections, InfallibleSystem, Projection};
+use math::{Sphere, Vec3f, Vector, Transform, EulerAngles, Quat, Vec3};
 use num::Zero;
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::PI;
 
-pub struct PlayerBindings {
+pub struct Bindings {
     pub movement: Analog2d,
     pub look: Analog2d,
     pub jump: Gesture,
@@ -13,14 +13,14 @@ pub struct PlayerBindings {
     pub clip: Gesture,
 }
 
-impl Default for PlayerBindings {
-    fn default() -> PlayerBindings {
-        PlayerBindings {
+impl Default for Bindings {
+    fn default() -> Bindings {
+        Bindings {
             movement: Analog2d::Gestures {
                 x_positive: Gesture::KeyHold(Scancode::D),
                 x_negative: Gesture::KeyHold(Scancode::A),
-                y_positive: Gesture::KeyHold(Scancode::W),
-                y_negative: Gesture::KeyHold(Scancode::S),
+                y_positive: Gesture::KeyHold(Scancode::S),
+                y_negative: Gesture::KeyHold(Scancode::W),
                 step: 1.0,
             },
             look: Analog2d::Sum {
@@ -42,80 +42,93 @@ impl Default for PlayerBindings {
     }
 }
 
-
-pub struct Player {
-    bindings: PlayerBindings,
-    velocity: Vec3f,
+pub struct Config {
     move_force: f32,
     spring_const_p: f32,
     spring_const_d: f32,
-    last_height_diff: f32,
     radius: f32,
     height: f32,
-    relative_camera_height: f32,
-    fly: bool,
-    clip: bool,
     air_drag: f32,
     ground_drag: f32,
     friction: f32,
+
+    fov: f32,
+    near: f32,
+    far: f32,
+    aspect_ratio_correction: f32,
+
+    camera_height: f32,
 }
 
-
-impl Player {
-    pub fn new(bindings: PlayerBindings, camera: &mut Camera, level: &Level) -> Player {
-        let mut player = Player {
-            bindings: bindings,
-            velocity: Vec3f::zero(),
+impl Default for Config {
+    fn default() -> Self {
+        Config {
             move_force: 60.0,
             spring_const_p: 200.0,
             spring_const_d: 22.4,
             radius: 0.19,
             height: 0.21,
-            relative_camera_height: 0.12,
             air_drag: 0.02,
             ground_drag: 0.7,
             friction: 30.0,
-            fly: false,
-            clip: true,
-            last_height_diff: 0.0,
-        };
 
-        player.set_position(camera, level.start_pos());
-        camera.set_yaw(level.start_yaw());
+            fov: 65.0,
+            near: 0.01,
+            far: 100.0,
+            aspect_ratio_correction: 1.2,
 
-        player
+            camera_height: 0.12,
+        }
+    }
+}
+
+derive_dependencies_from! {
+    pub struct Dependencies<'context> {
+        bindings: &'context Bindings,
+        config: &'context Config,
+
+        window: &'context Window,
+        input: &'context Input,
+        timers: &'context FrameTimers,
+        entities: &'context mut Entities,
+        transforms: &'context mut Transforms,
+        projections: &'context mut Projections,
+
+        level: &'context mut Level,
+    }
+}
+
+
+pub struct Player {
+    id: EntityId,
+    velocity: Vec3f,
+    fly: bool,
+    clip: bool,
+    last_height_diff: f32,
+}
+
+impl Player {
+    fn reset(&mut self, transforms: &mut Transforms, level: &Level) {
+        let transform = transforms.get_local_mut(self.id).expect(
+            "player has no transform component: reset",
+        );
+
+        transform.rotation = Quat::from(EulerAngles {
+            yaw: level.start_yaw(),
+            pitch: 0.0,
+            roll: 0.0,
+        });
+        transform.translation = *level.start_pos();
+
+        self.velocity = Vec3f::zero();
+        self.last_height_diff = 0.0;
     }
 
-    pub fn set_position(&mut self, camera: &mut Camera, new_pos: &Vec3f) {
-        camera.set_position(*new_pos + Vec3f::new(0.0, self.relative_camera_height, 0.0));
-    }
-
-    fn head(&self, camera: &Camera) -> Sphere {
-        return Sphere {
-            center: *camera.position() - Vec3f::new(0.0, self.relative_camera_height, 0.0),
-            radius: self.radius,
-        };
-    }
-
-    pub fn update(&mut self, delta_time: f32, input: &Input, level: &Level, camera: &mut Camera) {
-        if input.poll_gesture(&self.bindings.fly) {
-            self.fly = !self.fly;
+    fn head(&self, config: &Config, transform: &Transform) -> Sphere {
+        Sphere {
+            center: transform.translation,
+            radius: config.radius,
         }
-
-        if input.poll_gesture(&self.bindings.clip) {
-            self.clip = !self.clip;
-        }
-
-        let mut head = self.head(camera);
-        let force = self.force(camera, &head, delta_time, input, level);
-        if self.clip {
-            self.clip(delta_time, &mut head, level);
-        } else {
-            self.noclip(delta_time, &mut head, level);
-        }
-
-        self.set_position(camera, &head.center);
-        self.velocity = self.velocity + force * delta_time;
     }
 
     fn clip(&mut self, delta_time: f32, head: &mut Sphere, level: &Level) {
@@ -168,32 +181,41 @@ impl Player {
 
     fn move_force(
         &mut self,
-        camera: &mut Camera,
         delta_time: f32,
         grounded: bool,
         input: &Input,
+        transform: &mut Transform,
+        config: &Config,
+        bindings: &Bindings,
     ) -> Vec3f {
-        let movement = input.poll_analog2d(&self.bindings.movement);
-        let look = input.poll_analog2d(&self.bindings.look);
-        let jump = input.poll_gesture(&self.bindings.jump);
-        let yaw = camera.yaw() + look[0];
-        let pitch = clamp(camera.pitch() + look[1], (-FRAC_PI_2, FRAC_PI_2));
-        camera.set_yaw(yaw);
-        camera.set_pitch(pitch);
+        let movement = input.poll_analog2d(&bindings.movement);
+        let look = input.poll_analog2d(&bindings.look);
+        let jump = input.poll_gesture(&bindings.jump);
+
+        // Compute the maximum pitch rotation we're allowed (since we don't want to look
+        // upside-down!).
+        let current_pitch = transform.rotation.pitch();
+        let clamped_pitch_by = (-look[1]).min(PI - 1e-2 - current_pitch).max(
+            1e-2 -
+                current_pitch,
+        );
+
+        transform.rotation = Quat::y_rotation(-look[0]) * transform.rotation *
+            Quat::x_rotation(clamped_pitch_by);
 
         if self.fly {
             let up = if jump { 0.5 } else { 0.0 };
-            Vec3f::new(
-                yaw.cos() * movement[0] + yaw.sin() * movement[1] * pitch.cos(),
-                -pitch.sin() * movement[1] + up,
-                -yaw.cos() * movement[1] * pitch.cos() + yaw.sin() * movement[0],
-            ).normalized() * self.move_force
+            transform
+                .rotation
+                .rotate_vector(&Vec3::new(movement[0], up, movement[1]))
+                .normalized() * config.move_force
         } else {
-            let movement = Vec3f::new(
-                yaw.cos() * movement[0] + yaw.sin() * movement[1],
-                0.0,
-                -yaw.cos() * movement[1] + yaw.sin() * movement[0],
-            ).normalized() * self.move_force;
+            let mut movement = transform.rotation.rotate_vector(
+                &Vec3::new(movement[0], 0.0, movement[1]),
+            );
+            movement[1] = 0.0;
+            movement.normalize();
+            movement = movement * config.move_force;
             if grounded {
                 if jump && self.velocity[1] < 0.1 {
                     Vec3f::new(movement[0], 5.0 / delta_time, movement[2])
@@ -208,44 +230,53 @@ impl Player {
 
     fn force(
         &mut self,
-        camera: &mut Camera,
         head: &Sphere,
         delta_time: f32,
         input: &Input,
         level: &Level,
+        transform: &mut Transform,
+        config: &Config,
+        bindings: &Bindings,
     ) -> Vec3f {
         let feet = Sphere {
             radius: 0.2,
             ..*head
         };
-        let feet_probe = Vec3f::new(0.0, -self.height, 0.0);
+        let feet_probe = Vec3f::new(0.0, -config.height, 0.0);
         let (height, normal) =
             if let Some(contact) = level.volume().sweep_sphere(&feet, &feet_probe) {
                 if contact.time < 1.0 {
-                    (self.height * contact.time, Some(contact.normal))
+                    (config.height * contact.time, Some(contact.normal))
                 } else {
-                    (self.height, None)
+                    (config.height, None)
                 }
             } else {
-                (self.height, None)
+                (config.height, None)
             };
-        let mut force: Vec3f = self.move_force(camera, delta_time, normal.is_some(), input);
+        let mut force: Vec3f = self.move_force(
+            delta_time,
+            normal.is_some(),
+            input,
+            transform,
+            config,
+            bindings,
+        );
         let speed = self.velocity.norm();
         if speed > 0.0 {
             let mut slowdown = if self.fly {
-                -self.velocity * (self.friction / speed + self.ground_drag * speed)
+                -self.velocity * (config.friction / speed + config.ground_drag * speed)
             } else if let Some(normal) = normal {
                 let tangential = self.velocity - normal * self.velocity.dot(&normal);
                 let speed = tangential.norm();
                 if speed > 0.0 {
-                    -tangential * (self.friction / speed + self.ground_drag * speed)
+                    -tangential * (config.friction / speed + config.ground_drag * speed)
                 } else {
                     Vec3f::zero()
                 }
             } else {
                 Vec3f::zero()
             };
-            slowdown = slowdown - self.velocity * self.air_drag * speed;
+            slowdown = slowdown - self.velocity * config.air_drag * speed;
 
             let slowdown_norm = slowdown.norm();
             if slowdown_norm > 0.0 {
@@ -256,15 +287,102 @@ impl Player {
                 force = force + slowdown;
             }
         }
-        let height_diff = self.height - height;
+        let height_diff = config.height - height;
         let derivative = (height_diff - self.last_height_diff) / delta_time;
         self.last_height_diff = height_diff;
-        force[1] += height_diff * self.spring_const_p + derivative * self.spring_const_d;
+        force[1] += height_diff * config.spring_const_p + derivative * config.spring_const_d;
 
         if !self.fly {
             force[1] -= 17.0
         }
         force
+    }
+}
+
+impl<'context> InfallibleSystem<'context> for Player {
+    type Dependencies = Dependencies<'context>;
+
+    fn debug_name() -> &'static str {
+        "player"
+    }
+
+    fn create(deps: Dependencies) -> Player {
+        let player_entity = deps.entities.add_root("player");
+        deps.transforms.attach_identity(player_entity);
+
+        let camera_entity = deps.entities.add(player_entity, "camera").expect(
+            "failed to add camera to fresh entity",
+        );
+        deps.transforms.attach(
+            camera_entity,
+            Transform {
+                translation: Vec3f::new(0.0, deps.config.camera_height, 0.0),
+                ..Transform::default()
+            },
+        );
+        deps.projections.attach(
+            camera_entity,
+            Projection {
+                fov: deps.config.fov,
+                aspect_ratio: deps.window.aspect_ratio() * deps.config.aspect_ratio_correction,
+                near: deps.config.near,
+                far: deps.config.far,
+            },
+        );
+        deps.level.set_camera(camera_entity);
+
+        let mut player = Player {
+            id: player_entity,
+            velocity: Vec3f::zero(),
+            fly: false,
+            clip: true,
+            last_height_diff: 0.0,
+        };
+
+        player.reset(deps.transforms, deps.level);
+        player
+    }
+
+    fn update(&mut self, deps: Dependencies) {
+        if deps.level.level_changed() {
+            self.reset(deps.transforms, deps.level);
+        }
+
+        let delta_time = deps.timers.delta_time();
+        let transform = deps.transforms.get_local_mut(self.id).expect(
+            "player has no transform component: update",
+        );
+
+        if deps.input.poll_gesture(&deps.bindings.fly) {
+            self.fly = !self.fly;
+        }
+
+        if deps.input.poll_gesture(&deps.bindings.clip) {
+            self.clip = !self.clip;
+        }
+
+        let mut head = self.head(deps.config, transform);
+        let force = self.force(
+            &head,
+            delta_time,
+            deps.input,
+            deps.level,
+            transform,
+            deps.config,
+            deps.bindings,
+        );
+        if self.clip {
+            self.clip(delta_time, &mut head, deps.level);
+        } else {
+            self.noclip(delta_time, &mut head, deps.level);
+        }
+
+        transform.translation = head.center;
+        self.velocity = self.velocity + force * delta_time;
+    }
+
+    fn teardown(&mut self, deps: Dependencies) {
+        let _ = deps.entities.remove(self.id);
     }
 }
 

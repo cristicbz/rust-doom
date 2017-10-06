@@ -13,6 +13,25 @@ use std::str::{self, FromStr};
 pub struct WadName([u8; 8]);
 
 impl WadName {
+    pub fn push(&mut self, new_byte: u8) -> Result<()> {
+        let new_byte = match new_byte.to_ascii_uppercase() {
+            b @ b'A'...b'Z' | b @ b'0'...b'9' | b @ b'_' | b @ b'-' | b @ b'[' | b @ b']' |
+            b @ b'\\' => b,
+            b => {
+                bail!(ErrorKind::invalid_byte_in_wad_name(b, &self.0));
+            }
+        };
+
+        for byte in &mut self.0 {
+            if *byte == 0 {
+                *byte = new_byte;
+                return Ok(());
+            }
+        }
+
+        bail!(ErrorKind::wad_name_too_long(&self.0));
+    }
+
     pub fn from_bytes(value: &[u8]) -> Result<WadName> {
         let mut name = [0u8; 8];
         let mut nulled = false;

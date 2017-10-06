@@ -87,7 +87,7 @@ where
 // Vec2
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub struct Vec2<Scalar: Field>([Scalar; 2]);
+pub struct Vec2<Scalar: Field>(pub [Scalar; 2]);
 
 impl<Scalar: Field> Vec2<Scalar> {
     #[inline]
@@ -208,7 +208,7 @@ impl<Scalar: Field> IndexMut<usize> for Vec2<Scalar> {
 // Vec3
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub struct Vec3<Scalar: Field>([Scalar; 3]);
+pub struct Vec3<Scalar: Field>(pub [Scalar; 3]);
 
 impl<Scalar: Field> Vec3<Scalar> {
     #[inline]
@@ -263,6 +263,15 @@ impl<Scalar: Field> Mul<Scalar> for Vec3<Scalar> {
     }
 }
 
+impl<Scalar: Field> Mul<Vec3<Scalar>> for Vec3<Scalar> {
+    type Output = Self;
+
+    #[inline]
+    fn mul(self, rhs: Vec3<Scalar>) -> Self {
+        Vec3([self[0] * rhs[0], self[1] * rhs[1], self[2] * rhs[2]])
+    }
+}
+
 impl<Scalar: Field> Div<Scalar> for Vec3<Scalar> {
     type Output = Self;
 
@@ -310,7 +319,7 @@ impl<Scalar: Field> IndexMut<usize> for Vec3<Scalar> {
 // Vec4
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub struct Vec4<Scalar: Field>([Scalar; 4]);
+pub struct Vec4<Scalar: Field>(pub [Scalar; 4]);
 
 impl<Scalar: Field> Vec4<Scalar> {
     #[inline]
