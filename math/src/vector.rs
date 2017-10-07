@@ -53,6 +53,11 @@ pub trait Vector
             self / norm
         }
     }
+
+    #[inline]
+    fn lerp(self, other: Self, amount: Self::Scalar) -> Self {
+        self * (Self::Scalar::one() - amount) + other * amount
+    }
 }
 
 

@@ -221,6 +221,11 @@ impl Entities {
         }
     }
 
+    #[inline]
+    pub fn name_of(&self, id: EntityId) -> Option<&'static str> {
+        self.slab.get(id).map(|entity| entity.name)
+    }
+
     pub fn debug_tree_dump(&self, indent: usize) -> String {
         let mut output = "Entity tree dump:\n".to_owned();
         let mut stack = Vec::new();

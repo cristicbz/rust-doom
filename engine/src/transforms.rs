@@ -2,7 +2,7 @@ use super::entities::{Entities, EntityId, Entity};
 use super::errors::{Error, ErrorKind};
 use super::system::InfallibleSystem;
 use idcontain::IdMap;
-use math::{Transform as MathTransform, Mat4};
+use math::Transform as MathTransform;
 
 derive_flat! {
     #[element(Transform, &TransformRef, &mut TransformMut)]
@@ -13,9 +13,6 @@ derive_flat! {
 
         #[element(absolute)]
         pub absolutes: Vec<MathTransform>,
-
-        #[element(absolute_matrix)]
-        pub absolute_matrices: Vec<Mat4>,
     }
 }
 
@@ -35,7 +32,6 @@ impl Transforms {
             Transform {
                 local: transform,
                 absolute: MathTransform::default(),
-                absolute_matrix: Mat4::new_identity(),
             },
         );
         if old.is_some() {
@@ -52,12 +48,6 @@ impl Transforms {
 
     pub fn get_absolute(&self, entity: EntityId) -> Option<&MathTransform> {
         self.map.get(entity).map(|transform| transform.absolute)
-    }
-
-    pub fn get_absolute_matrix(&self, entity: EntityId) -> Option<&Mat4> {
-        self.map.get(entity).map(
-            |transform| transform.absolute_matrix,
-        )
     }
 
     fn lookup_parent(&self, entities: &Entities, id: EntityId) -> ParentLookup {
@@ -143,13 +133,14 @@ impl<'context> InfallibleSystem<'context> for Transforms {
         }
 
         for &index in self.removed.iter().rev() {
+            debug!(
+                "Actually removed transform for {:?} @ {}.",
+                self.map.index_to_id(index).unwrap(),
+                index
+            );
             self.map.remove_by_index(index);
         }
-
-        let access = self.map.access_mut();
-        for (matrix, transform) in access.absolute_matrices.iter_mut().zip(&*access.absolutes) {
-            *matrix = Mat4::from(transform);
-        }
+        self.removed.clear();
     }
 
     fn teardown(&mut self, entities: &Entities) {

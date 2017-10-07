@@ -9,9 +9,8 @@ math = { path = "../math" }
 error-chain = "0.11.0"
 glium = "0.17.0"
 lazy_static = "0.2.0"
-log = "0.3.6"
 num = "0.1.32"
-idcontain = "0.7.3"
+idcontain = { version = "0.7.4" }
 
 [dependencies.glium_sdl2]
 branch = "for-rust-doom"
@@ -20,6 +19,10 @@ git = "https://github.com/cristicbz/glium-sdl2"
 [dependencies.sdl2]
 features = ["ttf"]
 version = "0.30.0"
+
+[dependencies.log]
+features = ["release_max_level_info"]
+version = "0.3.6"
 
 [dev-dependencies]
 env_logger = "*"
