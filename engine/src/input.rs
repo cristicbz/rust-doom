@@ -1,4 +1,5 @@
 use super::errors::{Result, ErrorKind, Error};
+use super::tick::Tick;
 use super::system::System;
 use super::window::Window;
 use math::Vec2f;
@@ -39,37 +40,7 @@ pub enum Analog2d {
     Sum { analogs: Vec<Analog2d> },
 }
 
-pub struct Input {
-    current_update_index: UpdateIndex,
-
-    keyboard_state: [ButtonState; NUM_SCAN_CODES],
-    mouse_button_state: [ButtonState; NUM_MOUSE_BUTTONS],
-    quit_requested_index: UpdateIndex,
-
-    mouse_enabled: bool,
-    mouse_rel: Vec2f,
-    mouse_util: MouseUtil,
-
-    pump: EventPump,
-}
-
-
 impl Input {
-    pub fn new(window: &Window) -> Result<Input> {
-        let pump = window.sdl().event_pump().map_err(ErrorKind::Sdl)?;
-        let mouse_util = window.sdl().mouse();
-        Ok(Input {
-            current_update_index: 1,
-            keyboard_state: [ButtonState::Up(0); NUM_SCAN_CODES],
-            mouse_button_state: [ButtonState::Up(0); NUM_MOUSE_BUTTONS],
-            quit_requested_index: 0,
-            mouse_util: mouse_util,
-            mouse_enabled: true,
-            mouse_rel: Vec2f::zero(),
-            pump: pump,
-        })
-    }
-
     pub fn set_cursor_grabbed(&mut self, grabbed: bool) {
         self.mouse_util.set_relative_mouse_mode(grabbed);
     }
@@ -167,20 +138,57 @@ impl Input {
     }
 }
 
+derive_dependencies_from! {
+    pub struct Dependencies<'context> {
+        window: &'context Window,
+        tick: &'context Tick,
+    }
+}
+
+pub struct Input {
+    current_update_index: UpdateIndex,
+
+    keyboard_state: [ButtonState; NUM_SCAN_CODES],
+    mouse_button_state: [ButtonState; NUM_MOUSE_BUTTONS],
+    quit_requested_index: UpdateIndex,
+
+    mouse_enabled: bool,
+    mouse_rel: Vec2f,
+    mouse_util: MouseUtil,
+
+    pump: EventPump,
+}
+
 impl<'context> System<'context> for Input {
-    type Dependencies = &'context Window;
+    type Dependencies = Dependencies<'context>;
     type Error = Error;
 
-    fn create(window: &Window) -> Result<Self> {
-        Self::new(window)
+    fn create(deps: Dependencies) -> Result<Self> {
+        let pump = deps.window.sdl().event_pump().map_err(ErrorKind::Sdl)?;
+        let mouse_util = deps.window.sdl().mouse();
+        Ok(Input {
+            current_update_index: 1,
+            keyboard_state: [ButtonState::Up(0); NUM_SCAN_CODES],
+            mouse_button_state: [ButtonState::Up(0); NUM_MOUSE_BUTTONS],
+            quit_requested_index: 0,
+            mouse_util: mouse_util,
+            mouse_enabled: true,
+            mouse_rel: Vec2f::zero(),
+            pump: pump,
+        })
     }
 
     fn debug_name() -> &'static str {
         "input"
     }
 
-    fn update(&mut self, _: &Window) -> Result<()> {
+    fn update(&mut self, deps: Dependencies) -> Result<()> {
         self.current_update_index += 1;
+        self.mouse_rel = Vec2f::zero();
+        if !deps.tick.is_frame() {
+            return Ok(());
+        }
+
         self.mouse_rel = Vec2f::zero();
         for event in self.pump.poll_iter() {
             match event {
@@ -202,8 +210,6 @@ impl<'context> System<'context> for Input {
                 } => {
                     if self.mouse_enabled {
                         self.mouse_rel = Vec2f::new(x_relative as f32, y_relative as f32);
-                    } else {
-                        self.mouse_rel = Vec2f::zero();
                     }
                 }
                 Event::MouseButtonDown { mouse_btn, .. } => {

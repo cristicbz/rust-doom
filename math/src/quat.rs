@@ -1,4 +1,4 @@
-use super::{Vec3, Vec3f, Mat4};
+use super::{Vec3, Vec3f, Mat4, Vector};
 use num::Zero;
 use std::f32;
 use std::ops::Mul;
@@ -106,6 +106,23 @@ impl Quat {
     pub fn conjugate(&self) -> Self {
         let values = &self.0;
         Quat([values[0], -values[1], -values[2], -values[3]])
+    }
+
+    #[inline]
+    pub fn lerp(&self, other: &Quat, amount: f32) -> Self {
+        let complement = 1.0 - amount;
+        let left = &self.0;
+        let right = &other.0;
+        let mut interpolated = Quat(
+            [
+                left[0] * complement + right[0] * amount,
+                left[1] * complement + right[1] * amount,
+                left[2] * complement + right[2] * amount,
+                left[3] * complement + right[3] * amount,
+            ],
+        );
+        interpolated.renormalize();
+        interpolated
     }
 
     #[inline]
@@ -271,6 +288,14 @@ impl Transform {
             rotation: self.rotation * child.rotation,
             translation: self.translation + self.rotation.rotate_vector(&child.translation),
             scale: self.scale * child.scale,
+        }
+    }
+
+    pub fn lerp(&self, other: &Transform, amount: f32) -> Self {
+        Transform {
+            rotation: self.rotation.lerp(&other.rotation, amount),
+            translation: self.translation.lerp(other.translation, amount),
+            scale: self.scale.lerp(other.scale, amount),
         }
     }
 }

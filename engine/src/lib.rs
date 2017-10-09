@@ -26,6 +26,7 @@ pub mod context;
 pub mod system;
 pub mod type_list;
 
+mod tick;
 mod entities;
 mod errors;
 mod frame_timers;
@@ -53,6 +54,7 @@ pub use self::renderer::Renderer;
 pub use self::shaders::{Shaders, ShaderId, ShaderConfig};
 pub use self::system::{System, InfallibleSystem};
 pub use self::text::{Text, TextId, TextRenderer};
+pub use self::tick::{Tick, TickIndex, Config as TickConfig};
 pub use self::transforms::Transforms;
 pub use self::uniforms::{Uniforms, Texture2dId, FloatUniformId, Mat4UniformId, Vec2fUniformId,
                          BufferTextureId, UniformId};

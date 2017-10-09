@@ -1,6 +1,6 @@
 use super::level::Level;
-use engine::{Analog2d, Gesture, Input, Scancode, Transforms, EntityId, Window, FrameTimers,
-             Entities, Projections, InfallibleSystem, Projection};
+use engine::{Analog2d, Gesture, Input, Scancode, Transforms, EntityId, Window, Entities,
+             Projections, InfallibleSystem, Projection, Renderer, Tick};
 use math::{Sphere, Vec3f, Vector, Transform, EulerAngles, Quat, Vec3};
 use num::Zero;
 use std::f32::consts::PI;
@@ -30,9 +30,9 @@ impl Default for Bindings {
                         x_negative: Gesture::KeyHold(Scancode::Left),
                         y_positive: Gesture::KeyHold(Scancode::Down),
                         y_negative: Gesture::KeyHold(Scancode::Up),
-                        step: 0.05,
+                        step: 0.015,
                     },
-                    Analog2d::Mouse { sensitivity: 0.004 },
+                    Analog2d::Mouse { sensitivity: 0.0015 },
                 ],
             },
             jump: Gesture::KeyHold(Scancode::Space),
@@ -87,14 +87,15 @@ derive_dependencies_from! {
         bindings: &'context Bindings,
         config: &'context Config,
 
+        tick: &'context Tick,
         window: &'context Window,
         input: &'context Input,
-        timers: &'context FrameTimers,
         entities: &'context mut Entities,
         transforms: &'context mut Transforms,
         projections: &'context mut Projections,
+        renderer: &'context mut Renderer,
 
-        level: &'context mut Level,
+        level: &'context Level,
     }
 }
 
@@ -115,7 +116,7 @@ impl Player {
 
         transform.rotation = Quat::from(EulerAngles {
             yaw: level.start_yaw(),
-            pitch: 0.0,
+            pitch: 1e-8,
             roll: 0.0,
         });
         transform.translation = *level.start_pos();
@@ -329,7 +330,7 @@ impl<'context> InfallibleSystem<'context> for Player {
                 far: deps.config.far,
             },
         );
-        deps.level.set_camera(camera_entity);
+        deps.renderer.set_camera(camera_entity);
 
         let mut player = Player {
             id: player_entity,
@@ -348,7 +349,7 @@ impl<'context> InfallibleSystem<'context> for Player {
             self.reset(deps.transforms, deps.level);
         }
 
-        let delta_time = deps.timers.delta_time();
+        let delta_time = deps.tick.timestep();
         let transform = deps.transforms.get_local_mut(self.id).expect(
             "player has no transform component: update",
         );

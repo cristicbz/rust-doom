@@ -1,4 +1,5 @@
 use super::system::InfallibleSystem;
+use super::tick::Tick;
 use idcontain::{IdSlab, Id};
 use std::borrow::Cow;
 use std::fmt::Write;
@@ -9,27 +10,7 @@ use std::time::{Instant, Duration};
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct FrameTimerId(Id<FrameTimer>);
 
-/// Manages a set of frame timers which measure the elapsed time per frame of particular stages.
-///
-/// Timers are manipulated via `FrameTimerId`-s (obtained on creation) and are meant to be started
-/// and stopped during a frame surrounding the different stages.
-///
-/// Periodically, a summary of all the timer averages is printed to the `info` log.
-pub struct FrameTimers {
-    timers: IdSlab<FrameTimer>,
-    last_logged: Option<Instant>,
-    log_buffer: String,
-
-    total_timer: FrameTimerId,
-    delta_time: f32,
-}
-
 impl FrameTimers {
-    /// Returns the duration of the last frame in seconds.
-    pub fn delta_time(&self) -> f32 {
-        self.delta_time
-    }
-
     /// Creates a new frame timer, returning its id.
     ///
     /// The `debug_name` is used when logging the periodic summary.
@@ -128,37 +109,111 @@ impl FrameTimers {
             );
         }
         info!("Frame timer summary:{}", self.log_buffer);
+        info!(
+            "Drift summary: n={}, min={:.2}ms mean={:.2}ms max={:.2}ms",
+            self.num_ticks,
+            self.drift_min * 1e3,
+            self.drift_mean / self.num_ticks * 1e3,
+            self.drift_max * 1e3
+        );
+        self.drift_max = -100.0;
+        self.drift_min = 100.0;
+        self.drift_mean = 0.0;
+        self.num_ticks = 0.0;
+
+        info!(
+            "Sleep summary: n={}, min={:.2}ms mean={:.2}ms max={:.2}ms",
+            self.num_slept,
+            self.slept_min * 1e3,
+            self.slept_mean / self.num_slept * 1e3,
+            self.slept_max * 1e3
+        );
+        self.slept_max = -100.0;
+        self.slept_min = 100.0;
+        self.slept_mean = 0.0;
+        self.num_slept = 0.0;
     }
 }
 
+/// Manages a set of frame timers which measure the elapsed time per frame of particular stages.
+///
+/// Timers are manipulated via `FrameTimerId`-s (obtained on creation) and are meant to be started
+/// and stopped during a frame surrounding the different stages.
+///
+/// Periodically, a summary of all the timer averages is printed to the `info` log.
+pub struct FrameTimers {
+    timers: IdSlab<FrameTimer>,
+    last_logged: Option<Instant>,
+    log_buffer: String,
+
+    tick_timer: FrameTimerId,
+    frame_timer: FrameTimerId,
+
+    num_ticks: f32,
+    drift_min: f32,
+    drift_max: f32,
+    drift_mean: f32,
+
+    num_slept: f32,
+    slept_min: f32,
+    slept_max: f32,
+    slept_mean: f32,
+}
+
 impl<'context> InfallibleSystem<'context> for FrameTimers {
-    type Dependencies = ();
+    type Dependencies = &'context Tick;
 
     fn debug_name() -> &'static str {
         "frame_timers"
     }
 
-    fn create(_deps: ()) -> Self {
+    fn create(_: &Tick) -> Self {
         let mut this = FrameTimers {
             timers: IdSlab::with_capacity(16),
             last_logged: None,
             log_buffer: String::with_capacity(512),
 
-            total_timer: FrameTimerId(Id::invalid()),
-            delta_time: 1.0 / 60.0,
+            tick_timer: FrameTimerId(Id::invalid()),
+            frame_timer: FrameTimerId(Id::invalid()),
+
+            num_ticks: 0.0,
+            drift_min: 100.0,
+            drift_max: -100.0,
+            drift_mean: 0.0,
+
+            num_slept: 0.0,
+            slept_min: 100.0,
+            slept_max: -100.0,
+            slept_mean: 0.0,
         };
-        let total_timer = this.new_stopped("frame");
-        this.total_timer = total_timer;
+        let tick_timer = this.new_stopped("tick");
+        let frame_timer = this.new_stopped("frame");
+        this.tick_timer = tick_timer;
+        this.frame_timer = frame_timer;
         this
     }
 
-    fn update(&mut self, _deps: ()) {
-        let FrameTimers {
-            total_timer,
-            delta_time,
-            ..
-        } = *self;
-        self.delta_time = self.start(total_timer).unwrap_or(delta_time);
+    fn update(&mut self, tick: &Tick) {
+        let tick_timer = self.tick_timer;
+        let drift = tick.drift();
+        self.num_ticks += 1.0;
+        self.drift_mean += drift;
+        self.drift_max = self.drift_max.max(drift);
+        self.drift_min = self.drift_min.min(drift);
+
+        let slept = tick.slept();
+        if slept > 0.0 {
+            self.num_slept += 1.0;
+            self.slept_mean += slept;
+            self.slept_max = self.slept_max.max(slept);
+            self.slept_min = self.slept_min.min(slept);
+        }
+
+        self.start(tick_timer);
+        if tick.is_frame() {
+            let frame_timer = self.frame_timer;
+            self.start(frame_timer);
+        }
         self.maybe_log();
     }
 }

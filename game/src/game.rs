@@ -6,8 +6,9 @@ use super::player::{Player, Config as PlayerConfig, Bindings as PlayerBindings};
 use super::wad_system::{WadSystem, Config as WadConfig};
 use engine::{Input, Window, Projections, FrameTimers, Uniforms, Materials, Shaders, Renderer,
              Meshes, Entities, Transforms, TextRenderer, System, Context, ContextBuilder,
-             WindowConfig, ShaderConfig};
+             WindowConfig, ShaderConfig, Tick, TickConfig};
 use engine::type_list::Peek;
+use std::f32::consts::FRAC_2_PI;
 use std::marker::PhantomData;
 use std::path::PathBuf;
 
@@ -17,32 +18,39 @@ pub struct Game(Box<AbstractGame>);
 impl Game {
     pub fn new(config: GameConfig) -> Result<Self> {
         let context = ContextBuilder::new()
+            // Engine configs and systems.
+            .inject(TickConfig { timestep: 1.0 / 60.0 })
             .inject(WindowConfig {
                 width: config.width,
                 height: config.height,
                 title: format!("Rusty Doom v{}", config.version),
             })
             .inject(ShaderConfig { root_path: SHADER_ROOT.into() })
-            .inject(WadConfig {
-                wad_path: config.wad_file.clone(),
-                metadata_path: config.metadata_file.clone(),
-            })
-            .inject(HudBindings::default())
-            .inject(LevelConfig { index: config.initial_level_index })
-            .inject(PlayerBindings::default())
-            .inject(PlayerConfig::default())
+
+            .system(Tick::bind())?
+            .system(FrameTimers::bind())?
             .system(Window::bind())?
             .system(Input::bind())?
-            .system(TextRenderer::bind())?
             .system(Entities::bind())?
-            .system(FrameTimers::bind())?
             .system(Transforms::bind())?
             .system(Projections::bind())?
             .system(Shaders::bind())?
             .system(Uniforms::bind())?
             .system(Meshes::bind())?
             .system(Materials::bind())?
+            .system(TextRenderer::bind())?
             .system(Renderer::bind())?
+
+            // Game configs and systems.
+            .inject(WadConfig {
+                wad_path: config.wad_file.clone(),
+                metadata_path: config.metadata_file.clone(),
+            })
+            .inject(LevelConfig { index: config.initial_level_index })
+            .inject(HudBindings::default())
+            .inject(PlayerBindings::default())
+            .inject(PlayerConfig::default())
+
             .system(WadSystem::bind())?
             .system(Level::bind())?
             .system(Hud::bind())?

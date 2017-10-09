@@ -5,10 +5,9 @@ use super::wad_system::WadSystem;
 use super::world::World;
 use engine::{Entities, Shaders, Uniforms, Materials, Meshes, Renderer, Window, ClientFormat,
              SamplerBehavior, SamplerWrapFunction, MinifySamplerFilter, MagnifySamplerFilter,
-             Texture2dId, EntityId, PixelValue, FloatUniformId, Mat4UniformId, MaterialId,
-             BufferTextureId, BufferTextureType, ShaderId, Transforms, Projections, FrameTimers,
-             System};
-use math::{Vec2, Vec3f, Mat4, Vec2f};
+             Texture2dId, EntityId, PixelValue, FloatUniformId, MaterialId, BufferTextureId,
+             BufferTextureType, ShaderId, System, Tick, Transforms};
+use math::{Vec2, Vec3f, Vec2f};
 use num::Zero;
 use time;
 use wad::{Decor, LevelVisitor, LevelWalker, LightInfo, Marker, SkyPoly, SkyQuad, StaticPoly};
@@ -23,13 +22,6 @@ pub struct Config {
     pub index: usize,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
-enum LoadState {
-    Unchanged,
-    Changed,
-    FirstLoad,
-}
-
 pub struct Level {
     root: EntityId,
     start_pos: Vec3f,
@@ -38,9 +30,8 @@ pub struct Level {
     volume: World,
     current_index: usize,
     next_index: usize,
-    load_state: LoadState,
+    level_changed: bool,
     uniforms: DynamicUniforms,
-    camera: Option<EntityId>,
 }
 
 derive_dependencies_from! {
@@ -54,125 +45,13 @@ derive_dependencies_from! {
         meshes: &'context mut Meshes,
         renderer: &'context mut Renderer,
         wad: &'context WadSystem,
-        timers: &'context FrameTimers,
-        transforms: &'context Transforms,
-        projections: &'context Projections,
+        tick: &'context Tick,
+        transforms: &'context mut Transforms,
     }
 }
 
 
 impl Level {
-    fn load(mut deps: Dependencies, load_state: LoadState) -> Result<Self> {
-        let root = deps.entities.add_root("level_root");
-
-        let level_index = deps.config.index;
-        ensure!(
-            level_index < deps.wad.archive.num_levels(),
-            "Level index {} is not in valid range 0..{}, see --list-levels for level names.",
-            level_index,
-            deps.wad.archive.num_levels()
-        );
-        let level_name = deps.level_name(level_index)?;
-        info!("Loading level {}...", level_name);
-        let wad_level = deps.load_wad_level(level_index)?;
-        info!("Loading materials...");
-        let material_data = deps.load_materials(root, &wad_level, level_name)?;
-
-        info!("Building level...");
-        let mut level = Builder::build(root, &mut deps, material_data, &wad_level)?;
-
-        info!(
-            "Level {} loaded.",
-            deps.config.index,
-            );
-        level.load_state = load_state;
-        Ok(level)
-    }
-}
-
-impl<'context> System<'context> for Level {
-    type Dependencies = Dependencies<'context>;
-    type Error = Error;
-
-    fn debug_name() -> &'static str {
-        "level"
-    }
-
-    fn create(deps: Dependencies) -> Result<Self> {
-        Self::load(deps, LoadState::FirstLoad)
-    }
-
-    fn update(&mut self, deps: Dependencies) -> Result<()> {
-        self.load_state = match self.load_state {
-            LoadState::Unchanged => LoadState::Unchanged,
-            LoadState::Changed => {
-                info!(
-                    "Level change finished. {}",
-                    deps.entities.debug_tree_dump(4)
-                );
-                LoadState::Unchanged
-            }
-            LoadState::FirstLoad => LoadState::Changed,
-        };
-
-        if self.next_index != self.current_index {
-            if self.next_index >= deps.wad.archive.num_levels() {
-                self.next_index = self.current_index;
-            } else {
-                let camera = self.camera;
-                deps.entities.remove(self.root)?;
-                *self = Self::create(Dependencies {
-                    config: &Config { index: self.next_index },
-                    ..deps
-                })?;
-                self.camera = camera;
-                return Ok(());
-            }
-        }
-
-        let time = {
-            let time = deps.uniforms.get_float_mut(self.uniforms.time).expect(
-                "time",
-            );
-            *time += deps.timers.delta_time();
-            *time
-        };
-        self.camera.map(|camera| {
-            *deps.uniforms.get_mat4_mut(self.uniforms.modelview).expect(
-                "modelview",
-            ) = Mat4::from(
-                deps.transforms
-                    .get_absolute(camera)
-                    .expect("camera transform")
-                    .inverse(),
-            );
-            *deps.uniforms
-                .get_mat4_mut(self.uniforms.projection)
-                .expect("projection") = *deps.projections.get_matrix(camera).expect(
-                "camera projection",
-            );
-        });
-        let light_infos = &mut self.lights;
-        deps.uniforms.map_buffer_texture_u8(
-            self.uniforms.lights_buffer_texture,
-            |buffer| {
-                light_infos.fill_buffer_at(time, buffer)
-            },
-        );
-        Ok(())
-    }
-
-    fn teardown(&mut self, deps: Dependencies) -> Result<()> {
-        let _ = deps.entities.remove(self.root);
-        Ok(())
-    }
-}
-
-impl Level {
-    pub fn set_camera(&mut self, camera: EntityId) {
-        self.camera = Some(camera)
-    }
-
     pub fn level_index(&self) -> usize {
         self.current_index
     }
@@ -182,7 +61,7 @@ impl Level {
     }
 
     pub fn level_changed(&self) -> bool {
-        self.load_state != LoadState::Unchanged
+        self.level_changed
     }
 
     pub fn root(&self) -> EntityId {
@@ -199,6 +78,83 @@ impl Level {
 
     pub fn volume(&self) -> &World {
         &self.volume
+    }
+
+    fn load(mut deps: Dependencies) -> Result<Self> {
+        let root = deps.entities.add_root("level_root");
+
+        let level_index = deps.config.index;
+        ensure!(
+            level_index < deps.wad.archive.num_levels(),
+            "Level index {} is not in valid range 0..{}, see --list-levels for level names.",
+            level_index,
+            deps.wad.archive.num_levels()
+        );
+        let level_name = deps.level_name(level_index)?;
+        info!("Loading level {}...", level_name);
+        let wad_level = deps.load_wad_level(level_index)?;
+        info!("Loading materials...");
+        let material_data = deps.load_materials(root, &wad_level, level_name)?;
+
+        info!("Building level...");
+        let level = Builder::build(root, &mut deps, material_data, &wad_level)?;
+
+        info!("Level {} loaded.", deps.config.index);
+        Ok(level)
+    }
+}
+
+impl<'context> System<'context> for Level {
+    type Dependencies = Dependencies<'context>;
+    type Error = Error;
+
+    fn debug_name() -> &'static str {
+        "level"
+    }
+
+    fn create(deps: Dependencies) -> Result<Self> {
+        Self::load(deps)
+    }
+
+    fn update(&mut self, deps: Dependencies) -> Result<()> {
+        if self.level_changed {
+            info!("Level changed. {}", deps.entities.debug_tree_dump(4));
+            self.level_changed = false;
+        }
+
+        if self.next_index != self.current_index {
+            if self.next_index >= deps.wad.archive.num_levels() {
+                self.next_index = self.current_index;
+            } else {
+                deps.entities.remove(self.root)?;
+                *self = Self::create(Dependencies {
+                    config: &Config { index: self.next_index },
+                    ..deps
+                })?;
+                return Ok(());
+            }
+        }
+
+        let time = {
+            let time = deps.uniforms.get_float_mut(self.uniforms.time).expect(
+                "time",
+            );
+            *time += deps.tick.timestep();
+            *time
+        };
+        let light_infos = &mut self.lights;
+        deps.uniforms.map_buffer_texture_u8(
+            self.uniforms.lights_buffer_texture,
+            |buffer| {
+                light_infos.fill_buffer_at(time, buffer)
+            },
+        );
+        Ok(())
+    }
+
+    fn teardown(&mut self, deps: Dependencies) -> Result<()> {
+        let _ = deps.entities.remove(self.root);
+        Ok(())
     }
 }
 
@@ -387,24 +343,11 @@ impl<'context> Dependencies<'context> {
         level_name: WadName,
     ) -> Result<MaterialData> {
         let palette = self.load_palette(parent)?;
-
         let time = self.uniforms.add_float(
             self.entities,
             parent,
             "time_uniform",
             0.0,
-        )?;
-        let modelview = self.uniforms.add_mat4(
-            self.entities,
-            parent,
-            "modelview_uniform",
-            Mat4::new_identity(),
-        )?;
-        let projection = self.uniforms.add_mat4(
-            self.entities,
-            parent,
-            "projection_uniform",
-            Mat4::new_identity(),
         )?;
         let lights_buffer_texture = self.uniforms.add_persistent_buffer_texture_u8(
             self.window,
@@ -414,6 +357,9 @@ impl<'context> Dependencies<'context> {
             256,
             BufferTextureType::Float,
         )?;
+
+        let modelview = self.renderer.modelview();
+        let projection = self.renderer.projection();
 
         let static_shader = self.load_shader(parent, "static_shader", "static")?;
         let flats_atlas = self.load_flats_atlas(parent, wad_level)?;
@@ -489,8 +435,6 @@ impl<'context> Dependencies<'context> {
             uniforms: DynamicUniforms {
                 time,
                 lights_buffer_texture,
-                modelview,
-                projection,
             },
             materials: LevelMaterials {
                 flats: AtlasMaterial {
@@ -542,8 +486,6 @@ struct SkyUniforms {
 struct DynamicUniforms {
     time: FloatUniformId,
     lights_buffer_texture: BufferTextureId<u8>,
-    modelview: Mat4UniformId,
-    projection: Mat4UniformId,
 }
 
 struct AtlasMaterial {
@@ -571,7 +513,8 @@ struct Atlas {
 
 struct Builder<'a, 'context: 'a> {
     deps: &'a mut Dependencies<'context>,
-    material_data: MaterialData,
+    materials: LevelMaterials,
+    uniforms: DynamicUniforms,
 
     lights: Lights,
     start_pos: Vec3f,
@@ -605,7 +548,8 @@ impl<'a, 'context> Builder<'a, 'context> {
         let mut volume = World::new();
         let mut builder = Builder {
             deps,
-            material_data,
+            materials: material_data.materials,
+            uniforms: material_data.uniforms,
 
             lights: Lights::new(),
             start_pos: Vec3f::zero(),
@@ -636,31 +580,6 @@ impl<'a, 'context> Builder<'a, 'context> {
             builder.deps.wad.archive.metadata(),
             &mut builder.chain(&mut volume),
         ).walk();
-        let Builder {
-            deps,
-            material_data,
-
-            lights,
-            start_pos,
-            start_yaw,
-
-            static_vertices,
-            sky_vertices,
-            decor_vertices,
-
-            wall_indices,
-            flat_indices,
-            sky_indices,
-            decor_indices,
-
-            num_wall_quads,
-            num_floor_polys,
-            num_ceil_polys,
-            num_sky_wall_quads,
-            num_sky_floor_polys,
-            num_sky_ceil_polys,
-            num_decors,
-        } = builder;
         info!(
             "Level built in {:.2}ms:\n\
             \tnum_wall_quads = {}\n\
@@ -674,18 +593,19 @@ impl<'a, 'context> Builder<'a, 'context> {
             \tnum_sky_tris = {}\n\
             \tnum_sprite_tris = {}",
             (time::precise_time_s() - start_time) * 1000.0,
-            num_wall_quads,
-            num_floor_polys,
-            num_ceil_polys,
-            num_sky_wall_quads,
-            num_sky_floor_polys,
-            num_sky_ceil_polys,
-            num_decors,
-            (wall_indices.len() + flat_indices.len()) / 3,
-            sky_indices.len() / 3,
-            decor_indices.len() / 3
+            builder.num_wall_quads,
+            builder.num_floor_polys,
+            builder.num_ceil_polys,
+            builder.num_sky_wall_quads,
+            builder.num_sky_floor_polys,
+            builder.num_sky_ceil_polys,
+            builder.num_decors,
+            (builder.wall_indices.len() + builder.flat_indices.len()) / 3,
+            builder.sky_indices.len() / 3,
+            builder.decor_indices.len() / 3
         );
 
+        let deps = builder.deps;
         info!("Creating static meshes and models...");
         let statics = deps.entities.add(root, "statics")?;
         let static_mesh = deps.meshes.add_persistent::<_, u8>(
@@ -693,7 +613,7 @@ impl<'a, 'context> Builder<'a, 'context> {
             deps.entities,
             statics,
             "static_mesh",
-            &static_vertices,
+            &builder.static_vertices,
             None,
         )?;
         let flats_mesh = deps.meshes.add_persistent_indices(
@@ -701,13 +621,14 @@ impl<'a, 'context> Builder<'a, 'context> {
             deps.entities,
             static_mesh,
             "flats_mesh",
-            &flat_indices,
+            &builder.flat_indices,
         )?;
         let flats = deps.entities.add(statics, "flats")?;
+        deps.transforms.attach_identity(flats);
         deps.renderer.attach_model(
             flats,
             flats_mesh,
-            material_data.materials.flats.material,
+            builder.materials.flats.material,
         )?;
 
         let walls_mesh = deps.meshes.add_persistent_indices(
@@ -715,13 +636,14 @@ impl<'a, 'context> Builder<'a, 'context> {
             deps.entities,
             static_mesh,
             "walls_mesh",
-            &wall_indices,
+            &builder.wall_indices,
         )?;
         let walls = deps.entities.add(statics, "walls")?;
+        deps.transforms.attach_identity(walls);
         deps.renderer.attach_model(
             walls,
             walls_mesh,
-            material_data.materials.walls.material,
+            builder.materials.walls.material,
         )?;
 
         let decor = deps.entities.add(statics, "decor")?;
@@ -730,13 +652,14 @@ impl<'a, 'context> Builder<'a, 'context> {
             deps.entities,
             decor,
             "decor_mesh",
-            &decor_vertices,
-            Some(&decor_indices),
+            &builder.decor_vertices,
+            Some(&builder.decor_indices),
         )?;
+        deps.transforms.attach_identity(decor);
         deps.renderer.attach_model(
             decor,
             decor_mesh,
-            material_data.materials.decor.material,
+            builder.materials.decor.material,
         )?;
 
         let sky = deps.entities.add(statics, "sky")?;
@@ -745,26 +668,26 @@ impl<'a, 'context> Builder<'a, 'context> {
             deps.entities,
             sky,
             "sky_mesh",
-            &sky_vertices,
-            Some(&sky_indices),
+            &builder.sky_vertices,
+            Some(&builder.sky_indices),
         )?;
+        deps.transforms.attach_identity(sky);
         deps.renderer.attach_model(
             sky,
             sky_mesh,
-            material_data.materials.sky,
+            builder.materials.sky,
         )?;
 
         Ok(Level {
             root,
-            start_pos,
-            start_yaw,
-            lights,
             volume,
-            uniforms: material_data.uniforms,
+            start_pos: builder.start_pos,
+            start_yaw: builder.start_yaw,
+            lights: builder.lights,
+            uniforms: builder.uniforms,
             current_index: deps.config.index,
             next_index: deps.config.index,
-            camera: None,
-            load_state: LoadState::FirstLoad,
+            level_changed: true,
         })
     }
 
@@ -911,13 +834,12 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
         } else {
             return;
         };
-        let bounds =
-            if let Some(bounds) = self.material_data.materials.walls.bounds.get(tex_name) {
-                *bounds
-            } else {
-                warn!("No such wall texture {}.", tex_name);
-                return;
-            };
+        let bounds = if let Some(bounds) = self.materials.walls.bounds.get(tex_name) {
+            *bounds
+        } else {
+            warn!("No such wall texture {}.", tex_name);
+            return;
+        };
         let light_info = self.add_light_info(light_info);
         self.wall_vertex(v1, low, s1, t1, light_info, scroll, &bounds)
             .wall_vertex(v2, low, s2, t1, light_info, scroll, &bounds)
@@ -934,13 +856,12 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
             light_info,
             tex_name,
         } = poly;
-        let bounds =
-            if let Some(bounds) = self.material_data.materials.flats.bounds.get(tex_name) {
-                *bounds
-            } else {
-                warn!("No such floor texture {}.", tex_name);
-                return;
-            };
+        let bounds = if let Some(bounds) = self.materials.flats.bounds.get(tex_name) {
+            *bounds
+        } else {
+            warn!("No such floor texture {}.", tex_name);
+            return;
+        };
         let light_info = self.add_light_info(light_info);
         for vertex in vertices {
             self.flat_vertex(vertex, height, light_info, &bounds);
@@ -956,13 +877,12 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
             light_info,
             tex_name,
         } = poly;
-        let bounds =
-            if let Some(bounds) = self.material_data.materials.flats.bounds.get(tex_name) {
-                *bounds
-            } else {
-                warn!("No such ceiling texture {}.", tex_name);
-                return;
-            };
+        let bounds = if let Some(bounds) = self.materials.flats.bounds.get(tex_name) {
+            *bounds
+        } else {
+            warn!("No such ceiling texture {}.", tex_name);
+            return;
+        };
         let light_info = self.add_light_info(light_info);
         for vertex in vertices.iter().rev() {
             self.flat_vertex(vertex, height, light_info, &bounds);
@@ -1016,13 +936,12 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
             tex_name,
         } = decor;
         let light_info = self.add_light_info(light_info);
-        let bounds =
-            if let Some(bounds) = self.material_data.materials.decor.bounds.get(tex_name) {
-                *bounds
-            } else {
-                warn!("No such decor texture {}.", tex_name);
-                return;
-            };
+        let bounds = if let Some(bounds) = self.materials.decor.bounds.get(tex_name) {
+            *bounds
+        } else {
+            warn!("No such decor texture {}.", tex_name);
+            return;
+        };
         self.decor_vertex(low, -half_width, 0.0, bounds.size[1], &bounds, light_info)
             .decor_vertex(
                 low,
