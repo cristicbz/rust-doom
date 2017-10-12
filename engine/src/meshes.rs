@@ -14,7 +14,7 @@ pub struct Meshes {
 }
 
 impl Meshes {
-    pub fn add_persistent<V: Vertex + Send + 'static, I: Index>(
+    pub fn add_immutable<V: Vertex + Send + 'static, I: Index>(
         &mut self,
         window: &Window,
         entities: &mut Entities,
@@ -28,12 +28,12 @@ impl Meshes {
             id,
             Mesh {
                 data: MeshData::Owned {
-                    vertices: VertexBuffer::persistent(window.facade(), vertices)
+                    vertices: VertexBuffer::immutable(window.facade(), vertices)
                         .needed_by(name)?
                         .into(),
                     indices: if let Some(indices) = indices {
                         Some(
-                            IndexBuffer::persistent(
+                            IndexBuffer::immutable(
                                 window.facade(),
                                 PrimitiveType::TrianglesList,
                                 indices,
@@ -50,7 +50,7 @@ impl Meshes {
         Ok(MeshId(id))
     }
 
-    pub fn add_persistent_indices<I: Index>(
+    pub fn add_immutable_indices<I: Index>(
         &mut self,
         window: &Window,
         entities: &mut Entities,
@@ -72,7 +72,7 @@ impl Meshes {
             Mesh {
                 data: MeshData::Inherit {
                     vertices_from: owner,
-                    indices: IndexBuffer::persistent(
+                    indices: IndexBuffer::immutable(
                         window.facade(),
                         PrimitiveType::TrianglesList,
                         indices,

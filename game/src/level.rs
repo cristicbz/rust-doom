@@ -608,7 +608,7 @@ impl<'a, 'context> Builder<'a, 'context> {
         let deps = builder.deps;
         info!("Creating static meshes and models...");
         let statics = deps.entities.add(root, "statics")?;
-        let static_mesh = deps.meshes.add_persistent::<_, u8>(
+        let static_mesh = deps.meshes.add_immutable::<_, u8>(
             deps.window,
             deps.entities,
             statics,
@@ -616,7 +616,7 @@ impl<'a, 'context> Builder<'a, 'context> {
             &builder.static_vertices,
             None,
         )?;
-        let flats_mesh = deps.meshes.add_persistent_indices(
+        let flats_mesh = deps.meshes.add_immutable_indices(
             deps.window,
             deps.entities,
             static_mesh,
@@ -631,7 +631,7 @@ impl<'a, 'context> Builder<'a, 'context> {
             builder.materials.flats.material,
         )?;
 
-        let walls_mesh = deps.meshes.add_persistent_indices(
+        let walls_mesh = deps.meshes.add_immutable_indices(
             deps.window,
             deps.entities,
             static_mesh,
@@ -647,7 +647,7 @@ impl<'a, 'context> Builder<'a, 'context> {
         )?;
 
         let decor = deps.entities.add(statics, "decor")?;
-        let decor_mesh = deps.meshes.add_persistent(
+        let decor_mesh = deps.meshes.add_immutable(
             deps.window,
             deps.entities,
             decor,
@@ -663,7 +663,7 @@ impl<'a, 'context> Builder<'a, 'context> {
         )?;
 
         let sky = deps.entities.add(statics, "sky")?;
-        let sky_mesh = deps.meshes.add_persistent(
+        let sky_mesh = deps.meshes.add_immutable(
             deps.window,
             deps.entities,
             sky,
