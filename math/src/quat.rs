@@ -87,6 +87,11 @@ impl Quat {
     }
 
     #[inline]
+    pub fn look_vector(&self) -> Vec3f {
+        self.rotate_vector(&Vec3::new(0.0, 0.0, -1.0))
+    }
+
+    #[inline]
     pub fn renormalize(&mut self) {
         let values = &mut self.0;
         let norm_squared = values[0] * values[0] + values[1] * values[1] + values[2] * values[2] +
@@ -272,6 +277,14 @@ pub struct Transform {
 }
 
 impl Transform {
+    pub fn transform_position(&self, position: &Vec3f) -> Vec3f {
+        self.rotation.rotate_vector(&(*position + self.translation))
+    }
+
+    pub fn transform_direction(&self, direction: &Vec3f) -> Vec3f {
+        self.rotation.rotate_vector(direction)
+    }
+
     pub fn inverse(&self) -> Self {
         // TODO(cristicbz): Invert scale!
         let rotation = self.rotation.conjugate();

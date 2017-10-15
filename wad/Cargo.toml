@@ -9,7 +9,6 @@ math = { path = "../math" }
 bincode = "0.8.0"
 byteorder = "1.1.0"
 error-chain = "0.11.0"
-glium = "0.17.0"
 log = "0.3.6"
 num = "0.1.32"
 ordermap = "0.2.11"
@@ -19,5 +18,3 @@ serde_derive = "1.0"
 time = "0.1.35"
 toml = "0.4.5"
 vec_map = "0.8.0"
-
-sdl2 = "0.30.0"

@@ -1,4 +1,3 @@
-
 use super::errors::{Result, ResultExt, ErrorKind, Error};
 use super::platform;
 use super::system::System;
@@ -67,7 +66,6 @@ impl<'context> System<'context> for Window {
 
         let facade = video
             .window(&config.title, config.width, config.height)
-            .position_centered()
             .opengl()
             .resizable()
             .build_glium()

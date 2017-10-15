@@ -145,14 +145,16 @@ enum HelpState {
 }
 
 const HELP_PADDING: u32 = 6;
-const PROMPT_TEXT: &'static str = "Press 'h' for help.";
-const HELP_TEXT: &'static str = r"Use WASD or arrow keys to move and the mouse to aim.
+const PROMPT_TEXT: &'static str = "WASD and mouse, 'E' to push/use, LB to shoot or 'h' for help.";
+const HELP_TEXT: &'static str = r"Use WASD to move and the mouse or arrow keys to aim.
 Other keys:
     ESC - to quit
     SPACEBAR - jump
+    E - push/interact/use
+    Left Click - shoot (only effect is to trigger gun-activated things)
     ` - to toggle mouse grab (backtick)
     f - to toggle fly mode
     c - to toggle clipping (wall collisions)
-    Ctrl-N - to change to next level
+    Ctrl-N - to change to next level (though using the exit will also do this!)
     Ctrl-P - to change to previous level
     h - toggle this help message";

@@ -8,7 +8,6 @@ use engine::{Input, Window, Projections, FrameTimers, Uniforms, Materials, Shade
              Meshes, Entities, Transforms, TextRenderer, System, Context, ContextBuilder,
              WindowConfig, ShaderConfig, Tick, TickConfig};
 use engine::type_list::Peek;
-use std::f32::consts::FRAC_2_PI;
 use std::marker::PhantomData;
 use std::path::PathBuf;
 

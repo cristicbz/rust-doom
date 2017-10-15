@@ -1,9 +1,11 @@
-use math::{ContactInfo, Line2f, Sphere, Vec2f, Vec3f, Vector};
+use engine::{Transforms, EntityId, Entity};
+use idcontain::IdMapVec;
+use math::{ContactInfo, Line2f, Sphere, Vec2f, Vec3f, Vector, Transform};
 use num::Zero;
 use std::{f32, i32};
 use std::cell::RefCell;
-use wad::{Branch, LevelVisitor, SkyPoly, SkyQuad, StaticPoly, StaticQuad};
-
+use vec_map::VecMap;
+use wad::{Branch, LevelVisitor, SkyPoly, SkyQuad, StaticPoly, StaticQuad, ObjectId};
 
 pub struct World {
     nodes: Vec<Node>,
@@ -11,28 +13,21 @@ pub struct World {
     triangles: Vec<Triangle>,
     verts: Vec<Vec3f>,
 
+    dynamic_chunks: IdMapVec<Entity, DynamicChunk>,
+
     node_stack: RefCell<Vec<usize>>,
 }
 
 impl World {
-    pub fn new() -> World {
-        World {
-            nodes: Vec::with_capacity(128),
-            chunks: Vec::with_capacity(128),
-            triangles: Vec::with_capacity(1024),
-            verts: Vec::with_capacity(4096),
-            node_stack: RefCell::new(Vec::with_capacity(32)),
-        }
-    }
-
     pub fn sweep_sphere(&self, sphere: &Sphere, vel: &Vec3f) -> Option<ContactInfo> {
-        let mut stack = self.node_stack.borrow_mut();
-        stack.push(0);
         let mut first_contact = ContactInfo {
             time: f32::INFINITY,
             normal: Vec3f::zero(),
         };
 
+        // Statics.
+        let mut stack = self.node_stack.borrow_mut();
+        stack.push(0);
         while let Some(index) = stack.pop() {
             for child in self.nodes[index].intersect_sphere(sphere, vel) {
                 let chunk = match child {
@@ -43,23 +38,63 @@ impl World {
                     }
                     Child::Leaf(index) => &self.chunks[index],
                 };
-                let tris = &self.triangles[chunk.tri_start as usize..chunk.tri_end as usize];
-                first_contact = tris.iter()
-                    .filter_map(|tri| self.sweep_sphere_triangle(sphere, vel, tri))
-                    .fold(
-                        first_contact,
-                        |first, current| if first.time < current.time {
-                            first
-                        } else {
-                            current
-                        },
-                    );
+                self.sweep_chunk(&mut first_contact, &chunk, sphere, vel);
             }
         }
+
+        // Dynamics.
+        for dynamic in self.dynamic_chunks.access() {
+            let transformed_sphere = Sphere {
+                center: dynamic.inverse_transform.transform_position(&sphere.center),
+                radius: sphere.radius,
+            };
+            let transformed_velocity = dynamic.inverse_transform.transform_direction(&vel);
+            self.sweep_chunk(
+                &mut first_contact,
+                &dynamic.chunk,
+                &transformed_sphere,
+                &transformed_velocity,
+            );
+        }
+
         if first_contact.time < f32::INFINITY {
             Some(first_contact)
         } else {
             None
+        }
+    }
+
+    fn sweep_chunk(
+        &self,
+        first_contact: &mut ContactInfo,
+        chunk: &Chunk,
+        sphere: &Sphere,
+        vel: &Vec3f,
+    ) {
+        let tris = &self.triangles[chunk.tri_start as usize..chunk.tri_end as usize];
+        *first_contact = tris.iter()
+            .filter_map(|tri| self.sweep_sphere_triangle(sphere, vel, tri))
+            .fold(*first_contact, |first, current| if first.time <
+                current.time
+            {
+                first
+            } else {
+                current
+            });
+    }
+
+    pub fn update(&mut self, transforms: &Transforms) {
+        for index in 0..self.dynamic_chunks.len() {
+            let id = self.dynamic_chunks.index_to_id(index).expect(
+                "bad index in iteration",
+            );
+            let dynamic = self.dynamic_chunks.get_mut_by_index(index).expect(
+                "bad index in iteration",
+            );
+            dynamic.inverse_transform = transforms
+                .get_absolute(id)
+                .expect("dynamic chunk missing transform")
+                .inverse();
         }
     }
 
@@ -77,145 +112,17 @@ impl World {
         ];
         sphere.sweep_triangle(&triangle, &normal, vel)
     }
-
-    fn link_child(&mut self, child: Child, branch: Branch) {
-        let parent_index = *self.node_stack.borrow().last().expect(
-            "called link_child on root node",
-        );
-        let parent = &mut self.nodes[parent_index];
-
-        match branch {
-            Branch::Positive => {
-                assert_eq!(parent.positive, 0);
-                parent.positive = child.pack();
-            }
-            Branch::Negative => {
-                assert_eq!(parent.negative, 0);
-                parent.negative = child.pack();
-            }
-        }
-    }
-
-    fn add_polygon<I: IntoIterator<Item = Vec3f>>(&mut self, verts: I, normal: Vec3f) {
-        let vert_start = self.verts.len() as u32;
-        self.verts.extend(verts);
-        let vert_end = self.verts.len() as u32;
-        self.verts.push(normal);
-        self.triangles.extend(((vert_start + 2)..vert_end).map(|i| {
-            Triangle {
-                v1: vert_start,
-                v2: i - 1,
-                v3: i,
-                normal: vert_end,
-            }
-        }));
-    }
-}
-
-impl Default for World {
-    fn default() -> Self {
-        World::new()
-    }
-}
-
-impl LevelVisitor for World {
-    fn visit_bsp_root(&mut self, line: &Line2f) {
-        let index = self.nodes.len();
-        self.nodes.push(Node::new(*line));
-        self.node_stack.borrow_mut().push(index);
-    }
-
-    fn visit_bsp_node(&mut self, line: &Line2f, branch: Branch) {
-        let index = self.nodes.len();
-        self.nodes.push(Node::new(*line));
-        self.link_child(Child::Node(index), branch);
-        self.node_stack.borrow_mut().push(index);
-    }
-
-    fn visit_bsp_leaf(&mut self, branch: Branch) {
-        let index = self.chunks.len();
-        self.chunks.push(Chunk {
-            tri_start: self.triangles.len() as u32,
-            tri_end: self.triangles.len() as u32,
-        });
-        self.link_child(Child::Leaf(index), branch);
-    }
-
-    fn visit_bsp_leaf_end(&mut self) {
-        let chunk = self.chunks.last_mut().expect("missing chunk on end");
-        chunk.tri_end = self.triangles.len() as u32;
-    }
-
-    fn visit_bsp_node_end(&mut self) {
-        self.node_stack.borrow_mut().pop().expect(
-            "too many calls to visit_bsp_node_end",
-        );
-    }
-
-    fn visit_floor_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
-        self.add_polygon(
-            vertices.iter().map(|v| Vec3f::new(v[0], height, v[1])),
-            Vec3f::new(0.0, 1.0, 0.0),
-        );
-    }
-
-    fn visit_ceil_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
-        self.add_polygon(
-            vertices.iter().rev().map(
-                |v| Vec3f::new(v[0], height, v[1]),
-            ),
-            Vec3f::new(0.0, -1.0, 0.0),
-        );
-    }
-
-    fn visit_floor_poly(&mut self, &StaticPoly { vertices, height, .. }: &StaticPoly) {
-        self.visit_floor_sky_poly(&SkyPoly {
-            vertices: vertices,
-            height: height,
-        });
-    }
-
-    fn visit_ceil_poly(&mut self, &StaticPoly { vertices, height, .. }: &StaticPoly) {
-        self.visit_ceil_sky_poly(&SkyPoly {
-            vertices: vertices,
-            height: height,
-        });
-    }
-
-    fn visit_wall_quad(&mut self,
-&StaticQuad { vertices, height_range, blocker, .. }: &StaticQuad){
-        if blocker {
-            self.visit_sky_quad(&SkyQuad {
-                vertices: vertices,
-                height_range: height_range,
-            });
-        }
-    }
-
-    fn visit_sky_quad(&mut self, quad: &SkyQuad) {
-        let &SkyQuad {
-            vertices: &(ref v1, ref v2),
-            height_range: (low, high),
-        } = quad;
-        let edge = (*v2 - *v1).normalized();
-        let normal = Vec3f::new(-edge[1], 0.0, edge[0]);
-        self.add_polygon(
-            [
-                Vec3f::new(v1[0], low, v1[1]),
-                Vec3f::new(v2[0], low, v2[1]),
-                Vec3f::new(v2[0], high, v2[1]),
-                Vec3f::new(v1[0], high, v1[1]),
-            ].iter()
-                .cloned(),
-            normal,
-        );
-    }
 }
 
 
 struct Chunk {
     tri_start: u32,
     tri_end: u32,
+}
+
+struct DynamicChunk {
+    chunk: Chunk,
+    inverse_transform: Transform,
 }
 
 struct Triangle {
@@ -304,3 +211,206 @@ type NodeIntersectIter = ::std::iter::Chain<
     ::std::option::IntoIter<Child>,
     ::std::option::IntoIter<Child>,
 >;
+
+pub struct WorldBuilder<'a> {
+    nodes: Vec<Node>,
+    chunks: Vec<Chunk>,
+    verts: Vec<Vec3f>,
+    node_stack: RefCell<Vec<usize>>,
+
+    triangles: VecMap<Vec<Triangle>>,
+    objects: &'a [EntityId],
+}
+
+impl<'a> WorldBuilder<'a> {
+    pub fn new(objects: &'a [EntityId]) -> Self {
+        let mut triangles = VecMap::with_capacity(objects.len() - 1);
+        triangles.insert(0, Vec::with_capacity(16_384));
+        WorldBuilder {
+            nodes: Vec::with_capacity(128),
+            chunks: Vec::with_capacity(128),
+            verts: Vec::with_capacity(4096),
+            node_stack: RefCell::new(Vec::with_capacity(32)),
+            triangles,
+            objects,
+        }
+    }
+
+    pub fn build(self) -> World {
+        let mut dynamic_chunks = IdMapVec::with_capacity(self.objects.len() - 1);
+        let mut triangles = Vec::with_capacity(
+            self.triangles
+                .values()
+                .map(|triangles| triangles.len())
+                .sum(),
+        );
+        for (i_object, object_triangles) in self.triangles {
+            let tri_start = triangles.len() as u32;
+            triangles.extend(object_triangles);
+            if i_object > 0 {
+                let tri_end = triangles.len() as u32;
+                dynamic_chunks.insert(
+                    self.objects[i_object],
+                    DynamicChunk {
+                        chunk: Chunk { tri_start, tri_end },
+                        inverse_transform: Transform::default(),
+                    },
+                );
+            }
+        }
+
+        World {
+            nodes: self.nodes,
+            chunks: self.chunks,
+            verts: self.verts,
+            node_stack: self.node_stack,
+            dynamic_chunks,
+            triangles,
+        }
+    }
+
+    fn link_child(&mut self, child: Child, branch: Branch) {
+        let parent_index = *self.node_stack.borrow().last().expect(
+            "called link_child on root node",
+        );
+        let parent = &mut self.nodes[parent_index];
+
+        match branch {
+            Branch::Positive => {
+                assert_eq!(parent.positive, 0);
+                parent.positive = child.pack();
+            }
+            Branch::Negative => {
+                assert_eq!(parent.negative, 0);
+                parent.negative = child.pack();
+            }
+        }
+    }
+
+    fn add_polygon<I: IntoIterator<Item = Vec3f>>(
+        &mut self,
+        object_id: ObjectId,
+        verts: I,
+        normal: Vec3f,
+    ) {
+        let triangles = &mut self.triangles.entry(object_id.0 as usize).or_insert_with(
+            || {
+                Vec::with_capacity(256)
+            },
+        );
+        let vert_start = self.verts.len() as u32;
+        self.verts.extend(verts);
+        let vert_end = self.verts.len() as u32;
+        self.verts.push(normal);
+        triangles.extend(((vert_start + 2)..vert_end).map(|i| {
+            Triangle {
+                v1: vert_start,
+                v2: i - 1,
+                v3: i,
+                normal: vert_end,
+            }
+        }));
+    }
+}
+
+impl<'a> LevelVisitor for WorldBuilder<'a> {
+    fn visit_bsp_root(&mut self, line: &Line2f) {
+        let index = self.nodes.len();
+        self.nodes.push(Node::new(*line));
+        self.node_stack.borrow_mut().push(index);
+    }
+
+    fn visit_bsp_node(&mut self, line: &Line2f, branch: Branch) {
+        let index = self.nodes.len();
+        self.nodes.push(Node::new(*line));
+        self.link_child(Child::Node(index), branch);
+        self.node_stack.borrow_mut().push(index);
+    }
+
+    fn visit_bsp_leaf(&mut self, branch: Branch) {
+        let index = self.chunks.len();
+        self.chunks.push(Chunk {
+            tri_start: self.triangles[0].len() as u32,
+            tri_end: self.triangles[0].len() as u32,
+        });
+        self.link_child(Child::Leaf(index), branch);
+    }
+
+    fn visit_bsp_leaf_end(&mut self) {
+        let chunk = self.chunks.last_mut().expect("missing chunk on end");
+        chunk.tri_end = self.triangles[0].len() as u32;
+    }
+
+    fn visit_bsp_node_end(&mut self) {
+        self.node_stack.borrow_mut().pop().expect(
+            "too many calls to visit_bsp_node_end",
+        );
+    }
+
+    fn visit_floor_sky_poly(&mut self, poly: &SkyPoly) {
+        self.add_polygon(
+            poly.object_id,
+            poly.vertices.iter().map(
+                |v| Vec3f::new(v[0], poly.height, v[1]),
+            ),
+            Vec3f::new(0.0, 1.0, 0.0),
+        );
+    }
+
+    fn visit_ceil_sky_poly(&mut self, poly: &SkyPoly) {
+        self.add_polygon(
+            poly.object_id,
+            poly.vertices.iter().rev().map(|v| {
+                Vec3f::new(v[0], poly.height, v[1])
+            }),
+            Vec3f::new(0.0, -1.0, 0.0),
+        );
+    }
+
+    fn visit_floor_poly(&mut self, poly: &StaticPoly) {
+        self.visit_floor_sky_poly(&SkyPoly {
+            vertices: poly.vertices,
+            height: poly.height,
+            object_id: poly.object_id,
+        });
+    }
+
+    fn visit_ceil_poly(&mut self, poly: &StaticPoly) {
+        self.visit_ceil_sky_poly(&SkyPoly {
+            object_id: poly.object_id,
+            vertices: poly.vertices,
+            height: poly.height,
+        });
+    }
+
+    fn visit_wall_quad(&mut self, quad: &StaticQuad) {
+        if quad.blocker {
+            self.visit_sky_quad(&SkyQuad {
+                object_id: quad.object_id,
+                vertices: quad.vertices,
+                height_range: quad.height_range,
+            });
+        }
+    }
+
+    fn visit_sky_quad(&mut self, quad: &SkyQuad) {
+        let &SkyQuad {
+            object_id,
+            vertices: &(ref v1, ref v2),
+            height_range: (low, high),
+        } = quad;
+        let edge = (*v2 - *v1).normalized();
+        let normal = Vec3f::new(-edge[1], 0.0, edge[0]);
+        self.add_polygon(
+            object_id,
+            [
+                Vec3f::new(v1[0], low, v1[1]),
+                Vec3f::new(v2[0], low, v2[1]),
+                Vec3f::new(v2[0], high, v2[1]),
+                Vec3f::new(v1[0], high, v1[1]),
+            ].iter()
+                .cloned(),
+            normal,
+        );
+    }
+}

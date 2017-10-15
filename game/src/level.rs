@@ -2,19 +2,18 @@ use super::errors::{Error, Result};
 use super::lights::Lights;
 use super::vertex::{StaticVertex, SkyVertex, SpriteVertex};
 use super::wad_system::WadSystem;
-use super::world::World;
+use super::world::{World, WorldBuilder};
 use engine::{Entities, Shaders, Uniforms, Materials, Meshes, Renderer, Window, ClientFormat,
              SamplerBehavior, SamplerWrapFunction, MinifySamplerFilter, MagnifySamplerFilter,
              Texture2dId, EntityId, PixelValue, FloatUniformId, MaterialId, BufferTextureId,
              BufferTextureType, ShaderId, System, Tick, Transforms};
-use math::{Vec2, Vec3f, Vec2f};
+use math::{Vec2, Vec3f, Vec2f, Transform, Line2f, Vector};
 use num::Zero;
 use time;
-use wad::{Decor, LevelVisitor, LevelWalker, LightInfo, Marker, SkyPoly, SkyQuad, StaticPoly};
-use wad::Level as WadLevel;
-use wad::StaticQuad;
-use wad::tex::Bounds as WadBounds;
-use wad::tex::BoundsLookup;
+use vec_map::VecMap;
+use wad::{Decor, LevelVisitor, LevelWalker, LightInfo, Marker, SkyPoly, SkyQuad, StaticPoly,
+          StaticQuad, Level as WadLevel, ObjectId, Trigger, TriggerType, LevelAnalysis};
+use wad::tex::{Bounds as WadBounds, BoundsLookup};
 use wad::types::{WadName, PALETTE_SIZE, COLORMAP_SIZE};
 use wad::util::{is_sky_flat, is_untextured};
 
@@ -24,6 +23,11 @@ pub struct Config {
 
 pub struct Level {
     root: EntityId,
+    objects: Vec<EntityId>,
+    triggers: Vec<Trigger>,
+    removed: Vec<usize>,
+    effects: VecMap<Effect>,
+
     start_pos: Vec3f,
     start_yaw: f32,
     lights: Lights,
@@ -50,6 +54,12 @@ derive_dependencies_from! {
     }
 }
 
+
+#[derive(Copy, Clone, Debug)]
+pub enum PlayerAction {
+    Push,
+    Shoot,
+}
 
 impl Level {
     pub fn level_index(&self) -> usize {
@@ -78,6 +88,83 @@ impl Level {
 
     pub fn volume(&self) -> &World {
         &self.volume
+    }
+
+    pub fn poll_triggers(
+        &mut self,
+        transform: &Transform,
+        moved: &Vec3f,
+        action: Option<PlayerAction>,
+    ) {
+        let position = transform.translation;
+        let position = Vec2f::new(position[0], position[2]);
+        let walked = Line2f::from_origin_and_displace(position, Vec2f::new(-moved[0], -moved[2]));
+        let action_and_line = action.map(|action| {
+            let look3d = transform.rotation.look_vector();
+            let look2d = Vec2f::new(look3d[0], look3d[2]).normalized();
+            let ranged = look2d *
+                match action {
+                    PlayerAction::Push => 0.5,
+                    PlayerAction::Shoot => 100.0,
+                };
+            (action, Line2f::from_origin_and_displace(position, ranged))
+        });
+
+        for (i_trigger, trigger) in self.triggers.iter().enumerate() {
+            let mut triggered = false;
+            match trigger.trigger_type {
+                TriggerType::WalkOver => {
+                    if let Some(offset) = walked.segment_intersect_offset(&trigger.line) {
+                        debug!("Trigger {} walk-activated offset={}", i_trigger, offset);
+                        triggered = true;
+                    }
+                }
+                TriggerType::Push | TriggerType::Switch => {
+                    if let Some((PlayerAction::Push, line)) = action_and_line {
+                        if let Some(offset) = line.segment_intersect_offset(&trigger.line) {
+                            debug!("Trigger {} push-activated offset={}", i_trigger, offset);
+                            triggered = true;
+                        }
+                    }
+                }
+                TriggerType::Gun => {
+                    if let Some((PlayerAction::Shoot, line)) = action_and_line {
+                        if let Some(offset) = line.segment_intersect_offset(&trigger.line) {
+                            debug!("Trigger {} shoot-activated offset={}", i_trigger, offset);
+                            triggered = true;
+                        }
+                    }
+                }
+            };
+            if triggered {
+                for effect in &trigger.move_effects {
+                    let effect_index = effect.object_id.0 as usize;
+                    debug!("Started effect {}.", effect_index);
+                    self.effects.insert(
+                        effect_index,
+                        Effect {
+                            move_speed: trigger.move_speed,
+                            wait_duration: trigger.wait_duration,
+                            first_height_offset: effect.first_height_offset,
+                            second_height_offset: effect.second_height_offset,
+                        },
+                    );
+                }
+
+                if trigger.only_once {
+                    self.removed.push(i_trigger);
+                }
+
+                if trigger.exit_effect.is_some() {
+                    self.next_index = self.current_index + 1;
+                }
+            }
+        }
+
+        for &i_removed in self.removed.iter().rev() {
+            self.triggers.swap_remove(i_removed);
+        }
+        self.removed.clear()
     }
 
     fn load(mut deps: Dependencies) -> Result<Self> {
@@ -135,11 +222,67 @@ impl<'context> System<'context> for Level {
             }
         }
 
+        self.volume.update(deps.transforms);
+        let timestep = deps.tick.timestep();
+        for (i_effect, effect) in &mut self.effects {
+            let entity_id = self.objects[i_effect];
+            let transform = deps.transforms.get_local_mut(entity_id).expect(
+                "no transform on object",
+            );
+            let current_offset = &mut transform.translation[1];
+            let mut timestep = timestep;
+
+            loop {
+                if effect.first_height_offset != *current_offset {
+                    let offset_difference = effect.first_height_offset - *current_offset;
+                    let sign = offset_difference.signum();
+                    let time_left = offset_difference.abs() / effect.move_speed;
+                    if time_left > timestep {
+                        *current_offset += sign * effect.move_speed * timestep;
+                        break;
+                    } else {
+                        *current_offset = effect.first_height_offset;
+                        timestep -= time_left;
+                        effect.first_height_offset = *current_offset;
+                        debug!("Effect {}: finished first offset.", i_effect);
+                    }
+                }
+
+                if effect.wait_duration > timestep {
+                    effect.wait_duration -= timestep;
+                    break;
+                } else {
+                    debug!("Effect {}: finished waiting.", i_effect);
+                    timestep -= effect.wait_duration;
+                    effect.wait_duration = 0.0;
+                }
+
+                if let Some(offset) = effect.second_height_offset.take() {
+                    effect.first_height_offset = offset;
+                    debug!(
+                        "Effect {}: moved second offset {} into first.",
+                        i_effect,
+                        offset
+                    );
+                    continue;
+                }
+
+                debug!("Effect {}: done, removing.", i_effect);
+                self.removed.push(i_effect);
+                break;
+            }
+        }
+
+        for &i_removed in self.removed.iter() {
+            self.effects.remove(i_removed);
+        }
+        self.removed.clear();
+
         let time = {
             let time = deps.uniforms.get_float_mut(self.uniforms.time).expect(
                 "time",
             );
-            *time += deps.tick.timestep();
+            *time += timestep;
             *time
         };
         let light_infos = &mut self.lights;
@@ -156,6 +299,13 @@ impl<'context> System<'context> for Level {
         let _ = deps.entities.remove(self.root);
         Ok(())
     }
+}
+
+struct Effect {
+    wait_duration: f32,
+    move_speed: f32,
+    first_height_offset: f32,
+    second_height_offset: Option<f32>,
 }
 
 impl<'context> Dependencies<'context> {
@@ -510,6 +660,37 @@ struct Atlas {
     bounds: BoundsLookup,
 }
 
+struct Indices {
+    wall: Vec<u32>,
+    flat: Vec<u32>,
+    sky: Vec<u32>,
+    decor: Vec<u32>,
+}
+
+impl Indices {
+    fn for_id(id: ObjectId) -> Self {
+        if id == ObjectId(0) {
+            Self::with_capacity(65_536)
+        } else {
+            Self::with_capacity(512)
+        }
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        Indices {
+            wall: Vec::with_capacity(capacity),
+            flat: Vec::with_capacity(capacity),
+            sky: Vec::with_capacity(capacity),
+            decor: Vec::with_capacity(capacity),
+        }
+    }
+
+    fn in_map(indices: &mut VecMap<Self>, object_id: ObjectId) -> &mut Self {
+        indices.entry(object_id.0 as usize).or_insert_with(|| {
+            Self::for_id(object_id)
+        })
+    }
+}
 
 struct Builder<'a, 'context: 'a> {
     deps: &'a mut Dependencies<'context>,
@@ -524,10 +705,7 @@ struct Builder<'a, 'context: 'a> {
     sky_vertices: Vec<SkyVertex>,
     decor_vertices: Vec<SpriteVertex>,
 
-    wall_indices: Vec<u32>,
-    flat_indices: Vec<u32>,
-    sky_indices: Vec<u32>,
-    decor_indices: Vec<u32>,
+    object_indices: VecMap<Indices>,
 
     num_wall_quads: usize,
     num_floor_polys: usize,
@@ -545,7 +723,27 @@ impl<'a, 'context> Builder<'a, 'context> {
         material_data: MaterialData,
         wad_level: &WadLevel,
     ) -> Result<Level> {
-        let mut volume = World::new();
+        info!("Analysing level...");
+        let start_time = time::precise_time_s();
+        let mut analysis = LevelAnalysis::new(wad_level);
+        let mut objects = Vec::new();
+        let world = deps.entities.add(root, "world")?;
+        deps.transforms.attach_identity(world);
+        objects.extend((0..analysis.num_objects()).map(|i_object| {
+            let entity = deps.entities
+                .add(
+                    world,
+                    if i_object == 0 {
+                        "static_object"
+                    } else {
+                        "dynamic_object"
+                    },
+                )
+                .expect("add entity to world");
+            deps.transforms.attach_identity(entity);
+            entity
+        }));
+
         let mut builder = Builder {
             deps,
             materials: material_data.materials,
@@ -559,10 +757,7 @@ impl<'a, 'context> Builder<'a, 'context> {
             sky_vertices: Vec::with_capacity(16_384),
             decor_vertices: Vec::with_capacity(16_384),
 
-            wall_indices: Vec::with_capacity(65_536),
-            flat_indices: Vec::with_capacity(65_536),
-            sky_indices: Vec::with_capacity(65_536),
-            decor_indices: Vec::with_capacity(65_536),
+            object_indices: VecMap::new(),
 
             num_wall_quads: 0,
             num_floor_polys: 0,
@@ -572,14 +767,20 @@ impl<'a, 'context> Builder<'a, 'context> {
             num_sky_ceil_polys: 0,
             num_decors: 0,
         };
+
         info!("Walking level...");
-        let start_time = time::precise_time_s();
-        LevelWalker::new(
-            wad_level,
-            &builder.deps.wad.textures,
-            builder.deps.wad.archive.metadata(),
-            &mut builder.chain(&mut volume),
-        ).walk();
+        let volume = {
+            let mut world_builder = WorldBuilder::new(&objects);
+            LevelWalker::new(
+                wad_level,
+                &analysis,
+                &builder.deps.wad.textures,
+                builder.deps.wad.archive.metadata(),
+                &mut builder.chain(&mut world_builder),
+            ).walk();
+            world_builder.build()
+        };
+
         info!(
             "Level built in {:.2}ms:\n\
             \tnum_wall_quads = {}\n\
@@ -600,87 +801,123 @@ impl<'a, 'context> Builder<'a, 'context> {
             builder.num_sky_floor_polys,
             builder.num_sky_ceil_polys,
             builder.num_decors,
-            (builder.wall_indices.len() + builder.flat_indices.len()) / 3,
-            builder.sky_indices.len() / 3,
-            builder.decor_indices.len() / 3
+            builder.object_indices.values().map(|indices| {
+                indices.wall.len() +
+                indices.flat.len()
+            }).sum::<usize>() / 3,
+            builder.object_indices.values().map(|indices| {
+                indices.sky.len()
+            }).sum::<usize>() / 3,
+            builder.object_indices.values().map(|indices| {
+                indices.decor.len()
+            }).sum::<usize>() / 3,
         );
 
         let deps = builder.deps;
         info!("Creating static meshes and models...");
-        let statics = deps.entities.add(root, "statics")?;
-        let static_mesh = deps.meshes.add_immutable::<_, u8>(
+        let global_static_mesh = deps.meshes.add_immutable::<_, u8>(
             deps.window,
             deps.entities,
-            statics,
-            "static_mesh",
+            root,
+            "global_world_static_mesh",
             &builder.static_vertices,
             None,
         )?;
-        let flats_mesh = deps.meshes.add_immutable_indices(
+        let global_sky_mesh = deps.meshes.add_immutable::<_, u8>(
             deps.window,
             deps.entities,
-            static_mesh,
-            "flats_mesh",
-            &builder.flat_indices,
-        )?;
-        let flats = deps.entities.add(statics, "flats")?;
-        deps.transforms.attach_identity(flats);
-        deps.renderer.attach_model(
-            flats,
-            flats_mesh,
-            builder.materials.flats.material,
-        )?;
-
-        let walls_mesh = deps.meshes.add_immutable_indices(
-            deps.window,
-            deps.entities,
-            static_mesh,
-            "walls_mesh",
-            &builder.wall_indices,
-        )?;
-        let walls = deps.entities.add(statics, "walls")?;
-        deps.transforms.attach_identity(walls);
-        deps.renderer.attach_model(
-            walls,
-            walls_mesh,
-            builder.materials.walls.material,
-        )?;
-
-        let decor = deps.entities.add(statics, "decor")?;
-        let decor_mesh = deps.meshes.add_immutable(
-            deps.window,
-            deps.entities,
-            decor,
-            "decor_mesh",
-            &builder.decor_vertices,
-            Some(&builder.decor_indices),
-        )?;
-        deps.transforms.attach_identity(decor);
-        deps.renderer.attach_model(
-            decor,
-            decor_mesh,
-            builder.materials.decor.material,
-        )?;
-
-        let sky = deps.entities.add(statics, "sky")?;
-        let sky_mesh = deps.meshes.add_immutable(
-            deps.window,
-            deps.entities,
-            sky,
-            "sky_mesh",
+            root,
+            "global_world_sky_mesh",
             &builder.sky_vertices,
-            Some(&builder.sky_indices),
+            None,
         )?;
-        deps.transforms.attach_identity(sky);
-        deps.renderer.attach_model(
-            sky,
-            sky_mesh,
-            builder.materials.sky,
+        let global_decor_mesh = deps.meshes.add_immutable::<_, u8>(
+            deps.window,
+            deps.entities,
+            root,
+            "global_world_decor_mesh",
+            &builder.decor_vertices,
+            None,
         )?;
+
+        for (id, indices) in &builder.object_indices {
+            let object = objects[id];
+            if !indices.flat.is_empty() {
+                let flats_mesh = deps.meshes.add_immutable_indices(
+                    deps.window,
+                    deps.entities,
+                    global_static_mesh,
+                    "object_flats_mesh",
+                    &indices.flat,
+                )?;
+                let flats = deps.entities.add(object, "flats")?;
+                deps.transforms.attach_identity(flats);
+                deps.renderer.attach_model(
+                    flats,
+                    flats_mesh,
+                    builder.materials.flats.material,
+                )?;
+            }
+
+            if !indices.wall.is_empty() {
+                let walls_mesh = deps.meshes.add_immutable_indices(
+                    deps.window,
+                    deps.entities,
+                    global_static_mesh,
+                    "object_walls_mesh",
+                    &indices.wall,
+                )?;
+                let walls = deps.entities.add(object, "walls")?;
+                deps.transforms.attach_identity(walls);
+                deps.renderer.attach_model(
+                    walls,
+                    walls_mesh,
+                    builder.materials.walls.material,
+                )?;
+            }
+
+            if !indices.decor.is_empty() {
+                let decor_mesh = deps.meshes.add_immutable_indices(
+                    deps.window,
+                    deps.entities,
+                    global_decor_mesh,
+                    "object_decor_mesh",
+                    &indices.decor,
+                )?;
+                let decor = deps.entities.add(object, "decor")?;
+                deps.transforms.attach_identity(decor);
+                deps.renderer.attach_model(
+                    decor,
+                    decor_mesh,
+                    builder.materials.decor.material,
+                )?;
+            }
+
+            if !indices.sky.is_empty() {
+                let sky_mesh = deps.meshes.add_immutable_indices(
+                    deps.window,
+                    deps.entities,
+                    global_sky_mesh,
+                    "object_sky_mesh",
+                    &indices.sky,
+                )?;
+                let sky = deps.entities.add(object, "sky")?;
+                deps.transforms.attach_identity(sky);
+                deps.renderer.attach_model(
+                    sky,
+                    sky_mesh,
+                    builder.materials.sky,
+                )?;
+            }
+        }
 
         Ok(Level {
             root,
             volume,
+            objects,
+            triggers: analysis.take_triggers(),
+            removed: Vec::with_capacity(128),
+            effects: VecMap::new(),
             start_pos: builder.start_pos,
             start_yaw: builder.start_yaw,
             lights: builder.lights,
@@ -757,28 +994,41 @@ impl<'a, 'context> Builder<'a, 'context> {
         self
     }
 
-    fn flat_poly(&mut self, poly_length: usize) {
+    fn flat_poly(&mut self, object_id: ObjectId, poly_length: usize) {
         Self::any_poly(
             self.static_vertices.len(),
             poly_length,
-            &mut self.flat_indices,
+            &mut Indices::in_map(&mut self.object_indices, object_id).flat,
         );
     }
 
-    fn wall_quad(&mut self) {
-        Self::any_quad(self.static_vertices.len(), &mut self.wall_indices);
+    fn wall_quad(&mut self, object_id: ObjectId) {
+        Self::any_quad(
+            self.static_vertices.len(),
+            &mut Indices::in_map(&mut self.object_indices, object_id).wall,
+        );
     }
 
-    fn sky_poly(&mut self, poly_length: usize) {
-        Self::any_poly(self.sky_vertices.len(), poly_length, &mut self.sky_indices);
+    fn sky_poly(&mut self, object_id: ObjectId, poly_length: usize) {
+        Self::any_poly(
+            self.sky_vertices.len(),
+            poly_length,
+            &mut Indices::in_map(&mut self.object_indices, object_id).sky,
+        );
     }
 
-    fn sky_quad(&mut self) {
-        Self::any_quad(self.sky_vertices.len(), &mut self.sky_indices);
+    fn sky_quad(&mut self, object_id: ObjectId) {
+        Self::any_quad(
+            self.sky_vertices.len(),
+            &mut Indices::in_map(&mut self.object_indices, object_id).sky,
+        );
     }
 
-    fn decor_quad(&mut self) {
-        Self::any_quad(self.decor_vertices.len(), &mut self.decor_indices);
+    fn decor_quad(&mut self, object_id: ObjectId) {
+        Self::any_quad(
+            self.decor_vertices.len(),
+            &mut Indices::in_map(&mut self.object_indices, object_id).decor,
+        );
     }
 
     fn add_light_info(&mut self, light_info: &LightInfo) -> u8 {
@@ -819,6 +1069,7 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
     fn visit_wall_quad(&mut self, quad: &StaticQuad) {
         self.num_wall_quads += 1;
         let &StaticQuad {
+            object_id,
             tex_name,
             light_info,
             scroll,
@@ -845,12 +1096,13 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
             .wall_vertex(v2, low, s2, t1, light_info, scroll, &bounds)
             .wall_vertex(v2, high, s2, t2, light_info, scroll, &bounds)
             .wall_vertex(v1, high, s1, t2, light_info, scroll, &bounds)
-            .wall_quad();
+            .wall_quad(object_id);
     }
 
     fn visit_floor_poly(&mut self, poly: &StaticPoly) {
         self.num_floor_polys += 1;
         let &StaticPoly {
+            object_id,
             vertices,
             height,
             light_info,
@@ -866,12 +1118,13 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
         for vertex in vertices {
             self.flat_vertex(vertex, height, light_info, &bounds);
         }
-        self.flat_poly(vertices.len());
+        self.flat_poly(object_id, vertices.len());
     }
 
     fn visit_ceil_poly(&mut self, poly: &StaticPoly) {
         self.num_ceil_polys += 1;
         let &StaticPoly {
+            object_id,
             vertices,
             height,
             light_info,
@@ -887,28 +1140,29 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
         for vertex in vertices.iter().rev() {
             self.flat_vertex(vertex, height, light_info, &bounds);
         }
-        self.flat_poly(vertices.len());
+        self.flat_poly(object_id, vertices.len());
     }
 
-    fn visit_floor_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
+    fn visit_floor_sky_poly(&mut self, poly: &SkyPoly) {
         self.num_sky_floor_polys += 1;
-        for vertex in vertices {
-            self.sky_vertex(vertex, height);
+        for vertex in poly.vertices {
+            self.sky_vertex(vertex, poly.height);
         }
-        self.sky_poly(vertices.len());
+        self.sky_poly(poly.object_id, poly.vertices.len());
     }
 
-    fn visit_ceil_sky_poly(&mut self, &SkyPoly { vertices, height }: &SkyPoly) {
+    fn visit_ceil_sky_poly(&mut self, poly: &SkyPoly) {
         self.num_sky_ceil_polys += 1;
-        for vertex in vertices.iter().rev() {
-            self.sky_vertex(vertex, height);
+        for vertex in poly.vertices.iter().rev() {
+            self.sky_vertex(vertex, poly.height);
         }
-        self.sky_poly(vertices.len());
+        self.sky_poly(poly.object_id, poly.vertices.len());
     }
 
     fn visit_sky_quad(&mut self, quad: &SkyQuad) {
         self.num_sky_wall_quads += 1;
         let &SkyQuad {
+            object_id,
             vertices: &(ref v1, ref v2),
             height_range: (low, high),
         } = quad;
@@ -916,7 +1170,7 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
             .sky_vertex(v2, low)
             .sky_vertex(v2, high)
             .sky_vertex(v1, high)
-            .sky_quad();
+            .sky_quad(object_id);
     }
 
     fn visit_marker(&mut self, pos: Vec3f, yaw: f32, marker: Marker) {
@@ -929,6 +1183,7 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
     fn visit_decor(&mut self, decor: &Decor) {
         self.num_decors += 1;
         let &Decor {
+            object_id,
             low,
             high,
             half_width,
@@ -953,6 +1208,6 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
             )
             .decor_vertex(high, half_width, bounds.size[0], 0.0, &bounds, light_info)
             .decor_vertex(high, -half_width, 0.0, 0.0, &bounds, light_info)
-            .decor_quad();
+            .decor_quad(object_id);
     }
 }

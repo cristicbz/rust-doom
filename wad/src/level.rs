@@ -1,10 +1,12 @@
 use super::archive::Archive;
 use super::error::Result;
 use super::types::{LightLevel, SectorId, VertexId, WadNode, WadSector};
-use super::types::{WadLinedef, WadSeg, WadSidedef, WadSubsector, WadThing, WadVertex};
+use super::types::{WadLinedef, WadSeg, WadSidedef, WadSubsector, WadThing, WadVertex, WadCoord};
 use super::util::from_wad_coords;
 use math::Vec2f;
+use std::cmp;
 use std::mem;
+use std::slice::Iter as SliceIter;
 use std::vec::Vec;
 
 const THINGS_OFFSET: usize = 1;
@@ -157,33 +159,94 @@ impl Level {
         sector_id as SectorId
     }
 
-    pub fn sector_min_light(&self, sector: &WadSector) -> LightLevel {
-        let mut min_light = sector.light;
-        let sector_id = self.sector_id(sector);
-        for line in &self.linedefs {
-            let left = match self.left_sidedef(line) {
+    pub fn adjacent_sectors(&self, sector: &WadSector) -> AdjacentSectorsIter {
+        AdjacentSectorsIter {
+            level: self,
+            sector_id: self.sector_id(sector),
+            linedefs: self.linedefs.iter(),
+        }
+    }
+
+    pub fn sector_min_light(&self, of: &WadSector) -> LightLevel {
+        self.adjacent_sectors(of).map(|sector| sector.light).fold(
+            of.light,
+            cmp::min,
+        )
+    }
+
+    pub fn neighbour_heights(&self, of: &WadSector) -> Option<NeighbourHeights> {
+        let of_floor = of.floor_height;
+        self.adjacent_sectors(of).fold(None, |heights, sector| {
+            let (floor, ceiling) = (sector.floor_height, sector.ceiling_height);
+            Some(match heights {
+                Some(heights) => NeighbourHeights {
+                    lowest_floor: heights.lowest_floor.min(floor),
+                    highest_floor: heights.highest_floor.max(floor),
+                    lowest_ceiling: heights.lowest_ceiling.min(ceiling),
+                    highest_ceiling: heights.highest_ceiling.max(ceiling),
+
+                    next_floor: if floor <= of_floor {
+                        heights.next_floor
+                    } else if let Some(next_floor) = heights.next_floor {
+                        Some(next_floor.min(floor))
+                    } else {
+                        Some(floor)
+                    },
+                },
+                None => NeighbourHeights {
+                    lowest_floor: floor,
+                    highest_floor: floor,
+                    lowest_ceiling: ceiling,
+                    highest_ceiling: ceiling,
+                    next_floor: if floor > of_floor { Some(floor) } else { None },
+                },
+            })
+        })
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct NeighbourHeights {
+    pub lowest_floor: WadCoord,
+    pub next_floor: Option<WadCoord>,
+    pub highest_floor: WadCoord,
+    pub lowest_ceiling: WadCoord,
+    pub highest_ceiling: WadCoord,
+}
+
+pub struct AdjacentSectorsIter<'a> {
+    level: &'a Level,
+    sector_id: SectorId,
+    linedefs: SliceIter<'a, WadLinedef>,
+}
+
+impl<'a> Iterator for AdjacentSectorsIter<'a> {
+    type Item = &'a WadSector;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // TODO(cristicbz): Precompute an adjacency matrix for sectors.
+        while let Some(line) = self.linedefs.next() {
+            let left = match self.level.left_sidedef(line) {
                 Some(l) => l.sector,
                 None => continue,
             };
-            let right = match self.right_sidedef(line) {
+            let right = match self.level.right_sidedef(line) {
                 Some(r) => r.sector,
                 None => continue,
             };
-            let adjacent_light = if left == sector_id {
-                self.sectors.get(right as usize).map(|s| s.light)
-            } else if right == sector_id {
-                self.sectors.get(left as usize).map(|s| s.light)
+            let adjacent = if left == self.sector_id {
+                self.level.sectors.get(right as usize)
+            } else if right == self.sector_id {
+                self.level.sectors.get(left as usize)
             } else {
                 continue;
             };
-            if let Some(light) = adjacent_light {
-                if light < min_light {
-                    min_light = light;
-                }
+            if adjacent.is_some() {
+                return adjacent;
             } else {
-                warn!("Bad WAD: Cannot access all adjacent sectors to find minimum light.");
+                error!("Bad WAD: Cannot access all adjacent sectors to find minimum light.");
             }
         }
-        min_light
+        None
     }
 }
