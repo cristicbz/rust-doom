@@ -1,10 +1,6 @@
 use super::types::WadTextureHeader;
 use byteorder::{ReadBytesExt, LittleEndian};
 use math::Vec2;
-use sdl2::pixels::PixelFormatEnum;
-use sdl2::surface::Surface;
-use std::fmt::Debug;
-use std::path::Path;
 use std::vec::Vec;
 
 pub mod error {
@@ -265,32 +261,32 @@ impl Image {
         self.pixels
     }
 
-    pub fn save_bmp<P: AsRef<Path> + Debug>(
-        &self,
-        palette: &[[u8; 3]; 256],
-        path: &P,
-    ) -> Result<()> {
-        let mut pixels = vec![0u8; 3 * self.width * self.height];
-        for (index, pixel) in self.pixels.iter().enumerate() {
-            let pixel = palette[(pixel & 0xff) as usize];
-            pixels[index * 3] = pixel[2];
-            pixels[index * 3 + 1] = pixel[1];
-            pixels[index * 3 + 2] = pixel[0];
-        }
-        let surface = Surface::from_data(
-            &mut pixels[..],
-            self.width as u32,
-            self.height as u32,
-            self.width as u32 * 3,
-            PixelFormatEnum::BGR24,
-        ).map_err(|error| {
-            ErrorKind::from(format!("failed to create surface: {}", error))
-        })?;
+    //pub fn save_bmp<P: AsRef<Path> + Debug>(
+    //    &self,
+    //    palette: &[[u8; 3]; 256],
+    //    path: &P,
+    //) -> Result<()> {
+    //    let mut pixels = vec![0u8; 3 * self.width * self.height];
+    //    for (index, pixel) in self.pixels.iter().enumerate() {
+    //        let pixel = palette[(pixel & 0xff) as usize];
+    //        pixels[index * 3] = pixel[2];
+    //        pixels[index * 3 + 1] = pixel[1];
+    //        pixels[index * 3 + 2] = pixel[0];
+    //    }
+    //    let surface = Surface::from_data(
+    //        &mut pixels[..],
+    //        self.width as u32,
+    //        self.height as u32,
+    //        self.width as u32 * 3,
+    //        PixelFormatEnum::BGR24,
+    //    ).map_err(|error| {
+    //        ErrorKind::from(format!("failed to create surface: {}", error))
+    //    })?;
 
-        surface.save_bmp(path).map_err(|error| {
-            ErrorKind::from(format!("failed to save bmp to {:?}: {}", path, error))
-        })?;
+    //    surface.save_bmp(path).map_err(|error| {
+    //        ErrorKind::from(format!("failed to save bmp to {:?}: {}", path, error))
+    //    })?;
 
-        Ok(())
-    }
+    //    Ok(())
+    //}
 }

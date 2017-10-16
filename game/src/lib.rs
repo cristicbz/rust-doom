@@ -6,17 +6,20 @@ extern crate error_chain;
 #[macro_use]
 extern crate log;
 
-extern crate num;
-extern crate time;
-
-extern crate wad;
-extern crate math;
-
 #[macro_use]
 extern crate engine;
 
+// TODO(cristicbz): This is only needed because of the lack of `macro_reexport`.
 #[macro_use]
 extern crate glium;
+
+extern crate idcontain;
+extern crate num;
+extern crate time;
+extern crate vec_map;
+
+extern crate wad;
+extern crate math;
 
 mod level;
 mod lights;

@@ -10,7 +10,6 @@ extern crate byteorder;
 extern crate num;
 extern crate ordermap;
 extern crate regex;
-extern crate sdl2;
 extern crate serde;
 extern crate time;
 extern crate toml;
@@ -41,5 +40,6 @@ pub use meta::ThingMetadata;
 pub use meta::WadMetadata;
 pub use name::WadName;
 pub use tex::TextureDirectory;
-pub use visitor::{Branch, LevelVisitor, LevelWalker, Marker, StaticQuad, StaticPoly, SkyQuad};
-pub use visitor::{SkyPoly, Decor};
+pub use visitor::{Branch, LevelVisitor, LevelWalker, LevelAnalysis, Marker, StaticQuad,
+                  StaticPoly, SkyQuad, SkyPoly, Decor, ObjectId, Trigger, MoveEffect,
+                  MoveEffectDef, TriggerType};

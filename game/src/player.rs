@@ -1,6 +1,6 @@
-use super::level::Level;
+use super::level::{Level, PlayerAction};
 use engine::{Analog2d, Gesture, Input, Scancode, Transforms, EntityId, Window, Entities,
-             Projections, InfallibleSystem, Projection, Renderer, Tick};
+             Projections, InfallibleSystem, Projection, Renderer, Tick, MouseButton};
 use math::{Sphere, Vec3f, Vector, Transform, EulerAngles, Quat, Vec3};
 use num::Zero;
 use std::f32::consts::PI;
@@ -11,6 +11,8 @@ pub struct Bindings {
     pub jump: Gesture,
     pub fly: Gesture,
     pub clip: Gesture,
+    pub push: Gesture,
+    pub shoot: Gesture,
 }
 
 impl Default for Bindings {
@@ -32,10 +34,12 @@ impl Default for Bindings {
                         y_negative: Gesture::KeyHold(Scancode::Up),
                         step: 0.015,
                     },
-                    Analog2d::Mouse { sensitivity: 0.0015 },
+                    Analog2d::Mouse { sensitivity: 0.004 },
                 ],
             },
             jump: Gesture::KeyHold(Scancode::Space),
+            push: Gesture::KeyTrigger(Scancode::E),
+            shoot: Gesture::ButtonTrigger(MouseButton::Left),
             fly: Gesture::KeyTrigger(Scancode::F),
             clip: Gesture::KeyTrigger(Scancode::C),
         }
@@ -95,7 +99,7 @@ derive_dependencies_from! {
         projections: &'context mut Projections,
         renderer: &'context mut Renderer,
 
-        level: &'context Level,
+        level: &'context mut Level,
     }
 }
 
@@ -380,6 +384,18 @@ impl<'context> InfallibleSystem<'context> for Player {
 
         transform.translation = head.center;
         self.velocity = self.velocity + force * delta_time;
+
+        deps.level.poll_triggers(
+            &transform,
+            &(self.velocity * delta_time),
+            if deps.input.poll_gesture(&deps.bindings.push) {
+                Some(PlayerAction::Push)
+            } else if deps.input.poll_gesture(&deps.bindings.shoot) {
+                Some(PlayerAction::Shoot)
+            } else {
+                None
+            },
+        );
     }
 
     fn teardown(&mut self, deps: Dependencies) {
