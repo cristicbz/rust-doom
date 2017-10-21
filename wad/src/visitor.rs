@@ -6,8 +6,8 @@ use super::types::{ChildId, ThingType, WadCoord, WadName, WadNode, WadSector, Wa
                    SectorId, WadLinedef};
 use super::util::{from_wad_coords, to_wad_height, from_wad_height, is_sky_flat, is_untextured,
                   parse_child_id};
-use math::{Line2f, Vec2f, Vec3f, Vector};
-use num::Zero;
+use math::{Line2f, Vec2f, Pnt2f, Deg, Radf, Pnt3f};
+use math::prelude::*;
 use ordermap::OrderMap;
 use std::cmp;
 use std::cmp::Ordering;
@@ -17,7 +17,7 @@ use vec_map::VecMap;
 
 pub struct StaticQuad<'a> {
     pub object_id: ObjectId,
-    pub vertices: &'a (Vec2f, Vec2f),
+    pub vertices: (Pnt2f, Pnt2f),
     pub tex_start: (f32, f32),
     pub tex_end: (f32, f32),
     pub height_range: (f32, f32),
@@ -29,28 +29,28 @@ pub struct StaticQuad<'a> {
 
 pub struct StaticPoly<'a> {
     pub object_id: ObjectId,
-    pub vertices: &'a [Vec2f],
+    pub vertices: &'a [Pnt2f],
     pub height: f32,
     pub light_info: &'a LightInfo,
     pub tex_name: &'a WadName,
 }
 
-pub struct SkyQuad<'a> {
+pub struct SkyQuad {
     pub object_id: ObjectId,
-    pub vertices: &'a (Vec2f, Vec2f),
+    pub vertices: (Pnt2f, Pnt2f),
     pub height_range: (f32, f32),
 }
 
 pub struct SkyPoly<'a> {
     pub object_id: ObjectId,
-    pub vertices: &'a [Vec2f],
+    pub vertices: &'a [Pnt2f],
     pub height: f32,
 }
 
 pub struct Decor<'a> {
     pub object_id: ObjectId,
-    pub low: &'a Vec3f,
-    pub high: &'a Vec3f,
+    pub low: Pnt3f,
+    pub high: Pnt3f,
     pub half_width: f32,
     pub light_info: &'a LightInfo,
     pub tex_name: &'a WadName,
@@ -81,7 +81,7 @@ pub trait LevelVisitor: Sized {
         // Default impl is empty to allow visitors to mix and match.
     }
 
-    fn visit_marker(&mut self, _pos: Vec3f, _yaw: f32, _marker: Marker) {
+    fn visit_marker(&mut self, _pos: Pnt3f, _yaw: Radf, _marker: Marker) {
         // Default impl is empty to allow visitors to mix and match.
     }
 
@@ -836,7 +836,7 @@ pub struct LevelWalker<'a, V: LevelVisitor + 'a> {
 
     // The vector contains all (2D) points which are part of the subsector:
     // implicit (intersection of BSP lines) and explicit (seg vertices).
-    subsector_points: Vec<Vec2f>,
+    subsector_points: Vec<Pnt2f>,
     subsector_seg_lines: Vec<Line2f>,
 
     // A cache of computed LightInfo per sector, to avoid recalculating.
@@ -1011,7 +1011,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                     None => continue,
                 };
 
-                let dist = |l: &Line2f| l.signed_distance(&point);
+                let dist = |l: &Line2f| l.signed_distance(point);
                 let within_bsp = |d: f32| d >= -BSP_TOLERANCE;
                 let within_seg = |d: f32| d <= SEG_TOLERANCE;
                 // The intersection point must lie both within the BSP volume
@@ -1047,7 +1047,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         sector: &WadSector,
         info: &SectorInfo,
         seg: &WadSeg,
-        vertices: (Vec2f, Vec2f),
+        vertices: (Pnt2f, Pnt2f),
     ) {
         let line = if let Some(line) = self.level.seg_linedef(seg) {
             line
@@ -1187,7 +1187,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let size = if is_untextured(texture_name) {
             None
         } else if let Some(image) = self.tex.texture(texture_name) {
-            Some(Vec2f::new(image.width() as f32, image.height() as f32))
+            Some(Pnt2f::new(image.width() as f32, image.height() as f32))
         } else {
             warn!("wall_quad: No such wall texture '{}'", texture_name);
             return;
@@ -1204,8 +1204,8 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             warn!("Missing sidedef for seg, skipping wall.");
             return;
         };
-        let bias = (v2 - v1).normalized() * POLY_BIAS;
-        let (v1, v2) = (v1 - bias, v2 + bias);
+        let bias = (v2 - v1).normalize_or_zero() * POLY_BIAS;
+        let (v1, v2) = (v1 + (-bias), v2 + bias);
         let (low, high) = match (size, peg) {
             (Some(size), Peg::TopFloat) => {
                 (
@@ -1240,7 +1240,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
 
         let height = to_wad_height(high - low);
         let s1 = f32::from(seg.offset) + f32::from(sidedef.x_offset);
-        let s2 = s1 + to_wad_height((v2 - v1).norm());
+        let s2 = s1 + to_wad_height((v2 - v1).magnitude());
         let (t1, t2) = match (size, peg) {
             (Some(_), Peg::Top) |
             (None, _) => (height, 0.0),
@@ -1264,7 +1264,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let (low, high) = (low - POLY_BIAS, high + POLY_BIAS);
 
         self.visitor.visit_wall_quad(&StaticQuad {
-            vertices: &(v1, v2),
+            vertices: (v1, v2),
             tex_start: (s1, t1),
             tex_end: (s2, t2),
             height_range: (low, high),
@@ -1327,22 +1327,22 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
     fn sky_quad(
         &mut self,
         object_id: ObjectId,
-        (v1, v2): (Vec2f, Vec2f),
+        (v1, v2): (Pnt2f, Pnt2f),
         (low, high): (WadCoord, WadCoord),
     ) {
         if low >= high {
             return;
         }
-        let edge = (v2 - v1).normalized();
+        let edge = (v2 - v1).normalize_or_zero();
         let bias = edge * POLY_BIAS * 16.0;
         let normal = Vec2f::new(-edge[1], edge[0]);
         let normal_bias = normal * POLY_BIAS * 16.0;
-        let (v1, v2) = (v1 - bias + normal_bias, v2 + bias + normal_bias);
+        let (v1, v2) = (v1 + (normal_bias - bias), v2 + (normal_bias + bias));
         let (low, high) = (from_wad_height(low), from_wad_height(high));
 
         self.visitor.visit_sky_quad(&SkyQuad {
             object_id,
-            vertices: &(v1, v2),
+            vertices: (v1, v2),
             height_range: (low, high),
         });
     }
@@ -1350,22 +1350,22 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
     fn things(&mut self) {
         for thing in &self.level.things {
             let pos = from_wad_coords(thing.x, thing.y);
-            let yaw = (f32::round(f32::from(thing.angle) / 45.0) * 45.0).to_radians();
-            let sector = match self.sector_at(&pos) {
+            let yaw = Deg(f32::round(f32::from(thing.angle) / 45.0) * 45.0);
+            let sector = match self.sector_at(pos) {
                 Some(sector) => sector,
                 None => continue,
             };
 
             if let Some(marker) = Marker::from(thing.thing_type) {
-                let pos = Vec3f::new(pos[0], from_wad_height(sector.floor_height), pos[1]);
-                self.visitor.visit_marker(pos, yaw, marker);
-            } else if let Some(sector) = self.sector_at(&pos) {
+                let pos = Pnt3f::new(pos[0], from_wad_height(sector.floor_height), pos[1]);
+                self.visitor.visit_marker(pos, yaw.into(), marker);
+            } else if let Some(sector) = self.sector_at(pos) {
                 self.decor(thing, &pos, sector);
             }
         }
     }
 
-    fn sector_at(&self, pos: &Vec2f) -> Option<&'a WadSector> {
+    fn sector_at(&self, pos: Pnt2f) -> Option<&'a WadSector> {
         let mut child_id = (self.level.nodes.len() - 1) as ChildId;
         loop {
             let (id, is_leaf) = parse_child_id(child_id);
@@ -1409,7 +1409,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         }
     }
 
-    fn decor(&mut self, thing: &WadThing, pos: &Vec2f, sector: &WadSector) {
+    fn decor(&mut self, thing: &WadThing, pos: &Pnt2f, sector: &WadSector) {
         let meta = match self.meta.find_thing(thing.thing_type) {
             Some(m) => m,
             None => {
@@ -1458,18 +1458,18 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let (object_id, low, high) = if meta.hanging {
             (
                 self.ceiling_id(sector),
-                Vec3f::new(
+                Pnt3f::new(
                     pos[0],
                     from_wad_height(sector.ceiling_height) - size[1],
                     pos[1],
                 ),
-                Vec3f::new(pos[0], from_wad_height(sector.ceiling_height), pos[1]),
+                Pnt3f::new(pos[0], from_wad_height(sector.ceiling_height), pos[1]),
             )
         } else {
             (
                 self.floor_id(sector),
-                Vec3f::new(pos[0], from_wad_height(sector.floor_height), pos[1]),
-                Vec3f::new(
+                Pnt3f::new(pos[0], from_wad_height(sector.floor_height), pos[1]),
+                Pnt3f::new(
                     pos[0],
                     from_wad_height(sector.floor_height) + size[1],
                     pos[1],
@@ -1480,8 +1480,8 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
 
         self.visitor.visit_decor(&Decor {
             object_id,
-            low: &low,
-            high: &high,
+            low: low,
+            high: high,
             half_width: half_width,
             light_info: light_info(&mut self.light_cache, self.level, sector),
             tex_name: &name,
@@ -1533,15 +1533,15 @@ fn min_max_height(level: &Level) -> (WadCoord, WadCoord) {
     (min - 512, max + 512)
 }
 
-fn polygon_center(points: &[Vec2f]) -> Vec2f {
-    let mut center = Vec2f::zero();
+fn polygon_center(points: &[Pnt2f]) -> Pnt2f {
+    let mut center = Pnt2f::origin();
     for p in points.iter() {
-        center = center + *p;
+        center += p.to_vec();
     }
     center / (points.len() as f32)
 }
 
-fn points_to_polygon(points: &mut Vec<Vec2f>) {
+fn points_to_polygon(points: &mut Vec<Pnt2f>) {
     // Sort points in polygonal CCW order around their center.
     let center = polygon_center(points);
     points.sort_unstable_by(|a, b| {
@@ -1568,7 +1568,7 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
             };
         }
 
-        if ac.cross(&bc) < 0.0 {
+        if ac.perp_dot(bc) < 0.0 {
             Ordering::Less
         } else {
             Ordering::Greater
@@ -1583,7 +1583,7 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
     for i_point in 2..points.len() {
         let next_point = (*points)[i_point];
         let prev_point = simplified[simplified.len() - 1];
-        let new_area = (next_point - current_point).cross(&(current_point - prev_point)) * 0.5;
+        let new_area = (next_point - current_point).perp_dot(current_point - prev_point) * 0.5;
         if new_area >= 0.0 {
             if area + new_area > 1.024e-05 {
                 area = 0.0;
@@ -1599,13 +1599,13 @@ fn points_to_polygon(points: &mut Vec<Vec2f>) {
         points.clear();
         return;
     }
-    while (simplified[0] - simplified[simplified.len() - 1]).norm() < 0.0032 {
+    while (simplified[0] - simplified[simplified.len() - 1]).magnitude() < 0.0032 {
         simplified.pop();
     }
 
     let center = polygon_center(&simplified);
     for point in &mut simplified {
-        *point = *point + (*point - center).normalized() * POLY_BIAS;
+        *point = *point + (*point - center).normalize_or_zero() * POLY_BIAS;
     }
     *points = simplified;
 }
@@ -1647,7 +1647,7 @@ impl<'a, 'b, A: LevelVisitor, B: LevelVisitor> LevelVisitor for VisitorChain<'a,
         self.second.visit_sky_quad(quad);
     }
 
-    fn visit_marker(&mut self, pos: Vec3f, yaw: f32, marker: Marker) {
+    fn visit_marker(&mut self, pos: Pnt3f, yaw: Radf, marker: Marker) {
         self.first.visit_marker(pos, yaw, marker);
         self.second.visit_marker(pos, yaw, marker);
     }
@@ -1687,7 +1687,7 @@ struct InternalWallQuad<'a> {
     object_id: ObjectId,
     sector: &'a WadSector,
     seg: &'a WadSeg,
-    vertices: (Vec2f, Vec2f),
+    vertices: (Pnt2f, Pnt2f),
     height_range: (WadCoord, WadCoord),
     texture_name: WadName,
     peg: Peg,

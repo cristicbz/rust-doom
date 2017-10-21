@@ -9,7 +9,7 @@ use glium::Frame;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{ClientFormat, RawImage2d, Texture2d};
 use idcontain::{IdSlab, Id};
-use math::Vec2f;
+use math::Pnt2f;
 use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
@@ -45,7 +45,7 @@ impl TextRenderer {
         })
     }
 
-    pub fn insert(&mut self, win: &Window, text: &str, pos: Vec2f, padding: u32) -> TextId {
+    pub fn insert(&mut self, win: &Window, text: &str, pos: Pnt2f, padding: u32) -> TextId {
         debug!("Creating text...");
         let surface = self.text_to_surface(text, padding).unwrap();
         let texture = surface.with_lock(|pixels| {
@@ -63,7 +63,7 @@ impl TextRenderer {
             surface.width() as f32 / win.width() as f32 * 2.0,
             surface.height() as f32 / win.height() as f32 * 2.0,
         );
-        let (x, y) = (pos[0] * 2.0 - 1.0, 1.0 - pos[1] * 2.0 - h);
+        let (x, y) = (pos.x * 2.0 - 1.0, 1.0 - pos.y * 2.0 - h);
         let text = Text {
             buffer: VertexBuffer::immutable(
                 win.facade(),

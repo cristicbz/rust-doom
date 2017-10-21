@@ -13,6 +13,7 @@ use super::window::Window;
 use glium::{BackfaceCullingMode, Depth, DepthTest, DrawParameters, Surface};
 use idcontain::IdMapVec;
 use math::Mat4;
+use math::prelude::*;
 
 
 impl Renderer {
@@ -97,13 +98,13 @@ impl<'context> System<'context> for Renderer {
             deps.entities,
             entity,
             "modelview_uniform",
-            Mat4::new_identity(),
+            Mat4::one(),
         )?;
         let projection = deps.uniforms.add_mat4(
             deps.entities,
             entity,
             "projection_uniform",
-            Mat4::new_identity(),
+            Mat4::one(),
         )?;
 
         Ok(Renderer {
@@ -140,13 +141,15 @@ impl<'context> System<'context> for Renderer {
 
         // Compute view transform by inverting the camera entity transform.
         let view_transform = if let Some(transform) = deps.transforms.get_absolute(camera_id) {
-            transform.inverse()
+            transform.inverse_transform().expect(
+                "singular view transform",
+            )
         } else {
             info!("Camera transform missing, disabling renderer.");
             self.camera = None;
             return Ok(());
         };
-        let view_matrix = Mat4::from(&view_transform);
+        let view_matrix = view_transform.into();
 
         // Set projection.
         *deps.uniforms.get_mat4_mut(self.projection).expect(
@@ -184,7 +187,7 @@ impl<'context> System<'context> for Renderer {
             *deps.uniforms.get_mat4_mut(self.modelview).expect(
                 "modelview uniform missing",
             ) = if let Some(model_transform) = deps.transforms.get_absolute(entity) {
-                Mat4::from(view_transform.then(&model_transform))
+                Mat4::from(view_transform.concat(&model_transform))
             } else {
                 view_matrix
             };

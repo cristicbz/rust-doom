@@ -3,7 +3,7 @@ use super::error::Result;
 use super::types::{LightLevel, SectorId, VertexId, WadNode, WadSector};
 use super::types::{WadLinedef, WadSeg, WadSidedef, WadSubsector, WadThing, WadVertex, WadCoord};
 use super::util::from_wad_coords;
-use math::Vec2f;
+use math::Pnt2f;
 use std::cmp;
 use std::mem;
 use std::slice::Iter as SliceIter;
@@ -70,7 +70,7 @@ impl Level {
         })
     }
 
-    pub fn vertex(&self, id: VertexId) -> Option<Vec2f> {
+    pub fn vertex(&self, id: VertexId) -> Option<Pnt2f> {
         self.vertices.get(id as usize).map(
             |v| from_wad_coords(v.x, v.y),
         )
@@ -80,7 +80,7 @@ impl Level {
         self.linedefs.get(seg.linedef as usize)
     }
 
-    pub fn seg_vertices(&self, seg: &WadSeg) -> Option<(Vec2f, Vec2f)> {
+    pub fn seg_vertices(&self, seg: &WadSeg) -> Option<(Pnt2f, Pnt2f)> {
         if let (Some(v1), Some(v2)) = (self.vertex(seg.start_vertex), self.vertex(seg.end_vertex)) {
             Some((v1, v2))
         } else {

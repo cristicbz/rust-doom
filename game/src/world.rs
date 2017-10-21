@@ -1,7 +1,7 @@
 use engine::{Transforms, EntityId, Entity};
 use idcontain::IdMapVec;
-use math::{ContactInfo, Line2f, Sphere, Vec2f, Vec3f, Vector, Transform};
-use num::Zero;
+use math::{ContactInfo, Line2f, Sphere, Pnt2f, Vec3f, Trans3, Pnt3f};
+use math::prelude::*;
 use std::{f32, i32};
 use std::cell::RefCell;
 use vec_map::VecMap;
@@ -11,7 +11,7 @@ pub struct World {
     nodes: Vec<Node>,
     chunks: Vec<Chunk>,
     triangles: Vec<Triangle>,
-    verts: Vec<Vec3f>,
+    verts: Vec<Pnt3f>,
 
     dynamic_chunks: IdMapVec<Entity, DynamicChunk>,
 
@@ -19,7 +19,7 @@ pub struct World {
 }
 
 impl World {
-    pub fn sweep_sphere(&self, sphere: &Sphere, vel: &Vec3f) -> Option<ContactInfo> {
+    pub fn sweep_sphere(&self, sphere: Sphere, vel: Vec3f) -> Option<ContactInfo> {
         let mut first_contact = ContactInfo {
             time: f32::INFINITY,
             normal: Vec3f::zero(),
@@ -36,24 +36,24 @@ impl World {
                         stack.push(index);
                         continue;
                     }
-                    Child::Leaf(index) => &self.chunks[index],
+                    Child::Leaf(index) => self.chunks[index],
                 };
-                self.sweep_chunk(&mut first_contact, &chunk, sphere, vel);
+                self.sweep_chunk(&mut first_contact, chunk, sphere, vel);
             }
         }
 
         // Dynamics.
         for dynamic in self.dynamic_chunks.access() {
             let transformed_sphere = Sphere {
-                center: dynamic.inverse_transform.transform_position(&sphere.center),
+                center: dynamic.inverse_transform.transform_point(sphere.center),
                 radius: sphere.radius,
             };
-            let transformed_velocity = dynamic.inverse_transform.transform_direction(&vel);
+            let transformed_velocity = dynamic.inverse_transform.transform_vector(vel);
             self.sweep_chunk(
                 &mut first_contact,
-                &dynamic.chunk,
-                &transformed_sphere,
-                &transformed_velocity,
+                dynamic.chunk,
+                transformed_sphere,
+                transformed_velocity,
             );
         }
 
@@ -67,13 +67,13 @@ impl World {
     fn sweep_chunk(
         &self,
         first_contact: &mut ContactInfo,
-        chunk: &Chunk,
-        sphere: &Sphere,
-        vel: &Vec3f,
+        chunk: Chunk,
+        sphere: Sphere,
+        vel: Vec3f,
     ) {
         let tris = &self.triangles[chunk.tri_start as usize..chunk.tri_end as usize];
         *first_contact = tris.iter()
-            .filter_map(|tri| self.sweep_sphere_triangle(sphere, vel, tri))
+            .filter_map(|&tri| self.sweep_sphere_triangle(sphere, vel, tri))
             .fold(*first_contact, |first, current| if first.time <
                 current.time
             {
@@ -94,27 +94,29 @@ impl World {
             dynamic.inverse_transform = transforms
                 .get_absolute(id)
                 .expect("dynamic chunk missing transform")
-                .inverse();
+                .inverse_transform()
+                .expect("singular transform");
         }
     }
 
     fn sweep_sphere_triangle(
         &self,
-        sphere: &Sphere,
-        vel: &Vec3f,
-        triangle: &Triangle,
+        sphere: Sphere,
+        vel: Vec3f,
+        triangle: Triangle,
     ) -> Option<ContactInfo> {
-        let normal = self.verts[triangle.normal as usize];
+        let normal = self.verts[triangle.normal as usize].to_vec();
         let triangle = [
             self.verts[triangle.v1 as usize],
             self.verts[triangle.v2 as usize],
             self.verts[triangle.v3 as usize],
         ];
-        sphere.sweep_triangle(&triangle, &normal, vel)
+        sphere.sweep_triangle(&triangle, normal, vel)
     }
 }
 
 
+#[derive(Copy, Clone)]
 struct Chunk {
     tri_start: u32,
     tri_end: u32,
@@ -122,9 +124,10 @@ struct Chunk {
 
 struct DynamicChunk {
     chunk: Chunk,
-    inverse_transform: Transform,
+    inverse_transform: Trans3,
 }
 
+#[derive(Copy, Clone)]
 struct Triangle {
     v1: u32,
     v2: u32,
@@ -181,15 +184,14 @@ impl Node {
         }
     }
 
-    fn intersect_sphere(&self, sphere: &Sphere, vel: &Vec3f) -> NodeIntersectIter {
-        let Sphere { ref center, radius } = *sphere;
+    fn intersect_sphere(&self, sphere: Sphere, vel: Vec3f) -> NodeIntersectIter {
+        let Sphere { center, radius } = sphere;
         let dist1 = self.partition.signed_distance(
-            &Vec2f::new(center[0], center[2]),
+            Pnt2f::new(center.x, center.z),
         );
-        let dist2 = self.partition.signed_distance(&Vec2f::new(
-            center[0] + vel[0],
-            center[2] + vel[2],
-        ));
+        let dist2 = self.partition.signed_distance(
+            Pnt2f::new(center.x + vel.x, center.z + vel.z),
+        );
 
         let pos = if dist1 >= -radius || dist2 >= -radius {
             Some(Child::unpack(self.positive))
@@ -215,7 +217,7 @@ type NodeIntersectIter = ::std::iter::Chain<
 pub struct WorldBuilder<'a> {
     nodes: Vec<Node>,
     chunks: Vec<Chunk>,
-    verts: Vec<Vec3f>,
+    verts: Vec<Pnt3f>,
     node_stack: RefCell<Vec<usize>>,
 
     triangles: VecMap<Vec<Triangle>>,
@@ -253,7 +255,7 @@ impl<'a> WorldBuilder<'a> {
                     self.objects[i_object],
                     DynamicChunk {
                         chunk: Chunk { tri_start, tri_end },
-                        inverse_transform: Transform::default(),
+                        inverse_transform: Trans3::one(),
                     },
                 );
             }
@@ -287,11 +289,11 @@ impl<'a> WorldBuilder<'a> {
         }
     }
 
-    fn add_polygon<I: IntoIterator<Item = Vec3f>>(
+    fn add_polygon<I: IntoIterator<Item = Pnt3f>>(
         &mut self,
         object_id: ObjectId,
         verts: I,
-        normal: Vec3f,
+        normal: Pnt3f,
     ) {
         let triangles = &mut self.triangles.entry(object_id.0 as usize).or_insert_with(
             || {
@@ -351,9 +353,9 @@ impl<'a> LevelVisitor for WorldBuilder<'a> {
         self.add_polygon(
             poly.object_id,
             poly.vertices.iter().map(
-                |v| Vec3f::new(v[0], poly.height, v[1]),
+                |v| Pnt3f::new(v[0], poly.height, v[1]),
             ),
-            Vec3f::new(0.0, 1.0, 0.0),
+            Pnt3f::new(0.0, 1.0, 0.0),
         );
     }
 
@@ -361,9 +363,9 @@ impl<'a> LevelVisitor for WorldBuilder<'a> {
         self.add_polygon(
             poly.object_id,
             poly.vertices.iter().rev().map(|v| {
-                Vec3f::new(v[0], poly.height, v[1])
+                Pnt3f::new(v[0], poly.height, v[1])
             }),
-            Vec3f::new(0.0, -1.0, 0.0),
+            Pnt3f::new(0.0, -1.0, 0.0),
         );
     }
 
@@ -396,18 +398,18 @@ impl<'a> LevelVisitor for WorldBuilder<'a> {
     fn visit_sky_quad(&mut self, quad: &SkyQuad) {
         let &SkyQuad {
             object_id,
-            vertices: &(ref v1, ref v2),
+            vertices: (v1, v2),
             height_range: (low, high),
         } = quad;
-        let edge = (*v2 - *v1).normalized();
-        let normal = Vec3f::new(-edge[1], 0.0, edge[0]);
+        let edge = (v2 - v1).normalize_or_zero();
+        let normal = Pnt3f::new(-edge[1], 0.0, edge[0]);
         self.add_polygon(
             object_id,
             [
-                Vec3f::new(v1[0], low, v1[1]),
-                Vec3f::new(v2[0], low, v2[1]),
-                Vec3f::new(v2[0], high, v2[1]),
-                Vec3f::new(v1[0], high, v1[1]),
+                Pnt3f::new(v1[0], low, v1[1]),
+                Pnt3f::new(v2[0], low, v2[1]),
+                Pnt3f::new(v2[0], high, v2[1]),
+                Pnt3f::new(v1[0], high, v1[1]),
             ].iter()
                 .cloned(),
             normal,

@@ -7,8 +7,8 @@ use engine::{Entities, Shaders, Uniforms, Materials, Meshes, Renderer, Window, C
              SamplerBehavior, SamplerWrapFunction, MinifySamplerFilter, MagnifySamplerFilter,
              Texture2dId, EntityId, PixelValue, FloatUniformId, MaterialId, BufferTextureId,
              BufferTextureType, ShaderId, System, Tick, Transforms};
-use math::{Vec2, Vec3f, Vec2f, Transform, Line2f, Vector};
-use num::Zero;
+use math::{Vec2, Vec3f, Trans3, Line2f, vec2, Pnt3f, Pnt2f, Rad};
+use math::prelude::*;
 use time;
 use vec_map::VecMap;
 use wad::{Decor, LevelVisitor, LevelWalker, LightInfo, Marker, SkyPoly, SkyQuad, StaticPoly,
@@ -28,8 +28,8 @@ pub struct Level {
     removed: Vec<usize>,
     effects: VecMap<Effect>,
 
-    start_pos: Vec3f,
-    start_yaw: f32,
+    start_pos: Pnt3f,
+    start_yaw: Rad<f32>,
     lights: Lights,
     volume: World,
     current_index: usize,
@@ -78,11 +78,11 @@ impl Level {
         self.root
     }
 
-    pub fn start_pos(&self) -> &Vec3f {
+    pub fn start_pos(&self) -> &Pnt3f {
         &self.start_pos
     }
 
-    pub fn start_yaw(&self) -> f32 {
+    pub fn start_yaw(&self) -> Rad<f32> {
         self.start_yaw
     }
 
@@ -92,16 +92,15 @@ impl Level {
 
     pub fn poll_triggers(
         &mut self,
-        transform: &Transform,
-        moved: &Vec3f,
+        transform: &Trans3,
+        moved: Vec3f,
         action: Option<PlayerAction>,
     ) {
-        let position = transform.translation;
-        let position = Vec2f::new(position[0], position[2]);
-        let walked = Line2f::from_origin_and_displace(position, Vec2f::new(-moved[0], -moved[2]));
+        let position = Pnt2f::new(transform.disp.x, transform.disp.z);
+        let walked = Line2f::from_origin_and_displace(position, vec2(-moved.x, -moved.z));
         let action_and_line = action.map(|action| {
-            let look3d = transform.rotation.look_vector();
-            let look2d = Vec2f::new(look3d[0], look3d[2]).normalized();
+            let look3d = transform.rot.rotate_vector(-Vec3f::unit_z());
+            let look2d = vec2(look3d.x, look3d.z).normalize_or_zero();
             let ranged = look2d *
                 match action {
                     PlayerAction::Push => 0.5,
@@ -229,7 +228,7 @@ impl<'context> System<'context> for Level {
             let transform = deps.transforms.get_local_mut(entity_id).expect(
                 "no transform on object",
             );
-            let current_offset = &mut transform.translation[1];
+            let current_offset = &mut transform.disp[1];
             let mut timestep = timestep;
 
             loop {
@@ -698,8 +697,8 @@ struct Builder<'a, 'context: 'a> {
     uniforms: DynamicUniforms,
 
     lights: Lights,
-    start_pos: Vec3f,
-    start_yaw: f32,
+    start_pos: Pnt3f,
+    start_yaw: Rad<f32>,
 
     static_vertices: Vec<StaticVertex>,
     sky_vertices: Vec<SkyVertex>,
@@ -750,8 +749,8 @@ impl<'a, 'context> Builder<'a, 'context> {
             uniforms: material_data.uniforms,
 
             lights: Lights::new(),
-            start_pos: Vec3f::zero(),
-            start_yaw: 0.0f32,
+            start_pos: Pnt3f::origin(),
+            start_yaw: Rad(0.0f32),
 
             static_vertices: Vec::with_capacity(16_384),
             sky_vertices: Vec::with_capacity(16_384),
@@ -931,7 +930,7 @@ impl<'a, 'context> Builder<'a, 'context> {
     #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
     fn wall_vertex(
         &mut self,
-        xz: &Vec2f,
+        xz: Pnt2f,
         y: f32,
         tile_u: f32,
         tile_v: f32,
@@ -952,7 +951,7 @@ impl<'a, 'context> Builder<'a, 'context> {
         self
     }
 
-    fn flat_vertex(&mut self, xz: &Vec2f, y: f32, light_info: u8, bounds: &WadBounds) -> &mut Self {
+    fn flat_vertex(&mut self, xz: Pnt2f, y: f32, light_info: u8, bounds: &WadBounds) -> &mut Self {
         self.static_vertices.push(StaticVertex {
             a_pos: [xz[0], y, xz[1]],
             a_atlas_uv: [bounds.pos[0], bounds.pos[1]],
@@ -966,7 +965,7 @@ impl<'a, 'context> Builder<'a, 'context> {
         self
     }
 
-    fn sky_vertex(&mut self, xz: &Vec2f, y: f32) -> &mut Self {
+    fn sky_vertex(&mut self, xz: Pnt2f, y: f32) -> &mut Self {
         self.sky_vertices.push(
             SkyVertex { a_pos: [xz[0], y, xz[1]] },
         );
@@ -975,7 +974,7 @@ impl<'a, 'context> Builder<'a, 'context> {
 
     fn decor_vertex(
         &mut self,
-        pos: &Vec3f,
+        pos: Pnt3f,
         local_x: f32,
         tile_u: f32,
         tile_v: f32,
@@ -1073,7 +1072,7 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
             tex_name,
             light_info,
             scroll,
-            vertices: &(ref v1, ref v2),
+            vertices: (v1, v2),
             height_range: (low, high),
             tex_start: (s1, t1),
             tex_end: (s2, t2),
@@ -1115,7 +1114,7 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
             return;
         };
         let light_info = self.add_light_info(light_info);
-        for vertex in vertices {
+        for &vertex in vertices {
             self.flat_vertex(vertex, height, light_info, &bounds);
         }
         self.flat_poly(object_id, vertices.len());
@@ -1137,7 +1136,7 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
             return;
         };
         let light_info = self.add_light_info(light_info);
-        for vertex in vertices.iter().rev() {
+        for &vertex in vertices.iter().rev() {
             self.flat_vertex(vertex, height, light_info, &bounds);
         }
         self.flat_poly(object_id, vertices.len());
@@ -1145,7 +1144,7 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
 
     fn visit_floor_sky_poly(&mut self, poly: &SkyPoly) {
         self.num_sky_floor_polys += 1;
-        for vertex in poly.vertices {
+        for &vertex in poly.vertices {
             self.sky_vertex(vertex, poly.height);
         }
         self.sky_poly(poly.object_id, poly.vertices.len());
@@ -1153,7 +1152,7 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
 
     fn visit_ceil_sky_poly(&mut self, poly: &SkyPoly) {
         self.num_sky_ceil_polys += 1;
-        for vertex in poly.vertices.iter().rev() {
+        for &vertex in poly.vertices.iter().rev() {
             self.sky_vertex(vertex, poly.height);
         }
         self.sky_poly(poly.object_id, poly.vertices.len());
@@ -1163,7 +1162,7 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
         self.num_sky_wall_quads += 1;
         let &SkyQuad {
             object_id,
-            vertices: &(ref v1, ref v2),
+            vertices: (v1, v2),
             height_range: (low, high),
         } = quad;
         self.sky_vertex(v1, low)
@@ -1173,7 +1172,7 @@ impl<'a, 'context> LevelVisitor for Builder<'a, 'context> {
             .sky_quad(object_id);
     }
 
-    fn visit_marker(&mut self, pos: Vec3f, yaw: f32, marker: Marker) {
+    fn visit_marker(&mut self, pos: Pnt3f, yaw: Rad<f32>, marker: Marker) {
         if let Marker::StartPos { player: 0 } = marker {
             self.start_pos = pos + Vec3f::new(0.0, 0.5, 32.0 / 100.0);
             self.start_yaw = yaw;

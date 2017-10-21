@@ -1,7 +1,9 @@
 [package]
+authors = ["Cristi Cobzarenco <cristi.cobzarenco@gmail.com>"]
 name = "math"
 version = "0.1.0"
-authors = ["Cristi Cobzarenco <cristi.cobzarenco@gmail.com>"]
 
 [dependencies]
+cgmath = "0.15.0"
 num = "0.1.32"
+num-traits = "0.1.40"
