@@ -1,6 +1,7 @@
 use super::level::{Level, NeighbourHeights};
 use super::light::{self, Contrast, LightInfo};
-use super::meta::WadMetadata;
+use super::meta::{WadMetadata, MoveEffectDef, TriggerType, HeightDef, HeightRef, HeightEffectDef,
+                  ExitEffectDef};
 use super::tex::TextureDirectory;
 use super::types::{ChildId, ThingType, WadCoord, WadName, WadNode, WadSector, WadSeg, WadThing,
                    SectorId, WadLinedef};
@@ -215,6 +216,8 @@ impl DynamicSectorInfo {
             let offset = from_wad_height(first_floor - sector.floor_height);
             trigger.move_effects.push(MoveEffect {
                 object_id: self.floor_id,
+                wait: effect_def.wait,
+                speed: effect_def.speed,
                 first_height_offset: offset,
                 second_height_offset: second_floor.map(|floor| {
                     from_wad_height(floor - sector.floor_height)
@@ -226,6 +229,8 @@ impl DynamicSectorInfo {
         if let Some(first_ceiling) = first_ceiling {
             trigger.move_effects.push(MoveEffect {
                 object_id: self.ceiling_id,
+                wait: effect_def.wait,
+                speed: effect_def.speed,
                 first_height_offset: from_wad_height(first_ceiling - sector.ceiling_height),
                 second_height_offset: second_ceiling.map(|ceiling| {
                     from_wad_height(ceiling - sector.ceiling_height)
@@ -256,37 +261,14 @@ pub struct MoveEffect {
     pub object_id: ObjectId,
     pub first_height_offset: f32,
     pub second_height_offset: Option<f32>,
+    pub speed: f32,
+    pub wait: f32,
     pub repeat: bool,
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum TriggerType {
-    Push,
-    Switch,
-    WalkOver,
-    Gun,
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum HeightRef {
-    LowestFloor,
-    NextFloor,
-    HighestFloor,
-    LowestCeiling,
-    HighestCeiling,
-    Floor,
-    Ceiling,
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct HeightDef {
-    pub height_ref: HeightRef,
-    pub offset: WadCoord,
 }
 
 impl HeightDef {
     fn to_height(&self, sector: &WadSector, heights: &NeighbourHeights) -> Option<WadCoord> {
-        let base = match self.height_ref {
+        let base = match self.to {
             HeightRef::LowestFloor => heights.lowest_floor,
             HeightRef::NextFloor => {
                 if let Some(height) = heights.next_floor {
@@ -305,12 +287,6 @@ impl HeightDef {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct HeightEffectDef {
-    pub first: HeightDef,
-    pub second: Option<HeightDef>,
-}
-
 impl HeightEffectDef {
     fn to_heights(
         this: Option<Self>,
@@ -327,31 +303,15 @@ impl HeightEffectDef {
 }
 
 
-#[derive(Debug, Copy, Clone)]
-pub struct MoveEffectDef {
-    pub floor: Option<HeightEffectDef>,
-    pub ceiling: Option<HeightEffectDef>,
-    pub repeat: bool,
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum ExitEffect {
-    Normal,
-    Secret,
-}
-
 #[derive(Debug, Clone)]
 pub struct Trigger {
     pub trigger_type: TriggerType,
     pub line: Line2f,
     pub only_once: bool,
-    pub wait_duration: f32,
-    pub move_speed: f32,
 
     pub move_effect_def: Option<MoveEffectDef>,
+    pub exit_effect: Option<ExitEffectDef>,
     pub move_effects: Vec<MoveEffect>,
-
-    pub exit_effect: Option<ExitEffect>,
 }
 
 
@@ -362,13 +322,13 @@ pub struct LevelAnalysis {
 }
 
 impl LevelAnalysis {
-    pub fn new(level: &Level) -> Self {
+    pub fn new(level: &Level, meta: &WadMetadata) -> Self {
         let mut this = LevelAnalysis {
             dynamic_info: OrderMap::new(),
             triggers: Vec::new(),
             num_objects: 0,
         };
-        this.compute_dynamic_sectors(level);
+        this.compute_dynamic_sectors(level, meta);
         this
     }
 
@@ -380,7 +340,7 @@ impl LevelAnalysis {
         mem::replace(&mut self.triggers, Vec::new())
     }
 
-    fn compute_dynamic_sectors(&mut self, level: &Level) {
+    fn compute_dynamic_sectors(&mut self, level: &Level, meta: &WadMetadata) {
         info!("Computing dynamic sectors...");
         let mut num_dynamic_linedefs = 0;
 
@@ -416,11 +376,12 @@ impl LevelAnalysis {
 
         let mut next_dynamic_object_id = ObjectId(1);
         for (i_linedef, linedef) in level.linedefs.iter().enumerate() {
-            let mut trigger = if let Some(trigger) = self.linedef_to_trigger(level, linedef) {
-                trigger
-            } else {
-                continue;
-            };
+            let mut trigger =
+                if let Some(trigger) = self.linedef_to_trigger(level, meta, linedef) {
+                    trigger
+                } else {
+                    continue;
+                };
             num_dynamic_linedefs += 1;
 
             let tag = linedef.sector_tag;
@@ -490,307 +451,22 @@ impl LevelAnalysis {
         );
     }
 
-    fn linedef_to_trigger(&self, level: &Level, linedef: &WadLinedef) -> Option<Trigger> {
-        let special = linedef.special_type;
-        let trigger_type = match special {
-            24 | 46 | 47 | 197 | 198 => TriggerType::Gun,
-
-            1 | 26...28 | 31...34 | 117 | 118 => TriggerType::Push,
-
-            11 | 14 | 15 | 18 | 20 | 21 | 23 | 29 | 42 | 45 | 49...51 | 55 | 60...71 | 78 |
-            99 | 101...103 | 111...116 | 122 | 123 | 131...137 | 140 | 158...165 | 168 |
-            175...185 | 188...190 | 196 | 211 | 221 | 222 | 229 | 230 | 233 | 234 | 237 | 238 |
-            241 => TriggerType::Switch,
-
-            2...5 | 10 | 16 | 19 | 22 | 30 | 36...38 | 40 | 44 | 52...54 | 56 | 58 | 59 | 72 |
-            75 | 76 | 82...84 | 86...96 | 98 | 105...110 | 119...121 | 124 | 128...130 |
-            142...145 | 147...149 | 151...154 | 199...202 | 212 | 219 | 220 | 227 | 228 | 231 |
-            232 | 235 | 236 | 239 | 240 => TriggerType::WalkOver,
-
-            _ => return None,
-        };
-
-        let move_effect_def = match special {
-            1 | 4 | 26...29 | 63 | 90 | 105 | 108 | 111 | 114 | 117 => Some(
-                // Open then close.
-                MoveEffectDef {
-                    floor: None,
-                    ceiling: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::LowestCeiling,
-                            offset: -4,
-                        },
-                        second: Some(HeightDef {
-                            height_ref: HeightRef::Floor,
-                            offset: 0,
-                        }),
-                    }),
-                    repeat: false,
-                },
-            ),
-            2 | 31 | 32 | 33 | 34 | 46 | 61 | 86 | 99 | 103 | 106 | 109 | 112 | 115 | 118 |
-            133...137 => Some(
-                // Open then stay open.
-                MoveEffectDef {
-                    floor: None,
-                    ceiling: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::LowestCeiling,
-                            offset: -4,
-                        },
-                        second: None,
-                    }),
-                    repeat: false,
-                },
-            ),
-            3 | 42 | 50 | 75 | 107 | 110 | 113 | 116 => Some(
-                // Close and stay closed.
-                MoveEffectDef {
-                    floor: None,
-                    ceiling: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::Floor,
-                            offset: 0,
-                        },
-                        second: None,
-                    }),
-                    repeat: false,
-                },
-            ),
-            16 | 76 => Some(
-                // Close then open.
-                MoveEffectDef {
-                    floor: None,
-                    ceiling: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::Floor,
-                            offset: 0,
-                        },
-                        second: Some(HeightDef {
-                            height_ref: HeightRef::LowestCeiling,
-                            offset: -4,
-                        }),
-                    }),
-                    repeat: false,
-                },
-            ),
-            18 | 20 | 22 | 47 | 68 | 69 | 95 | 119 | 128 | 129 | 130 | 131 | 132 | 219 | 220 |
-            221 | 222 => Some(
-                //MoveEffectType::FloorToNextFloor
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::NextFloor,
-                            offset: 0,
-                        },
-                        second: None,
-                    }),
-                    ceiling: None,
-                    repeat: false,
-                },
-            ),
-            23 | 37 | 38 | 60 | 82 | 84 | 159 | 177 => Some(
-                //MoveEffectType::FloorToLowestFloor
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::LowestFloor,
-                            offset: 0,
-                        },
-                        second: None,
-                    }),
-                    ceiling: None,
-                    repeat: false,
-                },
-            ),
-            55 | 56 | 65 | 94 => Some(
-                //MoveEffectType::FloorToLowestCeiling(-8)
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::LowestCeiling,
-                            offset: -8,
-                        },
-                        second: None,
-                    }),
-                    ceiling: None,
-                    repeat: false,
-                },
-            ),
-            5 | 24 | 64 | 91 | 101 => Some(
-                //MoveEffectType::FloorToLowestCeiling(0)
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::LowestCeiling,
-                            offset: 0,
-                        },
-                        second: None,
-                    }),
-                    ceiling: None,
-                    repeat: false,
-                },
-            ),
-            36 | 70 | 71 | 98 => Some(
-                //MoveEffectType::FloorToHighestFloor(8)
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::HighestFloor,
-                            offset: 8,
-                        },
-                        second: None,
-                    }),
-                    ceiling: None,
-                    repeat: false,
-                },
-            ),
-            19 | 45 | 83 | 102 => Some(
-                //MoveEffectType::FloorToHighestFloor(0)
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::HighestFloor,
-                            offset: 0,
-                        },
-                        second: None,
-                    }),
-                    ceiling: None,
-                    repeat: false,
-                },
-            ),
-            140 | 142 | 147 | 178 => Some(
-                //MoveEffectType::FloorMove(512)
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::Floor,
-                            offset: 512,
-                        },
-                        second: None,
-                    }),
-                    ceiling: None,
-                    repeat: false,
-                },
-            ),
-            58 | 59 | 92 | 93 | 160 | 161 | 179 | 180 => Some(
-                //MoveEffectType::FloorMove(24),
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::Floor,
-                            offset: 24,
-                        },
-                        second: None,
-                    }),
-                    ceiling: None,
-                    repeat: false,
-                },
-            ),
-            15 | 66 | 143 | 148 => Some(
-                //MoveEffectType::FloorMove(24),
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::Floor,
-                            offset: 24,
-                        },
-                        second: Some(HeightDef {
-                            height_ref: HeightRef::Floor,
-                            offset: 0,
-                        }),
-                    }),
-                    ceiling: None,
-                    repeat: false,
-                },
-            ),
-            14 | 67 | 144 | 149 => Some(
-                //MoveEffectType::FloorMove(32)
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::Floor,
-                            offset: 32,
-                        },
-                        second: Some(HeightDef {
-                            height_ref: HeightRef::Floor,
-                            offset: 0,
-                        }),
-                    }),
-                    ceiling: None,
-                    repeat: false,
-                },
-            ),
-            10 | 21 | 62 | 88 | 120 | 121 | 122 | 123 => Some(
-                //MoveEffectType::FloorToLowestFloor
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::LowestFloor,
-                            offset: 0,
-                        },
-                        second: Some(HeightDef {
-                            height_ref: HeightRef::Floor,
-                            offset: 0,
-                        }),
-                    }),
-                    ceiling: None,
-                    repeat: false,
-                },
-            ),
-            53 | 87 | 162 | 181 => Some(
-                //MoveEffectType::FloorLowestHighestRepeat
-                MoveEffectDef {
-                    floor: Some(HeightEffectDef {
-                        first: HeightDef {
-                            height_ref: HeightRef::LowestFloor,
-                            offset: 0,
-                        },
-                        second: Some(HeightDef {
-                            height_ref: HeightRef::HighestFloor,
-                            offset: 0,
-                        }),
-                    }),
-                    ceiling: None,
-                    repeat: true,
-                },
-            ),
-            _ => None,
-        };
-
-        let exit_effect = match special {
-            11 | 52 | 197 => Some(ExitEffect::Normal),
-            51 | 124 | 198 => Some(ExitEffect::Secret),
-            _ => None,
-        };
-
-        if move_effect_def.is_none() && exit_effect.is_none() {
+    fn linedef_to_trigger(
+        &self,
+        level: &Level,
+        meta: &WadMetadata,
+        linedef: &WadLinedef,
+    ) -> Option<Trigger> {
+        let special_type = linedef.special_type;
+        if special_type == 0 {
             return None;
         }
 
-        let only_once = match special {
-            2...6 | 10 | 11 | 14...16 | 18...25 | 29 | 30...34 | 36...38 | 40 | 41 | 44 | 47 |
-            49 | 50 | 51...59 | 71 | 101...103 | 108...113 | 118 | 119 | 121 | 122 | 124 |
-            130 | 131 | 133 | 135 | 137 | 140...145 | 153 | 158...161 | 162...168 | 189 |
-            197...199 | 200 | 203 | 204 | 219 | 221 | 227 | 229 | 231 | 233 | 235 | 237 | 239 |
-            241 => true,
-            _ => false,
-        };
-
-        let wait_duration = match special {
-            1 | 4 | 26...29 | 63 | 90 | 105 | 109 | 111 | 114 | 117 => 4.0,
-            10 | 21 | 53 | 62 | 87 | 88 | 120 | 121 | 122 | 123 | 162 | 181 => 3.0,
-            16 | 76 => 30.0,
-            _ => 0.0,
-        };
-
-        let move_speed = match special {
-            1...5 | 7 | 8 | 10 | 14...16 | 18...34 | 37 | 38 | 40 | 42 | 44 | 45...47 | 49 |
-            50 | 53 | 55 | 56 | 58 | 59 | 60...69 | 72 | 73 | 75 | 76 | 82...84 | 86...88 |
-            90...96 | 101...103 | 119 | 128 | 140...144 | 147...151 | 158...162 | 165...167 |
-            175...181 | 184...187 | 196 | 199...206 | 219...222 | 256 | 258 => 0.7,
-            36 | 41 | 43 | 70 | 71 | 98 | 99 | 105...118 | 120...123 | 129...137 | 145 | 152 => 2.8,
-            _ => 0.0,
+        let meta = if let Some(meta) = meta.linedef.get(&linedef.special_type) {
+            meta
+        } else {
+            error!("Unknown linedef special type: {}", special_type);
+            return None;
         };
 
         let line = match (
@@ -804,22 +480,15 @@ impl LevelAnalysis {
             }
         };
 
-        if special == 11 {
-            error!("after line")
-        }
-
         Some(Trigger {
-            trigger_type,
+            trigger_type: meta.trigger,
+
+            only_once: meta.only_once,
+            move_effect_def: meta.move_effect,
+            exit_effect: meta.exit_effect,
 
             line,
-            only_once,
-            wait_duration,
-            move_speed,
-
-            move_effect_def,
             move_effects: Vec::new(),
-
-            exit_effect,
         })
     }
 }

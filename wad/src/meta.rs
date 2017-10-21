@@ -1,6 +1,7 @@
 use super::error::{Result, ResultExt, ErrorKind};
 use super::name::WadName;
-use super::types::ThingType;
+use super::types::{ThingType, WadCoord, SpecialType};
+use ordermap::OrderMap;
 use regex::Regex;
 use serde::de::{Deserialize, Deserializer, Error as SerdeDeError};
 use std::fs::File;
@@ -51,13 +52,88 @@ pub struct ThingDirectoryMetadata {
     pub monsters: Vec<ThingMetadata>,
 }
 
+#[derive(Debug, Deserialize, Copy, Clone)]
+pub enum TriggerType {
+    Push,
+    Switch,
+    WalkOver,
+    Gun,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub enum HeightRef {
+    LowestFloor,
+    NextFloor,
+    HighestFloor,
+    LowestCeiling,
+    HighestCeiling,
+    Floor,
+    Ceiling,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub struct HeightDef {
+    pub to: HeightRef,
+
+    #[serde(default = "Default::default", rename = "off")]
+    pub offset: WadCoord,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub struct HeightEffectDef {
+    pub first: HeightDef,
+    pub second: Option<HeightDef>,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub struct MoveEffectDef {
+    pub floor: Option<HeightEffectDef>,
+    pub ceiling: Option<HeightEffectDef>,
+
+    #[serde(default = "Default::default")]
+    pub repeat: bool,
+
+    #[serde(default = "Default::default")]
+    pub wait: f32,
+
+    #[serde(default = "Default::default", deserialize_with = "deserialize_move_speed")]
+    pub speed: f32,
+}
+
+#[derive(Debug, Deserialize, Copy, Clone)]
+pub enum ExitEffectDef {
+    Normal,
+    Secret,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LinedefMetadata {
+    pub special_type: SpecialType,
+    pub trigger: TriggerType,
+
+    #[serde(default = "Default::default")]
+    pub monsters: bool,
+
+    #[serde(default = "Default::default")]
+    pub only_once: bool,
+
+    #[serde(rename = "move")]
+    pub move_effect: Option<MoveEffectDef>,
+
+    #[serde(rename = "exit")]
+    pub exit_effect: Option<ExitEffectDef>,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct WadMetadata {
     pub sky: Vec<SkyMetadata>,
     pub animations: AnimationMetadata,
     pub things: ThingDirectoryMetadata,
+
+    #[serde(default = "Default::default", deserialize_with = "deserialize_linedefs")]
+    pub linedef: OrderMap<SpecialType, LinedefMetadata>,
 }
+
 impl WadMetadata {
     pub fn from_file<P: AsRef<Path>>(path: &P) -> Result<WadMetadata> {
         let mut contents = String::new();
@@ -137,6 +213,13 @@ where
     WadName::from_str(<&'de str>::deserialize(deserializer)?).map_err(D::Error::custom)
 }
 
+fn deserialize_move_speed<'de, D>(deserializer: D) -> StdResult<f32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(f32::deserialize(deserializer)? / 8.0 * 0.7)
+}
+
 fn deserialize_name_from_vec_vec_str<'de, D>(
     deserializer: D,
 ) -> StdResult<Vec<Vec<WadName>>, D::Error>
@@ -154,6 +237,21 @@ where
         })
         .collect::<Result<Vec<Vec<_>>>>()
         .map_err(D::Error::custom)
+}
+
+fn deserialize_linedefs<'de, D>(
+    deserializer: D,
+) -> StdResult<OrderMap<SpecialType, LinedefMetadata>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let linedefs = <Vec<LinedefMetadata>>::deserialize(deserializer)?;
+    Ok(
+        linedefs
+            .into_iter()
+            .map(|linedef| (linedef.special_type, linedef))
+            .collect::<OrderMap<_, _>>(),
+    )
 }
 
 

@@ -35,11 +35,8 @@ pub use error::{Error, Result, ErrorKind};
 pub use image::Image;
 pub use level::Level;
 pub use light::{LightEffect, LightEffectKind, LightInfo};
-pub use meta::SkyMetadata;
-pub use meta::ThingMetadata;
-pub use meta::WadMetadata;
+pub use meta::{SkyMetadata, ThingMetadata, WadMetadata, MoveEffectDef, TriggerType};
 pub use name::WadName;
 pub use tex::TextureDirectory;
 pub use visitor::{Branch, LevelVisitor, LevelWalker, LevelAnalysis, Marker, StaticQuad,
-                  StaticPoly, SkyQuad, SkyPoly, Decor, ObjectId, Trigger, MoveEffect,
-                  MoveEffectDef, TriggerType};
+                  StaticPoly, SkyQuad, SkyPoly, Decor, ObjectId, Trigger, MoveEffect};
