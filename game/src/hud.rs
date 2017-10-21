@@ -1,7 +1,7 @@
 use super::level::Level;
 use engine::{TextRenderer, Input, Gesture, Scancode, TextId, Window, ControlFlow, InfallibleSystem};
-use math::Vec2f;
-use num::Zero;
+use math::Pnt2f;
+use math::prelude::*;
 
 pub struct Bindings {
     pub quit: Gesture,
@@ -65,13 +65,13 @@ impl<'context> InfallibleSystem<'context> for Hud {
         let prompt_text = deps.text.insert(
             deps.window,
             PROMPT_TEXT,
-            Vec2f::zero(),
+            Pnt2f::origin(),
             HELP_PADDING,
         );
         let help_text = deps.text.insert(
             deps.window,
             HELP_TEXT,
-            Vec2f::zero(),
+            Pnt2f::origin(),
             HELP_PADDING,
         );
         deps.text[help_text].set_visible(false);

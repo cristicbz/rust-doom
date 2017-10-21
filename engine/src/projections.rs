@@ -1,11 +1,11 @@
 use super::entities::{EntityId, Entity, Entities};
 use super::system::InfallibleSystem;
 use idcontain::IdMapVec;
-use math::Mat4;
+use math::{self, Mat4, Rad};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Projection {
-    pub fov: f32,
+    pub fov: Rad<f32>,
     pub aspect_ratio: f32,
     pub near: f32,
     pub far: f32,
@@ -89,6 +89,6 @@ struct StoredProjection {
 
 impl Into<Mat4> for Projection {
     fn into(self) -> Mat4 {
-        Mat4::new_perspective(self.fov, self.aspect_ratio, self.near, self.far)
+        math::perspective(self.fov, self.aspect_ratio, self.near, self.far)
     }
 }

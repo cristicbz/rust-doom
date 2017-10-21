@@ -5,8 +5,8 @@ use super::name::WadName;
 use super::types::{WadTextureHeader, WadTexturePatchRef, Palette, Colormap};
 use bincode::{deserialize_from as bincode_read, Infinite};
 use byteorder::{ReadBytesExt, LittleEndian};
-use math::{Vec2, Vec2f};
-use num::Zero;
+use math::{Vec2, Vec2f, Pnt2f, vec2};
+use math::prelude::*;
 use ordermap::OrderMap;
 use std::cmp;
 use std::mem;
@@ -14,7 +14,7 @@ use time;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Bounds {
-    pub pos: Vec2f,
+    pub pos: Pnt2f,
     pub size: Vec2f,
     pub num_frames: usize,
     pub row_height: usize,
@@ -240,7 +240,7 @@ impl TextureDirectory {
                 positions.clear();
 
                 // Try swapping width and height to see if it fits that way.
-                atlas_size.swap();
+                atlas_size = vec2(atlas_size.y, atlas_size.x);
                 transposed = !transposed;
                 if transposed && atlas_size[0] != atlas_size[1] {
                     continue;
@@ -300,7 +300,7 @@ impl TextureDirectory {
             flats_per_row,
             num_rows
         );
-        let mut anim_start_pos = Vec2::zero();
+        let mut anim_start_pos = Pnt2f::origin();
         for AtlasEntry {
             name,
             image,
@@ -310,7 +310,7 @@ impl TextureDirectory {
         {
             let offset = Vec2::new(column * 64, row * 64);
             if frame_offset == 0 {
-                anim_start_pos = Vec2::new(offset[0] as f32, offset[1] as f32);
+                anim_start_pos = Pnt2f::new(offset[0] as f32, offset[1] as f32);
             }
             offsets.insert(
                 name,
@@ -422,7 +422,7 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
 
 fn img_bound(pos: &AtlasPosition, entry: &AtlasEntry<Image>) -> Bounds {
     Bounds {
-        pos: Vec2f::new(pos.offset[0] as f32, pos.offset[1] as f32),
+        pos: Pnt2f::new(pos.offset[0] as f32, pos.offset[1] as f32),
         size: Vec2f::new(entry.image.width() as f32, entry.image.height() as f32),
         num_frames: entry.num_frames,
         row_height: pos.row_height,
@@ -476,10 +476,7 @@ where
     entries
 }
 
-fn search_for_frame(
-    search_for: WadName,
-    animations: &[Vec<WadName>],
-) -> Option<&[WadName]> {
+fn search_for_frame(search_for: WadName, animations: &[Vec<WadName>]) -> Option<&[WadName]> {
     animations
         .iter()
         .find(|animation| {

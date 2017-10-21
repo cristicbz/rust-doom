@@ -1,9 +1,9 @@
 use super::level::{Level, PlayerAction};
 use engine::{Analog2d, Gesture, Input, Scancode, Transforms, EntityId, Window, Entities,
              Projections, InfallibleSystem, Projection, Renderer, Tick, MouseButton};
-use math::{Sphere, Vec3f, Vector, Transform, EulerAngles, Quat, Vec3};
-use num::Zero;
-use std::f32::consts::PI;
+use math::{Sphere, Vec3f, Trans3, Euler, Quat, Deg, Rad, vec3, Pnt3f};
+use math::prelude::*;
+use std::f32::consts::FRAC_PI_2;
 
 pub struct Bindings {
     pub movement: Analog2d,
@@ -56,7 +56,7 @@ pub struct Config {
     ground_drag: f32,
     friction: f32,
 
-    fov: f32,
+    fov: Deg<f32>,
     near: f32,
     far: f32,
     aspect_ratio_correction: f32,
@@ -76,7 +76,7 @@ impl Default for Config {
             ground_drag: 0.7,
             friction: 30.0,
 
-            fov: 65.0,
+            fov: Deg(65.0),
             near: 0.01,
             far: 100.0,
             aspect_ratio_correction: 1.2,
@@ -118,20 +118,20 @@ impl Player {
             "player has no transform component: reset",
         );
 
-        transform.rotation = Quat::from(EulerAngles {
-            yaw: level.start_yaw(),
-            pitch: 1e-8,
-            roll: 0.0,
+        transform.rot = Quat::from(Euler {
+            x: Rad(1e-8),
+            y: level.start_yaw(),
+            z: Rad(0.0),
         });
-        transform.translation = *level.start_pos();
+        transform.disp = level.start_pos().to_vec();
 
         self.velocity = Vec3f::zero();
         self.last_height_diff = 0.0;
     }
 
-    fn head(&self, config: &Config, transform: &Transform) -> Sphere {
+    fn head(&self, config: &Config, transform: &Trans3) -> Sphere {
         Sphere {
-            center: transform.translation,
+            center: Pnt3f::from_vec(transform.disp),
             radius: config.radius,
         }
     }
@@ -140,14 +140,14 @@ impl Player {
         let mut time_left = delta_time;
         for _ in 0..100 {
             let displacement = self.velocity * time_left;
-            if let Some(contact) = level.volume().sweep_sphere(head, &displacement) {
-                let adjusted_time = contact.time - 0.001 / displacement.norm();
+            if let Some(contact) = level.volume().sweep_sphere(*head, displacement) {
+                let adjusted_time = contact.time - 0.001 / displacement.magnitude();
                 if adjusted_time < 1.0 {
                     let time = clamp(contact.time, (0.0, 1.0));
                     let displacement = displacement * adjusted_time;
                     head.center = head.center + displacement;
                     self.velocity = self.velocity -
-                        contact.normal * contact.normal.dot(&self.velocity);
+                        contact.normal * contact.normal.dot(self.velocity);
                     time_left *= 1.0 - time;
                     continue;
                 }
@@ -167,10 +167,7 @@ impl Player {
                 center: head.center + Vec3f::new(0.0, height / 2.0, 0.0),
                 ..*head
             };
-            let height = match level.volume().sweep_sphere(
-                &probe,
-                &Vec3f::new(0.0, -height, 0.0),
-            ) {
+            let height = match level.volume().sweep_sphere(probe, vec3(0.0, -height, 0.0)) {
                 Some(contact) => head.center[1] + height * (0.5 - contact.time),
                 None => old_height,
             };
@@ -189,7 +186,7 @@ impl Player {
         delta_time: f32,
         grounded: bool,
         input: &Input,
-        transform: &mut Transform,
+        transform: &mut Trans3,
         config: &Config,
         bindings: &Bindings,
     ) -> Vec3f {
@@ -199,27 +196,25 @@ impl Player {
 
         // Compute the maximum pitch rotation we're allowed (since we don't want to look
         // upside-down!).
-        let current_pitch = transform.rotation.pitch();
-        let clamped_pitch_by = (-look[1]).min(PI - 1e-2 - current_pitch).max(
-            1e-2 -
-                current_pitch,
-        );
-
-        transform.rotation = Quat::y_rotation(-look[0]) * transform.rotation *
-            Quat::x_rotation(clamped_pitch_by);
+        let current_pitch = 2.0 * f32::atan(transform.rot.v.x / transform.rot.s);
+        let clamped_pitch_by = clamp(-look[1], (
+            1e-2 - FRAC_PI_2 - current_pitch,
+            FRAC_PI_2 - 1e-2 - current_pitch,
+        ));
+        transform.rot = Quat::from_angle_y(Rad(-look.x)) * transform.rot *
+            Quat::from_angle_x(Rad(clamped_pitch_by));
 
         if self.fly {
             let up = if jump { 0.5 } else { 0.0 };
-            transform
-                .rotation
-                .rotate_vector(&Vec3::new(movement[0], up, movement[1]))
-                .normalized() * config.move_force
+            transform.rot.rotate_vector(
+                vec3(movement[0], up, movement[1]).normalize_or_zero() * config.move_force,
+            )
         } else {
-            let mut movement = transform.rotation.rotate_vector(
-                &Vec3::new(movement[0], 0.0, movement[1]),
+            let mut movement = transform.rot.rotate_vector(
+                vec3(movement[0], 0.0, movement[1]),
             );
             movement[1] = 0.0;
-            movement.normalize();
+            movement.normalize_or_zero_self();
             movement = movement * config.move_force;
             if grounded {
                 if jump && self.velocity[1] < 0.1 {
@@ -239,7 +234,7 @@ impl Player {
         delta_time: f32,
         input: &Input,
         level: &Level,
-        transform: &mut Transform,
+        transform: &mut Trans3,
         config: &Config,
         bindings: &Bindings,
     ) -> Vec3f {
@@ -249,7 +244,7 @@ impl Player {
         };
         let feet_probe = Vec3f::new(0.0, -config.height, 0.0);
         let (height, normal) =
-            if let Some(contact) = level.volume().sweep_sphere(&feet, &feet_probe) {
+            if let Some(contact) = level.volume().sweep_sphere(feet, feet_probe) {
                 if contact.time < 1.0 {
                     (config.height * contact.time, Some(contact.normal))
                 } else {
@@ -266,13 +261,13 @@ impl Player {
             config,
             bindings,
         );
-        let speed = self.velocity.norm();
+        let speed = self.velocity.magnitude();
         if speed > 0.0 {
             let mut slowdown = if self.fly {
                 -self.velocity * (config.friction / speed + config.ground_drag * speed)
             } else if let Some(normal) = normal {
-                let tangential = self.velocity - normal * self.velocity.dot(&normal);
-                let speed = tangential.norm();
+                let tangential = self.velocity - normal * self.velocity.dot(normal);
+                let speed = tangential.magnitude();
                 if speed > 0.0 {
                     -tangential * (config.friction / speed + config.ground_drag * speed)
                 } else {
@@ -283,9 +278,9 @@ impl Player {
             };
             slowdown = slowdown - self.velocity * config.air_drag * speed;
 
-            let slowdown_norm = slowdown.norm();
+            let slowdown_norm = slowdown.magnitude();
             if slowdown_norm > 0.0 {
-                let max_slowdown = -self.velocity.dot(&slowdown) / slowdown_norm / delta_time;
+                let max_slowdown = -self.velocity.dot(slowdown) / slowdown_norm / delta_time;
                 if slowdown_norm >= max_slowdown {
                     slowdown = slowdown / slowdown_norm * max_slowdown;
                 }
@@ -320,15 +315,15 @@ impl<'context> InfallibleSystem<'context> for Player {
         );
         deps.transforms.attach(
             camera_entity,
-            Transform {
-                translation: Vec3f::new(0.0, deps.config.camera_height, 0.0),
-                ..Transform::default()
+            Trans3 {
+                disp: Vec3f::new(0.0, deps.config.camera_height, 0.0),
+                ..Trans3::one()
             },
         );
         deps.projections.attach(
             camera_entity,
             Projection {
-                fov: deps.config.fov,
+                fov: deps.config.fov.into(),
                 aspect_ratio: deps.window.aspect_ratio() * deps.config.aspect_ratio_correction,
                 near: deps.config.near,
                 far: deps.config.far,
@@ -382,12 +377,12 @@ impl<'context> InfallibleSystem<'context> for Player {
             self.noclip(delta_time, &mut head, deps.level);
         }
 
-        transform.translation = head.center;
+        transform.disp = head.center.to_vec();
         self.velocity = self.velocity + force * delta_time;
 
         deps.level.poll_triggers(
             &transform,
-            &(self.velocity * delta_time),
+            self.velocity * delta_time,
             if deps.input.poll_gesture(&deps.bindings.push) {
                 Some(PlayerAction::Push)
             } else if deps.input.poll_gesture(&deps.bindings.shoot) {

@@ -2,17 +2,18 @@ use super::entities::{Entities, EntityId, Entity};
 use super::errors::{Error, ErrorKind};
 use super::system::InfallibleSystem;
 use idcontain::IdMap;
-use math::Transform as MathTransform;
+use math::Trans3;
+use math::prelude::*;
 
 derive_flat! {
     #[element(Transform, &TransformRef, &mut TransformMut)]
     #[access(&TransformsRef, &mut TransformsMut)]
     pub struct TransformsAccess {
         #[element(local)]
-        pub locals: Vec<MathTransform>,
+        pub locals: Vec<Trans3>,
 
         #[element(absolute)]
-        pub absolutes: Vec<MathTransform>,
+        pub absolutes: Vec<Trans3>,
     }
 }
 
@@ -23,15 +24,15 @@ pub struct Transforms {
 
 impl Transforms {
     pub fn attach_identity(&mut self, entity: EntityId) {
-        self.attach(entity, MathTransform::default())
+        self.attach(entity, Trans3::one())
     }
 
-    pub fn attach(&mut self, entity: EntityId, transform: MathTransform) {
+    pub fn attach(&mut self, entity: EntityId, transform: Trans3) {
         let old = self.map.insert(
             entity,
             Transform {
                 local: transform,
-                absolute: MathTransform::default(),
+                absolute: Trans3::one(),
             },
         );
         if old.is_some() {
@@ -42,11 +43,11 @@ impl Transforms {
         }
     }
 
-    pub fn get_local_mut(&mut self, entity: EntityId) -> Option<&mut MathTransform> {
+    pub fn get_local_mut(&mut self, entity: EntityId) -> Option<&mut Trans3> {
         self.map.get_mut(entity).map(|transform| transform.local)
     }
 
-    pub fn get_absolute(&self, entity: EntityId) -> Option<&MathTransform> {
+    pub fn get_absolute(&self, entity: EntityId) -> Option<&Trans3> {
         self.map.get(entity).map(|transform| transform.absolute)
     }
 
@@ -120,7 +121,7 @@ impl<'context> InfallibleSystem<'context> for Transforms {
                         }
                         let access = self.map.access_mut();
                         access.absolutes[index] =
-                            access.absolutes[parent_index].then(&access.locals[index]);
+                            access.absolutes[parent_index].concat(&access.locals[index]);
                         break;
                     }
                     ParentLookup::Removed => {
