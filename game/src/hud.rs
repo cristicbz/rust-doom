@@ -1,4 +1,4 @@
-use super::level::Level;
+use super::wad_system::WadSystem;
 use engine::{TextRenderer, Input, Gesture, Scancode, TextId, Window, ControlFlow, InfallibleSystem};
 use math::Pnt2f;
 use math::prelude::*;
@@ -40,7 +40,7 @@ derive_dependencies_from! {
         text: &'context mut TextRenderer,
         control_flow: &'context mut ControlFlow,
 
-        level: &'context mut Level,
+        wad: &'context mut WadSystem,
     }
 }
 
@@ -122,12 +122,12 @@ impl<'context> InfallibleSystem<'context> for Hud {
         }
 
         if input.poll_gesture(&bindings.next_level) {
-            let index = deps.level.level_index();
-            deps.level.change_level(index + 1);
+            let index = deps.wad.level_index();
+            deps.wad.change_level(index + 1);
         } else if input.poll_gesture(&bindings.previous_level) {
-            let index = deps.level.level_index();
+            let index = deps.wad.level_index();
             if index > 0 {
-                deps.level.change_level(index - 1);
+                deps.wad.change_level(index - 1);
             }
         }
     }

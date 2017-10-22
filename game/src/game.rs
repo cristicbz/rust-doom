@@ -1,9 +1,10 @@
 use super::SHADER_ROOT;
 use super::errors::Result;
 use super::hud::{Hud, Bindings as HudBindings};
-use super::level::{Level, Config as LevelConfig};
+use super::level::Level;
 use super::player::{Player, Config as PlayerConfig, Bindings as PlayerBindings};
 use super::wad_system::{WadSystem, Config as WadConfig};
+use super::game_shaders::GameShaders;
 use engine::{Input, Window, Projections, FrameTimers, Uniforms, Materials, Shaders, Renderer,
              Meshes, Entities, Transforms, TextRenderer, System, Context, ContextBuilder,
              WindowConfig, ShaderConfig, Tick, TickConfig};
@@ -44,13 +45,14 @@ impl Game {
             .inject(WadConfig {
                 wad_path: config.wad_file.clone(),
                 metadata_path: config.metadata_file.clone(),
+                initial_level_index: config.initial_level_index,
             })
-            .inject(LevelConfig { index: config.initial_level_index })
             .inject(HudBindings::default())
             .inject(PlayerBindings::default())
             .inject(PlayerConfig::default())
 
             .system(WadSystem::bind())?
+            .system(GameShaders::bind())?
             .system(Level::bind())?
             .system(Hud::bind())?
             .system(Player::bind())?
@@ -79,16 +81,17 @@ impl Drop for Game {
     }
 }
 
-pub struct ContextWrapper<LevelIndexT, WadIndexT, ContextT> {
+pub struct ContextWrapper<WadIndexT, ContextT> {
     context: ContextT,
-    phantom: PhantomData<(LevelIndexT, WadIndexT)>,
+    phantom: PhantomData<WadIndexT>,
 }
 
-impl<LevelIndexT, WadIndexT, ContextT> ContextWrapper<LevelIndexT, WadIndexT, ContextT>
+impl<WadIndexT, ContextT> ContextWrapper<WadIndexT, ContextT>
 where
-    ContextT: Context + Peek<Level, LevelIndexT> + Peek<WadSystem, WadIndexT> + 'static,
+    ContextT: Context
+        + Peek<WadSystem, WadIndexT>
+        + 'static,
     WadIndexT: 'static,
-    LevelIndexT: 'static,
 {
     fn boxed(context: ContextT) -> Box<AbstractGame> {
         Box::new(ContextWrapper {
@@ -105,20 +108,24 @@ pub trait AbstractGame {
     fn load_level(&mut self, level_index: usize) -> Result<()>;
 }
 
-impl<LevelIndexT, WadIndexT, ContextT> AbstractGame
-    for ContextWrapper<LevelIndexT, WadIndexT, ContextT>
+impl<WadIndexT, ContextT> AbstractGame for ContextWrapper<WadIndexT, ContextT>
 where
-    ContextT: Context + Peek<Level, LevelIndexT> + Peek<WadSystem, WadIndexT> + 'static,
+    ContextT: Context
+        + Peek<
+        WadSystem,
+        WadIndexT,
+    >
+        + 'static,
 {
     fn num_levels(&self) -> usize {
-        let wad: &WadSystem = self.context.peek();
+        let wad = self.context.peek();
         wad.archive.num_levels()
     }
 
     fn load_level(&mut self, level_index: usize) -> Result<()> {
         {
-            let level: &mut Level = self.context.peek_mut();
-            level.change_level(level_index);
+            let wad = self.context.peek_mut();
+            wad.change_level(level_index);
         }
         self.context.step()?;
         self.context.step()?;

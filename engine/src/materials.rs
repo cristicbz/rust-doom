@@ -28,10 +28,11 @@ impl Materials {
     pub fn add<'a>(
         &'a mut self,
         entities: &mut Entities,
+        parent: EntityId,
         shader: ShaderId,
         name: &'static str,
     ) -> Result<MaterialRefMut<'a>> {
-        let id = entities.add(shader.0, name)?;
+        let id = entities.add(parent, name)?;
         self.map.insert(
             id,
             Material {
