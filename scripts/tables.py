@@ -204,9 +204,9 @@ def platforms(chunk):
                                                  True),
         'Lowest Neighbor Floor (lift)': (height('LowestFloor'),
                                          height('Floor'), False),
-        'Raise 24 Units': (height('Floor', 24), height('Floor'), False),
-        'Raise 32 Units': (height('Floor', 32), height('Floor'), False),
-        'Raise Next Floor': (height('NextFloor'), height('Floor'), False),
+        'Raise 24 Units': (height('Floor', 24), None, False),
+        'Raise 32 Units': (height('Floor', 32), None, False),
+        'Raise Next Floor': (height('NextFloor'), None, False),
         'Stop': None,
     }
 
@@ -243,9 +243,12 @@ def platforms(chunk):
             print('    speed =', speed)
         if repeat:
             print('    repeat = true')
-        print('    [linedef.move.floor]')
-        print('      first =', first)
-        print('      second =', second)
+        if second is None:
+            print('    floor = { first =', first, '}')
+        else:
+            print('    [linedef.move.floor]')
+            print('      first =', first)
+            print('      second =', second)
         print()
 
 
