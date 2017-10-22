@@ -134,12 +134,39 @@ impl Level {
                         }
                     }
                 }
+                TriggerType::Any => {
+                    if let Some(offset) = walked.segment_intersect_offset(&trigger.line) {
+                        debug!(
+                            "Trigger {} (any) walk-activated offset={}",
+                            i_trigger,
+                            offset
+                        );
+                        triggered = true;
+                    } else if let Some((PlayerAction::Push, line)) = action_and_line {
+                        if let Some(offset) = line.segment_intersect_offset(&trigger.line) {
+                            debug!(
+                                "Trigger {} (any) push-activated offset={}",
+                                i_trigger,
+                                offset
+                            );
+                            triggered = true;
+                        }
+                    }
+                }
             };
             if triggered {
                 for &effect in &trigger.move_effects {
                     let effect_index = effect.object_id.0 as usize;
-                    debug!("Started effect {}.", effect_index);
+                    debug!(
+                        "Started effect {} with type {}.",
+                        effect_index,
+                        trigger.special_type
+                    );
                     self.effects.insert(effect_index, effect);
+                }
+
+                if trigger.unimplemented {
+                    error!("Unimpemented trigger: {}", trigger.special_type);
                 }
 
                 if trigger.only_once {
@@ -204,7 +231,7 @@ impl<'context> System<'context> for Level {
             if self.next_index >= deps.wad.archive.num_levels() {
                 self.next_index = self.current_index;
             } else {
-                deps.entities.remove(self.root)?;
+                deps.entities.remove(self.root);
                 *self = Self::create(Dependencies {
                     config: &Config { index: self.next_index },
                     ..deps

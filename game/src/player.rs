@@ -138,6 +138,7 @@ impl Player {
 
     fn clip(&mut self, delta_time: f32, head: &mut Sphere, level: &Level) {
         let mut time_left = delta_time;
+        let mut armed = true;
         for _ in 0..100 {
             let displacement = self.velocity * time_left;
             if let Some(contact) = level.volume().sweep_sphere(*head, displacement) {
@@ -153,7 +154,12 @@ impl Player {
                 }
             }
             head.center = head.center + displacement;
+            armed = false;
             break;
+        }
+
+        if armed {
+            error!("Failed to compute collisions.");
         }
     }
 

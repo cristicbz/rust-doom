@@ -54,6 +54,7 @@ pub struct ThingDirectoryMetadata {
 
 #[derive(Debug, Deserialize, Copy, Clone)]
 pub enum TriggerType {
+    Any,
     Push,
     Switch,
     WalkOver,
