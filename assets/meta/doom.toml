@@ -99,6 +99,1284 @@
         ["DBRAIN1", "DBRAIN2", "DBRAIN3",  "DBRAIN4"],
     ]
 
+### Linedef Specials ###
+#   The 'scripted' behaviour of the environment in DOOM was mostly based on
+# lindefs (the lines that separate sectors). The player can trigger a linedef
+# which causes an effect.
+#   The behaviour of a linedef is defined by its 'type' number. This table
+# was hardcoded in DOOM. We provide a slightly more generalized approach to
+# this, where the behaviour is defined as a:
+#   trigger - what does the player need to do to trigger it:
+#             (P)ush, (S)witch, (W)alkover or (G)un + (R)epeatable) or (1)once
+#   effects - what triggering the lindef does.
+
+
+### Doors ###
+
+[[linedef]]
+  special_type = 1
+  trigger = "Push"
+  monsters = true
+  [linedef.move]
+    wait = 4.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 2
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 3
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 4
+  trigger = "WalkOver"
+  only_once = true
+  monsters = true
+  [linedef.move]
+    wait = 4.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 16
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    wait = 30.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "Floor" }
+      second = { to = "LowestCeiling", off = -4 }
+
+[[linedef]]
+  special_type = 29
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    wait = 4.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 31
+  trigger = "Push"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 42
+  trigger = "Switch"
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 46
+  trigger = "Gun"
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 50
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 61
+  trigger = "Switch"
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 63
+  trigger = "Switch"
+  [linedef.move]
+    wait = 4.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 75
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 76
+  trigger = "WalkOver"
+  [linedef.move]
+    wait = 30.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "Floor" }
+      second = { to = "LowestCeiling", off = -4 }
+
+[[linedef]]
+  special_type = 86
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 90
+  trigger = "WalkOver"
+  [linedef.move]
+    wait = 4.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 103
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 105
+  trigger = "WalkOver"
+  [linedef.move]
+    wait = 4.0
+    speed = 32
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 106
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 107
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 108
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    wait = 4.0
+    speed = 32
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 109
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 110
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 111
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    wait = 4.0
+    speed = 32
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 112
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 113
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 114
+  trigger = "Switch"
+  [linedef.move]
+    wait = 4.0
+    speed = 32
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 115
+  trigger = "Switch"
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 116
+  trigger = "Switch"
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 117
+  trigger = "Push"
+  [linedef.move]
+    wait = 4.0
+    speed = 32
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 118
+  trigger = "Push"
+  only_once = true
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 175
+  trigger = "Switch"
+  extended = true
+  only_once = true
+  [linedef.move]
+    wait = 30.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "Floor" }
+      second = { to = "LowestCeiling", off = -4 }
+
+[[linedef]]
+  special_type = 196
+  trigger = "Switch"
+  extended = true
+  [linedef.move]
+    wait = 30.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "Floor" }
+      second = { to = "LowestCeiling", off = -4 }
+
+[[linedef]]
+  special_type = 26
+  trigger = "Push"
+  lock = 0
+  [linedef.move]
+    wait = 4.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 28
+  trigger = "Push"
+  lock = 1
+  [linedef.move]
+    wait = 4.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 27
+  trigger = "Push"
+  lock = 2
+  [linedef.move]
+    wait = 4.0
+    speed = 8
+    [linedef.move.ceiling]
+      first = { to = "LowestCeiling", off = -4 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 32
+  trigger = "Push"
+  only_once = true
+  lock = 0
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 33
+  trigger = "Push"
+  only_once = true
+  lock = 1
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 34
+  trigger = "Push"
+  only_once = true
+  lock = 2
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 99
+  trigger = "Switch"
+  lock = 0
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 134
+  trigger = "Switch"
+  lock = 1
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 136
+  trigger = "Switch"
+  lock = 2
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 133
+  trigger = "Switch"
+  only_once = true
+  lock = 0
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 135
+  trigger = "Switch"
+  only_once = true
+  lock = 1
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+[[linedef]]
+  special_type = 137
+  trigger = "Switch"
+  only_once = true
+  lock = 2
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "LowestCeiling", off = -4 } }
+
+
+
+### Floors ###
+
+[[linedef]]
+  special_type = 5
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestCeiling" } }
+
+[[linedef]]
+  special_type = 18
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "NextFloor" } }
+
+[[linedef]]
+  special_type = 19
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "HighestFloor" } }
+
+[[linedef]]
+  special_type = 23
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestFloor" } }
+
+[[linedef]]
+  special_type = 24
+  trigger = "Gun"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestCeiling" } }
+
+[[linedef]]
+  special_type = 36
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 32
+    floor = { first = { to = "HighestFloor", off = 8 } }
+
+[[linedef]]
+  special_type = 37
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestFloor" } }
+
+[[linedef]]
+  special_type = 38
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestFloor" } }
+
+[[linedef]]
+  special_type = 45
+  trigger = "Switch"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "HighestFloor" } }
+
+[[linedef]]
+  special_type = 55
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestCeiling", off = -8 } }
+
+[[linedef]]
+  special_type = 56
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestCeiling", off = -8 } }
+
+[[linedef]]
+  special_type = 58
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 59
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 60
+  trigger = "Switch"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestFloor" } }
+
+[[linedef]]
+  special_type = 64
+  trigger = "Switch"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestCeiling" } }
+
+[[linedef]]
+  special_type = 65
+  trigger = "Switch"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestCeiling", off = -8 } }
+
+[[linedef]]
+  special_type = 69
+  trigger = "Switch"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "NextFloor" } }
+
+[[linedef]]
+  special_type = 70
+  trigger = "Switch"
+  [linedef.move]
+    speed = 32
+    floor = { first = { to = "HighestFloor", off = 8 } }
+
+[[linedef]]
+  special_type = 71
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 32
+    floor = { first = { to = "HighestFloor", off = 8 } }
+
+[[linedef]]
+  special_type = 82
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestFloor" } }
+
+[[linedef]]
+  special_type = 83
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "HighestFloor" } }
+
+[[linedef]]
+  special_type = 84
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestFloor" } }
+
+[[linedef]]
+  special_type = 91
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestCeiling" } }
+
+[[linedef]]
+  special_type = 92
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 93
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 94
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestCeiling", off = -8 } }
+
+[[linedef]]
+  special_type = 98
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 32
+    floor = { first = { to = "HighestFloor", off = 8 } }
+
+[[linedef]]
+  special_type = 101
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestCeiling" } }
+
+[[linedef]]
+  special_type = 102
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "HighestFloor" } }
+
+[[linedef]]
+  special_type = 119
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "NextFloor" } }
+
+[[linedef]]
+  special_type = 128
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "NextFloor" } }
+
+[[linedef]]
+  special_type = 129
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 32
+    floor = { first = { to = "NextFloor" } }
+
+[[linedef]]
+  special_type = 130
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 32
+    floor = { first = { to = "NextFloor" } }
+
+[[linedef]]
+  special_type = 131
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 32
+    floor = { first = { to = "NextFloor" } }
+
+[[linedef]]
+  special_type = 132
+  trigger = "Switch"
+  [linedef.move]
+    speed = 32
+    floor = { first = { to = "NextFloor" } }
+
+[[linedef]]
+  special_type = 140
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 142
+  trigger = "WalkOver"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 147
+  trigger = "WalkOver"
+  extended = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 159
+  trigger = "Switch"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestFloor" } }
+
+[[linedef]]
+  special_type = 160
+  trigger = "Switch"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 161
+  trigger = "Switch"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 177
+  trigger = "Switch"
+  extended = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "LowestFloor" } }
+
+[[linedef]]
+  special_type = 178
+  trigger = "Switch"
+  extended = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 179
+  trigger = "Switch"
+  extended = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 180
+  trigger = "Switch"
+  extended = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "Floor", off = 24 } }
+
+[[linedef]]
+  special_type = 219
+  trigger = "WalkOver"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "NextFloor" } }
+
+[[linedef]]
+  special_type = 220
+  trigger = "WalkOver"
+  extended = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "NextFloor" } }
+
+[[linedef]]
+  special_type = 221
+  trigger = "Switch"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "NextFloor" } }
+
+[[linedef]]
+  special_type = 222
+  trigger = "Switch"
+  extended = true
+  [linedef.move]
+    speed = 8
+    floor = { first = { to = "NextFloor" } }
+
+
+
+### Ceilings ###
+
+[[linedef]]
+  special_type = 40
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "HighestCeiling" } }
+
+[[linedef]]
+  special_type = 41
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 43
+  trigger = "Switch"
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 44
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "Floor", off = 8 } }
+
+[[linedef]]
+  special_type = 72
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "Floor", off = 8 } }
+
+[[linedef]]
+  special_type = 145
+  trigger = "WalkOver"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 151
+  trigger = "WalkOver"
+  extended = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "HighestCeiling" } }
+
+[[linedef]]
+  special_type = 152
+  trigger = "WalkOver"
+  extended = true
+  [linedef.move]
+    speed = 32
+    ceiling = { first = { to = "Floor" } }
+
+[[linedef]]
+  special_type = 166
+  trigger = "Switch"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "HighestCeiling" } }
+
+[[linedef]]
+  special_type = 167
+  trigger = "Switch"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "Floor", off = 8 } }
+
+[[linedef]]
+  special_type = 186
+  trigger = "Switch"
+  extended = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "HighestCeiling" } }
+
+[[linedef]]
+  special_type = 187
+  trigger = "Switch"
+  extended = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "Floor", off = 8 } }
+
+[[linedef]]
+  special_type = 199
+  trigger = "WalkOver"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling" } }
+
+[[linedef]]
+  special_type = 200
+  trigger = "WalkOver"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "HighestFloor" } }
+
+[[linedef]]
+  special_type = 201
+  trigger = "WalkOver"
+  extended = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling" } }
+
+[[linedef]]
+  special_type = 202
+  trigger = "WalkOver"
+  extended = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "HighestFloor" } }
+
+[[linedef]]
+  special_type = 203
+  trigger = "Switch"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling" } }
+
+[[linedef]]
+  special_type = 204
+  trigger = "Switch"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "HighestFloor" } }
+
+[[linedef]]
+  special_type = 205
+  trigger = "Switch"
+  extended = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "LowestCeiling" } }
+
+[[linedef]]
+  special_type = 206
+  trigger = "Switch"
+  extended = true
+  [linedef.move]
+    speed = 8
+    ceiling = { first = { to = "HighestFloor" } }
+
+
+
+### Platforms ###
+
+[[linedef]]
+  special_type = 10
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    wait = 3.0
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 14
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "Floor", off = 32 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 15
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "Floor", off = 24 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 20
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "NextFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 21
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    wait = 3.0
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 22
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "NextFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 47
+  trigger = "Gun"
+  only_once = true
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "NextFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 53
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    wait = 3.0
+    speed = 8
+    repeat = true
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "HighestFloor" }
+
+[[linedef]]
+  special_type = 62
+  trigger = "Switch"
+  [linedef.move]
+    wait = 3.0
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 66
+  trigger = "Switch"
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "Floor", off = 24 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 67
+  trigger = "Switch"
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "Floor", off = 32 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 68
+  trigger = "Switch"
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "NextFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 87
+  trigger = "WalkOver"
+  [linedef.move]
+    wait = 3.0
+    speed = 8
+    repeat = true
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "HighestFloor" }
+
+[[linedef]]
+  special_type = 88
+  trigger = "WalkOver"
+  [linedef.move]
+    wait = 3.0
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 95
+  trigger = "WalkOver"
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "NextFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 120
+  trigger = "WalkOver"
+  [linedef.move]
+    wait = 3.0
+    speed = 32
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 121
+  trigger = "WalkOver"
+  only_once = true
+  [linedef.move]
+    wait = 3.0
+    speed = 32
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 122
+  trigger = "Switch"
+  only_once = true
+  [linedef.move]
+    wait = 3.0
+    speed = 32
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 123
+  trigger = "Switch"
+  [linedef.move]
+    wait = 3.0
+    speed = 32
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 143
+  trigger = "WalkOver"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "Floor", off = 24 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 144
+  trigger = "WalkOver"
+  extended = true
+  only_once = true
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "Floor", off = 32 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 148
+  trigger = "WalkOver"
+  extended = true
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "Floor", off = 24 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 149
+  trigger = "WalkOver"
+  extended = true
+  [linedef.move]
+    speed = 8
+    [linedef.move.floor]
+      first = { to = "Floor", off = 32 }
+      second = { to = "Floor" }
+
+[[linedef]]
+  special_type = 162
+  trigger = "Switch"
+  extended = true
+  only_once = true
+  [linedef.move]
+    wait = 3.0
+    speed = 8
+    repeat = true
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "HighestFloor" }
+
+[[linedef]]
+  special_type = 181
+  trigger = "Switch"
+  extended = true
+  [linedef.move]
+    wait = 3.0
+    speed = 8
+    repeat = true
+    [linedef.move.floor]
+      first = { to = "LowestFloor" }
+      second = { to = "HighestFloor" }
+
+
+
+### Exits ###
+
+[[linedef]]
+  special_type = 11
+  trigger = "Switch"
+  only_once = true
+  exit = "Normal"
+
+[[linedef]]
+  special_type = 51
+  trigger = "Switch"
+  only_once = true
+  exit = "Secret"
+
+[[linedef]]
+  special_type = 52
+  trigger = "WalkOver"
+  only_once = true
+  exit = "Normal"
+
+[[linedef]]
+  special_type = 124
+  trigger = "WalkOver"
+  only_once = true
+  exit = "Secret"
+
+[[linedef]]
+  special_type = 197
+  trigger = "Gun"
+  extended = true
+  only_once = true
+  exit = "Normal"
+
+[[linedef]]
+  special_type = 198
+  trigger = "Gun"
+  extended = true
+  only_once = true
+  exit = "Secret"
+
 
 ### Thing Directory ###
 #   Thing types to sprites and behaviour were again hardcoded in the original

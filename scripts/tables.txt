@@ -1,0 +1,254 @@
+1	Reg	PR	No	Slow	4s	Yes	Open, Wait, Then Close
+2	Reg	W1	No	Slow	--	No	Open and Stay Open
+3	Reg	W1	No	Slow	--	No	Close and Stay Closed
+4	Reg	W1	No	Slow	4s	Yes	Open, Wait, Then Close
+16	Reg	W1	No	Slow	30s	No	Close, Wait, Then Open
+29	Reg	S1	No	Slow	4s	No	Open, Wait, Then Close
+31	Reg	P1	No	Slow	--	No	Open and Stay Open
+42	Reg	SR	No	Slow	--	No	Close and Stay Closed
+46	Reg	GR	No	Slow	--	No	Open and Stay Open
+50	Reg	S1	No	Slow	--	No	Close and Stay Closed
+61	Reg	SR	No	Slow	--	No	Open and Stay Open
+63	Reg	SR	No	Slow	4s	No	Open, Wait, Then Close
+75	Reg	WR	No	Slow	--	No	Close and Stay Closed
+76	Reg	WR	No	Slow	30s	No	Close, Wait, Then Open
+86	Reg	WR	No	Slow	--	No	Open and Stay Open
+90	Reg	WR	No	Slow	4s	No	Open, Wait, Then Close
+103	Reg	S1	No	Slow	--	No	Open and Stay Open
+105	Reg	WR	No	Fast	4s	No	Open, Wait, Then Close
+106	Reg	WR	No	Fast	--	No	Open and Stay Open
+107	Reg	WR	No	Fast	--	No	Close and Stay Closed
+108	Reg	W1	No	Fast	4s	No	Open, Wait, Then Close
+109	Reg	W1	No	Fast	--	No	Open and Stay Open
+110	Reg	W1	No	Fast	--	No	Close and Stay Closed
+111	Reg	S1	No	Fast	4s	No	Open, Wait, Then Close
+112	Reg	S1	No	Fast	--	No	Open and Stay Open
+113	Reg	S1	No	Fast	--	No	Close and Stay Closed
+114	Reg	SR	No	Fast	4s	No	Open, Wait, Then Close
+115	Reg	SR	No	Fast	--	No	Open and Stay Open
+116	Reg	SR	No	Fast	--	No	Close and Stay Closed
+117	Reg	PR	No	Fast	4s	No	Open, Wait, Then Close
+118	Reg	P1	No	Fast	--	No	Open and Stay Open
+175	Ext	S1	No	Slow	30s	No	Close, Wait, Then Open
+196	Ext	SR	No	Slow	30s	No	Close, Wait, Then Open
+26	Reg	PR	Blue	Slow	4s	No	Open, Wait, Then Close
+28	Reg	PR	Red	Slow	4s	No	Open, Wait, Then Close
+27	Reg	PR	Yell	Slow	4s	No	Open, Wait, Then Close
+32	Reg	P1	Blue	Slow	--	No	Open and Stay Open
+33	Reg	P1	Red	Slow	--	No	Open and Stay Open
+34	Reg	P1	Yell	Slow	--	No	Open and Stay Open
+99	Reg	SR	Blue	Fast	--	No	Open and Stay Open
+134	Reg	SR	Red	Fast	--	No	Open and Stay Open
+136	Reg	SR	Yell	Fast	--	No	Open and Stay Open
+133	Reg	S1	Blue	Fast	--	No	Open and Stay Open
+135	Reg	S1	Red	Fast	--	No	Open and Stay Open
+137	Reg	S1	Yell	Fast	--	No	Open and Stay Open
+
+5	Reg	W1	Up	Slow	None	--	No	No	Lowest Neighbor Ceiling
+18	Reg	S1	Up	Slow	None	--	No	No	Next Neighbor Floor
+19	Reg	W1	Dn	Slow	None	--	No	No	Highest Neighbor Floor
+23	Reg	S1	Dn	Slow	None	--	No	No	Lowest Neighbor Floor
+24	Reg	G1	Up	Slow	None	--	No	No	Lowest Neighbor Ceiling
+30	Reg	W1	Up	Slow	None	--	No	No	Abs Shortest Lower Texture
+36	Reg	W1	Dn	Fast	None	--	No	No	Highest Neighbor Floor + 8
+37	Reg	W1	Dn	Slow	TxTy	Num	No	No	Lowest Neighbor Floor
+38	Reg	W1	Dn	Slow	None	--	No	No	Lowest Neighbor Floor
+45	Reg	SR	Dn	Slow	None	--	No	No	Highest Neighbor Floor
+55	Reg	S1	Up	Slow	None	--	No	Yes	Lowest Neighbor Ceiling - 8
+56	Reg	W1	Up	Slow	None	--	No	Yes	Lowest Neighbor Ceiling - 8
+58	Reg	W1	Up	Slow	None	--	No	No	Absolute 24
+59	Reg	W1	Up	Slow	TxTy	Trg	No	No	Absolute 24
+60	Reg	SR	Dn	Slow	None	--	No	No	Lowest Neighbor Floor
+64	Reg	SR	Up	Slow	None	--	No	No	Lowest Neighbor Ceiling
+65	Reg	SR	Up	Slow	None	--	No	Yes	Lowest Neighbor Ceiling - 8
+69	Reg	SR	Up	Slow	None	--	No	No	Next Neighbor Floor
+70	Reg	SR	Dn	Fast	None	--	No	No	Highest Neighbor Floor + 8
+71	Reg	S1	Dn	Fast	None	--	No	No	Highest Neighbor Floor + 8
+78	Ext	SR	--	----	TxTy	Num	No	No	None
+82	Reg	WR	Dn	Slow	None	--	No	No	Lowest Neighbor Floor
+83	Reg	WR	Dn	Slow	None	--	No	No	Highest Neighbor Floor
+84	Reg	WR	Dn	Slow	TxTy	Num	No	No	Lowest Neighbor Floor
+91	Reg	WR	Up	Slow	None	--	No	No	Lowest Neighbor Ceiling
+92	Reg	WR	Up	Slow	None	--	No	No	Absolute 24
+93	Reg	WR	Up	Slow	TxTy	Trg	No	No	Absolute 24
+94	Reg	WR	Up	Slow	None	--	No	Yes	Lowest Neighbor Ceiling - 8
+96	Reg	WR	Up	Slow	None	--	No	No	Abs Shortest Lower Texture
+98	Reg	WR	Dn	Fast	None	--	No	No	Highest Neighbor Floor + 8
+101	Reg	S1	Up	Slow	None	--	No	No	Lowest Neighbor Ceiling
+102	Reg	S1	Dn	Slow	None	--	No	No	Highest Neighbor Floor
+119	Reg	W1	Up	Slow	None	--	No	No	Next Neighbor Floor
+128	Reg	WR	Up	Slow	None	--	No	No	Next Neighbor Floor
+129	Reg	WR	Up	Fast	None	--	No	No	Next Neighbor Floor
+130	Reg	W1	Up	Fast	None	--	No	No	Next Neighbor Floor
+131	Reg	S1	Up	Fast	None	--	No	No	Next Neighbor Floor
+132	Reg	SR	Up	Fast	None	--	No	No	Next Neighbor Floor
+140	Reg	S1	Up	Slow	None	--	No	No	Absolute 512
+142	Ext	W1	Up	Slow	None	--	No	No	Absolute 512
+147	Ext	WR	Up	Slow	None	--	No	No	Absolute 512
+153	Ext	W1	--	----	TxTy	Trg	No	No	None
+154	Ext	WR	--	----	TxTy	Trg	No	No	None
+158	Ext	S1	Up	Slow	None	--	No	No	Abs Shortest Lower Texture
+159	Ext	S1	Dn	Slow	TxTy	Num	No	No	Lowest Neighbor Floor
+160	Ext	S1	Up	Slow	TxTy	Trg	No	No	Absolute 24
+161	Ext	S1	Up	Slow	None	--	No	No	Absolute 24
+176	Ext	SR	Up	Slow	None	--	No	No	Abs Shortest Lower Texture
+177	Ext	SR	Dn	Slow	TxTy	Num	No	No	Lowest Neighbor Floor
+178	Ext	SR	Up	Slow	None	--	No	No	Absolute 512
+179	Ext	SR	Up	Slow	TxTy	Trg	No	No	Absolute 24
+180	Ext	SR	Up	Slow	None	--	No	No	Absolute 24
+189	Ext	S1	--	----	TxTy	Trg	No	No	None
+190	Ext	SR	--	----	TxTy	Trg	No	No	None
+219	Ext	W1	Dn	Slow	None	--	No	No	Next Neighbor Floor
+220	Ext	WR	Dn	Slow	None	--	No	No	Next Neighbor Floor
+221	Ext	S1	Dn	Slow	None	--	No	No	Next Neighbor Floor
+222	Ext	SR	Dn	Slow	None	--	No	No	Next Neighbor Floor
+239	Ext	W1	--	----	TxTy	Num	No	No	None
+240	Ext	WR	--	----	TxTy	Num	No	No	None
+241	Ext	S1	--	----	TxTy	Num	No	No	None
+
+40	Reg	W1	Up	Slow	None	--	No	No	Highest Neighbor Ceiling
+41	Reg	S1	Dn	Fast	None	--	No	No	Floor
+43	Reg	SR	Dn	Fast	None	--	No	No	Floor
+44	Reg	W1	Dn	Slow	None	--	No	No	8 Above Floor
+72	Reg	WR	Dn	Slow	None	--	No	No	8 Above Floor
+145	Ext	W1	Dn	Fast	None	--	No	No	Floor
+151	Ext	WR	Up	Slow	None	--	No	No	Highest Neighbor Ceiling
+152	Ext	WR	Dn	Fast	None	--	No	No	Floor
+166	Ext	S1	Up	Slow	None	--	No	No	Highest Neighbor Ceiling
+167	Ext	S1	Dn	Slow	None	--	No	No	8 Above Floor
+186	Ext	SR	Up	Slow	None	--	No	No	Highest Neighbor Ceiling
+187	Ext	SR	Dn	Slow	None	--	No	No	8 Above Floor
+199	Ext	W1	Dn	Slow	None	--	No	No	Lowest Neighbor Ceiling
+200	Ext	W1	Dn	Slow	None	--	No	No	Highest Neighbor Floor
+201	Ext	WR	Dn	Slow	None	--	No	No	Lowest Neighbor Ceiling
+202	Ext	WR	Dn	Slow	None	--	No	No	Highest Neighbor Floor
+203	Ext	S1	Dn	Slow	None	--	No	No	Lowest Neighbor Ceiling
+204	Ext	S1	Dn	Slow	None	--	No	No	Highest Neighbor Floor
+205	Ext	SR	Dn	Slow	None	--	No	No	Lowest Neighbor Ceiling
+206	Ext	SR	Dn	Slow	None	--	No	No	Highest Neighbor Floor
+
+10	Reg	W1	3s	Slow	None	--	No	Lowest Neighbor Floor (lift)
+14	Reg	S1	--	Slow	Tx0	Trg	No	Raise 32 Units
+15	Reg	S1	--	Slow	Tx	Trg	No	Raise 24 Units
+20	Reg	S1	--	Slow	Tx0	Trg	No	Raise Next Floor
+21	Reg	S1	3s	Slow	None	--	No	Lowest Neighbor Floor (lift)
+22	Reg	W1	--	Slow	Tx0	Trg	No	Raise Next Floor
+47	Reg	G1	--	Slow	Tx0	Trg	No	Raise Next Floor
+53	Reg	W1	3s	Slow	None	--	No	Lowest and Highest Floor (perpetual)
+54	Reg	W1	--	----	----	--	--	Stop
+62	Reg	SR	3s	Slow	None	--	No	Lowest Neighbor Floor (lift)
+66	Reg	SR	--	Slow	Tx	Trg	No	Raise 24 Units
+67	Reg	SR	--	Slow	Tx0	Trg	No	Raise 32 Units
+68	Reg	SR	--	Slow	Tx0	Trg	No	Raise Next Floor
+87	Reg	WR	3s	Slow	None	--	No	Lowest and Highest Floor (perpetual)
+88	Reg	WR	3s	Slow	None	--	No	Lowest Neighbor Floor (lift)
+89	Reg	WR	--	----	----	--	--	Stop
+95	Reg	WR	--	Slow	Tx0	Trg	No	Raise Next Floor
+120	Reg	WR	3s	Fast	None	--	No	Lowest Neighbor Floor (lift)
+121	Reg	W1	3s	Fast	None	--	No	Lowest Neighbor Floor (lift)
+122	Reg	S1	3s	Fast	None	--	No	Lowest Neighbor Floor (lift)
+123	Reg	SR	3s	Fast	None	--	No	Lowest Neighbor Floor (lift)
+143	Ext	W1	--	Slow	Tx	Trg	No	Raise 24 Units
+144	Ext	W1	--	Slow	Tx0	Trg	No	Raise 32 Units
+148	Ext	WR	--	Slow	Tx	Trg	No	Raise 24 Units
+149	Ext	WR	--	Slow	Tx0	Trg	No	Raise 32 Units
+162	Ext	S1	3s	Slow	None	--	No	Lowest and Highest Floor (perpetual)
+163	Ext	S1	--	----	----	--	--	Stop
+181	Ext	SR	3s	Slow	None	--	No	Lowest and Highest Floor (perpetual)
+182	Ext	SR	--	----	----	--	--	Stop
+211	Ext	SR	--	Inst	None	--	No	Ceiling (toggle)
+212	Ext	WR	--	Inst	None	--	No	Ceiling (toggle)
+
+6	Reg	W1	Fast	No	No	Start
+25	Reg	W1	Slow	No	No	Start
+49	Reg	S1	Slow	No	No	Start
+57	Reg	W1	----	--	--	Stop
+73	Reg	WR	Slow	No	No	Start
+74	Reg	WR	----	--	--	Stop
+77	Reg	WR	Fast	No	No	Start
+141	Reg	W1	Slow	No	Yes	Start
+150	Ext	WR	Slow	No	Yes	Start
+164	Ext	S1	Fast	No	No	Start
+165	Ext	S1	Slow	No	Yes	Start
+168	Ext	S1	----	--	--	Stop
+183	Ext	SR	Fast	No	No	Start
+184	Ext	SR	Slow	No	No	Start
+185	Ext	SR	Slow	No	Yes	Start
+188	Ext	SR	----	--	--	Stop
+
+7	Reg	S1	Up	Slow	8	No	No
+8	Reg	W1	Up	Slow	8	No	No
+100	Reg	W1	Up	Fast	16	No	No
+127	Reg	S1	Up	Fast	16	No	No
+256	Ext	WR	Up	Slow	8	No	No
+257	Ext	WR	Up	Fast	16	No	No
+258	Ext	SR	Up	Slow	8	No	No
+259	Ext	SR	Up	Fast	16	No	No
+
+227	Ext	W1	Fast	Next Highest Floor
+228	Ext	WR	Fast	Next Highest Floor
+229	Ext	S1	Fast	Next Highest Floor
+230	Ext	SR	Fast	Next Highest Floor
+231	Ext	W1	Fast	Next Lowest Floor
+232	Ext	WR	Fast	Next Lowest Floor
+233	Ext	S1	Fast	Next Lowest Floor
+234	Ext	SR	Fast	Next Lowest Floor
+235	Ext	W1	Fast	Current Floor
+236	Ext	WR	Fast	Current Floor
+237	Ext	S1	Fast	Current Floor
+238	Ext	SR	Fast	Current Floor
+
+12	Reg	W1	Maximum Neighbor
+13	Reg	W1	255 Units
+17	Reg	W1	Blinking
+35	Reg	W1	35 Units
+79	Reg	WR	35 Units
+80	Reg	WR	Maximum Neighbor
+81	Reg	WR	255 Units
+104	Reg	W1	Minimum Neighbor
+138	Reg	SR	255 Units
+139	Reg	SR	35 Units
+156	Ext	WR	Blinking
+157	Ext	WR	Minimum Neighbor
+169	Ext	S1	Maximum Neighbor
+170	Ext	S1	35 Units
+171	Ext	S1	255 Units
+172	Ext	S1	Blinking
+173	Ext	S1	Minimum Neighbor
+192	Ext	SR	Maximum Neighbor
+193	Ext	SR	Blinking
+194	Ext	SR	Minimum Neighbor
+
+11	Reg	S1	Normal
+51	Reg	S1	Secret
+52	Reg	W1	Normal
+124	Reg	W1	Secret
+197	Ext	G1	Normal
+198	Ext	G1	Secret
+
+
+39	Reg	W1	No	Yes	Yes	Set	TP thing in tagged sector
+97	Reg	WR	No	Yes	Yes	Set	TP thing in tagged sector
+125	Reg	W1	No	Yes	No	Set	TP thing in tagged sector
+126	Reg	WR	No	Yes	No	Set	TP thing in tagged sector
+174	Ext	S1	No	Yes	Yes	Set	TP thing in tagged sector
+195	Ext	SR	No	Yes	Yes	Set	TP thing in tagged sector
+207	Ext	W1	Yes	Yes	Yes	Preserve	TP thing in tagged sector
+208	Ext	WR	Yes	Yes	Yes	Preserve	TP thing in tagged sector
+209	Ext	S1	Yes	Yes	Yes	Preserve	TP thing in tagged sector
+210	Ext	SR	Yes	Yes	Yes	Preserve	TP thing in tagged sector
+243	Ext	W1	Yes	Yes	Yes	Preserve	Line with same tag
+244	Ext	WR	Yes	Yes	Yes	Preserve	Line with same tag
+262	Ext	W1	Yes	Yes	Yes	Preserve	Line with same tag (reversed)
+263	Ext	WR	Yes	Yes	Yes	Preserve	Line with same tag (reversed)
+264	Ext	W1	Yes	Yes	No	Preserve	Line with same tag (reversed)
+265	Ext	WR	Yes	Yes	No	Preserve	Line with same tag (reversed)
+266	Ext	W1	Yes	Yes	No	Preserve	Line with same tag
+267	Ext	WR	Yes	Yes	No	Preserve	Line with same tag
+268	Ext	W1	Yes	Yes	No	Set	TP thing in tagged sector
+269	Ext	WR	Yes	Yes	No	Set	TP thing in tagged sector
+
+9	Reg	S1
+146	Ext	W1
+155	Ext	WR
+191	Ext	SR

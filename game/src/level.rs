@@ -12,7 +12,7 @@ use math::prelude::*;
 use time;
 use vec_map::VecMap;
 use wad::{Decor, LevelVisitor, LevelWalker, LightInfo, Marker, SkyPoly, SkyQuad, StaticPoly,
-          StaticQuad, Level as WadLevel, ObjectId, Trigger, TriggerType, LevelAnalysis};
+          StaticQuad, Level as WadLevel, ObjectId, MoveEffect, TriggerType, Trigger, LevelAnalysis};
 use wad::tex::{Bounds as WadBounds, BoundsLookup};
 use wad::types::{WadName, PALETTE_SIZE, COLORMAP_SIZE};
 use wad::util::{is_sky_flat, is_untextured};
@@ -26,7 +26,7 @@ pub struct Level {
     objects: Vec<EntityId>,
     triggers: Vec<Trigger>,
     removed: Vec<usize>,
-    effects: VecMap<Effect>,
+    effects: VecMap<MoveEffect>,
 
     start_pos: Pnt3f,
     start_yaw: Rad<f32>,
@@ -136,18 +136,10 @@ impl Level {
                 }
             };
             if triggered {
-                for effect in &trigger.move_effects {
+                for &effect in &trigger.move_effects {
                     let effect_index = effect.object_id.0 as usize;
                     debug!("Started effect {}.", effect_index);
-                    self.effects.insert(
-                        effect_index,
-                        Effect {
-                            move_speed: trigger.move_speed,
-                            wait_duration: trigger.wait_duration,
-                            first_height_offset: effect.first_height_offset,
-                            second_height_offset: effect.second_height_offset,
-                        },
-                    );
+                    self.effects.insert(effect_index, effect);
                 }
 
                 if trigger.only_once {
@@ -235,9 +227,9 @@ impl<'context> System<'context> for Level {
                 if effect.first_height_offset != *current_offset {
                     let offset_difference = effect.first_height_offset - *current_offset;
                     let sign = offset_difference.signum();
-                    let time_left = offset_difference.abs() / effect.move_speed;
+                    let time_left = offset_difference.abs() / effect.speed;
                     if time_left > timestep {
-                        *current_offset += sign * effect.move_speed * timestep;
+                        *current_offset += sign * effect.speed * timestep;
                         break;
                     } else {
                         *current_offset = effect.first_height_offset;
@@ -247,13 +239,13 @@ impl<'context> System<'context> for Level {
                     }
                 }
 
-                if effect.wait_duration > timestep {
-                    effect.wait_duration -= timestep;
+                if effect.wait > timestep {
+                    effect.wait -= timestep;
                     break;
                 } else {
                     debug!("Effect {}: finished waiting.", i_effect);
-                    timestep -= effect.wait_duration;
-                    effect.wait_duration = 0.0;
+                    timestep -= effect.wait;
+                    effect.wait = 0.0;
                 }
 
                 if let Some(offset) = effect.second_height_offset.take() {
@@ -298,13 +290,6 @@ impl<'context> System<'context> for Level {
         let _ = deps.entities.remove(self.root);
         Ok(())
     }
-}
-
-struct Effect {
-    wait_duration: f32,
-    move_speed: f32,
-    first_height_offset: f32,
-    second_height_offset: Option<f32>,
 }
 
 impl<'context> Dependencies<'context> {
@@ -724,7 +709,7 @@ impl<'a, 'context> Builder<'a, 'context> {
     ) -> Result<Level> {
         info!("Analysing level...");
         let start_time = time::precise_time_s();
-        let mut analysis = LevelAnalysis::new(wad_level);
+        let mut analysis = LevelAnalysis::new(wad_level, deps.wad.archive.metadata());
         let mut objects = Vec::new();
         let world = deps.entities.add(root, "world")?;
         deps.transforms.attach_identity(world);
