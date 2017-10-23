@@ -19,6 +19,22 @@ pub struct World {
 }
 
 impl World {
+    pub fn update(&mut self, transforms: &Transforms) {
+        for index in 0..self.dynamic_chunks.len() {
+            let id = self.dynamic_chunks.index_to_id(index).expect(
+                "bad index in iteration",
+            );
+            let dynamic = self.dynamic_chunks.get_mut_by_index(index).expect(
+                "bad index in iteration",
+            );
+            dynamic.inverse_transform = transforms
+                .get_absolute(id)
+                .expect("dynamic chunk missing transform")
+                .inverse_transform()
+                .expect("singular transform");
+        }
+    }
+
     pub fn sweep_sphere(&self, sphere: Sphere, vel: Vec3f) -> Option<ContactInfo> {
         let mut first_contact = ContactInfo {
             time: f32::INFINITY,
@@ -81,22 +97,6 @@ impl World {
             } else {
                 current
             });
-    }
-
-    pub fn update(&mut self, transforms: &Transforms) {
-        for index in 0..self.dynamic_chunks.len() {
-            let id = self.dynamic_chunks.index_to_id(index).expect(
-                "bad index in iteration",
-            );
-            let dynamic = self.dynamic_chunks.get_mut_by_index(index).expect(
-                "bad index in iteration",
-            );
-            dynamic.inverse_transform = transforms
-                .get_absolute(id)
-                .expect("dynamic chunk missing transform")
-                .inverse_transform()
-                .expect("singular transform");
-        }
     }
 
     fn sweep_sphere_triangle(

@@ -4,7 +4,7 @@ use super::meta::{WadMetadata, MoveEffectDef, TriggerType, HeightDef, HeightRef,
                   ExitEffectDef};
 use super::tex::TextureDirectory;
 use super::types::{ChildId, ThingType, WadCoord, WadName, WadNode, WadSector, WadSeg, WadThing,
-                   SectorId, WadLinedef};
+                   SectorId, WadLinedef, SpecialType};
 use super::util::{from_wad_coords, to_wad_height, from_wad_height, is_sky_flat, is_untextured,
                   parse_child_id};
 use math::{Line2f, Vec2f, Pnt2f, Deg, Radf, Pnt3f};
@@ -307,8 +307,10 @@ impl HeightEffectDef {
 pub struct Trigger {
     pub trigger_type: TriggerType,
     pub line: Line2f,
+    pub special_type: SpecialType,
     pub only_once: bool,
 
+    pub unimplemented: bool,
     pub move_effect_def: Option<MoveEffectDef>,
     pub exit_effect: Option<ExitEffectDef>,
     pub move_effects: Vec<MoveEffect>,
@@ -462,13 +464,6 @@ impl LevelAnalysis {
             return None;
         }
 
-        let meta = if let Some(meta) = meta.linedef.get(&linedef.special_type) {
-            meta
-        } else {
-            error!("Unknown linedef special type: {}", special_type);
-            return None;
-        };
-
         let line = match (
             level.vertex(linedef.start_vertex),
             level.vertex(linedef.end_vertex),
@@ -480,15 +475,34 @@ impl LevelAnalysis {
             }
         };
 
-        Some(Trigger {
-            trigger_type: meta.trigger,
 
-            only_once: meta.only_once,
-            move_effect_def: meta.move_effect,
-            exit_effect: meta.exit_effect,
+        Some(if let Some(meta) = meta.linedef.get(&special_type) {
+            Trigger {
+                trigger_type: meta.trigger,
 
-            line,
-            move_effects: Vec::new(),
+                only_once: meta.only_once,
+                move_effect_def: meta.move_effect,
+                exit_effect: meta.exit_effect,
+                unimplemented: false,
+                special_type,
+
+                line,
+                move_effects: Vec::new(),
+            }
+        } else {
+            error!("Unknown linedef special type: {}", special_type);
+            Trigger {
+                trigger_type: TriggerType::Any,
+
+                only_once: false,
+                move_effect_def: None,
+                exit_effect: None,
+                unimplemented: true,
+                special_type,
+
+                line,
+                move_effects: Vec::new(),
+            }
         })
     }
 }

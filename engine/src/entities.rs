@@ -1,7 +1,6 @@
 use super::errors::{ErrorKind, Result};
 use super::system::InfallibleSystem;
 use idcontain::{IdSlab, Id, OptionId};
-use std::collections::VecDeque;
 use std::fmt::Write;
 use std::mem;
 
@@ -12,7 +11,6 @@ pub struct Entities {
     first_root: OptionId<Entity>,
     removed: Vec<EntityId>,
     last_removed: Vec<EntityId>,
-    removed_children: VecDeque<EntityId>,
 }
 
 impl Entities {
@@ -126,85 +124,9 @@ impl Entities {
         Ok(new_id)
     }
 
-    pub fn remove(&mut self, mut id: EntityId) -> Result<()> {
-        let Entities {
-            ref mut slab,
-            ref mut removed,
-            ref mut removed_children,
-            ..
-        } = *self;
-        debug!("Removing {:?}...", id);
-        let removed_start = removed.len();
-        id = {
-            let this = slab.get_mut(id).ok_or_else(|| {
-                debug!("Entity not in slab, quitting early.");
-                ErrorKind::NoSuchEntity("remove", None, id.cast())
-            })?;
-            if !this.liveness.is_alive() {
-                debug!(
-                    "Entity {:?} is in slab, but already deleted: {:?}",
-                    this.name,
-                    this.liveness
-                );
-                return Ok(());
-            }
-            this.liveness = Liveness::Killed;
-            removed.push(id);
-            if let Some(child) = this.child.into() {
-                debug!(
-                    "Killed entity {:?} and added child {:?} to queue.",
-                    this.name,
-                    child
-                );
-                child
-            } else {
-                debug!("Killed entity {:?} with no children.", this.name);
-                return Ok(());
-            }
-        };
-
-        loop {
-            loop {
-                let this = &mut slab[id];
-                if mem::replace(&mut this.liveness, Liveness::DeadDueToParent).is_alive() {
-                    removed.push(id);
-                    debug!("Killed entity {:?} {:?}.", this.name, id);
-                    if let Some(child) = this.child.into() {
-                        debug!(
-                            "Added child for {:?} {:?} to queue: {:?}",
-                            this.name,
-                            id,
-                            child
-                        );
-                        removed_children.push_back(child);
-                    }
-                } else {
-                    debug!("Entity {:?} {:?} already dead, skipping.", this.name, id);
-                }
-                if let Some(sibling) = this.next.into() {
-                    debug!("Moving to sibling {:?}", sibling);
-                    id = sibling;
-                } else {
-                    debug!("No more siblings.");
-                    break;
-                }
-            }
-            id = if let Some(id) = removed_children.pop_front() {
-                debug!("Popped child {:?} off queue.", id);
-                id
-            } else {
-                debug!("No more children.");
-                break;
-            };
-        }
-
-        debug!(
-            "Killed {} entities: {:?}",
-            removed.len() - removed_start,
-            &removed[removed_start..],
-            );
-
-        Ok(())
+    pub fn remove(&mut self, id: EntityId) {
+        debug!("Lazily removed entity {:?}...", id);
+        self.removed.push(id);
     }
 
     #[inline]
@@ -222,7 +144,7 @@ impl Entities {
     }
 
     #[inline]
-    pub fn name_of(&self, id: EntityId) -> Option<&'static str> {
+    pub fn debug_name_of(&self, id: EntityId) -> Option<&'static str> {
         self.slab.get(id).map(|entity| entity.name)
     }
 
@@ -282,7 +204,6 @@ impl<'context> InfallibleSystem<'context> for Entities {
             first_root: OptionId::none(),
             removed: Vec::with_capacity(1024),
             last_removed: Vec::with_capacity(1024),
-            removed_children: VecDeque::with_capacity(1024),
         }
     }
 
@@ -297,60 +218,159 @@ impl<'context> InfallibleSystem<'context> for Entities {
         if removed.is_empty() {
             return;
         }
-        debug!("Collecting removed, {} ids.", removed.len());
-        for &removed_id in &*removed {
-            if let Some(Entity {
-                            next,
-                            previous,
-                            parent,
-                            liveness,
-                            name,
-                            ..
-                        }) = slab.remove(removed_id)
-            {
-                debug!("Collecting {:?} {:?}", name, removed_id);
-                // If the entitiy is dead via its parent then all its siblings (and its parent) are
-                // dead, so there's not point fixing up sibling and parent pointers.
-                if liveness.is_dead_due_to_parent() {
-                    debug!("Dead due to parent, no patching required.");
-                    continue;
-                }
-                assert!(liveness.is_killed(), "{:?} {:?}", name, removed_id);
-                if let Some(next) = next.into_option().and_then(|id| slab.get_mut(id)) {
-                    debug!(
-                        "Patched previous for {:?} to point to {:?}",
-                        next.name,
-                        previous
-                    );
-                    next.previous = previous;
-                }
+        let num_killed_in_removed = removed.len();
+        debug!(
+            "Collecting removed. Explictly removed {} ids.",
+            num_killed_in_removed
+        );
 
-                if let Some(previous) = previous.into_option().and_then(|id| slab.get_mut(id)) {
-                    debug!(
-                        "Patched next for {:?} to point to {:?}",
-                        previous.name,
-                        next
-                    );
-                    previous.next = next;
-                }
-
-                if let Some(parent_id) = parent.into_option() {
-                    if let Some(parent) = slab.get_mut(parent_id) {
-                        if parent.child.map_or(false, |id| id == removed_id) {
-                            debug!("Patched child for {:?} to point to {:?}", parent.name, next);
-                            parent.child = next;
-                        }
-                    }
-                } else if first_root.map_or(false, |id| id == removed_id) {
-                    debug!("Patched first root to point to {:?}", next);
-                    *first_root = next
-                }
+        // First iterate through the explictly killed deleted entities. As we go through them we
+        //   (A) If the entity is marked as killed or orphan then skip.
+        //   (B) Otherwise mark as killed (this will make sure we dedupe the killed entities).
+        //   (C) Push entity to `last_removed`.
+        //   (D) Push its first child to `removed`.
+        last_removed.clear();
+        for i_removed in 0..num_killed_in_removed {
+            let removed_id = removed[i_removed];
+            let &mut Entity {
+                child,
+                name,
+                ref mut liveness,
+                ..
+            } = if let Some(entity) = slab.get_mut(removed_id) {
+                entity
             } else {
-                error!("Garbage {:?} was already collected.", removed_id);
+                debug!("Skipping already removed {:?}.", removed_id);
+                continue;
+            };
+            if !liveness.is_alive() {
+                debug!(
+                    "Explicitly removed {:?} ({:?}) was already processed.",
+                    name,
+                    removed_id
+                );
+                continue;
+            }
+
+            *liveness = Liveness::Killed;
+            last_removed.push(removed_id);
+            if let Some(child) = child.into_option() {
+                debug!(
+                    "Adding child {:?} of {:?} ({:?}) to orphan queue.",
+                    child,
+                    name,
+                    removed_id
+                );
+                removed.push(child);
             }
         }
-        debug!("Collected {:?} removed ids.", removed.len());
-        mem::swap(removed, last_removed);
+        let num_killed_in_last_removed = last_removed.len();
+        debug!(
+            "Deduplicated explictly removed {} ids.",
+            num_killed_in_last_removed
+        );
+
+        let mut i_removed = num_killed_in_removed;
+        while i_removed < removed.len() {
+            let mut removed_id = removed[i_removed];
+            loop {
+                let Entity {
+                    liveness,
+                    next,
+                    child,
+                    name,
+                    ..
+                } = slab.remove(removed_id).expect("missing removed child");
+                debug!("Removed orphan entity {:?} {:?}.", name, removed_id);
+
+                if liveness.is_alive() {
+                    last_removed.push(removed_id);
+                    if let Some(child) = child.into() {
+                        debug!(
+                            "Added child for {:?} ({:?}) to queue: {:?}",
+                            name,
+                            removed_id,
+                            child
+                        );
+                        removed.push(child);
+                    } else {
+                        debug!(
+                            "Entity {:?} ({:?}) was alive but had no children to remove.",
+                            name,
+                            removed_id,
+                            );
+                    }
+                } else {
+                    debug!(
+                        "Entity {:?} ({:?}) was already marked as {:?}, skipping.",
+                        name,
+                        removed_id,
+                        liveness
+                    );
+                }
+
+                if let Some(sibling) = next.into() {
+                    debug!("Moving to sibling {:?}", sibling);
+                    removed_id = sibling;
+                } else {
+                    debug!("No more siblings.");
+                    break;
+                }
+            }
+            i_removed += 1;
+        }
+
+        for &removed_id in &last_removed[..num_killed_in_last_removed] {
+            let Entity {
+                next,
+                previous,
+                parent,
+                name,
+                ..
+            } = if let Some(entity) = slab.remove(removed_id) {
+                entity
+            } else {
+                // Removed by the orphan processing loop.
+                debug!("Skipped already removed {:?}.", removed_id);
+                continue;
+            };
+
+            debug!("Removed killed {:?} ({:?})", name, removed_id);
+            if let Some((next_id, next)) = next.into_option().map(|id| (id, &mut slab[id])) {
+                debug!(
+                    "Patched previous for {:?} ({:?}) to point to {:?}",
+                    next.name,
+                    next_id,
+                    previous
+                );
+                next.previous = previous;
+            }
+
+            if let Some((previous_id, previous)) =
+                previous.into_option().map(|id| (id, &mut slab[id]))
+            {
+                debug!(
+                    "Patched next for {:?} ({:?}) to point to {:?}",
+                    previous.name,
+                    previous_id,
+                    next
+                );
+                previous.next = next;
+            }
+
+            if let Some(parent_id) = parent.into_option() {
+                let parent = &mut slab[parent_id];
+                if parent.child.into_option().expect("parent has no children") == removed_id {
+                    debug!("Patched child for {:?} to point to {:?}", parent.name, next);
+                    parent.child = next;
+                }
+            } else if first_root.expect("no root") == removed_id {
+                debug!("Patched first root to point to {:?}", next);
+                *first_root = next
+            }
+        }
+
+        debug!("Collected {:?} removed ids.", last_removed.len());
         removed.clear();
     }
 
@@ -376,14 +396,6 @@ enum Liveness {
 impl Liveness {
     fn is_alive(&self) -> bool {
         *self == Liveness::Alive
-    }
-
-    fn is_killed(&self) -> bool {
-        *self == Liveness::Killed
-    }
-
-    fn is_dead_due_to_parent(&self) -> bool {
-        *self == Liveness::DeadDueToParent
     }
 }
 
@@ -459,7 +471,11 @@ mod test {
     }
 
     fn check_removed(entities: &Entities, expected: &[EntityId]) {
-        let actual: HashSet<EntityId> = entities.removed.iter().cloned().collect::<HashSet<_>>();
+        let actual: HashSet<EntityId> = entities
+            .last_removed
+            .iter()
+            .cloned()
+            .collect::<HashSet<_>>();
         assert!(
             expected.len() == actual.len() && expected.iter().all(|id| actual.contains(id)),
             "actual: {:?}\nexpected: {:?}",
@@ -495,7 +511,7 @@ mod test {
         let mut entities = Entities::create(());
         let tree1 = Tree1::new(&mut entities);
 
-        entities.remove(tree1.root_b).unwrap();
+        entities.remove(tree1.root_b);
         assert_eq!(&entities.removed, &[tree1.root_b]);
         entities.update(());
         assert_eq!(entities.last_removed, &[tree1.root_b]);
@@ -510,9 +526,9 @@ mod test {
         let mut entities = Entities::create(());
         let tree1 = Tree1::new(&mut entities);
 
-        entities.remove(tree1.root_c).unwrap();
-        check_removed(&entities, &[tree1.c1, tree1.root_c]);
+        entities.remove(tree1.root_c);
         entities.update(());
+        check_removed(&entities, &[tree1.c1, tree1.root_c]);
 
         assert_eq!(entities.removed.len(), 0);
         assert!(!entities.contains(tree1.c1));
@@ -525,9 +541,9 @@ mod test {
         let mut entities = Entities::create(());
         let tree1 = Tree1::new(&mut entities);
 
-        entities.remove(tree1.a2x).unwrap();
-        check_removed(&entities, &[tree1.a2xa, tree1.a2xb, tree1.a2x]);
+        entities.remove(tree1.a2x);
         entities.update(());
+        check_removed(&entities, &[tree1.a2xa, tree1.a2xb, tree1.a2x]);
 
         assert_eq!(entities.removed.len(), 0);
         assert!(!entities.contains(tree1.a2xa));
@@ -545,43 +561,17 @@ mod test {
         let mut entities = Entities::create(());
         let tree1 = Tree1::new(&mut entities);
 
-        entities.remove(tree1.a2y).unwrap();
-        assert_eq!(entities.removed, &[tree1.a2y]);
+        entities.remove(tree1.a2y);
         entities.update(());
+        assert_eq!(entities.last_removed, &[tree1.a2y]);
         assert_eq!(entities.removed.len(), 0);
 
-        entities.remove(tree1.a2).unwrap();
-        check_removed(&entities, &[tree1.a2xa, tree1.a2xb, tree1.a2x, tree1.a2]);
-
-        entities.remove(tree1.root_a).unwrap();
-        check_removed(
-            &entities,
-            &[
-                tree1.a2xa,
-                tree1.a2xb,
-                tree1.a2x,
-                tree1.a2,
-                tree1.a1,
-                tree1.root_a,
-            ],
-        );
-
-        entities.remove(tree1.root_c).unwrap();
-        check_removed(
-            &entities,
-            &[
-                tree1.a2xa,
-                tree1.a2xb,
-                tree1.a2x,
-                tree1.a2,
-                tree1.a1,
-                tree1.root_a,
-                tree1.c1,
-                tree1.root_c,
-            ],
-        );
+        entities.remove(tree1.a2);
+        entities.remove(tree1.root_a);
+        entities.remove(tree1.root_c);
 
         let c2 = entities.add(tree1.root_c, "c2").unwrap();
+        entities.update(());
         check_removed(
             &entities,
             &[
@@ -597,8 +587,7 @@ mod test {
             ],
         );
 
-        entities.update(());
-        entities.remove(tree1.root_b).unwrap();
+        entities.remove(tree1.root_b);
         entities.update(());
 
         assert_eq!(entities.len(), 0);

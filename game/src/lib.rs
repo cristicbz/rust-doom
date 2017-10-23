@@ -30,6 +30,7 @@ mod errors;
 mod hud;
 mod vertex;
 mod wad_system;
+mod game_shaders;
 
 pub use errors::{Error, Result, ErrorKind};
 pub use game::{Game, GameConfig};

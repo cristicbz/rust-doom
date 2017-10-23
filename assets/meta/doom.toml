@@ -1092,9 +1092,7 @@
   only_once = true
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "Floor", off = 32 }
-      second = { to = "Floor" }
+    floor = { first = { to = "Floor", off = 32 } }
 
 [[linedef]]
   special_type = 15
@@ -1102,9 +1100,7 @@
   only_once = true
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "Floor", off = 24 }
-      second = { to = "Floor" }
+    floor = { first = { to = "Floor", off = 24 } }
 
 [[linedef]]
   special_type = 20
@@ -1112,9 +1108,7 @@
   only_once = true
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "NextFloor" }
-      second = { to = "Floor" }
+    floor = { first = { to = "NextFloor" } }
 
 [[linedef]]
   special_type = 21
@@ -1133,9 +1127,7 @@
   only_once = true
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "NextFloor" }
-      second = { to = "Floor" }
+    floor = { first = { to = "NextFloor" } }
 
 [[linedef]]
   special_type = 47
@@ -1143,9 +1135,7 @@
   only_once = true
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "NextFloor" }
-      second = { to = "Floor" }
+    floor = { first = { to = "NextFloor" } }
 
 [[linedef]]
   special_type = 53
@@ -1174,27 +1164,21 @@
   trigger = "Switch"
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "Floor", off = 24 }
-      second = { to = "Floor" }
+    floor = { first = { to = "Floor", off = 24 } }
 
 [[linedef]]
   special_type = 67
   trigger = "Switch"
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "Floor", off = 32 }
-      second = { to = "Floor" }
+    floor = { first = { to = "Floor", off = 32 } }
 
 [[linedef]]
   special_type = 68
   trigger = "Switch"
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "NextFloor" }
-      second = { to = "Floor" }
+    floor = { first = { to = "NextFloor" } }
 
 [[linedef]]
   special_type = 87
@@ -1222,9 +1206,7 @@
   trigger = "WalkOver"
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "NextFloor" }
-      second = { to = "Floor" }
+    floor = { first = { to = "NextFloor" } }
 
 [[linedef]]
   special_type = 120
@@ -1275,9 +1257,7 @@
   only_once = true
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "Floor", off = 24 }
-      second = { to = "Floor" }
+    floor = { first = { to = "Floor", off = 24 } }
 
 [[linedef]]
   special_type = 144
@@ -1286,9 +1266,7 @@
   only_once = true
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "Floor", off = 32 }
-      second = { to = "Floor" }
+    floor = { first = { to = "Floor", off = 32 } }
 
 [[linedef]]
   special_type = 148
@@ -1296,9 +1274,7 @@
   extended = true
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "Floor", off = 24 }
-      second = { to = "Floor" }
+    floor = { first = { to = "Floor", off = 24 } }
 
 [[linedef]]
   special_type = 149
@@ -1306,9 +1282,7 @@
   extended = true
   [linedef.move]
     speed = 8
-    [linedef.move.floor]
-      first = { to = "Floor", off = 32 }
-      second = { to = "Floor" }
+    floor = { first = { to = "Floor", off = 32 } }
 
 [[linedef]]
   special_type = 162
@@ -1343,39 +1317,39 @@
   special_type = 11
   trigger = "Switch"
   only_once = true
-  exit = "Normal"
+  exit =  "Normal"
 
 [[linedef]]
   special_type = 51
   trigger = "Switch"
   only_once = true
-  exit = "Secret"
+  exit =  "Secret"
 
 [[linedef]]
   special_type = 52
   trigger = "WalkOver"
   only_once = true
-  exit = "Normal"
+  exit =  "Normal"
 
 [[linedef]]
   special_type = 124
   trigger = "WalkOver"
   only_once = true
-  exit = "Secret"
+  exit =  "Secret"
 
 [[linedef]]
   special_type = 197
   trigger = "Gun"
   extended = true
   only_once = true
-  exit = "Normal"
+  exit =  "Normal"
 
 [[linedef]]
   special_type = 198
   trigger = "Gun"
   extended = true
   only_once = true
-  exit = "Secret"
+  exit =  "Secret"
 
 
 ### Thing Directory ###
