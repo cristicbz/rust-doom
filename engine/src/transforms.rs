@@ -150,7 +150,7 @@ impl<'context> InfallibleSystem<'context> for Transforms {
 
     fn destroy(mut self, entities: &Entities) {
         self.update(entities);
-        if self.map.len() > 0 {
+        if !self.map.is_empty() {
             error!("Transforms leaked, {} instances.", self.map.len());
         }
     }

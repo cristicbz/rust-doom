@@ -166,7 +166,7 @@ impl<'context> InfallibleSystem<'context> for Meshes {
 
     fn destroy(mut self, entities: &Entities) {
         self.update(entities);
-        if self.map.len() > 0 {
+        if !self.map.is_empty() {
             error!("Meshes leaked, {} instances.", self.map.len());
         }
     }

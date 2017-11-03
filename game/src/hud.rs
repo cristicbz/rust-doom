@@ -145,8 +145,8 @@ enum HelpState {
 }
 
 const HELP_PADDING: u32 = 6;
-const PROMPT_TEXT: &'static str = "WASD and mouse, 'E' to push/use, LB to shoot or 'h' for help.";
-const HELP_TEXT: &'static str = r"Use WASD to move and the mouse or arrow keys to aim.
+const PROMPT_TEXT: &str = "WASD and mouse, 'E' to push/use, LB to shoot or 'h' for help.";
+const HELP_TEXT: &str = r"Use WASD to move and the mouse or arrow keys to aim.
 Other keys:
     ESC - to quit
     SPACEBAR - jump

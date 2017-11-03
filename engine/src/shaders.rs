@@ -121,7 +121,7 @@ impl<'context> InfallibleSystem<'context> for Shaders {
 
     fn destroy(mut self, deps: Dependencies) {
         self.update(deps);
-        if self.map.len() > 0 {
+        if !self.map.is_empty() {
             error!("Shaders leaked, {} instances.", self.map.len());
         }
     }

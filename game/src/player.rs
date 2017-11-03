@@ -146,14 +146,13 @@ impl Player {
                 if adjusted_time < 1.0 {
                     let time = clamp(contact.time, (0.0, 1.0));
                     let displacement = displacement * adjusted_time;
-                    head.center = head.center + displacement;
-                    self.velocity = self.velocity -
-                        contact.normal * contact.normal.dot(self.velocity);
+                    head.center += displacement;
+                    self.velocity -= contact.normal * contact.normal.dot(self.velocity);
                     time_left *= 1.0 - time;
                     continue;
                 }
             }
-            head.center = head.center + displacement;
+            head.center += displacement;
             armed = false;
             break;
         }
@@ -165,7 +164,7 @@ impl Player {
 
     fn noclip(&mut self, delta_time: f32, head: &mut Sphere, level: &Level) {
         let old_height = head.center[1];
-        head.center = head.center + self.velocity * delta_time;
+        head.center += self.velocity * delta_time;
 
         if !self.fly {
             let height = 2000.0;
@@ -221,7 +220,7 @@ impl Player {
             );
             movement[1] = 0.0;
             movement.normalize_or_zero_self();
-            movement = movement * config.move_force;
+            movement *= config.move_force;
             if grounded {
                 if jump && self.velocity[1] < 0.1 {
                     Vec3f::new(movement[0], 5.0 / delta_time, movement[2])
@@ -282,7 +281,7 @@ impl Player {
             } else {
                 Vec3f::zero()
             };
-            slowdown = slowdown - self.velocity * config.air_drag * speed;
+            slowdown -= self.velocity * config.air_drag * speed;
 
             let slowdown_norm = slowdown.magnitude();
             if slowdown_norm > 0.0 {
@@ -290,7 +289,7 @@ impl Player {
                 if slowdown_norm >= max_slowdown {
                     slowdown = slowdown / slowdown_norm * max_slowdown;
                 }
-                force = force + slowdown;
+                force += slowdown;
             }
         }
         let height_diff = config.height - height;
@@ -384,10 +383,10 @@ impl<'context> InfallibleSystem<'context> for Player {
         }
 
         transform.disp = head.center.to_vec();
-        self.velocity = self.velocity + force * delta_time;
+        self.velocity += force * delta_time;
 
         deps.level.poll_triggers(
-            &transform,
+            transform,
             self.velocity * delta_time,
             if deps.input.poll_gesture(&deps.bindings.push) {
                 Some(PlayerAction::Push)
@@ -400,7 +399,7 @@ impl<'context> InfallibleSystem<'context> for Player {
     }
 
     fn teardown(&mut self, deps: Dependencies) {
-        let _ = deps.entities.remove(self.id);
+        deps.entities.remove(self.id);
     }
 }
 

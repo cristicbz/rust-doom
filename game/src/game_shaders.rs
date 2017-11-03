@@ -381,7 +381,7 @@ impl<'context> Dependencies<'context> {
         })
     }
 
-    fn load_wad_texture<'b>(
+    fn load_wad_texture(
         &mut self,
         parent: EntityId,
         name: &'static str,

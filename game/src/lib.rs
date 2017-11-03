@@ -36,4 +36,4 @@ pub use errors::{Error, Result, ErrorKind};
 pub use game::{Game, GameConfig};
 pub use level::Level;
 
-pub const SHADER_ROOT: &'static str = "assets/shaders";
+pub const SHADER_ROOT: &str = "assets/shaders";
