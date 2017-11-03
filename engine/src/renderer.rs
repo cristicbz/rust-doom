@@ -187,7 +187,7 @@ impl<'context> System<'context> for Renderer {
             *deps.uniforms.get_mat4_mut(self.modelview).expect(
                 "modelview uniform missing",
             ) = if let Some(model_transform) = deps.transforms.get_absolute(entity) {
-                Mat4::from(view_transform.concat(&model_transform))
+                Mat4::from(view_transform.concat(model_transform))
             } else {
                 view_matrix
             };
@@ -235,7 +235,7 @@ impl<'context> System<'context> for Renderer {
     }
 
     fn teardown(&mut self, deps: Dependencies) -> Result<()> {
-        let _ = deps.entities.remove(self.entity);
+        deps.entities.remove(self.entity);
         self.camera = None;
         Ok(())
     }

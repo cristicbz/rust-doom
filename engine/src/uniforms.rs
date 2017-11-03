@@ -403,29 +403,29 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
 
     fn destroy(mut self, entities: &Entities) {
         self.update(entities);
-        if self.texture2ds.len() > 0 {
+        if !self.texture2ds.is_empty() {
             error!(
                 "Uniforms <texture2d> leaked, {} instances.",
                 self.texture2ds.len()
             );
         }
 
-        if self.floats.len() > 0 {
+        if !self.floats.is_empty() {
             error!("Uniforms <float> leaked, {} instances.", self.floats.len());
         }
 
-        if self.buffer_textures_u8.len() > 0 {
+        if !self.buffer_textures_u8.is_empty() {
             error!(
                 "Uniforms <buffer_textures<u8>> leaked, {} instances.",
                 self.buffer_textures_u8.len()
             );
         }
 
-        if self.mat4s.len() > 0 {
+        if !self.mat4s.is_empty() {
             error!("Uniforms <mat4> leaked, {} instances.", self.mat4s.len());
         }
 
-        if self.vec2fs.len() > 0 {
+        if !self.vec2fs.is_empty() {
             error!("Uniforms <vec2> leaked, {} instances.", self.vec2fs.len());
         }
     }

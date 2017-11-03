@@ -187,9 +187,9 @@ impl DynamicSectorInfo {
         };
 
         let (first_floor, second_floor) =
-            HeightEffectDef::to_heights(effect_def.floor, sector, &heights);
+            HeightEffectDef::option_to_heights(effect_def.floor, sector, &heights);
         let (first_ceiling, second_ceiling) =
-            HeightEffectDef::to_heights(effect_def.ceiling, sector, &heights);
+            HeightEffectDef::option_to_heights(effect_def.ceiling, sector, &heights);
         let repeat = effect_def.repeat;
 
         merge_range(
@@ -288,7 +288,7 @@ impl HeightDef {
 }
 
 impl HeightEffectDef {
-    fn to_heights(
+    fn option_to_heights(
         this: Option<Self>,
         sector: &WadSector,
         heights: &NeighbourHeights,
@@ -400,7 +400,7 @@ impl LevelAnalysis {
                         .or_insert_with(DynamicSectorInfo::default)
                         .update(
                             &mut next_dynamic_object_id,
-                            &level,
+                            level,
                             left_sector_id,
                             &mut trigger,
                         );
@@ -1288,7 +1288,7 @@ fn points_to_polygon(points: &mut Vec<Pnt2f>) {
 
     let center = polygon_center(&simplified);
     for point in &mut simplified {
-        *point = *point + (*point - center).normalize_or_zero() * POLY_BIAS;
+        *point += (*point - center).normalize_or_zero() * POLY_BIAS;
     }
     *points = simplified;
 }

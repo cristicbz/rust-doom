@@ -171,7 +171,7 @@ impl<'context> System<'context> for TextRenderer {
     }
 
     fn destroy(self, _window: &Window) -> Result<()> {
-        if self.slab.len() > 0 {
+        if !self.slab.is_empty() {
             error!("Text leaked, {} instances.", self.slab.len());
         }
         Ok(())
@@ -204,12 +204,12 @@ lazy_static! {
 }
 
 /// Hard-coded path to the TTF file to use for rendering debug text.
-const FONT_PATH: &'static str = "assets/ttf/OpenSans-Regular.ttf";
+const FONT_PATH: &str = "assets/ttf/OpenSans-Regular.ttf";
 
 /// Hard-coded font size.
 const POINT_SIZE: u16 = 18;
 
-const VERTEX_SRC: &'static str = r#"
+const VERTEX_SRC: &str = r#"
     #version 140
     in vec2 a_pos;
     in vec2 a_uv;
@@ -220,7 +220,7 @@ const VERTEX_SRC: &'static str = r#"
     }
 "#;
 
-const FRAGMENT_SRC: &'static str = r#"
+const FRAGMENT_SRC: &str = r#"
     #version 140
     uniform sampler2D u_tex;
     in vec2 v_uv;

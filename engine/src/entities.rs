@@ -207,6 +207,8 @@ impl<'context> InfallibleSystem<'context> for Entities {
         }
     }
 
+    // TODO(cristicbz): Split up into simpler, more self-documenting functions.
+    #[cfg_attr(feature = "cargo-clippy", allow(cyclomatic_complexity))]
     fn update(&mut self, _dependencies: ()) {
         let Entities {
             ref mut removed,

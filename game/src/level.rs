@@ -179,6 +179,8 @@ impl<'context> System<'context> for Level {
         Builder::build(&mut deps)
     }
 
+    // Allow float_cmp, because we're checking equality against floats we set to a specific value.
+    #[cfg_attr(feature = "cargo-clippy", allow(float_cmp))]
     fn update(&mut self, mut deps: Dependencies) -> Result<()> {
         if deps.wad.level_changed() {
             deps.entities.remove(self.root);
@@ -247,7 +249,7 @@ impl<'context> System<'context> for Level {
             }
         }
 
-        for &i_removed in self.removed.iter() {
+        for &i_removed in &self.removed {
             self.effects.remove(i_removed);
         }
         self.removed.clear();
@@ -266,7 +268,7 @@ impl<'context> System<'context> for Level {
     }
 
     fn teardown(&mut self, deps: Dependencies) -> Result<()> {
-        let _ = deps.entities.remove(self.root);
+        deps.entities.remove(self.root);
         Ok(())
     }
 }
