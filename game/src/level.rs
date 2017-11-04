@@ -4,7 +4,8 @@ use super::lights::Lights;
 use super::vertex::{StaticVertex, SkyVertex, SpriteVertex};
 use super::wad_system::WadSystem;
 use super::world::{World, WorldBuilder};
-use engine::{Entities, Uniforms, Meshes, Renderer, Window, EntityId, System, Tick, Transforms};
+use engine::{Entities, Uniforms, Meshes, RenderPipeline, Window, EntityId, System, Tick,
+             Transforms};
 use math::{Vec3f, Trans3, Line2f, vec2, Pnt3f, Pnt2f, Rad};
 use math::prelude::*;
 use time;
@@ -34,7 +35,7 @@ derive_dependencies_from! {
         entities: &'context mut Entities,
         uniforms: &'context mut Uniforms,
         meshes: &'context mut Meshes,
-        renderer: &'context mut Renderer,
+        render: &'context mut RenderPipeline,
         wad: &'context mut WadSystem,
         tick: &'context Tick,
         transforms: &'context mut Transforms,
@@ -439,11 +440,11 @@ impl<'a> Builder<'a> {
                     .immutable_indices(&indices.flat)?
                     .build()?;
                 deps.transforms.attach_identity(entity);
-                deps.renderer.attach_model(
+                deps.render.attach_model(
                     entity,
                     mesh,
                     builder.materials.flats.material,
-                )?;
+                );
             }
 
             if !indices.wall.is_empty() {
@@ -454,11 +455,11 @@ impl<'a> Builder<'a> {
                     .immutable_indices(&indices.wall)?
                     .build()?;
                 deps.transforms.attach_identity(entity);
-                deps.renderer.attach_model(
+                deps.render.attach_model(
                     entity,
                     mesh,
                     builder.materials.walls.material,
-                )?;
+                );
             }
 
             if !indices.decor.is_empty() {
@@ -469,11 +470,11 @@ impl<'a> Builder<'a> {
                     .immutable_indices(&indices.decor)?
                     .build()?;
                 deps.transforms.attach_identity(entity);
-                deps.renderer.attach_model(
+                deps.render.attach_model(
                     entity,
                     mesh,
                     builder.materials.decor.material,
-                )?;
+                );
             }
 
             if !indices.sky.is_empty() {
@@ -484,11 +485,11 @@ impl<'a> Builder<'a> {
                     .immutable_indices(&indices.sky)?
                     .build()?;
                 deps.transforms.attach_identity(entity);
-                deps.renderer.attach_model(
+                deps.render.attach_model(
                     entity,
                     mesh,
                     builder.materials.sky,
-                )?;
+                );
             }
         }
 

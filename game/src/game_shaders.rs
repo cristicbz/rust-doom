@@ -1,6 +1,6 @@
 use super::errors::{Error, Result};
 use super::wad_system::WadSystem;
-use engine::{Entities, Shaders, Uniforms, Materials, Renderer, Window, ClientFormat,
+use engine::{Entities, Shaders, Uniforms, Materials, RenderPipeline, Window, ClientFormat,
              SamplerBehavior, SamplerWrapFunction, MinifySamplerFilter, MagnifySamplerFilter,
              Texture2dId, EntityId, FloatUniformId, MaterialId, BufferTextureId,
              BufferTextureType, ShaderId, System, Tick};
@@ -43,7 +43,7 @@ derive_dependencies_from! {
         entities: &'context mut Entities,
         shaders: &'context mut Shaders,
         uniforms: &'context mut Uniforms,
-        renderer: &'context mut Renderer,
+        render: &'context mut RenderPipeline,
         materials: &'context mut Materials,
 
         wad: &'context mut WadSystem,
@@ -176,8 +176,8 @@ impl<'context> Dependencies<'context> {
     }
 
     fn load_level(&mut self, globals: &Globals, parent: EntityId) -> Result<LevelMaterials> {
-        let modelview = self.renderer.modelview();
-        let projection = self.renderer.projection();
+        let modelview = self.render.modelview();
+        let projection = self.render.projection();
 
         let flats_atlas = self.load_flats_atlas(parent)?;
         let flats_material = self.materials

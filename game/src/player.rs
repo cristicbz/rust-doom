@@ -1,6 +1,6 @@
 use super::level::{Level, PlayerAction};
 use engine::{Analog2d, Gesture, Input, Scancode, Transforms, EntityId, Window, Entities,
-             Projections, InfallibleSystem, Projection, Renderer, Tick, MouseButton};
+             Projections, InfallibleSystem, Projection, Tick, MouseButton, RenderPipeline};
 use math::{Sphere, Vec3f, Trans3, Euler, Quat, Deg, Rad, vec3, Pnt3f};
 use math::prelude::*;
 use std::f32::consts::FRAC_PI_2;
@@ -97,7 +97,7 @@ derive_dependencies_from! {
         entities: &'context mut Entities,
         transforms: &'context mut Transforms,
         projections: &'context mut Projections,
-        renderer: &'context mut Renderer,
+        render: &'context mut RenderPipeline,
 
         level: &'context mut Level,
     }
@@ -334,7 +334,7 @@ impl<'context> InfallibleSystem<'context> for Player {
                 far: deps.config.far,
             },
         );
-        deps.renderer.set_camera(camera_entity);
+        deps.render.set_camera(camera_entity);
 
         let mut player = Player {
             id: player_entity,

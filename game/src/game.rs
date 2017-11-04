@@ -1,13 +1,13 @@
 use super::SHADER_ROOT;
 use super::errors::Result;
+use super::game_shaders::GameShaders;
 use super::hud::{Hud, Bindings as HudBindings};
 use super::level::Level;
 use super::player::{Player, Config as PlayerConfig, Bindings as PlayerBindings};
 use super::wad_system::{WadSystem, Config as WadConfig};
-use super::game_shaders::GameShaders;
 use engine::{Input, Window, Projections, FrameTimers, Uniforms, Materials, Shaders, Renderer,
              Meshes, Entities, Transforms, TextRenderer, System, Context, ContextBuilder,
-             WindowConfig, ShaderConfig, Tick, TickConfig};
+             WindowConfig, ShaderConfig, Tick, TickConfig, RenderPipeline};
 use engine::type_list::Peek;
 use std::marker::PhantomData;
 use std::path::PathBuf;
@@ -38,8 +38,8 @@ impl Game {
             .system(Uniforms::bind())?
             .system(Meshes::bind())?
             .system(Materials::bind())?
+            .system(RenderPipeline::bind())?
             .system(TextRenderer::bind())?
-            .system(Renderer::bind())?
 
             // Game configs and systems.
             .inject(WadConfig {
@@ -56,6 +56,8 @@ impl Game {
             .system(Level::bind())?
             .system(Hud::bind())?
             .system(Player::bind())?
+
+            .system(Renderer::bind())?
             .build()?;
 
         Ok(Game(ContextWrapper::boxed(context)))

@@ -40,6 +40,7 @@ mod text;
 mod transforms;
 mod uniforms;
 mod window;
+mod pipeline;
 
 pub use self::context::{Context, ContextBuilder, ControlFlow};
 pub use self::entities::{Entities, EntityId, Entity};
@@ -48,6 +49,7 @@ pub use self::frame_timers::{FrameTimerId, FrameTimers};
 pub use self::input::{Input, Analog2d, Gesture, Scancode, MouseButton};
 pub use self::materials::{Materials, MaterialRefMut, MaterialId};
 pub use self::meshes::{Meshes, MeshId, Mesh};
+pub use self::pipeline::RenderPipeline;
 pub use self::projections::{Projections, Projection};
 pub use self::renderer::Renderer;
 pub use self::shaders::{Shaders, ShaderId, ShaderConfig};
