@@ -8,8 +8,6 @@ extern crate error_chain;
 #[macro_use]
 extern crate glium;
 #[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate log;
 #[macro_use]
 extern crate idcontain;
@@ -18,6 +16,8 @@ extern crate glium_sdl2;
 extern crate math;
 extern crate num;
 extern crate sdl2;
+extern crate rusttype;
+extern crate unicode_normalization;
 
 #[macro_use]
 mod context_macros;

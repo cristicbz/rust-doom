@@ -1,27 +1,32 @@
 [package]
+authors = ["Cristi Cobzarenco <cristi.cobzarenco@gmail.com>"]
 name = "engine"
 version = "0.1.0"
-authors = ["Cristi Cobzarenco <cristi.cobzarenco@gmail.com>"]
 
 [dependencies]
-math = { path = "../math" }
 error-chain = "0.11.0"
 glium = "0.17.0"
-lazy_static = "0.2.0"
 num = "0.1.32"
-idcontain = { version = "0.7.4" }
+rusttype = "0.2.3"
+unicode-normalization = "0.1.5"
 
 [dependencies.glium_sdl2]
 branch = "for-rust-doom"
 git = "https://github.com/cristicbz/glium-sdl2"
 
-[dependencies.sdl2]
-features = ["ttf"]
-version = "0.30.0"
+[dependencies.idcontain]
+version = "0.7.4"
 
 [dependencies.log]
 features = ["release_max_level_info"]
 version = "0.3.6"
+
+[dependencies.math]
+path = "../math"
+
+[dependencies.sdl2]
+features = ["ttf"]
+version = "0.30.0"
 
 [dev-dependencies]
 env_logger = "*"
