@@ -19,11 +19,11 @@ impl Default for Bindings {
                 Gesture::KeyTrigger(Scancode::Escape),
             ]),
             next_level: Gesture::AllOf(vec![
-                Gesture::KeyHold(Scancode::LCtrl),
+                Gesture::KeyHold(Scancode::LControl),
                 Gesture::KeyTrigger(Scancode::N),
             ]),
             previous_level: Gesture::AllOf(vec![
-                Gesture::KeyHold(Scancode::LCtrl),
+                Gesture::KeyHold(Scancode::LControl),
                 Gesture::KeyTrigger(Scancode::P),
             ]),
             toggle_mouse: Gesture::KeyTrigger(Scancode::Grave),

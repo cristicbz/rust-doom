@@ -12,10 +12,8 @@ extern crate log;
 #[macro_use]
 extern crate idcontain;
 
-extern crate glium_sdl2;
 extern crate math;
 extern crate num;
-extern crate sdl2;
 extern crate rusttype;
 extern crate unicode_normalization;
 

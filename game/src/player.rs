@@ -34,7 +34,7 @@ impl Default for Bindings {
                         y_negative: Gesture::KeyHold(Scancode::Up),
                         step: 0.015,
                     },
-                    Analog2d::Mouse { sensitivity: 0.004 },
+                    Analog2d::Mouse { sensitivity: 0.0015 },
                 ],
             },
             jump: Gesture::KeyHold(Scancode::Space),

@@ -9,10 +9,6 @@ error_chain! {
             description("Window creation failed.")
             display("Window creation failed with {}x{}", width, height)
         }
-        Sdl(message: String) {
-            description("SDL Error.")
-            display("SDL Error: {}", message)
-        }
         ResourceIo(kind: &'static str, needed_by: String) {
             description("I/O error when accessing resource.")
             display("I/O error when accessing `{}` resource `{}`.", kind, needed_by)
