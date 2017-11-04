@@ -9,9 +9,12 @@ math = { path = "../math" }
 wad = { path = "../wad" }
 
 error-chain = "0.11.0"
-glium = "0.17.0"
 log = "0.3.6"
 num = "0.1.32"
 time = "0.1.35"
 vec_map = "0.8.0"
 idcontain = "0.7.4"
+
+[dependencies.glium]
+features = ["glutin"]
+version = "0.18.0"

@@ -1,6 +1,6 @@
 #![cfg_attr(feature = "cargo-clippy", allow(forget_copy))]
 
-use super::errors::{Result, Error};
+use super::errors::{Result, Error, ResultExt};
 use super::system::System;
 use super::window::Window;
 use glium::{Blend, Surface, VertexBuffer};
@@ -10,15 +10,13 @@ use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{ClientFormat, RawImage2d, Texture2d};
 use idcontain::{IdSlab, Id};
 use math::Pnt2f;
-use sdl2::pixels::Color;
-use sdl2::pixels::PixelFormatEnum;
-use sdl2::rect::Rect;
-use sdl2::render::BlendMode;
-use sdl2::surface::Surface as SdlSurface;
-use sdl2::ttf::{self, Font, Sdl2TtfContext};
+use rusttype::{self, Font, FontCollection, Scale, PositionedGlyph, GlyphId, Point as FontPoint};
 use std::borrow::Cow;
-use std::cmp;
+use std::fs::File;
+use std::io::Read;
 use std::ops::{Index, IndexMut};
+use std::str::Chars as StrChars;
+use unicode_normalization::{UnicodeNormalization, Recompositions};
 
 /// A handle to a piece of text created with a `TextRenderer`.
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -26,42 +24,48 @@ pub struct TextId(Id<Text>);
 
 /// Handles rendering of debug text to `OpenGL`.
 pub struct TextRenderer {
-    font: Font<'static, 'static>,
+    font: Font<'static>,
     slab: IdSlab<Text>,
     program: Program,
     draw_params: DrawParameters<'static>,
+    pixel_buffer: Vec<u16>,
 }
 
 impl TextRenderer {
     pub fn new(window: &Window) -> Result<Self> {
+        let mut font_bytes = Vec::with_capacity(1024 * 1024); // 1MB
+        File::open(FONT_PATH)
+            .and_then(|mut file| file.read_to_end(&mut font_bytes))
+            .chain_err(|| format!("Failed to read font at {:?}.", FONT_PATH))?;
         Ok(TextRenderer {
-            font: CONTEXT.load_font(FONT_PATH, POINT_SIZE).unwrap(),
+            font: FontCollection::from_bytes(font_bytes)
+                .font_at(0)
+                .ok_or_else(|| format!("No fonts in {:?}.", FONT_PATH))?,
             slab: IdSlab::with_capacity(16),
             program: Program::from_source(window.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
             draw_params: DrawParameters {
                 blend: Blend::alpha_blending(),
                 ..DrawParameters::default()
             },
+            pixel_buffer: Vec::new(),
         })
     }
 
     pub fn insert(&mut self, win: &Window, text: &str, pos: Pnt2f, padding: u32) -> TextId {
         debug!("Creating text...");
-        let surface = self.text_to_surface(text, padding).unwrap();
-        let texture = surface.with_lock(|pixels| {
-            Texture2d::new(
-                win.facade(),
-                RawImage2d {
-                    data: Cow::Borrowed(pixels),
-                    width: surface.width(),
-                    height: surface.height(),
-                    format: ClientFormat::U8U8U8U8,
-                },
-            ).unwrap()
-        });
+        let (width, height) = self.rasterise(text, padding).unwrap();
+        let texture = Texture2d::new(
+            win.facade(),
+            RawImage2d {
+                data: Cow::Borrowed(&self.pixel_buffer),
+                width,
+                height,
+                format: ClientFormat::U8U8,
+            },
+        ).unwrap();
         let (w, h) = (
-            surface.width() as f32 / win.width() as f32 * 2.0,
-            surface.height() as f32 / win.height() as f32 * 2.0,
+            width as f32 / win.width() as f32 * 2.0,
+            height as f32 / win.height() as f32 * 2.0,
         );
         let (x, y) = (pos.x * 2.0 - 1.0, 1.0 - pos.y * 2.0 - h);
         let text = Text {
@@ -102,8 +106,8 @@ impl TextRenderer {
             }
             let uniforms =
                 uniform! {
-                u_tex: &text.texture,
-            };
+                    u_tex: &text.texture,
+                };
             frame
                 .draw(
                     &text.buffer,
@@ -117,35 +121,111 @@ impl TextRenderer {
         Ok(())
     }
 
-    fn text_to_surface(&self, text: &str, padding: u32) -> Result<SdlSurface<'static>> {
-        let wrap_length = text.lines()
-            .filter_map(|line| self.font.size_of(line).ok())
-            .map(|size| size.0)
-            .fold(0, cmp::max) + 10;
-        let mut text = self.font
-            .render(text)
-            .blended_wrapped(Color::RGBA(255, 255, 255, 255), wrap_length)
-            .unwrap();
-        let mut surface = SdlSurface::new(
-            text.width() + padding * 2,
-            text.height() + padding * 2,
-            PixelFormatEnum::ARGB8888,
-        ).unwrap();
-        surface.set_blend_mode(BlendMode::None).unwrap();
-        surface.fill_rect(None, Color::RGBA(0, 0, 0, 128)).unwrap();
-        surface.set_blend_mode(BlendMode::Blend).unwrap();
-        text.set_blend_mode(BlendMode::Blend).unwrap();
-        text.blit(
-            None,
-            &mut surface,
-            Some(Rect::new(
-                padding as i32,
-                padding as i32,
-                text.width(),
-                text.height(),
-            )),
-        ).unwrap();
-        Ok(surface)
+    fn rasterise(&mut self, text: &str, padding: u32) -> Result<(u32, u32)> {
+        debug!("Rasterising text {:?}...", text);
+        let scale = Scale::uniform(POINT_SIZE);
+        let (width, height) = LayoutIter::new(&self.font, scale, !0, text)
+            .filter_map(|glyph| glyph.pixel_bounding_box())
+            .map(|bb| (bb.max.x, bb.max.y))
+            .fold((0, 0), |left, right| {
+                (left.0.max(right.0), left.1.max(right.1))
+            });
+        let (width, height) = (width as u32 + padding * 2, height as u32 + padding * 2);
+        debug!("Computed dimensions {}x{}...", width, height);
+
+        let pixel_buffer = &mut self.pixel_buffer;
+        pixel_buffer.clear();
+        pixel_buffer.resize((width * height) as usize, 0x00_80);
+        debug!("Resized buffer to {}...", pixel_buffer.len());
+        for glyph in LayoutIter::new(&self.font, scale, width, text) {
+            if let Some(bb) = glyph.pixel_bounding_box() {
+                let offset_x = (bb.min.x + padding as i32) as u32;
+                let offset_y = (bb.min.y + padding as i32) as u32;
+                glyph.draw(|mut x, mut y, alpha| {
+                    x += offset_x;
+                    y += offset_y;
+                    if x < width && y < height {
+                        let scale = (alpha * 256.0) as u32;
+                        let one_minus_scale = 256 - scale;
+
+                        let pixel = &mut pixel_buffer[(y * width + x) as usize];
+
+                        let new_alpha = scale * 255 / 256;
+
+                        let red = (*pixel >> 8) as u32 * one_minus_scale + 0xff * scale;
+                        let alpha = (*pixel & 0xff) as u32 * one_minus_scale + new_alpha * scale;
+
+                        *pixel = (red | (alpha >> 8)) as u16;
+                    }
+                });
+            }
+        }
+        Ok((width, height))
+    }
+}
+
+struct LayoutIter<'a> {
+    font: &'a Font<'static>,
+    scale: Scale,
+    width: u32,
+    advance_height: f32,
+    caret: FontPoint<f32>,
+    last_glyph_id: Option<GlyphId>,
+    chars: Recompositions<StrChars<'a>>,
+}
+
+impl<'a> LayoutIter<'a> {
+    fn new(font: &'a Font<'static>, scale: Scale, width: u32, text: &'a str) -> Self {
+        let v_metrics = font.v_metrics(scale);
+
+        LayoutIter {
+            font,
+            scale,
+            width,
+            advance_height: v_metrics.ascent - v_metrics.descent + v_metrics.line_gap,
+            caret: rusttype::point(0.0, v_metrics.ascent),
+            last_glyph_id: None,
+            chars: text.nfc(),
+        }
+    }
+}
+
+impl<'a> Iterator for LayoutIter<'a> {
+    type Item = PositionedGlyph<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for c in &mut self.chars {
+            if c.is_control() {
+                match c {
+                    '\n' => {
+                        self.caret = rusttype::point(0.0, self.caret.y + self.advance_height);
+                        self.last_glyph_id = None;
+                    }
+                    _ => {}
+                }
+                continue;
+            }
+            let base_glyph = if let Some(glyph) = self.font.glyph(c) {
+                glyph
+            } else {
+                continue;
+            };
+            if let Some(id) = self.last_glyph_id.take() {
+                self.caret.x += self.font.pair_kerning(self.scale, id, base_glyph.id());
+            }
+            self.last_glyph_id = Some(base_glyph.id());
+            let mut glyph = base_glyph.scaled(self.scale).positioned(self.caret);
+            if let Some(bb) = glyph.pixel_bounding_box() {
+                if bb.max.x as u32 > self.width {
+                    self.caret = rusttype::point(0.0, self.caret.y + self.advance_height);
+                    glyph = glyph.into_unpositioned().positioned(self.caret);
+                    self.last_glyph_id = None;
+                }
+            }
+            self.caret.x += glyph.unpositioned().h_metrics().advance_width;
+            return Some(glyph);
+        }
+        None
     }
 }
 
@@ -194,20 +274,11 @@ impl Text {
     }
 }
 
-
-// Use a lazy static to initialise the ttf context only once.
-lazy_static! {
-    static ref CONTEXT: Sdl2TtfContext = {
-        info!("Initialising SDL2_ttf: {}", ttf::get_linked_version());
-        ttf::init().unwrap()
-    };
-}
-
 /// Hard-coded path to the TTF file to use for rendering debug text.
 const FONT_PATH: &str = "assets/ttf/OpenSans-Regular.ttf";
 
 /// Hard-coded font size.
-const POINT_SIZE: u16 = 18;
+const POINT_SIZE: f32 = 24.0;
 
 const VERTEX_SRC: &str = r#"
     #version 140
@@ -225,7 +296,10 @@ const FRAGMENT_SRC: &str = r#"
     uniform sampler2D u_tex;
     in vec2 v_uv;
     out vec4 color;
-    void main() { color = texture(u_tex, v_uv); }
+    void main() {
+        vec4 tex_color = texture(u_tex, v_uv);
+        color = vec4(tex_color.g, tex_color.g, tex_color.g, tex_color.r);
+    }
 "#;
 
 #[repr(C)]

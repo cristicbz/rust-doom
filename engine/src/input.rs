@@ -1,22 +1,20 @@
-use super::errors::{Result, ErrorKind, Error};
-use super::tick::Tick;
+use super::errors::{Result, Error};
 use super::system::System;
 use super::window::Window;
+use glium::glutin::{Event, WindowEvent, DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode,
+                    CursorState};
+pub use glium::glutin::MouseButton;
+pub use glium::glutin::VirtualKeyCode as Scancode;
 use math::Vec2f;
 use num::Zero;
-use sdl2::EventPump;
-use sdl2::event::Event;
-pub use sdl2::keyboard::Scancode;
-pub use sdl2::mouse::MouseButton;
-use sdl2::mouse::MouseUtil;
 use std::vec::Vec;
 
 pub type Sensitivity = f32;
 
 pub enum Gesture {
     NoGesture,
-    KeyHold(Scancode),
-    KeyTrigger(Scancode),
+    KeyHold(VirtualKeyCode),
+    KeyTrigger(VirtualKeyCode),
     ButtonHold(MouseButton),
     ButtonTrigger(MouseButton),
     AnyOf(Vec<Gesture>),
@@ -42,7 +40,7 @@ pub enum Analog2d {
 
 impl Input {
     pub fn set_cursor_grabbed(&mut self, grabbed: bool) {
-        self.mouse_util.set_relative_mouse_mode(grabbed);
+        self.new_mouse_grabbed = grabbed
     }
 
     pub fn set_mouse_enabled(&mut self, enable: bool) {
@@ -65,25 +63,15 @@ impl Input {
                 }
             }
             Gesture::ButtonHold(button) => {
-                match mouse_button_to_index(button) {
-                    Some(index) => {
-                        match self.mouse_button_state[index] {
-                            ButtonState::Down(_) => true,
-                            ButtonState::Up(_) => false,
-                        }
-                    }
-                    None => false,
+                match self.mouse_button_state[mouse_button_to_index(button)] {
+                    ButtonState::Down(_) => true,
+                    ButtonState::Up(_) => false,
                 }
             }
             Gesture::ButtonTrigger(button) => {
-                match mouse_button_to_index(button) {
-                    Some(index) => {
-                        match self.mouse_button_state[index] {
-                            ButtonState::Down(index) => self.current_update_index == index,
-                            ButtonState::Up(_) => false,
-                        }
-                    }
-                    None => false,
+                match self.mouse_button_state[mouse_button_to_index(button)] {
+                    ButtonState::Down(index) => self.current_update_index == index,
+                    ButtonState::Up(_) => false,
                 }
             }
             Gesture::AnyOf(ref subgestures) => {
@@ -140,8 +128,7 @@ impl Input {
 
 derive_dependencies_from! {
     pub struct Dependencies<'context> {
-        window: &'context Window,
-        tick: &'context Tick,
+        window: &'context mut Window,
     }
 }
 
@@ -153,28 +140,25 @@ pub struct Input {
     quit_requested_index: UpdateIndex,
 
     mouse_enabled: bool,
+    mouse_grabbed: bool,
+    new_mouse_grabbed: bool,
     mouse_rel: Vec2f,
-    mouse_util: MouseUtil,
-
-    pump: EventPump,
 }
 
 impl<'context> System<'context> for Input {
     type Dependencies = Dependencies<'context>;
     type Error = Error;
 
-    fn create(deps: Dependencies) -> Result<Self> {
-        let pump = deps.window.sdl().event_pump().map_err(ErrorKind::Sdl)?;
-        let mouse_util = deps.window.sdl().mouse();
+    fn create(_deps: Dependencies) -> Result<Self> {
         Ok(Input {
             current_update_index: 1,
             keyboard_state: [ButtonState::Up(0); NUM_SCAN_CODES],
             mouse_button_state: [ButtonState::Up(0); NUM_MOUSE_BUTTONS],
             quit_requested_index: 0,
-            mouse_util: mouse_util,
             mouse_enabled: true,
+            new_mouse_grabbed: true,
+            mouse_grabbed: false,
             mouse_rel: Vec2f::zero(),
-            pump: pump,
         })
     }
 
@@ -183,49 +167,75 @@ impl<'context> System<'context> for Input {
     }
 
     fn update(&mut self, deps: Dependencies) -> Result<()> {
-        self.current_update_index += 1;
-        self.mouse_rel = Vec2f::zero();
-        if !deps.tick.is_frame() {
-            return Ok(());
-        }
-
-        self.mouse_rel = Vec2f::zero();
-        for event in self.pump.poll_iter() {
-            match event {
-                Event::Quit { .. } => {
-                    self.quit_requested_index = self.current_update_index;
-                }
-                Event::KeyDown { scancode: Some(scancode), .. } => {
-                    self.keyboard_state[scancode as usize] =
-                        ButtonState::Down(self.current_update_index);
-                }
-                Event::KeyUp { scancode: Some(scancode), .. } => {
-                    self.keyboard_state[scancode as usize] =
-                        ButtonState::Up(self.current_update_index);
-                }
-                Event::MouseMotion {
-                    xrel: x_relative,
-                    yrel: y_relative,
-                    ..
-                } => {
-                    if self.mouse_enabled {
-                        self.mouse_rel = Vec2f::new(x_relative as f32, y_relative as f32);
-                    }
-                }
-                Event::MouseButtonDown { mouse_btn, .. } => {
-                    if let Some(index) = mouse_button_to_index(mouse_btn) {
-                        self.mouse_button_state[index] =
-                            ButtonState::Down(self.current_update_index);
-                    }
-                }
-                Event::MouseButtonUp { mouse_btn, .. } => {
-                    if let Some(index) = mouse_button_to_index(mouse_btn) {
-                        self.mouse_button_state[index] = ButtonState::Up(self.current_update_index);
-                    }
-                }
-                _ => {}
+        if self.new_mouse_grabbed != self.mouse_grabbed {
+            self.mouse_grabbed = self.new_mouse_grabbed;
+            if self.mouse_grabbed {
+                let _ = deps.window.facade().gl_window().window().set_cursor_state(
+                    CursorState::Hide,
+                );
+            } else {
+                let _ = deps.window.facade().gl_window().window().set_cursor_state(
+                    CursorState::Normal,
+                );
             }
         }
+        let (center_x, center_y) = (deps.window.width() / 2, deps.window.height() / 2);
+        if self.mouse_grabbed {
+            let _ = deps.window
+                .facade()
+                .gl_window()
+                .window()
+                .set_cursor_position(center_x as i32, center_y as i32);
+        }
+        self.current_update_index += 1;
+        self.mouse_rel = Vec2f::zero();
+        deps.window.events().poll_events(|event| match event {
+            Event::WindowEvent {
+                window_id: _,
+                event: WindowEvent::Closed,
+            } => {
+                self.quit_requested_index = self.current_update_index;
+            }
+            Event::DeviceEvent {
+                device_id: _,
+                event: DeviceEvent::Key(KeyboardInput {
+                                     scancode: _,
+                                     modifiers: _,
+                                     state,
+                                     virtual_keycode: Some(virtual_keycode),
+                                 }),
+            } => {
+                self.keyboard_state[virtual_keycode as usize] = match state {
+                    ElementState::Pressed => ButtonState::Down(self.current_update_index),
+                    ElementState::Released => ButtonState::Up(self.current_update_index),
+                }
+            }
+            Event::DeviceEvent {
+                device_id: _,
+                event: DeviceEvent::Motion { axis, value },
+            } => {
+                if self.mouse_enabled {
+                    if axis < 2 {
+                        self.mouse_rel[axis as usize] += value as f32;
+                    }
+                }
+            }
+            Event::DeviceEvent {
+                device_id: _,
+                event: DeviceEvent::Button { button, state },
+            } => {
+                let button = button as usize;
+                if self.mouse_enabled {
+                    if button < NUM_MOUSE_BUTTONS {
+                        self.mouse_button_state[button] = match state {
+                            ElementState::Pressed => ButtonState::Down(self.current_update_index),
+                            ElementState::Released => ButtonState::Up(self.current_update_index),
+                        }
+                    }
+                }
+            }
+            _ => {}
+        });
         Ok(())
     }
 }
@@ -241,13 +251,11 @@ enum ButtonState {
     Down(UpdateIndex),
 }
 
-fn mouse_button_to_index(button: MouseButton) -> Option<usize> {
-    Some(match button {
-        MouseButton::Left => 0,
-        MouseButton::Middle => 1,
-        MouseButton::Right => 2,
-        MouseButton::X1 => 3,
-        MouseButton::X2 => 4,
-        MouseButton::Unknown => return None,
-    })
+fn mouse_button_to_index(button: MouseButton) -> usize {
+    match button {
+        MouseButton::Left => 1,
+        MouseButton::Middle => 2,
+        MouseButton::Right => 3,
+        MouseButton::Other(index) => ((index + 4) as usize).min(NUM_MOUSE_BUTTONS - 1),
+    }
 }

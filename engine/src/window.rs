@@ -1,11 +1,8 @@
 use super::errors::{Result, ResultExt, ErrorKind, Error};
 use super::platform;
 use super::system::System;
-use glium::{Frame, Surface};
-use glium_sdl2::{DisplayBuild, SDL2Facade};
-use sdl2;
-use sdl2::Sdl;
-use sdl2::video::GLProfile;
+use glium::{Frame, Surface, Display};
+use glium::glutin::{WindowBuilder, GlProfile, Api, GlRequest, ContextBuilder, EventsLoop};
 
 const OPENGL_DEPTH_SIZE: u8 = 24;
 
@@ -16,17 +13,13 @@ pub struct WindowConfig {
 }
 
 pub struct Window {
-    sdl: Sdl,
-    facade: SDL2Facade,
+    display: Display,
+    events: EventsLoop,
     width: u32,
     height: u32,
 }
 
 impl Window {
-    pub fn sdl(&self) -> &Sdl {
-        &self.sdl
-    }
-
     pub fn width(&self) -> u32 {
         self.width
     }
@@ -40,13 +33,17 @@ impl Window {
     }
 
     pub fn draw(&self) -> Frame {
-        let mut frame = self.facade.draw();
+        let mut frame = self.display.draw();
         frame.clear_all_srgb((0.06, 0.07, 0.09, 0.0), 1.0, 0);
         frame
     }
 
-    pub fn facade(&self) -> &SDL2Facade {
-        &self.facade
+    pub fn events(&mut self) -> &mut EventsLoop {
+        &mut self.events
+    }
+
+    pub fn facade(&self) -> &Display {
+        &self.display
     }
 }
 
@@ -55,26 +52,28 @@ impl<'context> System<'context> for Window {
     type Error = Error;
 
     fn create(config: &'context WindowConfig) -> Result<Self> {
-        let sdl = sdl2::init().map_err(ErrorKind::Sdl)?;
-        let video = sdl.video().map_err(ErrorKind::Sdl)?;
-        let gl_attr = video.gl_attr();
-        gl_attr.set_context_profile(GLProfile::Core);
-        gl_attr.set_context_major_version(platform::GL_MAJOR_VERSION);
-        gl_attr.set_context_minor_version(platform::GL_MINOR_VERSION);
-        gl_attr.set_depth_size(OPENGL_DEPTH_SIZE);
-        gl_attr.set_double_buffer(true);
+        let events = EventsLoop::new();
 
-        let facade = video
-            .window(&config.title, config.width, config.height)
-            .opengl()
-            .resizable()
-            .build_glium()
-            .chain_err(|| ErrorKind::CreateWindow(config.width, config.height))?;
+        let window = WindowBuilder::new()
+            .with_dimensions(config.width, config.height)
+            .with_title(config.title.clone());
 
-        sdl2::clear_error();
+        let context = ContextBuilder::new()
+            .with_gl_profile(GlProfile::Core)
+            .with_gl(GlRequest::Specific(Api::OpenGl, (
+                platform::GL_MAJOR_VERSION,
+                platform::GL_MINOR_VERSION,
+            )))
+            .with_vsync(true)
+            .with_depth_buffer(OPENGL_DEPTH_SIZE);
+
+        let display = Display::new(window, context, &events).chain_err(|| {
+            ErrorKind::CreateWindow(config.width, config.height)
+        })?;
+
         Ok(Window {
-            sdl: sdl,
-            facade: facade,
+            display,
+            events,
             width: config.width,
             height: config.height,
         })

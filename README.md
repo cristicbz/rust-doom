@@ -16,12 +16,7 @@ The code is mostly based on the endlessly useful [Doom Wiki](http://doomwiki.org
 ### Build Instructions
 Rust Doom should always build on the latest stable version of Rust (but is also tested on beta and nightly), which you can install using any of the methods described on [the Rust website](https://www.rust-lang.org/downloads.html).
 
-Currently the only non-rust dependencies are SDL2 and SDL2_ttf. You can install them using your system's package manager:
-
-* _Ubuntu/Debian_: ```sudo apt-get install libsdl2-dev libsdl2-ttf-dev```
-* _Mac OS_: ```brew install sdl2 sdl2_ttf```
-
-Then, to build, run [cargo](http://crates.io) in the project's root (where Cargo.toml is):
+To build, run [cargo](http://crates.io) in the project's root (where Cargo.toml is):
 ```
 cargo build --release
 ```
