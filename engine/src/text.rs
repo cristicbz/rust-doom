@@ -32,25 +32,6 @@ pub struct TextRenderer {
 }
 
 impl TextRenderer {
-    pub fn new(window: &Window) -> Result<Self> {
-        let mut font_bytes = Vec::with_capacity(1024 * 1024); // 1MB
-        File::open(FONT_PATH)
-            .and_then(|mut file| file.read_to_end(&mut font_bytes))
-            .chain_err(|| format!("Failed to read font at {:?}.", FONT_PATH))?;
-        Ok(TextRenderer {
-            font: FontCollection::from_bytes(font_bytes)
-                .font_at(0)
-                .ok_or_else(|| format!("No fonts in {:?}.", FONT_PATH))?,
-            slab: IdSlab::with_capacity(16),
-            program: Program::from_source(window.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
-            draw_params: DrawParameters {
-                blend: Blend::alpha_blending(),
-                ..DrawParameters::default()
-            },
-            pixel_buffer: Vec::new(),
-        })
-    }
-
     pub fn insert(&mut self, win: &Window, text: &str, pos: Pnt2f, padding: u32) -> TextId {
         debug!("Creating text...");
         let (width, height) = self.rasterise(text, padding).unwrap();
@@ -164,32 +145,6 @@ impl TextRenderer {
     }
 }
 
-struct LayoutIter<'a> {
-    font: &'a Font<'static>,
-    scale: Scale,
-    width: u32,
-    advance_height: f32,
-    caret: FontPoint<f32>,
-    last_glyph_id: Option<GlyphId>,
-    chars: Recompositions<StrChars<'a>>,
-}
-
-impl<'a> LayoutIter<'a> {
-    fn new(font: &'a Font<'static>, scale: Scale, width: u32, text: &'a str) -> Self {
-        let v_metrics = font.v_metrics(scale);
-
-        LayoutIter {
-            font,
-            scale,
-            width,
-            advance_height: v_metrics.ascent - v_metrics.descent + v_metrics.line_gap,
-            caret: rusttype::point(0.0, v_metrics.ascent),
-            last_glyph_id: None,
-            chars: text.nfc(),
-        }
-    }
-}
-
 impl<'a> Iterator for LayoutIter<'a> {
     type Item = PositionedGlyph<'a>;
 
@@ -247,7 +202,22 @@ impl<'context> System<'context> for TextRenderer {
     type Error = Error;
 
     fn create(window: &Window) -> Result<Self> {
-        Self::new(window)
+        let mut font_bytes = Vec::with_capacity(1024 * 1024); // 1MB
+        File::open(FONT_PATH)
+            .and_then(|mut file| file.read_to_end(&mut font_bytes))
+            .chain_err(|| format!("Failed to read font at {:?}.", FONT_PATH))?;
+        Ok(TextRenderer {
+            font: FontCollection::from_bytes(font_bytes)
+                .font_at(0)
+                .ok_or_else(|| format!("No fonts in {:?}.", FONT_PATH))?,
+            slab: IdSlab::with_capacity(16),
+            program: Program::from_source(window.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
+            draw_params: DrawParameters {
+                blend: Blend::alpha_blending(),
+                ..DrawParameters::default()
+            },
+            pixel_buffer: Vec::new(),
+        })
     }
 
     fn destroy(self, _window: &Window) -> Result<()> {
@@ -273,6 +243,33 @@ impl Text {
         self.visible = visible;
     }
 }
+
+struct LayoutIter<'a> {
+    font: &'a Font<'static>,
+    scale: Scale,
+    width: u32,
+    advance_height: f32,
+    caret: FontPoint<f32>,
+    last_glyph_id: Option<GlyphId>,
+    chars: Recompositions<StrChars<'a>>,
+}
+
+impl<'a> LayoutIter<'a> {
+    fn new(font: &'a Font<'static>, scale: Scale, width: u32, text: &'a str) -> Self {
+        let v_metrics = font.v_metrics(scale);
+
+        LayoutIter {
+            font,
+            scale,
+            width,
+            advance_height: v_metrics.ascent - v_metrics.descent + v_metrics.line_gap,
+            caret: rusttype::point(0.0, v_metrics.ascent),
+            last_glyph_id: None,
+            chars: text.nfc(),
+        }
+    }
+}
+
 
 /// Hard-coded path to the TTF file to use for rendering debug text.
 const FONT_PATH: &str = "assets/ttf/OpenSans-Regular.ttf";
