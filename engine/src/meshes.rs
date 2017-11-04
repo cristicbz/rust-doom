@@ -2,9 +2,10 @@ use super::entities::{Entities, Entity, EntityId};
 use super::errors::{NeededBy, Result};
 use super::system::InfallibleSystem;
 use super::window::Window;
-use glium::index::{IndexBuffer, IndicesSource, PrimitiveType};
+use glium::index::{IndicesSource, PrimitiveType};
+pub use glium::index::IndexBuffer;
 use glium::vertex::{Vertex, IntoVerticesSource, VertexBuffer, VerticesSource};
-use glium_typed::TypedVertexBufferAny;
+pub use glium_typed::TypedVertexBufferAny;
 use idcontain::IdMapVec;
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Copy, Clone)]
@@ -59,6 +60,30 @@ impl Meshes {
             },
         })
     }
+
+    pub fn get_mut(&mut self, mesh_id: MeshId) -> Option<MeshRefMut> {
+        self.map.get_mut(mesh_id.0).map(|mesh| match mesh.data {
+            InternalMeshData::Owned {
+                ref mut vertices,
+                ref mut indices,
+            } => MeshRefMut {
+                vertices: Some(vertices),
+                indices: indices.as_mut(),
+            },
+            InternalMeshData::Inherit {
+                vertices_from: _,
+                ref mut indices,
+            } => MeshRefMut {
+                vertices: None,
+                indices: Some(indices),
+            },
+        })
+    }
+}
+
+pub struct MeshRefMut<'a> {
+    pub vertices: Option<&'a mut TypedVertexBufferAny>,
+    pub indices: Option<&'a mut IndexBuffer<u32>>,
 }
 
 pub struct MeshRef<'a> {
@@ -70,8 +95,7 @@ impl<'a, 'b: 'a> Into<IndicesSource<'a>> for &'a MeshRef<'b> {
     fn into(self) -> IndicesSource<'a> {
         self.indices.map_or(
             IndicesSource::NoIndices { primitives: PrimitiveType::TrianglesList },
-            |buffer| buffer.into(),
-            )
+            |indices| indices.into())
     }
 }
 
