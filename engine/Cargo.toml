@@ -21,7 +21,12 @@ path = "../math"
 
 [dependencies.glium]
 features = ["glutin"]
-version = "0.18.0"
+git = "https://github.com/glium/glium"
+rev = "d8dbb443f2da8c3a1dce88ecb4c41070194fbd0b"
+
+[dependencies.glium-typed-buffer-any]
+git = "https://github.com/cristicbz/glium-typed-buffer-any"
+rev = "3052b1c63247fbb0bdc4e1d41129ccf7cc1b8a3b"
 
 [dev-dependencies]
 env_logger = "*"

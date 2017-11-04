@@ -2,8 +2,9 @@ use super::entities::{Entities, Entity, EntityId};
 use super::errors::{NeededBy, Result};
 use super::system::InfallibleSystem;
 use super::window::Window;
-use glium::index::{Index, IndexBufferAny, IndexBuffer, IndicesSource, PrimitiveType};
-use glium::vertex::{Vertex, VertexBufferAny, IntoVerticesSource, VertexBuffer, VerticesSource};
+use glium::index::{IndexBuffer, IndicesSource, PrimitiveType};
+use glium::vertex::{Vertex, IntoVerticesSource, VertexBuffer, VerticesSource};
+use glium_typed::TypedVertexBufferAny;
 use idcontain::IdMapVec;
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Copy, Clone)]
@@ -14,93 +15,36 @@ pub struct Meshes {
 }
 
 impl Meshes {
-    pub fn add_immutable<V: Vertex + Send + 'static, I: Index>(
-        &mut self,
-        window: &Window,
-        entities: &mut Entities,
+    pub fn add<'a>(
+        &'a mut self,
+        window: &'a Window,
+        entities: &'a mut Entities,
         parent: EntityId,
         name: &'static str,
-        vertices: &[V],
-        indices: Option<&[I]>,
-    ) -> Result<MeshId> {
-        let id = entities.add(parent, name)?;
-        self.map.insert(
-            id,
-            Mesh {
-                data: MeshData::Owned {
-                    vertices: VertexBuffer::immutable(window.facade(), vertices)
-                        .needed_by(name)?
-                        .into(),
-                    indices: if let Some(indices) = indices {
-                        Some(
-                            IndexBuffer::immutable(
-                                window.facade(),
-                                PrimitiveType::TrianglesList,
-                                indices,
-                            ).needed_by(name)?
-                                .into(),
-                        )
-                    } else {
-                        None
-                    },
-                },
+    ) -> MeshAdder<'a, (), ()> {
+        MeshAdder {
+            context: MeshAdderContext {
+                meshes: self,
+                window,
+                entities,
+                parent,
+                name,
             },
-        );
-        debug!("Added mesh {:?} {:?} as child of {:?}.", name, id, parent);
-        Ok(MeshId(id))
-    }
-
-    pub fn add_immutable_indices<I: Index>(
-        &mut self,
-        window: &Window,
-        entities: &mut Entities,
-        parent: MeshId,
-        name: &'static str,
-        indices: &[I],
-    ) -> Result<MeshId> {
-        let id = entities.add(parent.0, name)?;
-        // TODO(cristicbz): If parent comes from a different `Meshes` object, the assertion that
-        // the parent is in the map is in incorrect.
-        let mut owner = parent;
-        while let MeshData::Inherit { vertices_from, .. } =
-            self.map.get(owner.0).expect("missing mesh for MeshId").data
-        {
-            owner = vertices_from;
+            vertices: (),
+            indices: (),
         }
-        self.map.insert(
-            id,
-            Mesh {
-                data: MeshData::Inherit {
-                    vertices_from: owner,
-                    indices: IndexBuffer::immutable(
-                        window.facade(),
-                        PrimitiveType::TrianglesList,
-                        indices,
-                    ).needed_by(name)?
-                        .into(),
-                },
-            },
-        );
-        debug!(
-            "Added mesh {:?} {:?} as child of {:?}, with actual owner {:?}.",
-            name,
-            id,
-            parent,
-            owner
-        );
-        Ok(MeshId(id))
     }
 
     pub fn get(&self, mesh_id: MeshId) -> Option<MeshRef> {
         self.map.get(mesh_id.0).map(|mesh| match mesh.data {
-            MeshData::Owned {
+            InternalMeshData::Owned {
                 ref vertices,
                 ref indices,
             } => MeshRef {
                 vertices,
                 indices: indices.as_ref(),
             },
-            MeshData::Inherit {
+            InternalMeshData::Inherit {
                 vertices_from,
                 ref indices,
             } => MeshRef {
@@ -108,7 +52,7 @@ impl Meshes {
                     .get(vertices_from.0)
                     .expect("missing mesh in stored vertices_from")
                     .data {
-                    MeshData::Owned { ref vertices, .. } => vertices,
+                    InternalMeshData::Owned { ref vertices, .. } => vertices,
                     _ => panic!("unowned mesh in stored vertices_from"),
                 },
                 indices: Some(indices),
@@ -118,8 +62,8 @@ impl Meshes {
 }
 
 pub struct MeshRef<'a> {
-    vertices: &'a VertexBufferAny,
-    indices: Option<&'a IndexBufferAny>,
+    vertices: &'a TypedVertexBufferAny,
+    indices: Option<&'a IndexBuffer<u32>>,
 }
 
 impl<'a, 'b: 'a> Into<IndicesSource<'a>> for &'a MeshRef<'b> {
@@ -137,8 +81,137 @@ impl<'a, 'b: 'a> IntoVerticesSource<'a> for &'a MeshRef<'b> {
     }
 }
 
+#[must_use]
+pub struct MeshAdder<'a, VertexDataT, IndexDataT> {
+    context: MeshAdderContext<'a>,
+    vertices: VertexDataT,
+    indices: IndexDataT,
+}
+
+pub struct OwnedVertexData(TypedVertexBufferAny);
+pub struct SharedVertexData(MeshId);
+pub struct IndexData(IndexBuffer<u32>);
+
+impl<'a, IndexDataT> MeshAdder<'a, (), IndexDataT> {
+    pub fn immutable<VertexT>(
+        self,
+        vertices: &[VertexT],
+    ) -> Result<MeshAdder<'a, OwnedVertexData, IndexDataT>>
+    where
+        VertexT: Vertex + Send + 'static,
+    {
+        Ok(MeshAdder {
+            vertices: OwnedVertexData(
+                VertexBuffer::immutable(self.context.window.facade(), vertices)
+                    .needed_by(self.context.name)?
+                    .into(),
+            ),
+            indices: self.indices,
+            context: self.context,
+        })
+    }
+
+    pub fn persistent<VertexT>(
+        self,
+        vertices: &[VertexT],
+    ) -> Result<MeshAdder<'a, OwnedVertexData, IndexDataT>>
+    where
+        VertexT: Vertex + Send + 'static,
+    {
+        Ok(MeshAdder {
+            vertices: OwnedVertexData(
+                VertexBuffer::persistent(self.context.window.facade(), vertices)
+                    .needed_by(self.context.name)?
+                    .into(),
+            ),
+            indices: self.indices,
+            context: self.context,
+        })
+    }
+
+    pub fn shared(self, vertices_from: MeshId) -> MeshAdder<'a, SharedVertexData, IndexDataT> {
+        // TODO(cristicbz): If parent comes from a different `Meshes` object, the assertion that
+        // the parent is in the map is in incorrect.
+        let mut owner = vertices_from;
+        while let InternalMeshData::Inherit { vertices_from, .. } =
+            self.context
+                .meshes
+                .map
+                .get(owner.0)
+                .expect("missing mesh for MeshId")
+                .data
+        {
+            owner = vertices_from;
+        }
+        MeshAdder {
+            vertices: SharedVertexData(owner),
+            indices: self.indices,
+            context: self.context,
+        }
+    }
+}
+
+impl<'a, VertexDataT> MeshAdder<'a, VertexDataT, ()> {
+    pub fn immutable_indices(
+        self,
+        indices: &[u32],
+    ) -> Result<MeshAdder<'a, VertexDataT, IndexData>> {
+        Ok(MeshAdder {
+            indices: IndexData(IndexBuffer::persistent(
+                self.context.window.facade(),
+                PrimitiveType::TrianglesList,
+                indices,
+            ).needed_by(self.context.name)?),
+            vertices: self.vertices,
+            context: self.context,
+        })
+    }
+
+    pub fn persistent_indices(
+        self,
+        indices: &[u32],
+    ) -> Result<MeshAdder<'a, VertexDataT, IndexData>> {
+        Ok(MeshAdder {
+            indices: IndexData(IndexBuffer::persistent(
+                self.context.window.facade(),
+                PrimitiveType::TrianglesList,
+                indices,
+            ).needed_by(self.context.name)?),
+            vertices: self.vertices,
+            context: self.context,
+        })
+    }
+}
+
+impl<'a> MeshAdder<'a, OwnedVertexData, ()> {
+    pub fn build_unindexed(self) -> Result<MeshId> {
+        self.context.add(InternalMeshData::Owned {
+            vertices: self.vertices.0,
+            indices: None,
+        })
+    }
+}
+
+impl<'a> MeshAdder<'a, SharedVertexData, IndexData> {
+    pub fn build(self) -> Result<MeshId> {
+        self.context.add(InternalMeshData::Inherit {
+            vertices_from: self.vertices.0,
+            indices: self.indices.0,
+        })
+    }
+}
+
+impl<'a> MeshAdder<'a, OwnedVertexData, IndexData> {
+    pub fn build(self) -> Result<MeshId> {
+        self.context.add(InternalMeshData::Owned {
+            vertices: self.vertices.0,
+            indices: Some(self.indices.0),
+        })
+    }
+}
+
 pub struct Mesh {
-    data: MeshData,
+    data: InternalMeshData,
 }
 
 impl<'context> InfallibleSystem<'context> for Meshes {
@@ -173,13 +246,35 @@ impl<'context> InfallibleSystem<'context> for Meshes {
 }
 
 #[cfg_attr(feature = "cargo-clippy", allow(large_enum_variant))]
-enum MeshData {
+enum InternalMeshData {
     Owned {
-        vertices: VertexBufferAny,
-        indices: Option<IndexBufferAny>,
+        vertices: TypedVertexBufferAny,
+        indices: Option<IndexBuffer<u32>>,
     },
     Inherit {
         vertices_from: MeshId,
-        indices: IndexBufferAny,
+        indices: IndexBuffer<u32>,
     },
+}
+
+struct MeshAdderContext<'a> {
+    meshes: &'a mut Meshes,
+    window: &'a Window,
+    entities: &'a mut Entities,
+    parent: EntityId,
+    name: &'static str,
+}
+
+impl<'a> MeshAdderContext<'a> {
+    fn add(self, data: InternalMeshData) -> Result<MeshId> {
+        let id = self.entities.add(self.parent, self.name)?;
+        self.meshes.map.insert(id, Mesh { data });
+        debug!(
+            "Added mesh {:?} {:?} as child of {:?}.",
+            self.name,
+            id,
+            self.parent
+        );
+        Ok(MeshId(id))
+    }
 }

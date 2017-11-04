@@ -242,7 +242,8 @@ version = "0.1.0"
 dependencies = [
  "env_logger 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "glium 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glium 0.18.0 (git+https://github.com/glium/glium?rev=d8dbb443f2da8c3a1dce88ecb4c41070194fbd0b)",
+ "glium-typed-buffer-any 0.1.0 (git+https://github.com/cristicbz/glium-typed-buffer-any?rev=3052b1c63247fbb0bdc4e1d41129ccf7cc1b8a3b)",
  "idcontain 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "math 0.1.0",
@@ -289,7 +290,7 @@ version = "0.1.0"
 dependencies = [
  "engine 0.1.0",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "glium 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glium 0.18.0 (git+https://github.com/glium/glium?rev=d8dbb443f2da8c3a1dce88ecb4c41070194fbd0b)",
  "idcontain 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "math 0.1.0",
@@ -334,7 +335,7 @@ dependencies = [
 [[package]]
 name = "glium"
 version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/glium/glium?rev=d8dbb443f2da8c3a1dce88ecb4c41070194fbd0b#d8dbb443f2da8c3a1dce88ecb4c41070194fbd0b"
 dependencies = [
  "backtrace 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -342,6 +343,14 @@ dependencies = [
  "glutin 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "glium-typed-buffer-any"
+version = "0.1.0"
+source = "git+https://github.com/cristicbz/glium-typed-buffer-any?rev=3052b1c63247fbb0bdc4e1d41129ccf7cc1b8a3b#3052b1c63247fbb0bdc4e1d41129ccf7cc1b8a3b"
+dependencies = [
+ "glium 0.18.0 (git+https://github.com/glium/glium?rev=d8dbb443f2da8c3a1dce88ecb4c41070194fbd0b)",
 ]
 
 [[package]]
@@ -1071,7 +1080,8 @@ dependencies = [
 "checksum gdi32-sys 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "65256ec4dc2592e6f05bfc1ca3b956a4e0698aa90b1dff1f5687d55a5a3fd59a"
 "checksum gl_generator 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)" = "e7acbf2ba3d52e9e1ad96a84362129e9c1aa0af55ebfc86a91004e1b83eca61c"
 "checksum gleam 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)" = "bf887141f0c2a83eae026cbf3fba74f0a5cb0f01d20e5cdfcd8c4ad39295be1e"
-"checksum glium 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e4ead8bb689a173d7b5acee24d9495652e0a4e0fb85632b5652b2488bb1fad35"
+"checksum glium 0.18.0 (git+https://github.com/glium/glium?rev=d8dbb443f2da8c3a1dce88ecb4c41070194fbd0b)" = "<none>"
+"checksum glium-typed-buffer-any 0.1.0 (git+https://github.com/cristicbz/glium-typed-buffer-any?rev=3052b1c63247fbb0bdc4e1d41129ccf7cc1b8a3b)" = "<none>"
 "checksum glutin 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b90e38d57530c3463494dcf789483d5fb2acaeaa146c001c8c52bf23d44987c1"
 "checksum idcontain 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)" = "b509f3fd1befcb49a12b402bc15fd4cbb55de239a9bdbded2fca00ccd0f9a6b1"
 "checksum itoa 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "8324a32baf01e2ae060e9de58ed0bc2320c9a2833491ee36cd3b4c414de4db8c"

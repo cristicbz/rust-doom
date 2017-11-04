@@ -16,6 +16,7 @@ extern crate math;
 extern crate num;
 extern crate rusttype;
 extern crate unicode_normalization;
+extern crate glium_typed_buffer_any as glium_typed;
 
 #[macro_use]
 mod context_macros;

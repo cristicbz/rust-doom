@@ -17,4 +17,5 @@ idcontain = "0.7.4"
 
 [dependencies.glium]
 features = ["glutin"]
-version = "0.18.0"
+git = "https://github.com/glium/glium"
+rev = "d8dbb443f2da8c3a1dce88ecb4c41070194fbd0b"

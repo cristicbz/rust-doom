@@ -414,97 +414,79 @@ impl<'a> Builder<'a> {
             );
 
         info!("Creating static meshes and models...");
-        let global_static_mesh = deps.meshes.add_immutable::<_, u8>(
-            deps.window,
-            deps.entities,
-            root,
-            "global_world_static_mesh",
-            &builder.static_vertices,
-            None,
-        )?;
-        let global_sky_mesh = deps.meshes.add_immutable::<_, u8>(
-            deps.window,
-            deps.entities,
-            root,
-            "global_world_sky_mesh",
-            &builder.sky_vertices,
-            None,
-        )?;
-        let global_decor_mesh = deps.meshes.add_immutable::<_, u8>(
-            deps.window,
-            deps.entities,
-            root,
-            "global_world_decor_mesh",
-            &builder.decor_vertices,
-            None,
-        )?;
+        let global_static_mesh = deps.meshes
+            .add(deps.window, deps.entities, root, "global_world_static_mesh")
+            .immutable(&builder.static_vertices)?
+            .build_unindexed()?;
+
+        let global_sky_mesh = deps.meshes
+            .add(deps.window, deps.entities, root, "global_world_sky_mesh")
+            .immutable(&builder.sky_vertices)?
+            .build_unindexed()?;
+
+        let global_decor_mesh = deps.meshes
+            .add(deps.window, deps.entities, root, "global_world_decor_mesh")
+            .immutable(&builder.decor_vertices)?
+            .build_unindexed()?;
 
         for (id, indices) in &builder.object_indices {
             let object = objects[id];
             if !indices.flat.is_empty() {
-                let flats_mesh = deps.meshes.add_immutable_indices(
-                    deps.window,
-                    deps.entities,
-                    global_static_mesh,
-                    "object_flats_mesh",
-                    &indices.flat,
-                )?;
-                let flats = deps.entities.add(object, "flats")?;
-                deps.transforms.attach_identity(flats);
+                let entity = deps.entities.add(object, "flats")?;
+                let mesh = deps.meshes
+                    .add(deps.window, deps.entities, entity, "object_flats_mesh")
+                    .shared(global_static_mesh)
+                    .immutable_indices(&indices.flat)?
+                    .build()?;
+                deps.transforms.attach_identity(entity);
                 deps.renderer.attach_model(
-                    flats,
-                    flats_mesh,
+                    entity,
+                    mesh,
                     builder.materials.flats.material,
                 )?;
             }
 
             if !indices.wall.is_empty() {
-                let walls_mesh = deps.meshes.add_immutable_indices(
-                    deps.window,
-                    deps.entities,
-                    global_static_mesh,
-                    "object_walls_mesh",
-                    &indices.wall,
-                )?;
-                let walls = deps.entities.add(object, "walls")?;
-                deps.transforms.attach_identity(walls);
+                let entity = deps.entities.add(object, "walls")?;
+                let mesh = deps.meshes
+                    .add(deps.window, deps.entities, entity, "object_walls_mesh")
+                    .shared(global_static_mesh)
+                    .immutable_indices(&indices.wall)?
+                    .build()?;
+                deps.transforms.attach_identity(entity);
                 deps.renderer.attach_model(
-                    walls,
-                    walls_mesh,
+                    entity,
+                    mesh,
                     builder.materials.walls.material,
                 )?;
             }
 
             if !indices.decor.is_empty() {
-                let decor_mesh = deps.meshes.add_immutable_indices(
-                    deps.window,
-                    deps.entities,
-                    global_decor_mesh,
-                    "object_decor_mesh",
-                    &indices.decor,
-                )?;
-                let decor = deps.entities.add(object, "decor")?;
-                deps.transforms.attach_identity(decor);
+                let entity = deps.entities.add(object, "decor")?;
+                let mesh = deps.meshes
+                    .add(deps.window, deps.entities, entity, "object_decor_mesh")
+                    .shared(global_decor_mesh)
+                    .immutable_indices(&indices.decor)?
+                    .build()?;
+                deps.transforms.attach_identity(entity);
                 deps.renderer.attach_model(
-                    decor,
-                    decor_mesh,
+                    entity,
+                    mesh,
                     builder.materials.decor.material,
                 )?;
             }
 
             if !indices.sky.is_empty() {
-                let sky_mesh = deps.meshes.add_immutable_indices(
-                    deps.window,
-                    deps.entities,
-                    global_sky_mesh,
-                    "object_sky_mesh",
-                    &indices.sky,
-                )?;
-                let sky = deps.entities.add(object, "sky")?;
-                deps.transforms.attach_identity(sky);
+                let entity = deps.entities.add(object, "sky")?;
+                let mesh = deps.meshes
+                    .add(deps.window, deps.entities, entity, "object_sky_mesh")
+                    .shared(global_sky_mesh)
+                    .immutable_indices(&indices.sky)?
+                    .build()?;
+                deps.transforms.attach_identity(entity);
                 deps.renderer.attach_model(
-                    sky,
-                    sky_mesh,
+                    entity,
+                    mesh,
                     builder.materials.sky,
                 )?;
             }
