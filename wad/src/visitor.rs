@@ -9,7 +9,7 @@ use super::util::{from_wad_coords, to_wad_height, from_wad_height, is_sky_flat, 
                   parse_child_id};
 use math::{Line2f, Vec2f, Pnt2f, Deg, Radf, Pnt3f};
 use math::prelude::*;
-use ordermap::OrderMap;
+use indexmap::IndexMap;
 use std::cmp;
 use std::cmp::Ordering;
 use std::f32::EPSILON;
@@ -318,7 +318,7 @@ pub struct Trigger {
 
 
 pub struct LevelAnalysis {
-    dynamic_info: OrderMap<SectorId, DynamicSectorInfo>,
+    dynamic_info: IndexMap<SectorId, DynamicSectorInfo>,
     triggers: Vec<Trigger>,
     num_objects: usize,
 }
@@ -326,7 +326,7 @@ pub struct LevelAnalysis {
 impl LevelAnalysis {
     pub fn new(level: &Level, meta: &WadMetadata) -> Self {
         let mut this = LevelAnalysis {
-            dynamic_info: OrderMap::new(),
+            dynamic_info: IndexMap::new(),
             triggers: Vec::new(),
             num_objects: 0,
         };
@@ -515,7 +515,7 @@ pub struct LevelWalker<'a, V: LevelVisitor + 'a> {
     height_range: (WadCoord, WadCoord),
     bsp_lines: Vec<Line2f>,
 
-    dynamic_info: &'a OrderMap<SectorId, DynamicSectorInfo>,
+    dynamic_info: &'a IndexMap<SectorId, DynamicSectorInfo>,
 
     // The vector contains all (2D) points which are part of the subsector:
     // implicit (intersection of BSP lines) and explicit (seg vertices).

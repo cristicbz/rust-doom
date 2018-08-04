@@ -1,22 +1,22 @@
 #![cfg_attr(feature = "cargo-clippy", allow(forget_copy))]
 
-use super::errors::{Result, Error, ResultExt};
+use super::errors::{Error, Result, ResultExt};
 use super::system::System;
 use super::window::Window;
-use glium::{Blend, Surface, VertexBuffer};
-use glium::{DrawParameters, Program};
-use glium::Frame;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{ClientFormat, RawImage2d, Texture2d};
-use idcontain::{IdSlab, Id};
+use glium::Frame;
+use glium::{Blend, Surface, VertexBuffer};
+use glium::{DrawParameters, Program};
+use idcontain::{Id, IdSlab};
 use math::Pnt2f;
-use rusttype::{self, Font, FontCollection, Scale, PositionedGlyph, GlyphId, Point as FontPoint};
+use rusttype::{self, Font, FontCollection, GlyphId, Point as FontPoint, PositionedGlyph, Scale};
 use std::borrow::Cow;
 use std::fs::File;
 use std::io::Read;
 use std::ops::{Index, IndexMut};
 use std::str::Chars as StrChars;
-use unicode_normalization::{UnicodeNormalization, Recompositions};
+use unicode_normalization::{Recompositions, UnicodeNormalization};
 
 /// A handle to a piece of text created with a `TextRenderer`.
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -85,10 +85,9 @@ impl TextRenderer {
             if !text.visible {
                 continue;
             }
-            let uniforms =
-                uniform! {
-                    u_tex: &text.texture,
-                };
+            let uniforms = uniform! {
+                u_tex: &text.texture,
+            };
             frame
                 .draw(
                     &text.buffer,
@@ -160,11 +159,7 @@ impl<'a> Iterator for LayoutIter<'a> {
                 }
                 continue;
             }
-            let base_glyph = if let Some(glyph) = self.font.glyph(c) {
-                glyph
-            } else {
-                continue;
-            };
+            let base_glyph = self.font.glyph(c);
             if let Some(id) = self.last_glyph_id.take() {
                 self.caret.x += self.font.pair_kerning(self.scale, id, base_glyph.id());
             }
@@ -208,8 +203,9 @@ impl<'context> System<'context> for TextRenderer {
             .chain_err(|| format!("Failed to read font at {:?}.", FONT_PATH))?;
         Ok(TextRenderer {
             font: FontCollection::from_bytes(font_bytes)
+                .chain_err(|| format!("Failed to parse font at {:?}.", FONT_PATH))?
                 .font_at(0)
-                .ok_or_else(|| format!("No fonts in {:?}.", FONT_PATH))?,
+                .chain_err(|| format!("No fonts in {:?}.", FONT_PATH))?,
             slab: IdSlab::with_capacity(16),
             program: Program::from_source(window.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
             draw_params: DrawParameters {
@@ -269,7 +265,6 @@ impl<'a> LayoutIter<'a> {
         }
     }
 }
-
 
 /// Hard-coded path to the TTF file to use for rendering debug text.
 const FONT_PATH: &str = "assets/ttf/OpenSans-Regular.ttf";

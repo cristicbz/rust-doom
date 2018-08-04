@@ -13,7 +13,7 @@ extern crate log;
 extern crate idcontain;
 
 extern crate math;
-extern crate num;
+extern crate num_traits;
 extern crate rusttype;
 extern crate unicode_normalization;
 extern crate glium_typed_buffer_any as glium_typed;

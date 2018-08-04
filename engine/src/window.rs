@@ -55,7 +55,7 @@ impl<'context> System<'context> for Window {
         let events = EventsLoop::new();
 
         let window = WindowBuilder::new()
-            .with_dimensions(config.width, config.height)
+            .with_dimensions((config.width, config.height).into())
             .with_title(config.title.clone());
 
         let context = ContextBuilder::new()

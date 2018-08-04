@@ -1,13 +1,13 @@
 use super::archive::Archive;
-use super::error::{Result, ResultExt, ErrorKind};
+use super::error::{ErrorKind, Result, ResultExt};
 use super::image::Image;
 use super::name::WadName;
-use super::types::{WadTextureHeader, WadTexturePatchRef, Palette, Colormap};
-use bincode::{deserialize_from as bincode_read, Infinite};
-use byteorder::{ReadBytesExt, LittleEndian};
-use math::{Vec2, Vec2f, Pnt2f, vec2};
+use super::types::{Colormap, Palette, WadTextureHeader, WadTexturePatchRef};
+use bincode;
+use byteorder::{LittleEndian, ReadBytesExt};
+use indexmap::IndexMap;
 use math::prelude::*;
-use ordermap::OrderMap;
+use math::{vec2, Pnt2f, Vec2, Vec2f};
 use std::cmp;
 use std::mem;
 use time;
@@ -21,14 +21,14 @@ pub struct Bounds {
 }
 
 pub type Flat = Vec<u8>;
-pub type BoundsLookup = OrderMap<WadName, Bounds>;
+pub type BoundsLookup = IndexMap<WadName, Bounds>;
 
 pub struct TextureDirectory {
-    textures: OrderMap<WadName, Image>,
+    textures: IndexMap<WadName, Image>,
     patches: Vec<(WadName, Option<Image>)>,
     palettes: Vec<Palette>,
     colormaps: Vec<Colormap>,
-    flats: OrderMap<WadName, Flat>,
+    flats: IndexMap<WadName, Flat>,
     animated_walls: Vec<Vec<WadName>>,
     animated_flats: Vec<Vec<WadName>>,
 }
@@ -48,7 +48,6 @@ pub struct OpaqueImage {
     pub size: Vec2<usize>,
 }
 
-
 impl TextureDirectory {
     pub fn from_archive(wad: &Archive) -> Result<TextureDirectory> {
         info!("Reading texture directory...");
@@ -66,7 +65,7 @@ impl TextureDirectory {
         // Read textures.
         let t0 = time::precise_time_s();
         info!("Reading & assembling textures...");
-        let mut textures = OrderMap::new();
+        let mut textures = IndexMap::new();
         let mut textures_buffer = Vec::new();
         for &lump_name in TEXTURE_LUMP_NAMES {
             let lump = match wad.named_lump(lump_name)? {
@@ -144,21 +143,18 @@ impl TextureDirectory {
         let mut mapped = vec![0u8; 256 * num_colormaps * 3];
         let palette = &self.palettes[palette];
 
-        let colormaps_with_offsets =
-            self.colormaps
-                .iter()
-                .enumerate()
-                .take(colormap_end)
-                .skip(colormap_start)
-                .map(|(i_colormap, colormap)| (i_colormap * 256 * 3, colormap));
+        let colormaps_with_offsets = self
+            .colormaps
+            .iter()
+            .enumerate()
+            .take(colormap_end)
+            .skip(colormap_start)
+            .map(|(i_colormap, colormap)| (i_colormap * 256 * 3, colormap));
 
         for (offset, colormap) in colormaps_with_offsets {
             for (i_color, color) in colormap.0.iter().enumerate() {
-                mapped[i_color * 3 + offset..][..3].copy_from_slice(
-                    &palette.0[usize::from(*color) *
-                                   3..]
-                        [..3],
-                );
+                mapped[i_color * 3 + offset..][..3]
+                    .copy_from_slice(&palette.0[usize::from(*color) * 3..][..3]);
             }
         }
 
@@ -167,7 +163,6 @@ impl TextureDirectory {
             colormaps: colormap_end - colormap_start + 1,
         }
     }
-
 
     pub fn build_texture_atlas<T>(&self, names_iter: T) -> (TransparentImage, BoundsLookup)
     where
@@ -183,10 +178,10 @@ impl TextureDirectory {
             };
             return (image, BoundsLookup::new());
         };
-        let num_pixels = entries.iter().map(|e| e.image.num_pixels()).fold(
-            0,
-            |x, y| x + y,
-        );
+        let num_pixels = entries
+            .iter()
+            .map(|e| e.image.num_pixels())
+            .fold(0, |x, y| x + y);
         let min_atlas_size = Vec2::new(cmp::min(128, next_pow2(max_image_width)), 128);
         let max_size = 4096;
 
@@ -259,7 +254,7 @@ impl TextureDirectory {
         // TODO(cristicbz): This should probably split things into multiple atlases or
         // something, but realistically, I'm never going to implement that.
         let mut atlas = Image::new(atlas_size[0], atlas_size[1]).expect("atlas too big");
-        let mut bound_map = OrderMap::new();
+        let mut bound_map = IndexMap::new();
         for (i, entry) in entries.iter().enumerate() {
             atlas.blit(entry.image, positions[i].offset, true);
             bound_map.insert(
@@ -290,15 +285,12 @@ impl TextureDirectory {
         let num_rows = (num_names as f64 / flats_per_row as f64).ceil() as usize;
         let height = next_pow2(num_rows * 64);
 
-        let mut offsets = OrderMap::new();
+        let mut offsets = IndexMap::new();
         let mut data = vec![255u8; width * height];
         let (mut row, mut column) = (0, 0);
         info!(
             "Flat atlas size: {}x{} ({}, {})",
-            width,
-            height,
-            flats_per_row,
-            num_rows
+            width, height, flats_per_row, num_rows
         );
         let mut anim_start_pos = Pnt2f::origin();
         for AtlasEntry {
@@ -363,16 +355,16 @@ fn next_pow2(x: usize) -> usize {
     pow2
 }
 
-
 const TEXTURE_LUMP_NAMES: &'static [&'static [u8; 8]] = &[b"TEXTURE1", b"TEXTURE2"];
 
 fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     let pnames_buffer = wad.required_named_lump(b"PNAMES\0\0")?.read_bytes()?;
     let mut lump = &pnames_buffer[..];
 
-    let num_patches = lump.read_u32::<LittleEndian>().chain_err(|| {
-        ErrorKind::CorruptWad("Missing number of patches in PNAMES".to_owned())
-    })? as usize;
+    let num_patches = lump
+        .read_u32::<LittleEndian>()
+        .chain_err(|| ErrorKind::CorruptWad("Missing number of patches in PNAMES".to_owned()))?
+        as usize;
     let mut patches = Vec::with_capacity(num_patches);
 
     patches.reserve(num_patches);
@@ -381,13 +373,12 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     let t0 = time::precise_time_s();
     let mut image_buffer = Vec::new();
     for i_patch in 0..num_patches {
-        let name: WadName = match bincode_read(&mut lump, Infinite) {
+        let name: WadName = match bincode::deserialize_from(&mut lump) {
             Ok(name) => name,
             Err(error) => {
                 error!(
                     "Failed to read patch name with index {}: {}",
-                    i_patch,
-                    error
+                    i_patch, error
                 );
                 continue;
             }
@@ -438,7 +429,7 @@ where
     N: IntoIterator<Item = WadName>,
     L: Fn(WadName) -> Option<&'a I>,
 {
-    let mut frames_by_first_frame = OrderMap::new();
+    let mut frames_by_first_frame = IndexMap::new();
     for name in names_iter {
         let maybe_frames = search_for_frame(name, animations);
         let first_frame = maybe_frames.map_or(name, |f| f[0]);
@@ -479,14 +470,11 @@ where
 fn search_for_frame(search_for: WadName, animations: &[Vec<WadName>]) -> Option<&[WadName]> {
     animations
         .iter()
-        .find(|animation| {
-            animation.iter().any(|&frame| frame == search_for)
-        })
+        .find(|animation| animation.iter().any(|&frame| frame == search_for))
         .map(|animation| &animation[..])
 }
 
-
-fn read_sprites(wad: &Archive, textures: &mut OrderMap<WadName, Image>) -> Result<usize> {
+fn read_sprites(wad: &Archive, textures: &mut IndexMap<WadName, Image>) -> Result<usize> {
     let start_index = wad.required_named_lump(b"S_START\0")?.index() + 1;
     let end_index = wad.required_named_lump(b"S_END\0\0\0")?.index();
     info!("Reading {} sprites....", end_index - start_index);
@@ -513,12 +501,13 @@ fn read_sprites(wad: &Archive, textures: &mut OrderMap<WadName, Image>) -> Resul
 fn read_textures(
     lump_buffer: &[u8],
     patches: &[(WadName, Option<Image>)],
-    textures: &mut OrderMap<WadName, Image>,
+    textures: &mut IndexMap<WadName, Image>,
 ) -> Result<usize> {
     let mut lump = lump_buffer;
-    let num_textures = lump.read_u32::<LittleEndian>().chain_err(|| {
-        ErrorKind::CorruptWad("Misisng number of textures.".to_owned())
-    })? as usize;
+    let num_textures = lump
+        .read_u32::<LittleEndian>()
+        .chain_err(|| ErrorKind::CorruptWad("Misisng number of textures.".to_owned()))?
+        as usize;
 
     let offsets_end = num_textures * mem::size_of::<u32>();
     ensure!(
@@ -532,9 +521,10 @@ fn read_textures(
     let mut offsets = &lump[..offsets_end];
 
     for i_texture in 0..num_textures {
-        let offset = offsets.read_u32::<LittleEndian>().expect(
-            "could not read from size-checked offset buffer in texture lump",
-        ) as usize;
+        let offset = offsets
+            .read_u32::<LittleEndian>()
+            .expect("could not read from size-checked offset buffer in texture lump")
+            as usize;
         ensure!(
             offset < lump_buffer.len(),
             ErrorKind::CorruptWad(format!(
@@ -545,13 +535,12 @@ fn read_textures(
         );
 
         lump = &lump_buffer[offset..];
-        let header: WadTextureHeader = match bincode_read(&mut lump, Infinite) {
+        let header: WadTextureHeader = match bincode::deserialize_from(&mut lump) {
             Ok(header) => header,
             Err(e) => {
                 error!(
                     "Skipping texture {}: could not read header: {}",
-                    i_texture,
-                    e
+                    i_texture, e
                 );
                 continue;
             }
@@ -565,7 +554,7 @@ fn read_textures(
         };
 
         for i_patch in 0..header.num_patches {
-            let pref: WadTexturePatchRef = match bincode_read(&mut lump, Infinite) {
+            let pref: WadTexturePatchRef = match bincode::deserialize_from(&mut lump) {
                 Ok(image) => image,
                 Err(e) => {
                     error!("Skipping patch {} in image {}: {}", i_patch, header.name, e);
@@ -587,8 +576,7 @@ fn read_textures(
                 Some(&(ref patch_name, None)) => {
                     error!(
                         "PatchRef {}, required by {} is missing.",
-                        patch_name,
-                        header.name
+                        patch_name, header.name
                     );
                 }
                 None => {
@@ -607,10 +595,10 @@ fn read_textures(
     Ok(num_textures)
 }
 
-fn read_flats(wad: &Archive) -> Result<OrderMap<WadName, Flat>> {
+fn read_flats(wad: &Archive) -> Result<IndexMap<WadName, Flat>> {
     let start = wad.required_named_lump(b"F_START\0")?.index();
     let end = wad.required_named_lump(b"F_END\0\0\0")?.index();
-    let mut flats = OrderMap::new();
+    let mut flats = IndexMap::new();
     for i_lump in start..end {
         let lump = wad.lump_by_index(i_lump)?;
         if lump.is_virtual() {

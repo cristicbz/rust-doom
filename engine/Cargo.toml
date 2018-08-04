@@ -4,29 +4,23 @@ name = "engine"
 version = "0.1.0"
 
 [dependencies]
-error-chain = "0.11.0"
-num = "0.1.32"
-rusttype = "0.2.3"
-unicode-normalization = "0.1.5"
-
-[dependencies.idcontain]
-version = "0.7.4"
+error-chain = "0.12.0"
+glium-typed-buffer-any = "0.3.0"
+idcontain = "0.7.5"
+num-traits = "0.2.5"
+rusttype = "0.6.2"
+unicode-normalization = "0.1.7"
 
 [dependencies.log]
 features = ["release_max_level_info"]
-version = "0.3.6"
+version = "0.4.3"
 
 [dependencies.math]
 path = "../math"
 
 [dependencies.glium]
 features = ["glutin"]
-git = "https://github.com/glium/glium"
-rev = "d8dbb443f2da8c3a1dce88ecb4c41070194fbd0b"
-
-[dependencies.glium-typed-buffer-any]
-git = "https://github.com/cristicbz/glium-typed-buffer-any"
-rev = "3052b1c63247fbb0bdc4e1d41129ccf7cc1b8a3b"
+version = "0.22.0"
 
 [dev-dependencies]
 env_logger = "*"

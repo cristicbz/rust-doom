@@ -2,9 +2,9 @@ use super::entities::{Entities, Entity, EntityId};
 use super::errors::{NeededBy, Result};
 use super::system::InfallibleSystem;
 use super::window::Window;
-use glium::index::{IndicesSource, PrimitiveType};
 pub use glium::index::IndexBuffer;
-use glium::vertex::{Vertex, IntoVerticesSource, VertexBuffer, VerticesSource};
+use glium::index::{IndicesSource, PrimitiveType};
+use glium::vertex::{Vertex, VertexBuffer, VerticesSource};
 pub use glium_typed::TypedVertexBufferAny;
 use idcontain::IdMapVec;
 
@@ -49,10 +49,12 @@ impl Meshes {
                 vertices_from,
                 ref indices,
             } => MeshRef {
-                vertices: match self.map
+                vertices: match self
+                    .map
                     .get(vertices_from.0)
                     .expect("missing mesh in stored vertices_from")
-                    .data {
+                    .data
+                {
                     InternalMeshData::Owned { ref vertices, .. } => vertices,
                     _ => panic!("unowned mesh in stored vertices_from"),
                 },
@@ -94,14 +96,17 @@ pub struct MeshRef<'a> {
 impl<'a, 'b: 'a> Into<IndicesSource<'a>> for &'a MeshRef<'b> {
     fn into(self) -> IndicesSource<'a> {
         self.indices.map_or(
-            IndicesSource::NoIndices { primitives: PrimitiveType::TrianglesList },
-            |indices| indices.into())
+            IndicesSource::NoIndices {
+                primitives: PrimitiveType::TrianglesList,
+            },
+            |indices| indices.into(),
+        )
     }
 }
 
-impl<'a, 'b: 'a> IntoVerticesSource<'a> for &'a MeshRef<'b> {
-    fn into_vertices_source(self) -> VerticesSource<'a> {
-        self.vertices.into_vertices_source()
+impl<'a, 'b: 'a> Into<VerticesSource<'a>> for &'a MeshRef<'b> {
+    fn into(self) -> VerticesSource<'a> {
+        self.vertices.into()
     }
 }
 
@@ -157,13 +162,13 @@ impl<'a, IndexDataT> MeshAdder<'a, (), IndexDataT> {
         // TODO(cristicbz): If parent comes from a different `Meshes` object, the assertion that
         // the parent is in the map is in incorrect.
         let mut owner = vertices_from;
-        while let InternalMeshData::Inherit { vertices_from, .. } =
-            self.context
-                .meshes
-                .map
-                .get(owner.0)
-                .expect("missing mesh for MeshId")
-                .data
+        while let InternalMeshData::Inherit { vertices_from, .. } = self
+            .context
+            .meshes
+            .map
+            .get(owner.0)
+            .expect("missing mesh for MeshId")
+            .data
         {
             owner = vertices_from;
         }
@@ -181,11 +186,13 @@ impl<'a, VertexDataT> MeshAdder<'a, VertexDataT, ()> {
         indices: &[u32],
     ) -> Result<MeshAdder<'a, VertexDataT, IndexData>> {
         Ok(MeshAdder {
-            indices: IndexData(IndexBuffer::persistent(
-                self.context.window.facade(),
-                PrimitiveType::TrianglesList,
-                indices,
-            ).needed_by(self.context.name)?),
+            indices: IndexData(
+                IndexBuffer::persistent(
+                    self.context.window.facade(),
+                    PrimitiveType::TrianglesList,
+                    indices,
+                ).needed_by(self.context.name)?,
+            ),
             vertices: self.vertices,
             context: self.context,
         })
@@ -196,11 +203,13 @@ impl<'a, VertexDataT> MeshAdder<'a, VertexDataT, ()> {
         indices: &[u32],
     ) -> Result<MeshAdder<'a, VertexDataT, IndexData>> {
         Ok(MeshAdder {
-            indices: IndexData(IndexBuffer::persistent(
-                self.context.window.facade(),
-                PrimitiveType::TrianglesList,
-                indices,
-            ).needed_by(self.context.name)?),
+            indices: IndexData(
+                IndexBuffer::persistent(
+                    self.context.window.facade(),
+                    PrimitiveType::TrianglesList,
+                    indices,
+                ).needed_by(self.context.name)?,
+            ),
             vertices: self.vertices,
             context: self.context,
         })
@@ -246,7 +255,9 @@ impl<'context> InfallibleSystem<'context> for Meshes {
     }
 
     fn create(_deps: &Entities) -> Self {
-        Meshes { map: IdMapVec::with_capacity(128) }
+        Meshes {
+            map: IdMapVec::with_capacity(128),
+        }
     }
 
     fn update(&mut self, entities: &Entities) {
@@ -295,9 +306,7 @@ impl<'a> MeshAdderContext<'a> {
         self.meshes.map.insert(id, Mesh { data });
         debug!(
             "Added mesh {:?} {:?} as child of {:?}.",
-            self.name,
-            id,
-            self.parent
+            self.name, id, self.parent
         );
         Ok(MeshId(id))
     }

@@ -7,12 +7,12 @@ extern crate error_chain;
 extern crate log;
 extern crate time;
 
-extern crate game;
 extern crate engine;
+extern crate game;
 extern crate wad;
 
-use clap::{App, Arg, AppSettings};
-use errors::{Result, Error};
+use clap::{App, AppSettings, Arg};
+use errors::{Error, Result};
 use game::{Game, GameConfig};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -42,14 +42,14 @@ impl FromStr for Resolution {
     fn from_str(size_str: &str) -> Result<Self> {
         let size_if_ok = size_str
             .find('x')
-            .and_then(|x_index| if x_index == 0 || x_index + 1 == size_str.len() {
-                None
-            } else {
-                Some((&size_str[..x_index], &size_str[x_index + 1..]))
+            .and_then(|x_index| {
+                if x_index == 0 || x_index + 1 == size_str.len() {
+                    None
+                } else {
+                    Some((&size_str[..x_index], &size_str[x_index + 1..]))
+                }
             })
-            .map(|(width, height)| {
-                (width.parse::<u32>(), height.parse::<u32>())
-            })
+            .map(|(width, height)| (width.parse::<u32>(), height.parse::<u32>()))
             .and_then(|size| match size {
                 (Ok(width), Ok(height)) => Some(Resolution { width, height }),
                 _ => None,
@@ -117,12 +117,16 @@ impl RunMode {
                     .value_name("DEGREES")
                     .default_value("65"),
             )
-            .arg(Arg::with_name("check").long("check").help(
-                "load metadata and all levels in WAD, then exit",
-            ))
-            .arg(Arg::with_name("list-levels").long("list-levels").help(
-                "list the names and indices of all the leves in the WAD, then exit",
-            ))
+            .arg(
+                Arg::with_name("check")
+                    .long("check")
+                    .help("load metadata and all levels in WAD, then exit"),
+            )
+            .arg(
+                Arg::with_name("list-levels")
+                    .long("list-levels")
+                    .help("list the names and indices of all the leves in the WAD, then exit"),
+            )
             .get_matches();
 
         let wad_file: PathBuf = value_t!(matches, "iwad", String)?.into();
@@ -151,14 +155,17 @@ impl RunMode {
 }
 
 fn run() -> Result<()> {
-    env_logger::init().expect("Failed to set up logging.");
+    env_logger::Builder::from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    ).default_format_timestamp(false)
+        .init();
 
     match RunMode::from_args()? {
         RunMode::ListLevelNames(GameConfig {
-                                    wad_file,
-                                    metadata_file,
-                                    ..
-                                }) => {
+            wad_file,
+            metadata_file,
+            ..
+        }) => {
             let wad = Archive::open(&wad_file, &metadata_file)?;
             for i_level in 0..wad.num_levels() {
                 println!("{:3} {:8}", i_level, wad.level_lump(i_level)?.name());
@@ -188,7 +195,7 @@ fn run() -> Result<()> {
             info!("Game main loop ended, shutting down...");
         }
     }
-    info!("Normal shutdown.");
+    info!("Clean shutdown.");
     Ok(())
 }
 

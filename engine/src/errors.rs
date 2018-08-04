@@ -43,9 +43,7 @@ impl<S> NeededBy for StdResult<S, glium::vertex::BufferCreationError> {
     type Success = S;
 
     fn needed_by(self, by: &str) -> Result<Self::Success> {
-        self.map_err(|e| {
-            ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into()
-        })
+        self.map_err(|e| ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into())
     }
 }
 
@@ -53,20 +51,15 @@ impl<S> NeededBy for StdResult<S, glium::index::BufferCreationError> {
     type Success = S;
 
     fn needed_by(self, by: &str) -> Result<Self::Success> {
-        self.map_err(|e| {
-            ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into()
-        })
+        self.map_err(|e| ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into())
     }
 }
-
 
 impl<S> NeededBy for StdResult<S, glium::texture::TextureCreationError> {
     type Success = S;
 
     fn needed_by(self, by: &str) -> Result<Self::Success> {
-        self.map_err(|e| {
-            ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into()
-        })
+        self.map_err(|e| ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into())
     }
 }
 
@@ -74,19 +67,19 @@ impl<S> NeededBy for StdResult<S, glium::texture::buffer_texture::CreationError>
     type Success = S;
 
     fn needed_by(self, by: &str) -> Result<Self::Success> {
+        use glium::buffer::BufferCreationError::*;
         use glium::texture::buffer_texture::CreationError::*;
         use glium::texture::buffer_texture::TextureCreationError::*;
-        use glium::buffer::BufferCreationError::*;
         self.map_err(|e| {
             (match e {
-                 BufferCreationError(OutOfMemory) => ErrorKind::OutOfVideoMemory(by.to_owned()),
-                 e @ TextureCreationError(FormatNotSupported) |
-                 e @ TextureCreationError(NotSupported) |
-                 e @ TextureCreationError(TooLarge) |
-                 e @ BufferCreationError(BufferTypeNotSupported) => {
-                     ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned())
-                 }
-             }).into()
+                BufferCreationError(OutOfMemory) => ErrorKind::OutOfVideoMemory(by.to_owned()),
+                e @ TextureCreationError(FormatNotSupported)
+                | e @ TextureCreationError(NotSupported)
+                | e @ TextureCreationError(TooLarge)
+                | e @ BufferCreationError(BufferTypeNotSupported) => {
+                    ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned())
+                }
+            }).into()
         })
     }
 }
@@ -98,19 +91,18 @@ impl<S> NeededBy for StdResult<S, glium::ProgramCreationError> {
         use glium::ProgramCreationError::*;
         self.map_err(|e| {
             (match e {
-                 CompilationError(log) |
-                 LinkingError(log) => ErrorKind::Shader(log, by.to_owned()),
-                 BinaryHeaderError => {
-                     ErrorKind::Shader("Binary header error.".to_owned(), by.to_owned())
-                 }
+                CompilationError(log) | LinkingError(log) => ErrorKind::Shader(log, by.to_owned()),
+                BinaryHeaderError => {
+                    ErrorKind::Shader("Binary header error.".to_owned(), by.to_owned())
+                }
 
-                 e @ ShaderTypeNotSupported |
-                 e @ CompilationNotSupported |
-                 e @ TransformFeedbackNotSupported |
-                 e @ PointSizeNotSupported => {
-                     ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned())
-                 }
-             }).into()
+                e @ ShaderTypeNotSupported
+                | e @ CompilationNotSupported
+                | e @ TransformFeedbackNotSupported
+                | e @ PointSizeNotSupported => {
+                    ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned())
+                }
+            }).into()
         })
     }
 }
@@ -121,35 +113,36 @@ impl<S> NeededBy for StdResult<S, glium::DrawError> {
     fn needed_by(self, by: &str) -> Result<Self::Success> {
         use glium::DrawError::*;
         self.map_err(|e| match e {
-            e @ FixedIndexRestartingNotSupported |
-            e @ ViewportTooLarge |
-            e @ UnsupportedVerticesPerPatch |
-            e @ TessellationNotSupported |
-            e @ SamplersNotSupported |
-            e @ TransformFeedbackNotSupported |
-            e @ SmoothingNotSupported |
-            e @ ProvokingVertexNotSupported |
-            e @ RasterizerDiscardNotSupported |
-            e @ DepthClampNotSupported |
-            e @ BlendingParameterNotSupported => {
+            e @ FixedIndexRestartingNotSupported
+            | e @ ViewportTooLarge
+            | e @ UnsupportedVerticesPerPatch
+            | e @ TessellationNotSupported
+            | e @ SamplersNotSupported
+            | e @ TransformFeedbackNotSupported
+            | e @ SmoothingNotSupported
+            | e @ ProvokingVertexNotSupported
+            | e @ RasterizerDiscardNotSupported
+            | e @ DepthClampNotSupported
+            | e @ BlendingParameterNotSupported => {
                 ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into()
             }
 
-            e @ NoDepthBuffer |
-            e @ AttributeTypeMismatch |
-            e @ AttributeMissing |
-            e @ InvalidDepthRange |
-            e @ UniformTypeMismatch { .. } |
-            e @ UniformBufferToValue { .. } |
-            e @ UniformValueToBlock { .. } |
-            e @ UniformBlockLayoutMismatch { .. } |
-            e @ TessellationWithoutPatches |
-            e @ InstancesCountMismatch |
-            e @ VerticesSourcesLengthMismatch |
-            e @ SubroutineNotFound { .. } |
-            e @ SubroutineUniformMissing { .. } |
-            e @ SubroutineUniformToValue { .. } |
-            e @ WrongQueryOperation => panic!("Invalid draw call: {:?}", e),
+            e @ NoDepthBuffer
+            | e @ AttributeTypeMismatch
+            | e @ AttributeMissing
+            | e @ InvalidDepthRange
+            | e @ UniformTypeMismatch { .. }
+            | e @ UniformBufferToValue { .. }
+            | e @ UniformValueToBlock { .. }
+            | e @ UniformBlockLayoutMismatch { .. }
+            | e @ TessellationWithoutPatches
+            | e @ InstancesCountMismatch
+            | e @ VerticesSourcesLengthMismatch
+            | e @ SubroutineNotFound { .. }
+            | e @ SubroutineUniformMissing { .. }
+            | e @ SubroutineUniformToValue { .. }
+            | e @ ClipPlaneIndexOutOfBounds { .. }
+            | e @ WrongQueryOperation => panic!("Invalid draw call: {:?}", e),
         })
     }
 }

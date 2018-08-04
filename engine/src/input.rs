@@ -1,12 +1,11 @@
-use super::errors::{Result, Error};
+use super::errors::{Error, Result};
 use super::system::System;
 use super::window::Window;
-use glium::glutin::{Event, WindowEvent, DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode,
-                    CursorState};
 pub use glium::glutin::MouseButton;
 pub use glium::glutin::VirtualKeyCode as Scancode;
+use glium::glutin::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use math::Vec2f;
-use num::Zero;
+use num_traits::Zero;
 use std::vec::Vec;
 
 pub type Sensitivity = f32;
@@ -25,7 +24,9 @@ pub enum Gesture {
 pub enum Analog2d {
     NoAnalog2d,
 
-    Mouse { sensitivity: Sensitivity },
+    Mouse {
+        sensitivity: Sensitivity,
+    },
 
     Gestures {
         x_positive: Gesture,
@@ -35,7 +36,9 @@ pub enum Analog2d {
         step: Sensitivity,
     },
 
-    Sum { analogs: Vec<Analog2d> },
+    Sum {
+        analogs: Vec<Analog2d>,
+    },
 }
 
 impl Input {
@@ -50,18 +53,14 @@ impl Input {
     pub fn poll_gesture(&self, gesture: &Gesture) -> bool {
         match *gesture {
             Gesture::QuitTrigger => self.quit_requested_index == self.current_update_index,
-            Gesture::KeyHold(code) => {
-                match self.keyboard_state[code as usize] {
-                    ButtonState::Down(_) => true,
-                    ButtonState::Up(_) => false,
-                }
-            }
-            Gesture::KeyTrigger(code) => {
-                match self.keyboard_state[code as usize] {
-                    ButtonState::Down(index) => self.current_update_index == index,
-                    ButtonState::Up(_) => false,
-                }
-            }
+            Gesture::KeyHold(code) => match self.keyboard_state[code as usize] {
+                ButtonState::Down(_) => true,
+                ButtonState::Up(_) => false,
+            },
+            Gesture::KeyTrigger(code) => match self.keyboard_state[code as usize] {
+                ButtonState::Down(index) => self.current_update_index == index,
+                ButtonState::Up(_) => false,
+            },
             Gesture::ButtonHold(button) => {
                 match self.mouse_button_state[mouse_button_to_index(button)] {
                     ButtonState::Down(_) => true,
@@ -74,28 +73,22 @@ impl Input {
                     ButtonState::Up(_) => false,
                 }
             }
-            Gesture::AnyOf(ref subgestures) => {
-                subgestures.iter().any(
-                    |subgesture| self.poll_gesture(subgesture),
-                )
-            }
-            Gesture::AllOf(ref subgestures) => {
-                subgestures.iter().all(
-                    |subgesture| self.poll_gesture(subgesture),
-                )
-            }
+            Gesture::AnyOf(ref subgestures) => subgestures
+                .iter()
+                .any(|subgesture| self.poll_gesture(subgesture)),
+            Gesture::AllOf(ref subgestures) => subgestures
+                .iter()
+                .all(|subgesture| self.poll_gesture(subgesture)),
             Gesture::NoGesture => false,
         }
     }
 
     pub fn poll_analog2d(&self, motion: &Analog2d) -> Vec2f {
         match *motion {
-            Analog2d::Sum { ref analogs } => {
-                analogs
-                    .iter()
-                    .map(|analog| self.poll_analog2d(analog))
-                    .fold(Vec2f::zero(), |x, y| x + y)
-            }
+            Analog2d::Sum { ref analogs } => analogs
+                .iter()
+                .map(|analog| self.poll_analog2d(analog))
+                .fold(Vec2f::zero(), |x, y| x + y),
             Analog2d::Mouse { sensitivity } => self.mouse_rel * sensitivity,
             Analog2d::Gestures {
                 ref x_positive,
@@ -103,24 +96,22 @@ impl Input {
                 ref y_positive,
                 ref y_negative,
                 step,
-            } => {
-                Vec2f::new(
-                    if self.poll_gesture(x_positive) {
-                        step
-                    } else if self.poll_gesture(x_negative) {
-                        -step
-                    } else {
-                        0.0
-                    },
-                    if self.poll_gesture(y_positive) {
-                        step
-                    } else if self.poll_gesture(y_negative) {
-                        -step
-                    } else {
-                        0.0
-                    },
-                )
-            }
+            } => Vec2f::new(
+                if self.poll_gesture(x_positive) {
+                    step
+                } else if self.poll_gesture(x_negative) {
+                    -step
+                } else {
+                    0.0
+                },
+                if self.poll_gesture(y_positive) {
+                    step
+                } else if self.poll_gesture(y_negative) {
+                    -step
+                } else {
+                    0.0
+                },
+            ),
             Analog2d::NoAnalog2d => Vec2f::zero(),
         }
     }
@@ -169,41 +160,45 @@ impl<'context> System<'context> for Input {
     fn update(&mut self, deps: Dependencies) -> Result<()> {
         if self.new_mouse_grabbed != self.mouse_grabbed {
             self.mouse_grabbed = self.new_mouse_grabbed;
-            if self.mouse_grabbed {
-                let _ = deps.window.facade().gl_window().window().set_cursor_state(
-                    CursorState::Hide,
-                );
-            } else {
-                let _ = deps.window.facade().gl_window().window().set_cursor_state(
-                    CursorState::Normal,
-                );
-            }
-        }
-        let (center_x, center_y) = (deps.window.width() / 2, deps.window.height() / 2);
-        if self.mouse_grabbed {
-            let _ = deps.window
+            deps.window
                 .facade()
                 .gl_window()
                 .window()
-                .set_cursor_position(center_x as i32, center_y as i32);
+                .grab_cursor(self.mouse_grabbed)
+                .ok();
+            deps.window
+                .facade()
+                .gl_window()
+                .window()
+                .hide_cursor(self.mouse_grabbed);
+        }
+        let (center_x, center_y) = (deps.window.width() / 2, deps.window.height() / 2);
+        if self.mouse_grabbed {
+            let _ = deps
+                .window
+                .facade()
+                .gl_window()
+                .window()
+                .set_cursor_position((center_x as i32, center_y as i32).into());
         }
         self.current_update_index += 1;
         self.mouse_rel = Vec2f::zero();
         deps.window.events().poll_events(|event| match event {
             Event::WindowEvent {
                 window_id: _,
-                event: WindowEvent::Closed,
+                event: WindowEvent::CloseRequested,
             } => {
                 self.quit_requested_index = self.current_update_index;
             }
             Event::DeviceEvent {
                 device_id: _,
-                event: DeviceEvent::Key(KeyboardInput {
-                                     scancode: _,
-                                     modifiers: _,
-                                     state,
-                                     virtual_keycode: Some(virtual_keycode),
-                                 }),
+                event:
+                    DeviceEvent::Key(KeyboardInput {
+                        scancode: _,
+                        modifiers: _,
+                        state,
+                        virtual_keycode: Some(virtual_keycode),
+                    }),
             } => {
                 self.keyboard_state[virtual_keycode as usize] = match state {
                     ElementState::Pressed => ButtonState::Down(self.current_update_index),

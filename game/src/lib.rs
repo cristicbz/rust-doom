@@ -14,25 +14,24 @@ extern crate engine;
 extern crate glium;
 
 extern crate idcontain;
-extern crate num;
 extern crate time;
 extern crate vec_map;
 
-extern crate wad;
 extern crate math;
+extern crate wad;
 
+mod errors;
+mod game;
+mod game_shaders;
+mod hud;
 mod level;
 mod lights;
 mod player;
-mod world;
-mod game;
-mod errors;
-mod hud;
 mod vertex;
 mod wad_system;
-mod game_shaders;
+mod world;
 
-pub use errors::{Error, Result, ErrorKind};
+pub use errors::{Error, ErrorKind, Result};
 pub use game::{Game, GameConfig};
 pub use level::Level;
 

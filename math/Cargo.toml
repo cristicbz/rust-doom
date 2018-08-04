@@ -4,6 +4,5 @@ name = "math"
 version = "0.1.0"
 
 [dependencies]
-cgmath = "0.15.0"
-num = "0.1.32"
-num-traits = "0.1.40"
+cgmath = "0.16.1"
+num-traits = "0.2.5"
