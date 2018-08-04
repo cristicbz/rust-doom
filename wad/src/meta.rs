@@ -94,7 +94,10 @@ pub struct MoveEffectDef {
     #[serde(default = "Default::default")]
     pub wait: f32,
 
-    #[serde(default = "Default::default", deserialize_with = "deserialize_move_speed")]
+    #[serde(
+        default = "Default::default",
+        deserialize_with = "deserialize_move_speed"
+    )]
     pub speed: f32,
 }
 
@@ -128,7 +131,10 @@ pub struct WadMetadata {
     pub animations: AnimationMetadata,
     pub things: ThingDirectoryMetadata,
 
-    #[serde(default = "Default::default", deserialize_with = "deserialize_linedefs")]
+    #[serde(
+        default = "Default::default",
+        deserialize_with = "deserialize_linedefs"
+    )]
     pub linedef: IndexMap<SpecialType, LinedefMetadata>,
 }
 

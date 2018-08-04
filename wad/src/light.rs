@@ -27,8 +27,8 @@ pub enum LightEffectKind {
 pub fn new_light(level: &Level, sector: &WadSector) -> LightInfo {
     let base_level = light_to_f32(sector.light);
     let alt_level = match sector.sector_type {
-        FLASH | FAST_STROBE_1 | FAST_STROBE_2 | FAST_STROBE_SYNC | SLOW_STROBE |
-        SLOW_STROBE_SYNC | GLOW | FLICKER => {
+        FLASH | FAST_STROBE_1 | FAST_STROBE_2 | FAST_STROBE_SYNC | SLOW_STROBE
+        | SLOW_STROBE_SYNC | GLOW | FLICKER => {
             let alt_level = light_to_f32(level.sector_min_light(sector));
             if (alt_level - base_level).abs() < EPSILON {
                 return LightInfo {
@@ -53,20 +53,16 @@ pub fn new_light(level: &Level, sector: &WadSector) -> LightInfo {
     let (kind, speed, duration) = match sector.sector_type {
         FLASH => (LightEffectKind::Random, FLASH_SPEED, FLASH_DURATION),
         FLICKER => (LightEffectKind::Random, FLICKER_SPEED, FLICKER_DURATION),
-        SLOW_STROBE | SLOW_STROBE_SYNC => {
-            (
-                LightEffectKind::Alternate,
-                SLOW_STROBE_SPEED,
-                SLOW_STROBE_DURATION,
-            )
-        }
-        FAST_STROBE_1 | FAST_STROBE_2 | FAST_STROBE_SYNC => {
-            (
-                LightEffectKind::Alternate,
-                FAST_STROBE_SPEED,
-                FAST_STROBE_DURATION,
-            )
-        }
+        SLOW_STROBE | SLOW_STROBE_SYNC => (
+            LightEffectKind::Alternate,
+            SLOW_STROBE_SPEED,
+            SLOW_STROBE_DURATION,
+        ),
+        FAST_STROBE_1 | FAST_STROBE_2 | FAST_STROBE_SYNC => (
+            LightEffectKind::Alternate,
+            FAST_STROBE_SPEED,
+            FAST_STROBE_DURATION,
+        ),
         GLOW => (LightEffectKind::Glow, GLOW_SPEED, 0.0),
         _ => unreachable!(),
     };
@@ -103,7 +99,6 @@ fn clamp(level: f32) -> f32 {
         level
     }
 }
-
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum Contrast {

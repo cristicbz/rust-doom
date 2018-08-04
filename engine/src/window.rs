@@ -1,8 +1,8 @@
-use super::errors::{Result, ResultExt, ErrorKind, Error};
+use super::errors::{Error, ErrorKind, Result, ResultExt};
 use super::platform;
 use super::system::System;
-use glium::{Frame, Surface, Display};
-use glium::glutin::{WindowBuilder, GlProfile, Api, GlRequest, ContextBuilder, EventsLoop};
+use glium::glutin::{Api, ContextBuilder, EventsLoop, GlProfile, GlRequest, WindowBuilder};
+use glium::{Display, Frame, Surface};
 
 const OPENGL_DEPTH_SIZE: u8 = 24;
 
@@ -60,16 +60,15 @@ impl<'context> System<'context> for Window {
 
         let context = ContextBuilder::new()
             .with_gl_profile(GlProfile::Core)
-            .with_gl(GlRequest::Specific(Api::OpenGl, (
-                platform::GL_MAJOR_VERSION,
-                platform::GL_MINOR_VERSION,
-            )))
+            .with_gl(GlRequest::Specific(
+                Api::OpenGl,
+                (platform::GL_MAJOR_VERSION, platform::GL_MINOR_VERSION),
+            ))
             .with_vsync(true)
             .with_depth_buffer(OPENGL_DEPTH_SIZE);
 
-        let display = Display::new(window, context, &events).chain_err(|| {
-            ErrorKind::CreateWindow(config.width, config.height)
-        })?;
+        let display = Display::new(window, context, &events)
+            .chain_err(|| ErrorKind::CreateWindow(config.width, config.height))?;
 
         Ok(Window {
             display,

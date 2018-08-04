@@ -1,8 +1,10 @@
 use super::level::{Level, PlayerAction};
-use engine::{Analog2d, Gesture, Input, Scancode, Transforms, EntityId, Window, Entities,
-             Projections, InfallibleSystem, Projection, Tick, MouseButton, RenderPipeline};
-use math::{Sphere, Vec3f, Trans3, Euler, Quat, Deg, Rad, vec3, Pnt3f};
+use engine::{
+    Analog2d, Entities, EntityId, Gesture, InfallibleSystem, Input, MouseButton, Projection,
+    Projections, RenderPipeline, Scancode, Tick, Transforms, Window,
+};
 use math::prelude::*;
+use math::{vec3, Deg, Euler, Pnt3f, Quat, Rad, Sphere, Trans3, Vec3f};
 use std::f32::consts::FRAC_PI_2;
 
 pub struct Bindings {
@@ -34,7 +36,9 @@ impl Default for Bindings {
                         y_negative: Gesture::KeyHold(Scancode::Up),
                         step: 0.015,
                     },
-                    Analog2d::Mouse { sensitivity: 0.0015 },
+                    Analog2d::Mouse {
+                        sensitivity: 0.0015,
+                    },
                 ],
             },
             jump: Gesture::KeyHold(Scancode::Space),
@@ -103,7 +107,6 @@ derive_dependencies_from! {
     }
 }
 
-
 pub struct Player {
     id: EntityId,
     velocity: Vec3f,
@@ -114,9 +117,9 @@ pub struct Player {
 
 impl Player {
     fn reset(&mut self, transforms: &mut Transforms, level: &Level) {
-        let transform = transforms.get_local_mut(self.id).expect(
-            "player has no transform component: reset",
-        );
+        let transform = transforms
+            .get_local_mut(self.id)
+            .expect("player has no transform component: reset");
 
         transform.rot = Quat::from(Euler {
             x: Rad(1e-8),
@@ -202,12 +205,16 @@ impl Player {
         // Compute the maximum pitch rotation we're allowed (since we don't want to look
         // upside-down!).
         let current_pitch = 2.0 * f32::atan(transform.rot.v.x / transform.rot.s);
-        let clamped_pitch_by = clamp(-look[1], (
-            1e-2 - FRAC_PI_2 - current_pitch,
-            FRAC_PI_2 - 1e-2 - current_pitch,
-        ));
-        transform.rot = Quat::from_angle_y(Rad(-look.x)) * transform.rot *
-            Quat::from_angle_x(Rad(clamped_pitch_by));
+        let clamped_pitch_by = clamp(
+            -look[1],
+            (
+                1e-2 - FRAC_PI_2 - current_pitch,
+                FRAC_PI_2 - 1e-2 - current_pitch,
+            ),
+        );
+        transform.rot = Quat::from_angle_y(Rad(-look.x))
+            * transform.rot
+            * Quat::from_angle_x(Rad(clamped_pitch_by));
 
         if self.fly {
             let up = if jump { 0.5 } else { 0.0 };
@@ -215,9 +222,9 @@ impl Player {
                 vec3(movement[0], up, movement[1]).normalize_or_zero() * config.move_force,
             )
         } else {
-            let mut movement = transform.rot.rotate_vector(
-                vec3(movement[0], 0.0, movement[1]),
-            );
+            let mut movement = transform
+                .rot
+                .rotate_vector(vec3(movement[0], 0.0, movement[1]));
             movement[1] = 0.0;
             movement.normalize_or_zero_self();
             movement *= config.move_force;
@@ -248,16 +255,16 @@ impl Player {
             ..*head
         };
         let feet_probe = Vec3f::new(0.0, -config.height, 0.0);
-        let (height, normal) =
-            if let Some(contact) = level.volume().sweep_sphere(feet, feet_probe) {
-                if contact.time < 1.0 {
-                    (config.height * contact.time, Some(contact.normal))
-                } else {
-                    (config.height, None)
-                }
+        let (height, normal) = if let Some(contact) = level.volume().sweep_sphere(feet, feet_probe)
+        {
+            if contact.time < 1.0 {
+                (config.height * contact.time, Some(contact.normal))
             } else {
                 (config.height, None)
-            };
+            }
+        } else {
+            (config.height, None)
+        };
         let mut force: Vec3f = self.move_force(
             delta_time,
             normal.is_some(),
@@ -315,9 +322,10 @@ impl<'context> InfallibleSystem<'context> for Player {
         let player_entity = deps.entities.add_root("player");
         deps.transforms.attach_identity(player_entity);
 
-        let camera_entity = deps.entities.add(player_entity, "camera").expect(
-            "failed to add camera to fresh entity",
-        );
+        let camera_entity = deps
+            .entities
+            .add(player_entity, "camera")
+            .expect("failed to add camera to fresh entity");
         deps.transforms.attach(
             camera_entity,
             Trans3 {
@@ -354,9 +362,10 @@ impl<'context> InfallibleSystem<'context> for Player {
         }
 
         let delta_time = deps.tick.timestep();
-        let transform = deps.transforms.get_local_mut(self.id).expect(
-            "player has no transform component: update",
-        );
+        let transform = deps
+            .transforms
+            .get_local_mut(self.id)
+            .expect("player has no transform component: update");
 
         if deps.input.poll_gesture(&deps.bindings.fly) {
             self.fly = !self.fly;

@@ -1,7 +1,7 @@
-use super::errors::{Result, Error, NeededBy};
+use super::errors::{Error, NeededBy, Result};
 use super::materials::Materials;
 use super::meshes::Meshes;
-use super::pipeline::{RenderPipeline, Model};
+use super::pipeline::{Model, RenderPipeline};
 use super::projections::Projections;
 use super::shaders::Shaders;
 use super::system::System;
@@ -11,8 +11,8 @@ use super::transforms::Transforms;
 use super::uniforms::Uniforms;
 use super::window::Window;
 use glium::{BackfaceCullingMode, Depth, DepthTest, DrawParameters, Surface};
-use math::Mat4;
 use math::prelude::*;
+use math::Mat4;
 
 derive_dependencies_from! {
     pub struct Dependencies<'context> {
@@ -33,7 +33,6 @@ pub struct Renderer {
     draw_parameters: DrawParameters<'static>,
     removed: Vec<usize>,
 }
-
 
 impl<'context> System<'context> for Renderer {
     type Dependencies = Dependencies<'context>;
@@ -75,9 +74,9 @@ impl<'context> System<'context> for Renderer {
 
         // Compute view transform by inverting the camera entity transform.
         let view_transform = if let Some(transform) = deps.transforms.get_absolute(camera_id) {
-            transform.inverse_transform().expect(
-                "singular view transform",
-            )
+            transform
+                .inverse_transform()
+                .expect("singular view transform")
         } else {
             info!("Camera transform missing, disabling renderer.");
             pipe.camera = None;
@@ -86,20 +85,23 @@ impl<'context> System<'context> for Renderer {
         let view_matrix = view_transform.into();
 
         // Set projection.
-        *deps.uniforms.get_mat4_mut(pipe.projection).expect(
-            "projection uniform missing",
-        ) = *deps.projections.get_matrix(camera_id).expect(
-            "camera projection missing",
-        );
+        *deps
+            .uniforms
+            .get_mat4_mut(pipe.projection)
+            .expect("projection uniform missing") = *deps
+            .projections
+            .get_matrix(camera_id)
+            .expect("camera projection missing");
 
         // Render all the models in turn.
         let mut frame = deps.window.draw();
         for (index, &Model { mesh, material }) in pipe.models.access().iter().enumerate() {
             // For each model we need to assemble three things to render it: transform, mesh and
             // material. We get the entity id and query the corresponding systems for it.
-            let entity = pipe.models.index_to_id(index).expect(
-                "bad index enumerating models: mesh",
-            );
+            let entity = pipe
+                .models
+                .index_to_id(index)
+                .expect("bad index enumerating models: mesh");
 
             // If the mesh is missing, the entity was (probably) removed. So we add it to the
             // removed stack and continue.
@@ -108,8 +110,7 @@ impl<'context> System<'context> for Renderer {
             } else {
                 info!(
                     "Mesh missing {:?} in model for entity {:?}, removing.",
-                    mesh,
-                    entity
+                    mesh, entity
                 );
                 self.removed.push(index);
                 continue;
@@ -118,13 +119,15 @@ impl<'context> System<'context> for Renderer {
             // If the model has a transform, then multiply it with the view transform to get the
             // modelview matrix. If there is no transform, model is assumed to be in world space, so
             // modelview = view.
-            *deps.uniforms.get_mat4_mut(pipe.modelview).expect(
-                "modelview uniform missing",
-            ) = if let Some(model_transform) = deps.transforms.get_absolute(entity) {
-                Mat4::from(view_transform.concat(model_transform))
-            } else {
-                view_matrix
-            };
+            *deps
+                .uniforms
+                .get_mat4_mut(pipe.modelview)
+                .expect("modelview uniform missing") =
+                if let Some(model_transform) = deps.transforms.get_absolute(entity) {
+                    Mat4::from(view_transform.concat(model_transform))
+                } else {
+                    view_matrix
+                };
 
             let material =
                 if let Some(material) = deps.materials.get(deps.shaders, deps.uniforms, material) {
@@ -134,8 +137,7 @@ impl<'context> System<'context> for Renderer {
                     // error.
                     error!(
                         "Material missing {:?} in model for entity {:?}, removing.",
-                        material,
-                        entity
+                        material, entity
                     );
                     self.removed.push(index);
                     continue;
@@ -156,9 +158,9 @@ impl<'context> System<'context> for Renderer {
         deps.text.render(&mut frame)?;
 
         // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
-        frame.finish().expect(
-            "Cannot handle context loss currently :(",
-        );
+        frame
+            .finish()
+            .expect("Cannot handle context loss currently :(");
 
         // Remove any missing models.
         for &index in self.removed.iter().rev() {

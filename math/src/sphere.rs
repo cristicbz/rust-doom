@@ -1,6 +1,6 @@
-use super::{Vec2f, Vec3f, Pnt3f, vec2, vec3};
 use super::contact::ContactInfo;
 use super::prelude::*;
+use super::{vec2, vec3, Pnt3f, Vec2f, Vec3f};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Sphere {
@@ -67,9 +67,9 @@ impl Sphere {
         }
 
         // Sphere against edges.
-        for (&e1, &e2) in triangle.iter().zip(triangle.iter().skip(1).chain(
-            Some(&triangle[0]),
-        ))
+        for (&e1, &e2) in triangle
+            .iter()
+            .zip(triangle.iter().skip(1).chain(Some(&triangle[0])))
         {
             let edge = e2 - e1;
             let edge_normal = nvel.cross(edge).normalize_or_zero();
@@ -92,8 +92,8 @@ impl Sphere {
                 edge_normal[1].abs(),
                 edge_normal[2].abs(),
             );
-            let (dim1, dim2) = if edge_normal_abs[0] > edge_normal_abs[1] &&
-                edge_normal_abs[0] > edge_normal_abs[2]
+            let (dim1, dim2) = if edge_normal_abs[0] > edge_normal_abs[1]
+                && edge_normal_abs[0] > edge_normal_abs[2]
             {
                 (1, 2)
             } else if edge_normal_abs[1] > edge_normal_abs[2] {
@@ -132,13 +132,13 @@ impl Sphere {
     }
 }
 
-
 fn intersect_sphere_line(center: Pnt3f, radius: f32, p1: Pnt3f, p2: Pnt3f) -> Option<f32> {
     let edge = p2 - p1;
     let a = edge.magnitude2();
     let b = 2.0 * edge.dot(p1 - center);
-    let c = center.to_vec().magnitude2() + p1.to_vec().magnitude2() -
-        2.0 * center.dot(p1.to_vec()) - radius * radius;
+    let c = center.to_vec().magnitude2() + p1.to_vec().magnitude2()
+        - 2.0 * center.dot(p1.to_vec())
+        - radius * radius;
     lowest_quadratic_root(a, b, c)
 }
 
@@ -151,7 +151,11 @@ fn lowest_quadratic_root(a: f32, b: f32, c: f32) -> Option<f32> {
         let a2 = 2.0 * a;
         let i1 = (-b + i) / a2;
         let i2 = (-b - i) / a2;
-        if i1 < i2 { Some(i1) } else { Some(i2) }
+        if i1 < i2 {
+            Some(i1)
+        } else {
+            Some(i2)
+        }
     }
 }
 

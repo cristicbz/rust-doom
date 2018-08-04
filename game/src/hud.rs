@@ -1,7 +1,9 @@
 use super::wad_system::WadSystem;
-use engine::{TextRenderer, Input, Gesture, Scancode, TextId, Window, ControlFlow, InfallibleSystem};
-use math::Pnt2f;
+use engine::{
+    ControlFlow, Gesture, InfallibleSystem, Input, Scancode, TextId, TextRenderer, Window,
+};
 use math::prelude::*;
+use math::Pnt2f;
 
 pub struct Bindings {
     pub quit: Gesture,
@@ -62,18 +64,12 @@ impl<'context> InfallibleSystem<'context> for Hud {
         deps.input.set_mouse_enabled(true);
         deps.input.set_cursor_grabbed(true);
 
-        let prompt_text = deps.text.insert(
-            deps.window,
-            PROMPT_TEXT,
-            Pnt2f::origin(),
-            HELP_PADDING,
-        );
-        let help_text = deps.text.insert(
-            deps.window,
-            HELP_TEXT,
-            Pnt2f::origin(),
-            HELP_PADDING,
-        );
+        let prompt_text = deps
+            .text
+            .insert(deps.window, PROMPT_TEXT, Pnt2f::origin(), HELP_PADDING);
+        let help_text = deps
+            .text
+            .insert(deps.window, HELP_TEXT, Pnt2f::origin(), HELP_PADDING);
         deps.text[help_text].set_visible(false);
 
         Hud {

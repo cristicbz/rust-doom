@@ -1,6 +1,6 @@
 use super::system::InfallibleSystem;
 use std::thread;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 pub struct Config {
     pub timestep: f32,

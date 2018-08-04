@@ -1,17 +1,18 @@
-use super::SHADER_ROOT;
 use super::errors::Result;
 use super::game_shaders::GameShaders;
-use super::hud::{Hud, Bindings as HudBindings};
+use super::hud::{Bindings as HudBindings, Hud};
 use super::level::Level;
-use super::player::{Player, Config as PlayerConfig, Bindings as PlayerBindings};
-use super::wad_system::{WadSystem, Config as WadConfig};
-use engine::{Input, Window, Projections, FrameTimers, Uniforms, Materials, Shaders, Renderer,
-             Meshes, Entities, Transforms, TextRenderer, System, Context, ContextBuilder,
-             WindowConfig, ShaderConfig, Tick, TickConfig, RenderPipeline};
+use super::player::{Bindings as PlayerBindings, Config as PlayerConfig, Player};
+use super::wad_system::{Config as WadConfig, WadSystem};
+use super::SHADER_ROOT;
 use engine::type_list::Peek;
+use engine::{
+    Context, ContextBuilder, Entities, FrameTimers, Input, Materials, Meshes, Projections,
+    RenderPipeline, Renderer, ShaderConfig, Shaders, System, TextRenderer, Tick, TickConfig,
+    Transforms, Uniforms, Window, WindowConfig,
+};
 use std::marker::PhantomData;
 use std::path::PathBuf;
-
 
 pub struct Game(Box<AbstractGame>);
 
@@ -90,9 +91,7 @@ pub struct ContextWrapper<WadIndexT, ContextT> {
 
 impl<WadIndexT, ContextT> ContextWrapper<WadIndexT, ContextT>
 where
-    ContextT: Context
-        + Peek<WadSystem, WadIndexT>
-        + 'static,
+    ContextT: Context + Peek<WadSystem, WadIndexT> + 'static,
     WadIndexT: 'static,
 {
     fn boxed(context: ContextT) -> Box<AbstractGame> {
@@ -112,12 +111,7 @@ pub trait AbstractGame {
 
 impl<WadIndexT, ContextT> AbstractGame for ContextWrapper<WadIndexT, ContextT>
 where
-    ContextT: Context
-        + Peek<
-        WadSystem,
-        WadIndexT,
-    >
-        + 'static,
+    ContextT: Context + Peek<WadSystem, WadIndexT> + 'static,
 {
     fn num_levels(&self) -> usize {
         let wad = self.context.peek();

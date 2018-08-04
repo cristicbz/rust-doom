@@ -1,6 +1,6 @@
 use super::errors::{ErrorKind, Result};
 use super::system::InfallibleSystem;
-use idcontain::{IdSlab, Id, OptionId};
+use idcontain::{Id, IdSlab, OptionId};
 use std::fmt::Write;
 use std::mem;
 
@@ -48,15 +48,13 @@ impl Entities {
             liveness: Liveness::Alive,
         });
         debug!("New root id {:?} for {:?}.", new_id, name);
-        let old_first_root: Option<EntityId> = mem::replace(first_root, OptionId::some(new_id))
-            .into();
+        let old_first_root: Option<EntityId> =
+            mem::replace(first_root, OptionId::some(new_id)).into();
         if let Some(old_first_root) = old_first_root {
             let old_entity = &mut slab[old_first_root];
             debug!(
                 "Patched previous of root {:?} {:?} to {:?}...",
-                old_entity.name,
-                old_first_root,
-                new_id
+                old_entity.name, old_first_root, new_id
             );
             old_entity.previous = OptionId::some(new_id);
         }
@@ -117,9 +115,7 @@ impl Entities {
         }
         debug!(
             "Added entity {:?} {:?} as child of {:?}...",
-            name,
-            new_id,
-            parent
+            name, new_id, parent
         );
         Ok(new_id)
     }
@@ -169,7 +165,11 @@ impl Entities {
                 write!(&mut output, "|- {}  ", entity.name).expect("string write fail");
                 let id_padding = {
                     let length = indent + depth * 4 + 3 + entity.name.len() + 4;
-                    if length > 60 { 0 } else { 60 - length }
+                    if length > 60 {
+                        0
+                    } else {
+                        60 - length
+                    }
                 };
                 for _ in 0..id_padding {
                     output.push('.');
@@ -248,8 +248,7 @@ impl<'context> InfallibleSystem<'context> for Entities {
             if !liveness.is_alive() {
                 debug!(
                     "Explicitly removed {:?} ({:?}) was already processed.",
-                    name,
-                    removed_id
+                    name, removed_id
                 );
                 continue;
             }
@@ -259,9 +258,7 @@ impl<'context> InfallibleSystem<'context> for Entities {
             if let Some(child) = child.into_option() {
                 debug!(
                     "Adding child {:?} of {:?} ({:?}) to orphan queue.",
-                    child,
-                    name,
-                    removed_id
+                    child, name, removed_id
                 );
                 removed.push(child);
             }
@@ -290,24 +287,19 @@ impl<'context> InfallibleSystem<'context> for Entities {
                     if let Some(child) = child.into() {
                         debug!(
                             "Added child for {:?} ({:?}) to queue: {:?}",
-                            name,
-                            removed_id,
-                            child
+                            name, removed_id, child
                         );
                         removed.push(child);
                     } else {
                         debug!(
                             "Entity {:?} ({:?}) was alive but had no children to remove.",
-                            name,
-                            removed_id,
-                            );
+                            name, removed_id,
+                        );
                     }
                 } else {
                     debug!(
                         "Entity {:?} ({:?}) was already marked as {:?}, skipping.",
-                        name,
-                        removed_id,
-                        liveness
+                        name, removed_id, liveness
                     );
                 }
 
@@ -341,9 +333,7 @@ impl<'context> InfallibleSystem<'context> for Entities {
             if let Some((next_id, next)) = next.into_option().map(|id| (id, &mut slab[id])) {
                 debug!(
                     "Patched previous for {:?} ({:?}) to point to {:?}",
-                    next.name,
-                    next_id,
-                    previous
+                    next.name, next_id, previous
                 );
                 next.previous = previous;
             }
@@ -353,9 +343,7 @@ impl<'context> InfallibleSystem<'context> for Entities {
             {
                 debug!(
                     "Patched next for {:?} ({:?}) to point to {:?}",
-                    previous.name,
-                    previous_id,
-                    next
+                    previous.name, previous_id, next
                 );
                 previous.next = next;
             }
@@ -412,11 +400,10 @@ pub struct Entity {
     liveness: Liveness,
 }
 
-
 #[cfg(test)]
 mod test {
-    use super::{Entities, EntityId};
     use super::super::system::InfallibleSystem;
+    use super::{Entities, EntityId};
     use env_logger;
     use std::collections::HashSet;
 

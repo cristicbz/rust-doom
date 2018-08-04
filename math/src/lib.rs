@@ -3,25 +3,24 @@ extern crate num_traits;
 
 pub mod prelude {
     pub use super::InnerSpaceExt as MathPreludeInnerSpaceExt;
-    pub use cgmath::prelude::{Angle as MathPreludeAngle, Array as MathPreludeArray,
-                              ElementWise as MathPreludeElementWise,
-                              EuclideanSpace as MathPreludeEuclideanSpace,
-                              InnerSpace as MathPreludeInnerSpace, Matrix as MathPreludeMatrix,
-                              MetricSpace as MathPreludeMetricSpace,
-                              Rotation as MathPreludeRotation, Rotation2 as MathPreludeRotation2,
-                              Rotation3 as MathPreludeRotation3,
-                              SquareMatrix as MathPreludeSquareMatrix,
-                              Transform as MathPreludeTransform,
-                              Transform2 as MathPreludeTransform2,
-                              Transform3 as MathPreludeTransform3,
-                              VectorSpace as MathPreludeVectorSpace, Zero as MathPreludeZero};
+    pub use cgmath::prelude::{
+        Angle as MathPreludeAngle, Array as MathPreludeArray,
+        ElementWise as MathPreludeElementWise, EuclideanSpace as MathPreludeEuclideanSpace,
+        InnerSpace as MathPreludeInnerSpace, Matrix as MathPreludeMatrix,
+        MetricSpace as MathPreludeMetricSpace, Rotation as MathPreludeRotation,
+        Rotation2 as MathPreludeRotation2, Rotation3 as MathPreludeRotation3,
+        SquareMatrix as MathPreludeSquareMatrix, Transform as MathPreludeTransform,
+        Transform2 as MathPreludeTransform2, Transform3 as MathPreludeTransform3,
+        VectorSpace as MathPreludeVectorSpace, Zero as MathPreludeZero,
+    };
 }
 
-pub use cgmath::{Angle, Array, ElementWise, EuclideanSpace, InnerSpace, Matrix, MetricSpace,
-                 Rotation, Rotation2, Rotation3, SquareMatrix, Transform, Transform2, Transform3,
-                 VectorSpace, Decomposed, Deg, Rad, BaseFloat, BaseNum, ortho, frustum,
-                 perspective, vec2, vec3, vec4, Euler, ApproxEq};
-pub use num_traits::{NumCast, Float};
+pub use cgmath::{
+    frustum, ortho, perspective, vec2, vec3, vec4, Angle, ApproxEq, Array, BaseFloat, BaseNum,
+    Decomposed, Deg, ElementWise, EuclideanSpace, Euler, InnerSpace, Matrix, MetricSpace, Rad,
+    Rotation, Rotation2, Rotation3, SquareMatrix, Transform, Transform2, Transform3, VectorSpace,
+};
+pub use num_traits::{Float, NumCast};
 
 pub mod contact;
 pub mod line;
@@ -44,11 +43,7 @@ where
     }
 }
 
-impl<T: InnerSpace> InnerSpaceExt for T
-where
-    Self::Scalar: BaseFloat,
-{
-}
+impl<T: InnerSpace> InnerSpaceExt for T where Self::Scalar: BaseFloat {}
 
 pub type Vec2<T> = cgmath::Vector2<T>;
 pub type Vec3<T> = cgmath::Vector3<T>;

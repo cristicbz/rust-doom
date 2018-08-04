@@ -1,6 +1,6 @@
 use super::errors::{Result, ResultExt};
-use super::system::{System, BoundSystem};
-use super::type_list::{PluckInto, Pluck, Cons, Nil, Peek};
+use super::system::{BoundSystem, System};
+use super::type_list::{Cons, Nil, Peek, Pluck, PluckInto};
 use std::marker::PhantomData;
 
 pub trait Context {
@@ -29,7 +29,9 @@ impl ContextBuilder<Cons<InjectMut<ControlFlow>, Nil>> {
     pub fn new() -> Self {
         ContextBuilder {
             systems: Cons {
-                head: InjectMut(ControlFlow { quit_requested: false }),
+                head: InjectMut(ControlFlow {
+                    quit_requested: false,
+                }),
                 tail: Nil,
             },
         }
@@ -83,9 +85,7 @@ impl<SystemListT> ContextBuilder<SystemListT> {
     where
         SystemListT: SystemList<IndicesT> + Peek<ControlFlow, ControlIndexT>,
     {
-        SystemListT::setup_list(&mut self.systems).chain_err(
-            || "Context setup failed.",
-        )?;
+        SystemListT::setup_list(&mut self.systems).chain_err(|| "Context setup failed.")?;
         info!("Context set up.");
         Ok(ContextObject {
             systems: Some(self.systems),
@@ -94,7 +94,6 @@ impl<SystemListT> ContextBuilder<SystemListT> {
     }
 }
 
-
 pub struct ContextObject<SystemListT, IndicesT> {
     systems: Option<SystemListT>,
     indices: PhantomData<IndicesT>,
@@ -102,15 +101,15 @@ pub struct ContextObject<SystemListT, IndicesT> {
 
 impl<SystemListT, IndicesT> ContextObject<SystemListT, IndicesT> {
     fn systems_mut(&mut self) -> &mut SystemListT {
-        self.systems.as_mut().expect(
-            "call on destroyed context: systems_mut",
-        )
+        self.systems
+            .as_mut()
+            .expect("call on destroyed context: systems_mut")
     }
 
     fn systems(&self) -> &SystemListT {
-        self.systems.as_ref().expect(
-            "call on destroyed context: systems",
-        )
+        self.systems
+            .as_ref()
+            .expect("call on destroyed context: systems")
     }
 }
 
@@ -157,13 +156,9 @@ where
         } else {
             return Ok(());
         };
-        SystemListT::teardown_list(&mut systems).chain_err(
-            || "Context teardown failed.",
-        )?;
+        SystemListT::teardown_list(&mut systems).chain_err(|| "Context teardown failed.")?;
         info!("Context tore down.");
-        SystemListT::destroy_list(systems).chain_err(
-            || "Context destruction failed.",
-        )?;
+        SystemListT::destroy_list(systems).chain_err(|| "Context destruction failed.")?;
         info!("Context destroyed.");
         Ok(())
     }
@@ -179,8 +174,7 @@ impl<ContextT> DependenciesFrom<ContextT, ()> for () {
     }
 }
 
-impl<'context, ContextT, IndexT, SystemT> DependenciesFrom<ContextT, IndexT>
-    for &'context SystemT
+impl<'context, ContextT, IndexT, SystemT> DependenciesFrom<ContextT, IndexT> for &'context SystemT
 where
     ContextT: Pluck<&'context SystemT, IndexT>,
 {
@@ -200,7 +194,6 @@ where
         this
     }
 }
-
 
 pub trait SystemList<IndicesT> {
     fn setup_list(&mut self) -> Result<()>;
@@ -288,7 +281,6 @@ impl<'a, InjectT> PluckInto<&'a InjectT> for &'a InjectMut<InjectT> {
     }
 }
 
-
 impl<'a, InjectT> PluckInto<&'a InjectT> for &'a mut InjectMut<InjectT> {
     fn pluck_into(self) -> &'a InjectT {
         &self.0
@@ -323,8 +315,7 @@ pub trait RawSystem<'context, ContextT, IndicesT>: Sized {
     }
 }
 
-pub trait RawCreate<'context, ContextT, IndicesT>
-    : RawSystem<'context, ContextT, IndicesT> {
+pub trait RawCreate<'context, ContextT, IndicesT>: RawSystem<'context, ContextT, IndicesT> {
     fn raw_create(context: &'context mut ContextT) -> Result<Self>;
 }
 
@@ -334,7 +325,6 @@ where
     Self: System<'context>,
     <Self as System<'context>>::Dependencies: DependenciesFrom<&'context mut ContextT, IndicesT>,
 {
-
     #[inline]
     fn raw_setup(&mut self, context: &'context mut ContextT) -> Result<()> {
         info!("Setting up system {:?}...", Self::debug_name());
@@ -367,7 +357,7 @@ impl<'context, ContextT, IndicesT, SystemT> RawCreate<'context, ContextT, Indice
 where
     ContextT: 'context,
     Self: System<'context>,
-    <Self as System<'context>>::Dependencies: DependenciesFrom<&'context mut ContextT, IndicesT>
+    <Self as System<'context>>::Dependencies: DependenciesFrom<&'context mut ContextT, IndicesT>,
 {
     #[inline]
     fn raw_create(context: &'context mut ContextT) -> Result<Self> {

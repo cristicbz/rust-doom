@@ -1,5 +1,5 @@
-use super::{Vec2, Pnt2, BaseFloat, NumCast};
 use super::prelude::*;
+use super::{BaseFloat, NumCast, Pnt2, Vec2};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Line2<T: BaseFloat> {
@@ -70,16 +70,13 @@ impl<T: BaseFloat> Line2<T> {
         if denominator.abs() < <T as NumCast>::from(1e-16).unwrap() {
             None
         } else {
-            Some(
-                (other.origin - self.origin).perp_dot(other.displace) / denominator,
-            )
+            Some((other.origin - self.origin).perp_dot(other.displace) / denominator)
         }
     }
 
     pub fn intersect_point(&self, other: &Line2<T>) -> Option<Pnt2<T>> {
-        self.intersect_offset(other).map(
-            |offset| self.at_offset(offset),
-        )
+        self.intersect_offset(other)
+            .map(|offset| self.at_offset(offset))
     }
 
     pub fn at_offset(&self, offset: T) -> Pnt2<T> {

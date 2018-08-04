@@ -1,11 +1,11 @@
-use super::entities::{EntityId, Entity, Entities};
+use super::entities::{Entities, Entity, EntityId};
 use super::materials::MaterialId;
 use super::meshes::MeshId;
 use super::system::InfallibleSystem;
-use super::uniforms::{Uniforms, Mat4UniformId};
+use super::uniforms::{Mat4UniformId, Uniforms};
 use idcontain::IdMapVec;
-use math::Mat4;
 use math::prelude::*;
+use math::Mat4;
 
 impl RenderPipeline {
     pub fn modelview(&self) -> Mat4UniformId {
@@ -23,16 +23,12 @@ impl RenderPipeline {
     pub fn attach_model(&mut self, entity: EntityId, mesh: MeshId, material: MaterialId) {
         debug!(
             "Attaching model to entity {:?}: mesh={:?} material={:?}",
-            entity,
-            mesh,
-            material
+            entity, mesh, material
         );
         if let Some(old) = self.models.insert(entity, Model { mesh, material }) {
             error!(
                 "Entity {:?} already had a model attached (mesh={:?}, material={:?}), replacing.",
-                entity,
-                old.mesh,
-                old.material,
+                entity, old.mesh, old.material,
             );
         }
         debug!("Attached model to entity {:?}.", entity);
@@ -64,10 +60,12 @@ impl<'context> InfallibleSystem<'context> for RenderPipeline {
 
     fn create(deps: Dependencies) -> Self {
         let root = deps.entities.add_root("render_pipeline");
-        let modelview = deps.uniforms
+        let modelview = deps
+            .uniforms
             .add_mat4(deps.entities, root, "modelview_uniform", Mat4::one())
             .unwrap();
-        let projection = deps.uniforms
+        let projection = deps
+            .uniforms
             .add_mat4(deps.entities, root, "projection_uniform", Mat4::one())
             .unwrap();
         RenderPipeline {

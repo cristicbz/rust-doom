@@ -18,7 +18,6 @@ pub trait Peek<LookupT, IndexT> {
     fn peek_mut(&mut self) -> &mut LookupT;
 }
 
-
 pub trait PluckInto<LookupT> {
     fn pluck_into(self) -> LookupT;
 }
@@ -36,8 +35,9 @@ impl<'a, T> PluckInto<&'a T> for &'a mut T {
 }
 
 impl<LookupT, IndexT, ListT> Peek<LookupT, IndexT> for ListT
-where for<'a> &'a ListT: Pluck< &'a LookupT, IndexT>,
-      for<'a> &'a mut ListT: Pluck< &'a mut LookupT, IndexT>,
+where
+    for<'a> &'a ListT: Pluck<&'a LookupT, IndexT>,
+    for<'a> &'a mut ListT: Pluck<&'a mut LookupT, IndexT>,
 {
     fn peek(&self) -> &LookupT {
         self.pluck().0
@@ -47,7 +47,6 @@ where for<'a> &'a ListT: Pluck< &'a LookupT, IndexT>,
         self.pluck().0
     }
 }
-
 
 impl<LookupT, HeadT, TailT> Pluck<LookupT, Zero> for Cons<HeadT, TailT>
 where
@@ -62,7 +61,7 @@ where
 
 impl<'a, LookupT, HeadT, TailT> Pluck<LookupT, Zero> for &'a Cons<HeadT, TailT>
 where
-    &'a HeadT: PluckInto<LookupT>
+    &'a HeadT: PluckInto<LookupT>,
 {
     type Rest = &'a TailT;
 
@@ -73,7 +72,7 @@ where
 
 impl<'a, LookupT, HeadT, TailT> Pluck<LookupT, Zero> for &'a mut Cons<HeadT, TailT>
 where
-    &'a mut HeadT: PluckInto<LookupT>
+    &'a mut HeadT: PluckInto<LookupT>,
 {
     type Rest = &'a mut TailT;
 
@@ -90,12 +89,19 @@ where
 
     fn pluck(self) -> (LookupT, Self::Rest) {
         let (lookup, tail_rest) = self.tail.pluck();
-        (lookup, Cons { head: self.head, tail: tail_rest })
+        (
+            lookup,
+            Cons {
+                head: self.head,
+                tail: tail_rest,
+            },
+        )
     }
 }
 
 impl<'a, LookupT, HeadT, TailT, IndexT> Pluck<LookupT, OnePlus<IndexT>> for &'a Cons<HeadT, TailT>
-where &'a TailT: Pluck<LookupT, IndexT>,
+where
+    &'a TailT: Pluck<LookupT, IndexT>,
 {
     type Rest = Cons<&'a HeadT, <&'a TailT as Pluck<LookupT, IndexT>>::Rest>;
 
@@ -107,7 +113,7 @@ where &'a TailT: Pluck<LookupT, IndexT>,
                 head: &self.head,
                 tail: tail_rest,
             },
-            )
+        )
     }
 }
 
@@ -143,19 +149,16 @@ impl<ListT> PluckList<Nil, ()> for ListT {
     }
 }
 
-impl<
-    NeedleHeadT,
-    NeedleTailT,
-    HeadIndicesT,
-    TailIndicesT,
-    HaystackT,
-> PluckList<Cons<NeedleHeadT, NeedleTailT>, (HeadIndicesT, TailIndicesT)> for HaystackT
+impl<NeedleHeadT, NeedleTailT, HeadIndicesT, TailIndicesT, HaystackT>
+    PluckList<Cons<NeedleHeadT, NeedleTailT>, (HeadIndicesT, TailIndicesT)> for HaystackT
 where
     Self: Pluck<NeedleHeadT, HeadIndicesT>,
     <Self as Pluck<NeedleHeadT, HeadIndicesT>>::Rest: PluckList<NeedleTailT, TailIndicesT>,
 {
-    type ListRest = <<Self as Pluck<NeedleHeadT, HeadIndicesT>>::Rest
-        as PluckList<NeedleTailT, TailIndicesT>>::ListRest;
+    type ListRest = <<Self as Pluck<NeedleHeadT, HeadIndicesT>>::Rest as PluckList<
+        NeedleTailT,
+        TailIndicesT,
+    >>::ListRest;
 
     fn pluck_list(self) -> (Cons<NeedleHeadT, NeedleTailT>, Self::ListRest) {
         let (head, rest) = self.pluck();

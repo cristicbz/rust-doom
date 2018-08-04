@@ -1,5 +1,5 @@
 use super::types::WadTextureHeader;
-use byteorder::{ReadBytesExt, LittleEndian};
+use byteorder::{LittleEndian, ReadBytesExt};
 use math::Vec2;
 use std::vec::Vec;
 
@@ -7,11 +7,9 @@ pub mod error {
     error_chain!{}
 }
 
-use self::error::{Result, ResultExt, ErrorKind};
-
+use self::error::{ErrorKind, Result, ResultExt};
 
 pub const MAX_IMAGE_SIZE: usize = 4096;
-
 
 pub struct Image {
     width: usize,
@@ -45,12 +43,12 @@ impl Image {
     #[cfg_attr(feature = "cargo-clippy", allow(needless_range_loop))]
     pub fn from_buffer(buffer: &[u8]) -> Result<Image> {
         let mut reader = buffer;
-        let width = reader.read_u16::<LittleEndian>().chain_err(
-            || "missing width",
-        )? as usize;
-        let height = reader.read_u16::<LittleEndian>().chain_err(
-            || "missing height",
-        )? as usize;
+        let width = reader
+            .read_u16::<LittleEndian>()
+            .chain_err(|| "missing width")? as usize;
+        let height = reader
+            .read_u16::<LittleEndian>()
+            .chain_err(|| "missing height")? as usize;
         ensure!(
             width <= MAX_IMAGE_SIZE && height <= MAX_IMAGE_SIZE,
             "image too large {}x{}",
@@ -58,12 +56,12 @@ impl Image {
             height
         );
 
-        let x_offset = reader.read_i16::<LittleEndian>().chain_err(
-            || "missing x offset",
-        )? as isize;
-        let y_offset = reader.read_i16::<LittleEndian>().chain_err(
-            || "missing y offset",
-        )? as isize;
+        let x_offset = reader
+            .read_i16::<LittleEndian>()
+            .chain_err(|| "missing x offset")? as isize;
+        let y_offset = reader
+            .read_i16::<LittleEndian>()
+            .chain_err(|| "missing y offset")? as isize;
 
         let mut pixels = vec![!0; width * height];
 
@@ -71,9 +69,10 @@ impl Image {
         for i_column in 0..width {
             // Each column is defined as a number of vertical `runs' which are
             // defined starting at `offset' in the buffer.
-            let offset = reader.read_u32::<LittleEndian>().chain_err(|| {
-                format!("unfinished column {}, {}x{}", i_column, width, height)
-            })? as isize;
+            let offset = reader
+                .read_u32::<LittleEndian>()
+                .chain_err(|| format!("unfinished column {}, {}x{}", i_column, width, height))?
+                as isize;
             ensure!(
                 offset < buffer.len() as isize,
                 "invalid column offset in {}, offset={}, size={}",
@@ -101,8 +100,7 @@ impl Image {
                 let run_length = *source.next().ok_or_else(|| {
                     ErrorKind::from(format!(
                         "missing run length: column {}, run {}",
-                        i_column,
-                        i_run
+                        i_column, i_run
                     ))
                 })? as usize;
 
@@ -199,18 +197,18 @@ impl Image {
         let (x_start, y_start) = (x_start as usize, y_start as usize);
 
         let src_rows = &source.pixels[x_start + y_start * src_pitch..];
-        let src_rows = src_rows.chunks(src_pitch).take(copy_height).map(|row| {
-            &row[..copy_width]
-        });
+        let src_rows = src_rows
+            .chunks(src_pitch)
+            .take(copy_height)
+            .map(|row| &row[..copy_width]);
 
-        let dest_rows = &mut self.pixels[(x_start as isize + offset[0]) as usize +
-                                             (y_start as isize + offset[1]) as usize *
-                                                 dest_pitch..];
-        let dest_rows = dest_rows.chunks_mut(dest_pitch).take(copy_height).map(
-            |row| {
-                &mut row[..copy_width]
-            },
-        );
+        let dest_rows = &mut self.pixels[(x_start as isize + offset[0]) as usize
+                                             + (y_start as isize + offset[1]) as usize
+                                                 * dest_pitch..];
+        let dest_rows = dest_rows
+            .chunks_mut(dest_pitch)
+            .take(copy_height)
+            .map(|row| &mut row[..copy_width]);
 
         if ignore_transparency {
             // If we don't care about transparency we can copy row by row.

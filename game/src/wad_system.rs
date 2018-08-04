@@ -1,8 +1,9 @@
-use super::errors::{Result, Error};
+use super::errors::{Error, Result};
 use engine::System;
 use std::path::PathBuf;
-use wad::{Archive, TextureDirectory, Level as WadLevel, LevelAnalysis, WadName, LevelWalker,
-          LevelVisitor};
+use wad::{
+    Archive, Level as WadLevel, LevelAnalysis, LevelVisitor, LevelWalker, TextureDirectory, WadName,
+};
 
 pub struct Config {
     pub wad_path: PathBuf,
@@ -79,8 +80,7 @@ impl<'context> System<'context> for WadSystem {
 
         info!(
             "Loading initial level {:?} ({})...",
-            level_name,
-            level_index
+            level_name, level_index
         );
         let level = WadLevel::from_archive(&archive, level_index)?;
         info!("Analysing level...");
@@ -113,8 +113,7 @@ impl<'context> System<'context> for WadSystem {
                 self.level_name = self.archive.level_lump(self.next_level_index)?.name();
                 info!(
                     "Loading new level {:?} ({})...",
-                    self.level_name,
-                    self.next_level_index
+                    self.level_name, self.next_level_index
                 );
                 self.level = WadLevel::from_archive(&self.archive, self.current_level_index)?;
                 info!("Analysing new level...");

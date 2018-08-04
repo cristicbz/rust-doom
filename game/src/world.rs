@@ -1,11 +1,11 @@
-use engine::{Transforms, EntityId, Entity};
+use engine::{Entity, EntityId, Transforms};
 use idcontain::IdMapVec;
-use math::{ContactInfo, Line2f, Sphere, Pnt2f, Vec3f, Trans3, Pnt3f};
 use math::prelude::*;
-use std::{f32, i32};
+use math::{ContactInfo, Line2f, Pnt2f, Pnt3f, Sphere, Trans3, Vec3f};
 use std::cell::RefCell;
+use std::{f32, i32};
 use vec_map::VecMap;
-use wad::{Branch, LevelVisitor, SkyPoly, SkyQuad, StaticPoly, StaticQuad, ObjectId};
+use wad::{Branch, LevelVisitor, ObjectId, SkyPoly, SkyQuad, StaticPoly, StaticQuad};
 
 pub struct World {
     nodes: Vec<Node>,
@@ -21,12 +21,14 @@ pub struct World {
 impl World {
     pub fn update(&mut self, transforms: &Transforms) {
         for index in 0..self.dynamic_chunks.len() {
-            let id = self.dynamic_chunks.index_to_id(index).expect(
-                "bad index in iteration",
-            );
-            let dynamic = self.dynamic_chunks.get_mut_by_index(index).expect(
-                "bad index in iteration",
-            );
+            let id = self
+                .dynamic_chunks
+                .index_to_id(index)
+                .expect("bad index in iteration");
+            let dynamic = self
+                .dynamic_chunks
+                .get_mut_by_index(index)
+                .expect("bad index in iteration");
             dynamic.inverse_transform = transforms
                 .get_absolute(id)
                 .expect("dynamic chunk missing transform")
@@ -88,14 +90,15 @@ impl World {
         vel: Vec3f,
     ) {
         let tris = &self.triangles[chunk.tri_start as usize..chunk.tri_end as usize];
-        *first_contact = tris.iter()
+        *first_contact = tris
+            .iter()
             .filter_map(|&tri| self.sweep_sphere_triangle(sphere, vel, tri))
-            .fold(*first_contact, |first, current| if first.time <
-                current.time
-            {
-                first
-            } else {
-                current
+            .fold(*first_contact, |first, current| {
+                if first.time < current.time {
+                    first
+                } else {
+                    current
+                }
             });
     }
 
@@ -114,7 +117,6 @@ impl World {
         sphere.sweep_triangle(&triangle, normal, vel)
     }
 }
-
 
 #[derive(Copy, Clone)]
 struct Chunk {
@@ -140,7 +142,6 @@ struct Node {
     positive: i32,
     negative: i32,
 }
-
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 enum Child {
@@ -186,12 +187,12 @@ impl Node {
 
     fn intersect_sphere(&self, sphere: Sphere, vel: Vec3f) -> NodeIntersectIter {
         let Sphere { center, radius } = sphere;
-        let dist1 = self.partition.signed_distance(
-            Pnt2f::new(center.x, center.z),
-        );
-        let dist2 = self.partition.signed_distance(
-            Pnt2f::new(center.x + vel.x, center.z + vel.z),
-        );
+        let dist1 = self
+            .partition
+            .signed_distance(Pnt2f::new(center.x, center.z));
+        let dist2 = self
+            .partition
+            .signed_distance(Pnt2f::new(center.x + vel.x, center.z + vel.z));
 
         let pos = if dist1 >= -radius || dist2 >= -radius {
             Some(Child::unpack(self.positive))
@@ -209,10 +210,8 @@ impl Node {
     }
 }
 
-type NodeIntersectIter = ::std::iter::Chain<
-    ::std::option::IntoIter<Child>,
-    ::std::option::IntoIter<Child>,
->;
+type NodeIntersectIter =
+    ::std::iter::Chain<::std::option::IntoIter<Child>, ::std::option::IntoIter<Child>>;
 
 pub struct WorldBuilder<'a> {
     nodes: Vec<Node>,
@@ -272,9 +271,11 @@ impl<'a> WorldBuilder<'a> {
     }
 
     fn link_child(&mut self, child: Child, branch: Branch) {
-        let parent_index = *self.node_stack.borrow().last().expect(
-            "called link_child on root node",
-        );
+        let parent_index = *self
+            .node_stack
+            .borrow()
+            .last()
+            .expect("called link_child on root node");
         let parent = &mut self.nodes[parent_index];
 
         match branch {
@@ -295,22 +296,19 @@ impl<'a> WorldBuilder<'a> {
         verts: I,
         normal: Pnt3f,
     ) {
-        let triangles = &mut self.triangles.entry(object_id.0 as usize).or_insert_with(
-            || {
-                Vec::with_capacity(256)
-            },
-        );
+        let triangles = &mut self
+            .triangles
+            .entry(object_id.0 as usize)
+            .or_insert_with(|| Vec::with_capacity(256));
         let vert_start = self.verts.len() as u32;
         self.verts.extend(verts);
         let vert_end = self.verts.len() as u32;
         self.verts.push(normal);
-        triangles.extend(((vert_start + 2)..vert_end).map(|i| {
-            Triangle {
-                v1: vert_start,
-                v2: i - 1,
-                v3: i,
-                normal: vert_end,
-            }
+        triangles.extend(((vert_start + 2)..vert_end).map(|i| Triangle {
+            v1: vert_start,
+            v2: i - 1,
+            v3: i,
+            normal: vert_end,
         }));
     }
 }
@@ -344,17 +342,18 @@ impl<'a> LevelVisitor for WorldBuilder<'a> {
     }
 
     fn visit_bsp_node_end(&mut self) {
-        self.node_stack.borrow_mut().pop().expect(
-            "too many calls to visit_bsp_node_end",
-        );
+        self.node_stack
+            .borrow_mut()
+            .pop()
+            .expect("too many calls to visit_bsp_node_end");
     }
 
     fn visit_floor_sky_poly(&mut self, poly: &SkyPoly) {
         self.add_polygon(
             poly.object_id,
-            poly.vertices.iter().map(
-                |v| Pnt3f::new(v[0], poly.height, v[1]),
-            ),
+            poly.vertices
+                .iter()
+                .map(|v| Pnt3f::new(v[0], poly.height, v[1])),
             Pnt3f::new(0.0, 1.0, 0.0),
         );
     }
@@ -362,9 +361,10 @@ impl<'a> LevelVisitor for WorldBuilder<'a> {
     fn visit_ceil_sky_poly(&mut self, poly: &SkyPoly) {
         self.add_polygon(
             poly.object_id,
-            poly.vertices.iter().rev().map(|v| {
-                Pnt3f::new(v[0], poly.height, v[1])
-            }),
+            poly.vertices
+                .iter()
+                .rev()
+                .map(|v| Pnt3f::new(v[0], poly.height, v[1])),
             Pnt3f::new(0.0, -1.0, 0.0),
         );
     }
