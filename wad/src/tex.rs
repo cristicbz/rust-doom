@@ -95,21 +95,21 @@ impl TextureDirectory {
         info!("  {:4} sprites", num_sprites);
 
         Ok(TextureDirectory {
-            patches: patches,
-            textures: textures,
-            palettes: palettes,
-            colormaps: colormaps,
-            flats: flats,
+            patches,
+            textures,
+            palettes,
+            colormaps,
+            flats,
             animated_walls: wad.metadata().animations.walls.clone(),
             animated_flats: wad.metadata().animations.flats.clone(),
         })
     }
 
-    pub fn texture(&self, name: &WadName) -> Option<&Image> {
-        self.textures.get(name)
+    pub fn texture(&self, name: WadName) -> Option<&Image> {
+        self.textures.get(&name)
     }
-    pub fn flat(&self, name: &WadName) -> Option<&Flat> {
-        self.flats.get(name)
+    pub fn flat(&self, name: WadName) -> Option<&Flat> {
+        self.flats.get(&name)
     }
 
     pub fn num_patches(&self) -> usize {
@@ -168,7 +168,7 @@ impl TextureDirectory {
     where
         T: IntoIterator<Item = WadName>,
     {
-        let entries = ordered_atlas_entries(&self.animated_walls, |n| self.texture(&n), names_iter);
+        let entries = ordered_atlas_entries(&self.animated_walls, |n| self.texture(n), names_iter);
         let max_image_width = if let Some(width) = entries.iter().map(|e| e.image.width()).max() {
             width
         } else {
@@ -178,10 +178,7 @@ impl TextureDirectory {
             };
             return (image, BoundsLookup::new());
         };
-        let num_pixels = entries
-            .iter()
-            .map(|e| e.image.num_pixels())
-            .fold(0, |x, y| x + y);
+        let num_pixels = entries.iter().map(|e| e.image.num_pixels()).sum();
         let min_atlas_size = Vec2::new(cmp::min(128, next_pow2(max_image_width)), 128);
         let max_size = 4096;
 
@@ -226,7 +223,7 @@ impl TextureDirectory {
                 }
                 positions.push(AtlasPosition {
                     offset: Vec2::new(offset[0] as isize, offset[1] as isize),
-                    row_height: row_height,
+                    row_height,
                 });
                 offset[0] += size[0];
             }
@@ -276,7 +273,7 @@ impl TextureDirectory {
     where
         T: IntoIterator<Item = WadName>,
     {
-        let names = ordered_atlas_entries(&self.animated_flats, |n| self.flat(&n), names_iter);
+        let names = ordered_atlas_entries(&self.animated_flats, |n| self.flat(n), names_iter);
         let num_names = names.len();
 
         let width = next_pow2((num_names as f64).sqrt().ceil() as usize * 64);
@@ -309,7 +306,7 @@ impl TextureDirectory {
                 Bounds {
                     pos: anim_start_pos,
                     size: Vec2::new(64.0, 64.0),
-                    num_frames: num_frames,
+                    num_frames,
                     row_height: 64,
                 },
             );
@@ -355,7 +352,7 @@ fn next_pow2(x: usize) -> usize {
     pow2
 }
 
-const TEXTURE_LUMP_NAMES: &'static [&'static [u8; 8]] = &[b"TEXTURE1", b"TEXTURE2"];
+const TEXTURE_LUMP_NAMES: &[&[u8; 8]] = &[b"TEXTURE1", b"TEXTURE2"];
 
 fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     let pnames_buffer = wad.required_named_lump(b"PNAMES\0\0")?.read_bytes()?;
@@ -439,24 +436,24 @@ where
     for (name, maybe_frames) in frames_by_first_frame {
         match maybe_frames {
             Some(frames) => {
-                for (offset, &frame) in frames.iter().enumerate() {
-                    if let Some(image) = image_lookup(frame) {
+                for (frame_offset, &name) in frames.iter().enumerate() {
+                    if let Some(image) = image_lookup(name) {
                         entries.push(AtlasEntry {
-                            name: frame,
-                            image: image,
-                            frame_offset: offset,
+                            name,
+                            image,
+                            frame_offset,
                             num_frames: frames.len(),
                         });
                     } else {
-                        error!("Unable to find texture/sprite: {}", frame);
+                        error!("Unable to find texture/sprite: {}", name);
                     }
                 }
             }
             None => {
                 if let Some(image) = image_lookup(name) {
                     entries.push(AtlasEntry {
-                        name: name,
-                        image: image,
+                        name,
+                        image,
                         frame_offset: 0,
                         num_frames: 1,
                     });

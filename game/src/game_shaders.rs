@@ -293,7 +293,7 @@ impl<'context> Dependencies<'context> {
                         .into_iter()
                         .chain(Some(sector.ceiling_texture))
                 })
-                .filter(|name| !is_untextured(name) && !is_sky_flat(name));
+                .filter(|&name| !is_untextured(name) && !is_sky_flat(name));
             self.wad.textures.build_flat_atlas(names)
         };
         let texture = self.load_wad_texture(
@@ -318,7 +318,7 @@ impl<'context> Dependencies<'context> {
                         .chain(Some(sidedef.lower_texture))
                         .chain(Some(sidedef.middle_texture))
                 })
-                .filter(|name| !is_untextured(name));
+                .filter(|&name| !is_untextured(name));
             self.wad.textures.build_texture_atlas(names)
         };
         let texture = self.load_wad_texture(
@@ -361,7 +361,7 @@ impl<'context> Dependencies<'context> {
             .wad
             .archive
             .metadata()
-            .sky_for(&self.wad.level_name())
+            .sky_for(self.wad.level_name())
             .map_or_else(
                 || {
                     error!("No sky texture for level, will not render skies.");
@@ -406,7 +406,7 @@ impl<'context> Dependencies<'context> {
         let dummy_texture;
         let image_ref = match texture_spec {
             TextureSpec::TextureName(texture_name) => {
-                if let Some(image) = self.wad.textures.texture(&texture_name) {
+                if let Some(image) = self.wad.textures.texture(texture_name) {
                     ImageRef::Transparent {
                         pixels: image.pixels(),
                         size: image.size(),
@@ -475,6 +475,7 @@ struct Atlas {
     bounds: BoundsLookup,
 }
 
+#[derive(Copy, Clone)]
 enum TextureSpec<'a> {
     TransparentAtlas(&'a WadTransparentImage),
     OpaqueAtlas(&'a WadOpaqueImage),

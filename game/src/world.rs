@@ -179,7 +179,7 @@ impl Child {
 impl Node {
     fn new(partition: Line2f) -> Node {
         Node {
-            partition: partition,
+            partition,
             positive: 0,
             negative: 0,
         }

@@ -662,7 +662,7 @@ impl<'a> LevelVisitor for Builder<'a> {
         } else {
             return;
         };
-        let bounds = if let Some(bounds) = self.materials.walls.bounds.get(tex_name) {
+        let bounds = if let Some(bounds) = self.materials.walls.bounds.get(&tex_name) {
             *bounds
         } else {
             warn!("No such wall texture {}.", tex_name);
@@ -685,7 +685,7 @@ impl<'a> LevelVisitor for Builder<'a> {
             light_info,
             tex_name,
         } = poly;
-        let bounds = if let Some(bounds) = self.materials.flats.bounds.get(tex_name) {
+        let bounds = if let Some(bounds) = self.materials.flats.bounds.get(&tex_name) {
             *bounds
         } else {
             warn!("No such floor texture {}.", tex_name);
@@ -707,7 +707,7 @@ impl<'a> LevelVisitor for Builder<'a> {
             light_info,
             tex_name,
         } = poly;
-        let bounds = if let Some(bounds) = self.materials.flats.bounds.get(tex_name) {
+        let bounds = if let Some(bounds) = self.materials.flats.bounds.get(&tex_name) {
             *bounds
         } else {
             warn!("No such ceiling texture {}.", tex_name);
@@ -768,7 +768,7 @@ impl<'a> LevelVisitor for Builder<'a> {
             tex_name,
         } = decor;
         let light_info = self.add_light_info(light_info);
-        let bounds = if let Some(bounds) = self.materials.decor.bounds.get(tex_name) {
+        let bounds = if let Some(bounds) = self.materials.decor.bounds.get(&tex_name) {
             *bounds
         } else {
             warn!("No such decor texture {}.", tex_name);

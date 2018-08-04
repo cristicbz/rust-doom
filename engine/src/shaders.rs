@@ -66,7 +66,7 @@ impl Shaders {
         ).needed_by(name)?;
         debug!("Shader {:?} loaded successfully", name);
         let id = entities.add(parent, name)?;
-        self.map.insert(id, Shader { program: program });
+        self.map.insert(id, Shader { program });
         debug!("Added shader {:?} {:?} as child of {:?}.", name, id, parent);
         Ok(ShaderId(id))
     }

@@ -13,13 +13,13 @@ impl<T: BaseFloat> Line2<T> {
         let length = displace.magnitude();
         if length.abs() >= <T as NumCast>::from(1e-16).unwrap() {
             Line2 {
-                origin: origin,
+                origin,
                 displace: displace / length,
                 length,
             }
         } else {
             Line2 {
-                origin: origin,
+                origin,
                 displace: Vec2::zero(),
                 length: T::zero(),
             }

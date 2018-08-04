@@ -66,14 +66,14 @@ impl Level {
         info!("    {:4} sectors", sectors.len());
 
         Ok(Level {
-            things: things,
-            linedefs: linedefs,
-            sidedefs: sidedefs,
-            vertices: vertices,
-            segs: segs,
-            subsectors: subsectors,
-            nodes: nodes,
-            sectors: sectors,
+            things,
+            linedefs,
+            sidedefs,
+            vertices,
+            segs,
+            subsectors,
+            nodes,
+            sectors,
         })
     }
 
@@ -143,11 +143,11 @@ impl Level {
         self.sectors.get(sidedef.sector as usize)
     }
 
-    pub fn ssector(&self, index: usize) -> Option<&WadSubsector> {
-        self.subsectors.get(index)
+    pub fn ssector(&self, index: usize) -> Option<WadSubsector> {
+        self.subsectors.get(index).cloned()
     }
 
-    pub fn ssector_segs(&self, ssector: &WadSubsector) -> Option<&[WadSeg]> {
+    pub fn ssector_segs(&self, ssector: WadSubsector) -> Option<&[WadSeg]> {
         let start = ssector.first_seg as usize;
         let end = start + ssector.num_segs as usize;
         if end <= self.segs.len() {

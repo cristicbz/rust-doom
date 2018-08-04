@@ -17,7 +17,7 @@ use std::path::PathBuf;
 pub struct Game(Box<AbstractGame>);
 
 impl Game {
-    pub fn new(config: GameConfig) -> Result<Self> {
+    pub fn new(config: &GameConfig) -> Result<Self> {
         let context = ContextBuilder::new()
             // Engine configs and systems.
             .inject(TickConfig { timestep: 1.0 / 60.0 })

@@ -185,20 +185,19 @@ impl<'context> System<'context> for Input {
         self.mouse_rel = Vec2f::zero();
         deps.window.events().poll_events(|event| match event {
             Event::WindowEvent {
-                window_id: _,
                 event: WindowEvent::CloseRequested,
+                ..
             } => {
                 self.quit_requested_index = self.current_update_index;
             }
             Event::DeviceEvent {
-                device_id: _,
                 event:
                     DeviceEvent::Key(KeyboardInput {
-                        scancode: _,
-                        modifiers: _,
                         state,
                         virtual_keycode: Some(virtual_keycode),
+                        ..
                     }),
+                ..
             } => {
                 self.keyboard_state[virtual_keycode as usize] = match state {
                     ElementState::Pressed => ButtonState::Down(self.current_update_index),
@@ -206,26 +205,22 @@ impl<'context> System<'context> for Input {
                 }
             }
             Event::DeviceEvent {
-                device_id: _,
                 event: DeviceEvent::Motion { axis, value },
+                ..
             } => {
-                if self.mouse_enabled {
-                    if axis < 2 {
-                        self.mouse_rel[axis as usize] += value as f32;
-                    }
+                if self.mouse_enabled && axis < 2 {
+                    self.mouse_rel[axis as usize] += value as f32;
                 }
             }
             Event::DeviceEvent {
-                device_id: _,
                 event: DeviceEvent::Button { button, state },
+                ..
             } => {
                 let button = button as usize;
-                if self.mouse_enabled {
-                    if button < NUM_MOUSE_BUTTONS {
-                        self.mouse_button_state[button] = match state {
-                            ElementState::Pressed => ButtonState::Down(self.current_update_index),
-                            ElementState::Released => ButtonState::Up(self.current_update_index),
-                        }
+                if self.mouse_enabled && button < NUM_MOUSE_BUTTONS {
+                    self.mouse_button_state[button] = match state {
+                        ElementState::Pressed => ButtonState::Down(self.current_update_index),
+                        ElementState::Released => ButtonState::Up(self.current_update_index),
                     }
                 }
             }

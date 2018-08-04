@@ -142,7 +142,7 @@ impl Archive {
                 .lumps
                 .get(index)
                 .ok_or_else(|| ErrorKind::missing_required_lump(&index))?,
-            index: index,
+            index,
         })
     }
 }
@@ -263,4 +263,4 @@ struct LumpInfo {
     size: usize,
 }
 
-const IWAD_HEADER: &'static [u8] = b"IWAD";
+const IWAD_HEADER: &[u8] = b"IWAD";

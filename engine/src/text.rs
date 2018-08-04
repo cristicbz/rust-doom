@@ -59,7 +59,7 @@ impl TextRenderer {
                     vertex(x + w, y + h, 1.0, 0.0),
                 ],
             ).unwrap(),
-            texture: texture,
+            texture,
             visible: true,
         };
         let id = self.slab.insert(text);
@@ -132,8 +132,8 @@ impl TextRenderer {
 
                         let new_alpha = scale * 255 / 256;
 
-                        let red = (*pixel >> 8) as u32 * one_minus_scale + 0xff * scale;
-                        let alpha = (*pixel & 0xff) as u32 * one_minus_scale + new_alpha * scale;
+                        let red = u32::from(*pixel >> 8) * one_minus_scale + 0xff * scale;
+                        let alpha = u32::from(*pixel & 0xff) * one_minus_scale + new_alpha * scale;
 
                         *pixel = (red | (alpha >> 8)) as u16;
                     }
@@ -150,12 +150,9 @@ impl<'a> Iterator for LayoutIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         for c in &mut self.chars {
             if c.is_control() {
-                match c {
-                    '\n' => {
-                        self.caret = rusttype::point(0.0, self.caret.y + self.advance_height);
-                        self.last_glyph_id = None;
-                    }
-                    _ => {}
+                if c == '\n' {
+                    self.caret = rusttype::point(0.0, self.caret.y + self.advance_height);
+                    self.last_glyph_id = None;
                 }
                 continue;
             }

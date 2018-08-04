@@ -174,7 +174,7 @@ impl Entities {
                 for _ in 0..id_padding {
                     output.push('.');
                 }
-                write!(&mut output, "  ({:?})\n", id).expect("string write fail");
+                writeln!(&mut output, "  ({:?})", id).expect("string write fail");
                 if let Some(next_id) = entity.next.into_option() {
                     stack.push((depth, next_id));
                 }
@@ -404,7 +404,6 @@ pub struct Entity {
 mod test {
     use super::super::system::InfallibleSystem;
     use super::{Entities, EntityId};
-    use env_logger;
     use std::collections::HashSet;
 
     struct Tree1 {
@@ -475,7 +474,6 @@ mod test {
 
     #[test]
     fn add_contains() {
-        let _ = env_logger::init();
         let mut entities = Entities::create(());
         let tree1 = Tree1::new(&mut entities);
 
@@ -496,7 +494,6 @@ mod test {
 
     #[test]
     fn add_remove_single() {
-        let _ = env_logger::init();
         let mut entities = Entities::create(());
         let tree1 = Tree1::new(&mut entities);
 
@@ -511,7 +508,6 @@ mod test {
 
     #[test]
     fn add_remove_one_child() {
-        let _ = env_logger::init();
         let mut entities = Entities::create(());
         let tree1 = Tree1::new(&mut entities);
 
@@ -526,7 +522,6 @@ mod test {
 
     #[test]
     fn add_remove_one_subtree() {
-        let _ = env_logger::init();
         let mut entities = Entities::create(());
         let tree1 = Tree1::new(&mut entities);
 
@@ -546,7 +541,6 @@ mod test {
 
     #[test]
     fn add_remove_all() {
-        let _ = env_logger::init();
         let mut entities = Entities::create(());
         let tree1 = Tree1::new(&mut entities);
 

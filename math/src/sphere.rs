@@ -10,10 +10,7 @@ pub struct Sphere {
 
 impl Sphere {
     pub fn new(center: Pnt3f, radius: f32) -> Sphere {
-        Sphere {
-            center: center,
-            radius: radius,
-        }
+        Sphere { center, radius }
     }
 
     pub fn sweep_triangle(

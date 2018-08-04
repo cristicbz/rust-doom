@@ -172,7 +172,7 @@ fn run() -> Result<()> {
             }
         }
         RunMode::Check(config) => {
-            let mut game = Game::new(GameConfig {
+            let mut game = Game::new(&GameConfig {
                 initial_level_index: 0,
                 ..config
             })?;
@@ -190,7 +190,7 @@ fn run() -> Result<()> {
             println!("{}", help);
         }
         RunMode::Play(config) => {
-            let mut game = Game::new(config)?;
+            let mut game = Game::new(&config)?;
             game.run()?;
             info!("Game main loop ended, shutting down...");
         }

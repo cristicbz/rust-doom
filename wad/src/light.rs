@@ -69,11 +69,11 @@ pub fn new_light(level: &Level, sector: &WadSector) -> LightInfo {
     LightInfo {
         level: base_level,
         effect: Some(LightEffect {
-            alt_level: alt_level,
-            kind: kind,
-            speed: speed,
-            duration: duration,
-            sync: sync,
+            alt_level,
+            kind,
+            speed,
+            duration,
+            sync,
         }),
     }
 }

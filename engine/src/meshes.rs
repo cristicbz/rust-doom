@@ -73,7 +73,7 @@ impl Meshes {
                 indices: indices.as_mut(),
             },
             InternalMeshData::Inherit {
-                vertices_from: _,
+                vertices_from: _vertices_from,
                 ref mut indices,
             } => MeshRefMut {
                 vertices: None,

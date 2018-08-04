@@ -28,8 +28,8 @@ impl Image {
             height
         );
         Ok(Image {
-            width: width,
-            height: height,
+            width,
+            height,
             x_offset: 0,
             y_offset: 0,
             pixels: vec![0xff00; width * height],
@@ -158,11 +158,11 @@ impl Image {
         }
 
         Ok(Image {
-            width: width,
-            height: height,
-            x_offset: x_offset,
-            y_offset: y_offset,
-            pixels: pixels,
+            width,
+            height,
+            x_offset,
+            y_offset,
+            pixels,
         })
     }
 

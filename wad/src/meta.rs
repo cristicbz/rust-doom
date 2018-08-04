@@ -152,7 +152,7 @@ impl WadMetadata {
         Ok(toml::from_str(text).chain_err(|| "Invalid metadata.")?)
     }
 
-    pub fn sky_for(&self, name: &WadName) -> Option<&SkyMetadata> {
+    pub fn sky_for(&self, name: WadName) -> Option<&SkyMetadata> {
         self.sky
             .iter()
             .find(|sky| sky.level_pattern.is_match(name.as_ref()))

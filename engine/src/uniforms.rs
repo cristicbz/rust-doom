@@ -166,7 +166,7 @@ impl Uniforms {
                 data: Cow::Borrowed(pixels),
                 width: size[0] as u32,
                 height: size[1] as u32,
-                format: format,
+                format,
             },
         ).needed_by(name)?;
         debug!("Texture {:?} created successfully", name);
@@ -315,7 +315,7 @@ impl<'uniforms> Texture2dRefMut<'uniforms> {
                 data: Cow::Borrowed(pixels),
                 width: size[0] as u32,
                 height: size[1] as u32,
-                format: format,
+                format,
             },
         ).needed_by("texture2d.replace_pixels")?;
 
