@@ -1,5 +1,5 @@
 use super::entities::{Entities, Entity, EntityId};
-use super::errors::{NeededBy, Result, ResultExt, ErrorKind};
+use super::errors::{ErrorKind, NeededBy, Result, ResultExt};
 use super::platform;
 use super::system::InfallibleSystem;
 use super::window::Window;
@@ -43,18 +43,12 @@ impl Shaders {
 
         debug!(
             "Loading shader {:?} (from {}, fragment={:?} and vert={:?})",
-            name,
-            asset_path,
-            fragment_path,
-            vertex_path
+            name, asset_path, fragment_path, vertex_path
         );
         read_utf8_file(&fragment_path, &mut fragment_source)
             .chain_err(|| ErrorKind::ResourceIo("fragment shader", name.to_owned()))?;
-        read_utf8_file(&vertex_path, &mut vertex_source).chain_err(
-            || {
-                ErrorKind::ResourceIo("vertex shader", name.to_owned())
-            },
-        )?;
+        read_utf8_file(&vertex_path, &mut vertex_source)
+            .chain_err(|| ErrorKind::ResourceIo("vertex shader", name.to_owned()))?;
 
         let program = Program::new(
             window.facade(),
@@ -72,7 +66,7 @@ impl Shaders {
         ).needed_by(name)?;
         debug!("Shader {:?} loaded successfully", name);
         let id = entities.add(parent, name)?;
-        self.map.insert(id, Shader { program: program });
+        self.map.insert(id, Shader { program });
         debug!("Added shader {:?} {:?} as child of {:?}.", name, id, parent);
         Ok(ShaderId(id))
     }

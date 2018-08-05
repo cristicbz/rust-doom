@@ -1,4 +1,4 @@
-use super::entities::{EntityId, Entity, Entities};
+use super::entities::{Entities, Entity, EntityId};
 use super::system::InfallibleSystem;
 use idcontain::IdMapVec;
 use math::{self, Mat4, Rad};
@@ -59,7 +59,9 @@ impl<'context> InfallibleSystem<'context> for Projections {
     }
 
     fn create(_: &'context Entities) -> Self {
-        Projections { map: IdMapVec::with_capacity(128) }
+        Projections {
+            map: IdMapVec::with_capacity(128),
+        }
     }
 
     fn update(&mut self, entities: &Entities) {

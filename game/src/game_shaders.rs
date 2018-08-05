@@ -1,14 +1,16 @@
 use super::errors::{Error, Result};
 use super::wad_system::WadSystem;
-use engine::{Entities, Shaders, Uniforms, Materials, Renderer, Window, ClientFormat,
-             SamplerBehavior, SamplerWrapFunction, MinifySamplerFilter, MagnifySamplerFilter,
-             Texture2dId, EntityId, FloatUniformId, MaterialId, BufferTextureId,
-             BufferTextureType, ShaderId, System, Tick};
+use engine::{
+    BufferTextureId, BufferTextureType, ClientFormat, Entities, EntityId, FloatUniformId,
+    MagnifySamplerFilter, MaterialId, Materials, MinifySamplerFilter, RenderPipeline,
+    SamplerBehavior, SamplerWrapFunction, ShaderId, Shaders, System, Texture2dId, Tick, Uniforms,
+    Window,
+};
 use math::Vec2;
-use wad::{TransparentImage as WadTransparentImage, OpaqueImage as WadOpaqueImage, WadName};
 use wad::tex::BoundsLookup;
-use wad::types::{PALETTE_SIZE, COLORMAP_SIZE};
+use wad::types::{COLORMAP_SIZE, PALETTE_SIZE};
 use wad::util::{is_sky_flat, is_untextured};
+use wad::{OpaqueImage as WadOpaqueImage, TransparentImage as WadTransparentImage, WadName};
 
 pub struct AtlasMaterial {
     pub material: MaterialId,
@@ -43,7 +45,7 @@ derive_dependencies_from! {
         entities: &'context mut Entities,
         shaders: &'context mut Shaders,
         uniforms: &'context mut Uniforms,
-        renderer: &'context mut Renderer,
+        render: &'context mut RenderPipeline,
         materials: &'context mut Materials,
 
         wad: &'context mut WadSystem,
@@ -80,13 +82,15 @@ impl<'context> System<'context> for GameShaders {
             self.level_id = deps.entities.add(self.globals_id, "level_materials")?;
             self.level = deps.load_level(&self.globals, self.level_id)?;
             info!("Reloaded level materials.");
-            *deps.uniforms.get_float_mut(self.globals.time).expect(
-                "missing time",
-            ) = 0.0;
+            *deps
+                .uniforms
+                .get_float_mut(self.globals.time)
+                .expect("missing time") = 0.0;
         } else {
-            *deps.uniforms.get_float_mut(self.globals.time).expect(
-                "missing time",
-            ) += deps.tick.timestep();
+            *deps
+                .uniforms
+                .get_float_mut(self.globals.time)
+                .expect("missing time") += deps.tick.timestep();
         }
 
         Ok(())
@@ -125,10 +129,7 @@ impl<'context> Dependencies<'context> {
             parent,
             "palette",
             &palette.pixels,
-            Vec2::new(
-                COLORMAP_SIZE,
-                palette.pixels.len() / PALETTE_SIZE,
-            ),
+            Vec2::new(COLORMAP_SIZE, palette.pixels.len() / PALETTE_SIZE),
             ClientFormat::U8U8U8,
             Some(SamplerBehavior {
                 wrap_function: (
@@ -146,12 +147,9 @@ impl<'context> Dependencies<'context> {
     fn load_globals(&mut self, parent: EntityId) -> Result<Globals> {
         let palette = self.load_palette(parent)?;
 
-        let time = self.uniforms.add_float(
-            self.entities,
-            parent,
-            "time_uniform",
-            0.0,
-        )?;
+        let time = self
+            .uniforms
+            .add_float(self.entities, parent, "time_uniform", 0.0)?;
         let lights_buffer_texture = self.uniforms.add_persistent_buffer_texture_u8(
             self.window,
             self.entities,
@@ -176,11 +174,12 @@ impl<'context> Dependencies<'context> {
     }
 
     fn load_level(&mut self, globals: &Globals, parent: EntityId) -> Result<LevelMaterials> {
-        let modelview = self.renderer.modelview();
-        let projection = self.renderer.projection();
+        let modelview = self.render.modelview();
+        let projection = self.render.projection();
 
         let flats_atlas = self.load_flats_atlas(parent)?;
-        let flats_material = self.materials
+        let flats_material = self
+            .materials
             .add(
                 self.entities,
                 parent,
@@ -204,7 +203,8 @@ impl<'context> Dependencies<'context> {
             .id();
 
         let walls_atlas = self.load_walls_atlas(parent)?;
-        let walls_material = self.materials
+        let walls_material = self
+            .materials
             .add(
                 self.entities,
                 parent,
@@ -228,7 +228,8 @@ impl<'context> Dependencies<'context> {
             .id();
 
         let sky_uniforms = self.load_sky_uniforms(parent)?;
-        let sky_material = self.materials
+        let sky_material = self
+            .materials
             .add(self.entities, parent, globals.sky_shader, "sky_material")?
             .add_uniform("u_modelview", modelview)
             .add_uniform("u_projection", projection)
@@ -238,7 +239,8 @@ impl<'context> Dependencies<'context> {
             .id();
 
         let decor_atlas = self.load_decor_atlas(parent)?;
-        let decor_material = self.materials
+        let decor_material = self
+            .materials
             .add(
                 self.entities,
                 parent,
@@ -281,16 +283,17 @@ impl<'context> Dependencies<'context> {
     fn load_flats_atlas(&mut self, parent: EntityId) -> Result<Atlas> {
         info!("Building flats atlas...");
         let (image, bounds) = {
-            let names = self.wad
+            let names = self
+                .wad
                 .level
                 .sectors
                 .iter()
                 .flat_map(|sector| {
-                    Some(sector.floor_texture).into_iter().chain(Some(
-                        sector.ceiling_texture,
-                    ))
+                    Some(sector.floor_texture)
+                        .into_iter()
+                        .chain(Some(sector.ceiling_texture))
                 })
-                .filter(|name| !is_untextured(name) && !is_sky_flat(name));
+                .filter(|&name| !is_untextured(name) && !is_sky_flat(name));
             self.wad.textures.build_flat_atlas(names)
         };
         let texture = self.load_wad_texture(
@@ -304,7 +307,8 @@ impl<'context> Dependencies<'context> {
     fn load_walls_atlas(&mut self, parent: EntityId) -> Result<Atlas> {
         info!("Building walls atlas...");
         let (image, bounds) = {
-            let names = self.wad
+            let names = self
+                .wad
                 .level
                 .sidedefs
                 .iter()
@@ -314,7 +318,7 @@ impl<'context> Dependencies<'context> {
                         .chain(Some(sidedef.lower_texture))
                         .chain(Some(sidedef.middle_texture))
                 })
-                .filter(|name| !is_untextured(name));
+                .filter(|&name| !is_untextured(name));
             self.wad.textures.build_texture_atlas(names)
         };
         let texture = self.load_wad_texture(
@@ -329,7 +333,8 @@ impl<'context> Dependencies<'context> {
         info!("Building sprite decorations atlas...");
         let (image, bounds) = {
             let wad = &self.wad;
-            let names = wad.level
+            let names = wad
+                .level
                 .things
                 .iter()
                 .filter_map(|thing| wad.archive.metadata().find_thing(thing.thing_type))
@@ -352,10 +357,11 @@ impl<'context> Dependencies<'context> {
     }
 
     fn load_sky_uniforms(&mut self, parent: EntityId) -> Result<SkyUniforms> {
-        let (texture_name, tiled_band_size) = self.wad
+        let (texture_name, tiled_band_size) = self
+            .wad
             .archive
             .metadata()
-            .sky_for(&self.wad.level_name())
+            .sky_for(self.wad.level_name())
             .map_or_else(
                 || {
                     error!("No sky texture for level, will not render skies.");
@@ -400,7 +406,7 @@ impl<'context> Dependencies<'context> {
         let dummy_texture;
         let image_ref = match texture_spec {
             TextureSpec::TextureName(texture_name) => {
-                if let Some(image) = self.wad.textures.texture(&texture_name) {
+                if let Some(image) = self.wad.textures.texture(texture_name) {
                     ImageRef::Transparent {
                         pixels: image.pixels(),
                         size: image.size(),
@@ -424,30 +430,26 @@ impl<'context> Dependencies<'context> {
             },
         };
         Ok(match image_ref {
-            ImageRef::Transparent { pixels, size } => {
-                self.uniforms.add_texture_2d(
-                    self.window,
-                    self.entities,
-                    parent,
-                    name,
-                    pixels,
-                    size,
-                    ClientFormat::U8U8,
-                    sampler,
-                )?
-            }
-            ImageRef::Opaque { pixels, size } => {
-                self.uniforms.add_texture_2d(
-                    self.window,
-                    self.entities,
-                    parent,
-                    name,
-                    pixels,
-                    size,
-                    ClientFormat::U8,
-                    sampler,
-                )?
-            }
+            ImageRef::Transparent { pixels, size } => self.uniforms.add_texture_2d(
+                self.window,
+                self.entities,
+                parent,
+                name,
+                pixels,
+                size,
+                ClientFormat::U8U8,
+                sampler,
+            )?,
+            ImageRef::Opaque { pixels, size } => self.uniforms.add_texture_2d(
+                self.window,
+                self.entities,
+                parent,
+                name,
+                pixels,
+                size,
+                ClientFormat::U8,
+                sampler,
+            )?,
         })
     }
 
@@ -457,13 +459,9 @@ impl<'context> Dependencies<'context> {
         name: &'static str,
         asset: &'static str,
     ) -> Result<ShaderId> {
-        Ok(self.shaders.add(
-            self.window,
-            self.entities,
-            parent,
-            name,
-            asset,
-        )?)
+        Ok(self
+            .shaders
+            .add(self.window, self.entities, parent, name, asset)?)
     }
 }
 
@@ -477,6 +475,7 @@ struct Atlas {
     bounds: BoundsLookup,
 }
 
+#[derive(Copy, Clone)]
 enum TextureSpec<'a> {
     TransparentAtlas(&'a WadTransparentImage),
     OpaqueAtlas(&'a WadOpaqueImage),
@@ -488,5 +487,8 @@ enum ImageRef<'a> {
         pixels: &'a [u16],
         size: Vec2<usize>,
     },
-    Opaque { pixels: &'a [u8], size: Vec2<usize> },
+    Opaque {
+        pixels: &'a [u8],
+        size: Vec2<usize>,
+    },
 }

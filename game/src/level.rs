@@ -1,17 +1,21 @@
 use super::errors::{Error, Result};
 use super::game_shaders::{GameShaders, LevelMaterials};
 use super::lights::Lights;
-use super::vertex::{StaticVertex, SkyVertex, SpriteVertex};
+use super::vertex::{SkyVertex, SpriteVertex, StaticVertex};
 use super::wad_system::WadSystem;
 use super::world::{World, WorldBuilder};
-use engine::{Entities, Uniforms, Meshes, Renderer, Window, EntityId, System, Tick, Transforms};
-use math::{Vec3f, Trans3, Line2f, vec2, Pnt3f, Pnt2f, Rad};
+use engine::{
+    Entities, EntityId, Meshes, RenderPipeline, System, Tick, Transforms, Uniforms, Window,
+};
 use math::prelude::*;
+use math::{vec2, Line2f, Pnt2f, Pnt3f, Rad, Trans3, Vec3f};
 use time;
 use vec_map::VecMap;
-use wad::{Decor, LevelVisitor, LightInfo, Marker, SkyPoly, SkyQuad, StaticPoly, StaticQuad,
-          ObjectId, MoveEffect, TriggerType, Trigger};
 use wad::tex::Bounds as WadBounds;
+use wad::{
+    Decor, LevelVisitor, LightInfo, Marker, MoveEffect, ObjectId, SkyPoly, SkyQuad, StaticPoly,
+    StaticQuad, Trigger, TriggerType,
+};
 
 pub struct Level {
     root: EntityId,
@@ -34,7 +38,7 @@ derive_dependencies_from! {
         entities: &'context mut Entities,
         uniforms: &'context mut Uniforms,
         meshes: &'context mut Meshes,
-        renderer: &'context mut Renderer,
+        render: &'context mut RenderPipeline,
         wad: &'context mut WadSystem,
         tick: &'context Tick,
         transforms: &'context mut Transforms,
@@ -42,7 +46,6 @@ derive_dependencies_from! {
         game_shaders: &'context GameShaders,
     }
 }
-
 
 #[derive(Copy, Clone, Debug)]
 pub enum PlayerAction {
@@ -82,11 +85,10 @@ impl Level {
         let action_and_line = action.map(|action| {
             let look3d = transform.rot.rotate_vector(-Vec3f::unit_z());
             let look2d = vec2(look3d.x, look3d.z).normalize_or_zero();
-            let ranged = look2d *
-                match action {
-                    PlayerAction::Push => 0.5,
-                    PlayerAction::Shoot => 100.0,
-                };
+            let ranged = look2d * match action {
+                PlayerAction::Push => 0.5,
+                PlayerAction::Shoot => 100.0,
+            };
             (action, Line2f::from_origin_and_displace(position, ranged))
         });
 
@@ -119,16 +121,14 @@ impl Level {
                     if let Some(offset) = walked.segment_intersect_offset(&trigger.line) {
                         debug!(
                             "Trigger {} (any) walk-activated offset={}",
-                            i_trigger,
-                            offset
+                            i_trigger, offset
                         );
                         triggered = true;
                     } else if let Some((PlayerAction::Push, line)) = action_and_line {
                         if let Some(offset) = line.segment_intersect_offset(&trigger.line) {
                             debug!(
                                 "Trigger {} (any) push-activated offset={}",
-                                i_trigger,
-                                offset
+                                i_trigger, offset
                             );
                             triggered = true;
                         }
@@ -140,8 +140,7 @@ impl Level {
                     let effect_index = effect.object_id.0 as usize;
                     debug!(
                         "Started effect {} with type {}.",
-                        effect_index,
-                        trigger.special_type
+                        effect_index, trigger.special_type
                     );
                     self.effects.insert(effect_index, effect);
                 }
@@ -202,9 +201,10 @@ impl<'context> System<'context> for Level {
         let timestep = deps.tick.timestep();
         for (i_effect, effect) in &mut self.effects {
             let entity_id = self.objects[i_effect];
-            let transform = deps.transforms.get_local_mut(entity_id).expect(
-                "no transform on object",
-            );
+            let transform = deps
+                .transforms
+                .get_local_mut(entity_id)
+                .expect("no transform on object");
             let current_offset = &mut transform.disp[1];
             let mut timestep = timestep;
 
@@ -237,8 +237,7 @@ impl<'context> System<'context> for Level {
                     effect.first_height_offset = offset;
                     debug!(
                         "Effect {}: moved second offset {} into first.",
-                        i_effect,
-                        offset
+                        i_effect, offset
                     );
                     continue;
                 }
@@ -254,16 +253,15 @@ impl<'context> System<'context> for Level {
         }
         self.removed.clear();
 
-        let time = *deps.uniforms
+        let time = *deps
+            .uniforms
             .get_float_mut(deps.game_shaders.time())
             .expect("missing time");
         let light_infos = &mut self.lights;
-        deps.uniforms.map_buffer_texture_u8(
-            deps.game_shaders.lights_buffer_texture(),
-            |buffer| {
+        deps.uniforms
+            .map_buffer_texture_u8(deps.game_shaders.lights_buffer_texture(), |buffer| {
                 light_infos.fill_buffer_at(time, buffer)
-            },
-        );
+            });
         Ok(())
     }
 
@@ -299,9 +297,9 @@ impl Indices {
     }
 
     fn in_map(indices: &mut VecMap<Self>, object_id: ObjectId) -> &mut Self {
-        indices.entry(object_id.0 as usize).or_insert_with(|| {
-            Self::for_id(object_id)
-        })
+        indices
+            .entry(object_id.0 as usize)
+            .or_insert_with(|| Self::for_id(object_id))
     }
 }
 
@@ -338,7 +336,8 @@ impl<'a> Builder<'a> {
         let world = deps.entities.add(root, "world")?;
         deps.transforms.attach_identity(world);
         objects.extend((0..deps.wad.analysis.num_objects()).map(|i_object| {
-            let entity = deps.entities
+            let entity = deps
+                .entities
                 .add(
                     world,
                     if i_object == 0 {
@@ -383,16 +382,16 @@ impl<'a> Builder<'a> {
 
         info!(
             "Level built in {:.2}ms:\n\
-            \tnum_wall_quads = {}\n\
-            \tnum_floor_polys = {}\n\
-            \tnum_ceil_polys = {}\n\
-            \tnum_sky_wall_quads = {}\n\
-            \tnum_sky_floor_polys = {}\n\
-            \tnum_sky_ceil_polys = {}\n\
-            \tnum_decors = {}\n\
-            \tnum_static_tris = {}\n\
-            \tnum_sky_tris = {}\n\
-            \tnum_sprite_tris = {}",
+             \tnum_wall_quads = {}\n\
+             \tnum_floor_polys = {}\n\
+             \tnum_ceil_polys = {}\n\
+             \tnum_sky_wall_quads = {}\n\
+             \tnum_sky_floor_polys = {}\n\
+             \tnum_sky_ceil_polys = {}\n\
+             \tnum_decors = {}\n\
+             \tnum_static_tris = {}\n\
+             \tnum_sky_tris = {}\n\
+             \tnum_sprite_tris = {}",
             (time::precise_time_s() - start_time) * 1000.0,
             builder.num_wall_quads,
             builder.num_floor_polys,
@@ -401,112 +400,94 @@ impl<'a> Builder<'a> {
             builder.num_sky_floor_polys,
             builder.num_sky_ceil_polys,
             builder.num_decors,
-            builder.object_indices.values().map(|indices| {
-                indices.wall.len() +
-                    indices.flat.len()
-            }).sum::<usize>() / 3,
-            builder.object_indices.values().map(|indices| {
-                indices.sky.len()
-            }).sum::<usize>() / 3,
-            builder.object_indices.values().map(|indices| {
-                indices.decor.len()
-            }).sum::<usize>() / 3,
-            );
+            builder
+                .object_indices
+                .values()
+                .map(|indices| indices.wall.len() + indices.flat.len())
+                .sum::<usize>() / 3,
+            builder
+                .object_indices
+                .values()
+                .map(|indices| indices.sky.len())
+                .sum::<usize>() / 3,
+            builder
+                .object_indices
+                .values()
+                .map(|indices| indices.decor.len())
+                .sum::<usize>() / 3,
+        );
 
         info!("Creating static meshes and models...");
-        let global_static_mesh = deps.meshes.add_immutable::<_, u8>(
-            deps.window,
-            deps.entities,
-            root,
-            "global_world_static_mesh",
-            &builder.static_vertices,
-            None,
-        )?;
-        let global_sky_mesh = deps.meshes.add_immutable::<_, u8>(
-            deps.window,
-            deps.entities,
-            root,
-            "global_world_sky_mesh",
-            &builder.sky_vertices,
-            None,
-        )?;
-        let global_decor_mesh = deps.meshes.add_immutable::<_, u8>(
-            deps.window,
-            deps.entities,
-            root,
-            "global_world_decor_mesh",
-            &builder.decor_vertices,
-            None,
-        )?;
+        let global_static_mesh = deps
+            .meshes
+            .add(deps.window, deps.entities, root, "global_world_static_mesh")
+            .immutable(&builder.static_vertices)?
+            .build_unindexed()?;
+
+        let global_sky_mesh = deps
+            .meshes
+            .add(deps.window, deps.entities, root, "global_world_sky_mesh")
+            .immutable(&builder.sky_vertices)?
+            .build_unindexed()?;
+
+        let global_decor_mesh = deps
+            .meshes
+            .add(deps.window, deps.entities, root, "global_world_decor_mesh")
+            .immutable(&builder.decor_vertices)?
+            .build_unindexed()?;
 
         for (id, indices) in &builder.object_indices {
             let object = objects[id];
             if !indices.flat.is_empty() {
-                let flats_mesh = deps.meshes.add_immutable_indices(
-                    deps.window,
-                    deps.entities,
-                    global_static_mesh,
-                    "object_flats_mesh",
-                    &indices.flat,
-                )?;
-                let flats = deps.entities.add(object, "flats")?;
-                deps.transforms.attach_identity(flats);
-                deps.renderer.attach_model(
-                    flats,
-                    flats_mesh,
-                    builder.materials.flats.material,
-                )?;
+                let entity = deps.entities.add(object, "flats")?;
+                let mesh = deps
+                    .meshes
+                    .add(deps.window, deps.entities, entity, "object_flats_mesh")
+                    .shared(global_static_mesh)
+                    .immutable_indices(&indices.flat)?
+                    .build()?;
+                deps.transforms.attach_identity(entity);
+                deps.render
+                    .attach_model(entity, mesh, builder.materials.flats.material);
             }
 
             if !indices.wall.is_empty() {
-                let walls_mesh = deps.meshes.add_immutable_indices(
-                    deps.window,
-                    deps.entities,
-                    global_static_mesh,
-                    "object_walls_mesh",
-                    &indices.wall,
-                )?;
-                let walls = deps.entities.add(object, "walls")?;
-                deps.transforms.attach_identity(walls);
-                deps.renderer.attach_model(
-                    walls,
-                    walls_mesh,
-                    builder.materials.walls.material,
-                )?;
+                let entity = deps.entities.add(object, "walls")?;
+                let mesh = deps
+                    .meshes
+                    .add(deps.window, deps.entities, entity, "object_walls_mesh")
+                    .shared(global_static_mesh)
+                    .immutable_indices(&indices.wall)?
+                    .build()?;
+                deps.transforms.attach_identity(entity);
+                deps.render
+                    .attach_model(entity, mesh, builder.materials.walls.material);
             }
 
             if !indices.decor.is_empty() {
-                let decor_mesh = deps.meshes.add_immutable_indices(
-                    deps.window,
-                    deps.entities,
-                    global_decor_mesh,
-                    "object_decor_mesh",
-                    &indices.decor,
-                )?;
-                let decor = deps.entities.add(object, "decor")?;
-                deps.transforms.attach_identity(decor);
-                deps.renderer.attach_model(
-                    decor,
-                    decor_mesh,
-                    builder.materials.decor.material,
-                )?;
+                let entity = deps.entities.add(object, "decor")?;
+                let mesh = deps
+                    .meshes
+                    .add(deps.window, deps.entities, entity, "object_decor_mesh")
+                    .shared(global_decor_mesh)
+                    .immutable_indices(&indices.decor)?
+                    .build()?;
+                deps.transforms.attach_identity(entity);
+                deps.render
+                    .attach_model(entity, mesh, builder.materials.decor.material);
             }
 
             if !indices.sky.is_empty() {
-                let sky_mesh = deps.meshes.add_immutable_indices(
-                    deps.window,
-                    deps.entities,
-                    global_sky_mesh,
-                    "object_sky_mesh",
-                    &indices.sky,
-                )?;
-                let sky = deps.entities.add(object, "sky")?;
-                deps.transforms.attach_identity(sky);
-                deps.renderer.attach_model(
-                    sky,
-                    sky_mesh,
-                    builder.materials.sky,
-                )?;
+                let entity = deps.entities.add(object, "sky")?;
+                let mesh = deps
+                    .meshes
+                    .add(deps.window, deps.entities, entity, "object_sky_mesh")
+                    .shared(global_sky_mesh)
+                    .immutable_indices(&indices.sky)?
+                    .build()?;
+                deps.transforms.attach_identity(entity);
+                deps.render
+                    .attach_model(entity, mesh, builder.materials.sky);
             }
         }
 
@@ -564,9 +545,9 @@ impl<'a> Builder<'a> {
     }
 
     fn sky_vertex(&mut self, xz: Pnt2f, y: f32) -> &mut Self {
-        self.sky_vertices.push(
-            SkyVertex { a_pos: [xz[0], y, xz[1]] },
-        );
+        self.sky_vertices.push(SkyVertex {
+            a_pos: [xz[0], y, xz[1]],
+        });
         self
     }
 
@@ -660,7 +641,6 @@ impl<'a> Builder<'a> {
     }
 }
 
-
 impl<'a> LevelVisitor for Builder<'a> {
     // TODO(cristicbz): Change some types here and unify as much as possible.
     fn visit_wall_quad(&mut self, quad: &StaticQuad) {
@@ -682,7 +662,7 @@ impl<'a> LevelVisitor for Builder<'a> {
         } else {
             return;
         };
-        let bounds = if let Some(bounds) = self.materials.walls.bounds.get(tex_name) {
+        let bounds = if let Some(bounds) = self.materials.walls.bounds.get(&tex_name) {
             *bounds
         } else {
             warn!("No such wall texture {}.", tex_name);
@@ -705,7 +685,7 @@ impl<'a> LevelVisitor for Builder<'a> {
             light_info,
             tex_name,
         } = poly;
-        let bounds = if let Some(bounds) = self.materials.flats.bounds.get(tex_name) {
+        let bounds = if let Some(bounds) = self.materials.flats.bounds.get(&tex_name) {
             *bounds
         } else {
             warn!("No such floor texture {}.", tex_name);
@@ -727,7 +707,7 @@ impl<'a> LevelVisitor for Builder<'a> {
             light_info,
             tex_name,
         } = poly;
-        let bounds = if let Some(bounds) = self.materials.flats.bounds.get(tex_name) {
+        let bounds = if let Some(bounds) = self.materials.flats.bounds.get(&tex_name) {
             *bounds
         } else {
             warn!("No such ceiling texture {}.", tex_name);
@@ -788,7 +768,7 @@ impl<'a> LevelVisitor for Builder<'a> {
             tex_name,
         } = decor;
         let light_info = self.add_light_info(light_info);
-        let bounds = if let Some(bounds) = self.materials.decor.bounds.get(tex_name) {
+        let bounds = if let Some(bounds) = self.materials.decor.bounds.get(&tex_name) {
             *bounds
         } else {
             warn!("No such decor texture {}.", tex_name);

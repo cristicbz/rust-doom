@@ -1,7 +1,7 @@
-use super::error::{Result, ResultExt, ErrorKind};
+use super::error::{ErrorKind, Result, ResultExt};
 use super::name::WadName;
-use super::types::{ThingType, WadCoord, SpecialType};
-use ordermap::OrderMap;
+use super::types::{SpecialType, ThingType, WadCoord};
+use indexmap::IndexMap;
 use regex::Regex;
 use serde::de::{Deserialize, Deserializer, Error as SerdeDeError};
 use std::fs::File;
@@ -20,7 +20,6 @@ pub struct SkyMetadata {
     pub tiled_band_size: f32,
 }
 
-
 #[derive(Debug, Deserialize)]
 pub struct AnimationMetadata {
     #[serde(deserialize_with = "deserialize_name_from_vec_vec_str")]
@@ -28,7 +27,6 @@ pub struct AnimationMetadata {
     #[serde(deserialize_with = "deserialize_name_from_vec_vec_str")]
     pub walls: Vec<Vec<WadName>>,
 }
-
 
 #[derive(Debug, Deserialize)]
 pub struct ThingMetadata {
@@ -39,7 +37,6 @@ pub struct ThingMetadata {
     pub hanging: bool,
     pub radius: u32,
 }
-
 
 #[derive(Debug, Deserialize)]
 pub struct ThingDirectoryMetadata {
@@ -97,7 +94,10 @@ pub struct MoveEffectDef {
     #[serde(default = "Default::default")]
     pub wait: f32,
 
-    #[serde(default = "Default::default", deserialize_with = "deserialize_move_speed")]
+    #[serde(
+        default = "Default::default",
+        deserialize_with = "deserialize_move_speed"
+    )]
     pub speed: f32,
 }
 
@@ -131,8 +131,11 @@ pub struct WadMetadata {
     pub animations: AnimationMetadata,
     pub things: ThingDirectoryMetadata,
 
-    #[serde(default = "Default::default", deserialize_with = "deserialize_linedefs")]
-    pub linedef: OrderMap<SpecialType, LinedefMetadata>,
+    #[serde(
+        default = "Default::default",
+        deserialize_with = "deserialize_linedefs"
+    )]
+    pub linedef: IndexMap<SpecialType, LinedefMetadata>,
 }
 
 impl WadMetadata {
@@ -149,20 +152,21 @@ impl WadMetadata {
         Ok(toml::from_str(text).chain_err(|| "Invalid metadata.")?)
     }
 
-    pub fn sky_for(&self, name: &WadName) -> Option<&SkyMetadata> {
+    pub fn sky_for(&self, name: WadName) -> Option<&SkyMetadata> {
         self.sky
             .iter()
             .find(|sky| sky.level_pattern.is_match(name.as_ref()))
-            .or_else(|| if let Some(sky) = self.sky.get(0) {
-                warn!(
-                    "No sky found for level {}, using {}.",
-                    name,
-                    sky.texture_name
-                );
-                Some(sky)
-            } else {
-                error!("No sky metadata provided.");
-                None
+            .or_else(|| {
+                if let Some(sky) = self.sky.get(0) {
+                    warn!(
+                        "No sky found for level {}, using {}.",
+                        name, sky.texture_name
+                    );
+                    Some(sky)
+                } else {
+                    error!("No sky metadata provided.");
+                    None
+                }
             })
     }
 
@@ -172,30 +176,30 @@ impl WadMetadata {
             .iter()
             .find(|t| t.thing_type == thing_type)
             .or_else(|| {
-                self.things.weapons.iter().find(
-                    |t| t.thing_type == thing_type,
-                )
+                self.things
+                    .weapons
+                    .iter()
+                    .find(|t| t.thing_type == thing_type)
             })
             .or_else(|| {
-                self.things.powerups.iter().find(
-                    |t| t.thing_type == thing_type,
-                )
+                self.things
+                    .powerups
+                    .iter()
+                    .find(|t| t.thing_type == thing_type)
             })
             .or_else(|| {
-                self.things.artifacts.iter().find(
-                    |t| t.thing_type == thing_type,
-                )
+                self.things
+                    .artifacts
+                    .iter()
+                    .find(|t| t.thing_type == thing_type)
             })
+            .or_else(|| self.things.ammo.iter().find(|t| t.thing_type == thing_type))
+            .or_else(|| self.things.keys.iter().find(|t| t.thing_type == thing_type))
             .or_else(|| {
-                self.things.ammo.iter().find(|t| t.thing_type == thing_type)
-            })
-            .or_else(|| {
-                self.things.keys.iter().find(|t| t.thing_type == thing_type)
-            })
-            .or_else(|| {
-                self.things.monsters.iter().find(
-                    |t| t.thing_type == thing_type,
-                )
+                self.things
+                    .monsters
+                    .iter()
+                    .find(|t| t.thing_type == thing_type)
             })
     }
 }
@@ -242,19 +246,16 @@ where
 
 fn deserialize_linedefs<'de, D>(
     deserializer: D,
-) -> StdResult<OrderMap<SpecialType, LinedefMetadata>, D::Error>
+) -> StdResult<IndexMap<SpecialType, LinedefMetadata>, D::Error>
 where
     D: Deserializer<'de>,
 {
     let linedefs = <Vec<LinedefMetadata>>::deserialize(deserializer)?;
-    Ok(
-        linedefs
-            .into_iter()
-            .map(|linedef| (linedef.special_type, linedef))
-            .collect::<OrderMap<_, _>>(),
-    )
+    Ok(linedefs
+        .into_iter()
+        .map(|linedef| (linedef.special_type, linedef))
+        .collect::<IndexMap<_, _>>())
 }
-
 
 #[cfg(test)]
 mod test {

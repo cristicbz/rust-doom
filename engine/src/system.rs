@@ -93,22 +93,26 @@ where
 
     #[inline]
     fn setup(&mut self, dependencies: Self::Dependencies) -> AlwaysOk<()> {
-        Ok(<Self as InfallibleSystem>::setup(self, dependencies))
+        <Self as InfallibleSystem>::setup(self, dependencies);
+        Ok(())
     }
 
     #[inline]
     fn update(&mut self, dependencies: Self::Dependencies) -> AlwaysOk<()> {
-        Ok(<Self as InfallibleSystem>::update(self, dependencies))
+        <Self as InfallibleSystem>::update(self, dependencies);
+        Ok(())
     }
 
     #[inline]
     fn teardown(&mut self, dependencies: Self::Dependencies) -> AlwaysOk<()> {
-        Ok(<Self as InfallibleSystem>::teardown(self, dependencies))
+        <Self as InfallibleSystem>::teardown(self, dependencies);
+        Ok(())
     }
 
     #[inline]
     fn destroy(self, dependencies: Self::Dependencies) -> AlwaysOk<()> {
-        Ok(<Self as InfallibleSystem>::destroy(self, dependencies))
+        <Self as InfallibleSystem>::destroy(self, dependencies);
+        Ok(())
     }
 }
 

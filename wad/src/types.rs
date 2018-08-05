@@ -15,7 +15,6 @@ pub type SegId = u16;
 pub type LinedefId = u16;
 pub type ChildId = u16;
 
-
 #[derive(Copy, Clone, Deserialize)]
 pub struct WadInfo {
     pub identifier: [u8; 4],
@@ -93,7 +92,6 @@ impl WadLinedef {
         self.flags & 0x0100 != 0
     }
 }
-
 
 #[derive(Copy, Clone, Deserialize)]
 pub struct WadSidedef {

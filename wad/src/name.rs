@@ -1,6 +1,5 @@
 use super::error::{ErrorKind, Result};
 use serde::de::{Deserialize, Deserializer, Error as SerdeDeError};
-use std::ascii::AsciiExt;
 use std::borrow::Borrow;
 use std::fmt;
 use std::fmt::Debug;
@@ -15,8 +14,13 @@ pub struct WadName([u8; 8]);
 impl WadName {
     pub fn push(&mut self, new_byte: u8) -> Result<()> {
         let new_byte = match new_byte.to_ascii_uppercase() {
-            b @ b'A'...b'Z' | b @ b'0'...b'9' | b @ b'_' | b @ b'-' | b @ b'[' | b @ b']' |
-            b @ b'\\' => b,
+            b @ b'A'...b'Z'
+            | b @ b'0'...b'9'
+            | b @ b'_'
+            | b @ b'-'
+            | b @ b'['
+            | b @ b']'
+            | b @ b'\\' => b,
             b => {
                 bail!(ErrorKind::invalid_byte_in_wad_name(b, &self.0));
             }
@@ -42,8 +46,13 @@ impl WadName {
             );
 
             let new_byte = match src.to_ascii_uppercase() {
-                b @ b'A'...b'Z' | b @ b'0'...b'9' | b @ b'_' | b @ b'-' | b @ b'[' | b @ b']' |
-                b @ b'\\' => b,
+                b @ b'A'...b'Z'
+                | b @ b'0'...b'9'
+                | b @ b'_'
+                | b @ b'-'
+                | b @ b'['
+                | b @ b']'
+                | b @ b'\\' => b,
                 b'\0' => {
                     nulled = true;
                     break;

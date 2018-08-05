@@ -1,9 +1,9 @@
-use super::entities::{Entities, EntityId, Entity};
+use super::entities::{Entities, Entity, EntityId};
 use super::errors::{Error, ErrorKind};
 use super::system::InfallibleSystem;
 use idcontain::IdMap;
-use math::Trans3;
 use math::prelude::*;
+use math::Trans3;
 
 derive_flat! {
     #[element(Transform, &TransformRef, &mut TransformMut)]
@@ -91,9 +91,10 @@ impl<'context> InfallibleSystem<'context> for Transforms {
 
     fn update(&mut self, entities: &Entities) {
         for index in 0..self.map.len() {
-            let mut id = self.map.index_to_id(index).expect(
-                "misleading map length: index_to_id",
-            );
+            let mut id = self
+                .map
+                .index_to_id(index)
+                .expect("misleading map length: index_to_id");
             loop {
                 match self.lookup_parent(entities, id) {
                     ParentLookup::IsRoot => {
@@ -109,11 +110,8 @@ impl<'context> InfallibleSystem<'context> for Transforms {
                         if parent_index > index {
                             debug!(
                                 "Parent {:?} @ {} and child {:?} @ {} have reversed transforms, \
-                                   swapping.",
-                                parent_id,
-                                parent_index,
-                                id,
-                                index
+                                 swapping.",
+                                parent_id, parent_index, id, index
                             );
                             self.map.swap_indices(parent_index, index);
                             id = parent_id;

@@ -22,7 +22,8 @@ error_chain! {
 impl ErrorKind {
     pub fn invalid_byte_in_wad_name(byte: u8, bytes: &[u8]) -> ErrorKind {
         ErrorKind::CorruptWad(format!(
-            "Invalid character `{}` in wad name `{}`.", char::from(byte),
+            "Invalid character `{}` in wad name `{}`.",
+            char::from(byte),
             String::from_utf8_lossy(bytes),
         ))
     }
@@ -60,9 +61,7 @@ impl ErrorKind {
     pub fn bad_lump_element(lump_index: usize, lump_name: &str, element_index: usize) -> ErrorKind {
         ErrorKind::CorruptWad(format!(
             "Invalid element {} in lump `{}` (index={})",
-            element_index,
-            lump_name,
-            lump_index
+            element_index, lump_name, lump_index
         ))
     }
 

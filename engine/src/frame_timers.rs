@@ -1,10 +1,10 @@
 use super::system::InfallibleSystem;
 use super::tick::Tick;
-use idcontain::{IdSlab, Id};
+use idcontain::{Id, IdSlab};
 use std::borrow::Cow;
 use std::fmt::Write;
 use std::mem;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 /// A handle for a frame timer, returned by `FrameTimers`.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -70,16 +70,17 @@ impl FrameTimers {
     ///
     /// Querying a stopped timer will return `None`.
     pub fn query(&self, timer_id: FrameTimerId) -> Option<f32> {
-        self.timers[timer_id.0].last_start.map(|last_start| {
-            duration_to_seconds(last_start.elapsed())
-        })
+        self.timers[timer_id.0]
+            .last_start
+            .map(|last_start| duration_to_seconds(last_start.elapsed()))
     }
 
     fn maybe_log(&mut self) {
         let current_time = Instant::now();
-        match self.last_logged.map(|last_logged| {
-            current_time.duration_since(last_logged)
-        }) {
+        match self
+            .last_logged
+            .map(|last_logged| current_time.duration_since(last_logged))
+        {
             Some(duration) if duration.as_secs() >= 10 => {
                 self.last_logged = Some(current_time);
             }

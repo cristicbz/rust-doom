@@ -1,62 +1,22 @@
-use super::entities::{Entities, EntityId, Entity};
-use super::errors::{Result, Error, NeededBy};
-use super::materials::{Materials, MaterialId};
-use super::meshes::{Meshes, MeshId};
+use super::errors::{Error, NeededBy, Result};
+use super::materials::Materials;
+use super::meshes::Meshes;
+use super::pipeline::{Model, RenderPipeline};
 use super::projections::Projections;
 use super::shaders::Shaders;
 use super::system::System;
 use super::text::TextRenderer;
 use super::tick::Tick;
 use super::transforms::Transforms;
-use super::uniforms::{Uniforms, Mat4UniformId};
+use super::uniforms::Uniforms;
 use super::window::Window;
 use glium::{BackfaceCullingMode, Depth, DepthTest, DrawParameters, Surface};
-use idcontain::IdMapVec;
-use math::Mat4;
 use math::prelude::*;
-
-
-impl Renderer {
-    pub fn modelview(&self) -> Mat4UniformId {
-        self.modelview
-    }
-
-    pub fn projection(&self) -> Mat4UniformId {
-        self.projection
-    }
-
-    pub fn attach_model(
-        &mut self,
-        entity: EntityId,
-        mesh: MeshId,
-        material: MaterialId,
-    ) -> Result<()> {
-        debug!(
-            "Attaching model to entity {:?}: mesh={:?} material={:?}",
-            entity,
-            mesh,
-            material
-        );
-        if let Some(old) = self.models.insert(entity, Model { mesh, material }) {
-            error!(
-                "Entity {:?} already had a model attached (mesh={:?}, material={:?}), replacing.",
-                entity,
-                old.mesh,
-                old.material,
-                );
-        }
-        debug!("Attached model to entity {:?}.", entity);
-        Ok(())
-    }
-
-    pub fn set_camera(&mut self, camera: EntityId) {
-        self.camera = Some(camera);
-    }
-}
+use math::Mat4;
 
 derive_dependencies_from! {
     pub struct Dependencies<'context> {
-        entities: &'context mut Entities,
+        pipe: &'context mut RenderPipeline,
         meshes: &'context Meshes,
         materials: &'context Materials,
         shaders: &'context Shaders,
@@ -70,18 +30,9 @@ derive_dependencies_from! {
 }
 
 pub struct Renderer {
-    models: IdMapVec<Entity, Model>,
     draw_parameters: DrawParameters<'static>,
-
-    entity: EntityId,
-    modelview: Mat4UniformId,
-    projection: Mat4UniformId,
-
-    camera: Option<EntityId>,
-
     removed: Vec<usize>,
 }
-
 
 impl<'context> System<'context> for Renderer {
     type Dependencies = Dependencies<'context>;
@@ -91,27 +42,8 @@ impl<'context> System<'context> for Renderer {
         "renderer"
     }
 
-    fn create(deps: Dependencies) -> Result<Self> {
-        let entity = deps.entities.add_root("renderer");
-
-        let modelview = deps.uniforms.add_mat4(
-            deps.entities,
-            entity,
-            "modelview_uniform",
-            Mat4::one(),
-        )?;
-        let projection = deps.uniforms.add_mat4(
-            deps.entities,
-            entity,
-            "projection_uniform",
-            Mat4::one(),
-        )?;
-
+    fn create(_deps: Dependencies) -> Result<Self> {
         Ok(Renderer {
-            entity,
-            modelview,
-            projection,
-            models: IdMapVec::with_capacity(32),
             draw_parameters: DrawParameters {
                 depth: Depth {
                     test: DepthTest::IfLess,
@@ -121,7 +53,6 @@ impl<'context> System<'context> for Renderer {
                 backface_culling: BackfaceCullingMode::CullClockwise,
                 ..DrawParameters::default()
             },
-            camera: None,
             removed: Vec::with_capacity(32),
         })
     }
@@ -132,8 +63,10 @@ impl<'context> System<'context> for Renderer {
             return Ok(());
         }
 
+        let pipe = deps.pipe;
+
         // If no camera is given, skip rendering.
-        let camera_id = if let Some(camera_id) = self.camera {
+        let camera_id = if let Some(camera_id) = pipe.camera {
             camera_id
         } else {
             return Ok(());
@@ -141,31 +74,34 @@ impl<'context> System<'context> for Renderer {
 
         // Compute view transform by inverting the camera entity transform.
         let view_transform = if let Some(transform) = deps.transforms.get_absolute(camera_id) {
-            transform.inverse_transform().expect(
-                "singular view transform",
-            )
+            transform
+                .inverse_transform()
+                .expect("singular view transform")
         } else {
             info!("Camera transform missing, disabling renderer.");
-            self.camera = None;
+            pipe.camera = None;
             return Ok(());
         };
         let view_matrix = view_transform.into();
 
         // Set projection.
-        *deps.uniforms.get_mat4_mut(self.projection).expect(
-            "projection uniform missing",
-        ) = *deps.projections.get_matrix(camera_id).expect(
-            "camera projection missing",
-        );
+        *deps
+            .uniforms
+            .get_mat4_mut(pipe.projection)
+            .expect("projection uniform missing") = *deps
+            .projections
+            .get_matrix(camera_id)
+            .expect("camera projection missing");
 
         // Render all the models in turn.
         let mut frame = deps.window.draw();
-        for (index, &Model { mesh, material }) in self.models.access().iter().enumerate() {
+        for (index, &Model { mesh, material }) in pipe.models.access().iter().enumerate() {
             // For each model we need to assemble three things to render it: transform, mesh and
             // material. We get the entity id and query the corresponding systems for it.
-            let entity = self.models.index_to_id(index).expect(
-                "bad index enumerating models: mesh",
-            );
+            let entity = pipe
+                .models
+                .index_to_id(index)
+                .expect("bad index enumerating models: mesh");
 
             // If the mesh is missing, the entity was (probably) removed. So we add it to the
             // removed stack and continue.
@@ -174,8 +110,7 @@ impl<'context> System<'context> for Renderer {
             } else {
                 info!(
                     "Mesh missing {:?} in model for entity {:?}, removing.",
-                    mesh,
-                    entity
+                    mesh, entity
                 );
                 self.removed.push(index);
                 continue;
@@ -184,13 +119,15 @@ impl<'context> System<'context> for Renderer {
             // If the model has a transform, then multiply it with the view transform to get the
             // modelview matrix. If there is no transform, model is assumed to be in world space, so
             // modelview = view.
-            *deps.uniforms.get_mat4_mut(self.modelview).expect(
-                "modelview uniform missing",
-            ) = if let Some(model_transform) = deps.transforms.get_absolute(entity) {
-                Mat4::from(view_transform.concat(model_transform))
-            } else {
-                view_matrix
-            };
+            *deps
+                .uniforms
+                .get_mat4_mut(pipe.modelview)
+                .expect("modelview uniform missing") =
+                if let Some(model_transform) = deps.transforms.get_absolute(entity) {
+                    Mat4::from(view_transform.concat(model_transform))
+                } else {
+                    view_matrix
+                };
 
             let material =
                 if let Some(material) = deps.materials.get(deps.shaders, deps.uniforms, material) {
@@ -200,8 +137,7 @@ impl<'context> System<'context> for Renderer {
                     // error.
                     error!(
                         "Material missing {:?} in model for entity {:?}, removing.",
-                        material,
-                        entity
+                        material, entity
                     );
                     self.removed.push(index);
                     continue;
@@ -222,28 +158,15 @@ impl<'context> System<'context> for Renderer {
         deps.text.render(&mut frame)?;
 
         // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
-        frame.finish().expect(
-            "Cannot handle context loss currently :(",
-        );
+        frame
+            .finish()
+            .expect("Cannot handle context loss currently :(");
 
         // Remove any missing models.
         for &index in self.removed.iter().rev() {
-            self.models.remove_by_index(index);
+            pipe.models.remove_by_index(index);
         }
         self.removed.clear();
         Ok(())
     }
-
-    fn teardown(&mut self, deps: Dependencies) -> Result<()> {
-        deps.entities.remove(self.entity);
-        self.camera = None;
-        Ok(())
-    }
-}
-
-
-#[derive(Debug)]
-struct Model {
-    mesh: MeshId,
-    material: MaterialId,
 }

@@ -3,11 +3,11 @@ use super::errors::{NeededBy, Result};
 use super::system::InfallibleSystem;
 use super::window::Window;
 use glium::buffer::Content as BufferContent;
-use glium::texture::{ClientFormat, RawImage2d, Texture2d as GliumTexture2d, PixelValue};
 use glium::texture::buffer_texture::{BufferTexture, BufferTextureType};
-use glium::uniforms::{AsUniformValue, UniformValue, SamplerBehavior};
+use glium::texture::{ClientFormat, PixelValue, RawImage2d, Texture2d as GliumTexture2d};
+use glium::uniforms::{AsUniformValue, SamplerBehavior, UniformValue};
 use idcontain::IdMapVec;
-use math::{Vec2, Vec2f, Mat4};
+use math::{Mat4, Vec2, Vec2f};
 use std::borrow::Cow;
 use std::marker::PhantomData;
 
@@ -92,9 +92,7 @@ impl Uniforms {
         self.floats.insert(id, initial);
         debug!(
             "Added float uniform {:?} {:?} as child of {:?}.",
-            name,
-            id,
-            parent
+            name, id, parent
         );
         Ok(FloatUniformId(id))
     }
@@ -114,9 +112,7 @@ impl Uniforms {
         self.mat4s.insert(id, initial);
         debug!(
             "Added mat4 uniform {:?} {:?} as child of {:?}.",
-            name,
-            id,
-            parent
+            name, id, parent
         );
         Ok(Mat4UniformId(id))
     }
@@ -136,9 +132,7 @@ impl Uniforms {
         self.vec2fs.insert(id, initial);
         debug!(
             "Added vec2f uniform {:?} {:?} as child of {:?}.",
-            name,
-            id,
-            parent
+            name, id, parent
         );
         Ok(Vec2fUniformId(id))
     }
@@ -172,7 +166,7 @@ impl Uniforms {
                 data: Cow::Borrowed(pixels),
                 width: size[0] as u32,
                 height: size[1] as u32,
-                format: format,
+                format,
             },
         ).needed_by(name)?;
         debug!("Texture {:?} created successfully", name);
@@ -180,23 +174,18 @@ impl Uniforms {
         self.texture2ds.insert(id, Texture2d { gl, sampler });
         debug!(
             "Added texture {:?} {:?} as child of {:?}.",
-            name,
-            id,
-            parent
+            name, id, parent
         );
         Ok(Texture2dId(id))
     }
 
-    pub fn get_texture_2d_mut(
-        &mut self,
-        texture_id: Texture2dId,
-    ) -> Option<Texture2dRefMut> {
-        self.texture2ds.get_mut(texture_id.0).map(|texture| {
-            Texture2dRefMut {
+    pub fn get_texture_2d_mut(&mut self, texture_id: Texture2dId) -> Option<Texture2dRefMut> {
+        self.texture2ds
+            .get_mut(texture_id.0)
+            .map(|texture| Texture2dRefMut {
                 texture_id,
                 texture,
-            }
-        })
+            })
     }
 
     // TODO(cristicbz): Make u8 a type param.
@@ -211,20 +200,16 @@ impl Uniforms {
     ) -> Result<BufferTextureId<u8>> {
         debug!(
             "Creating persistent buffer_texture<u7> {:?}, size={:?}, type={:?}",
-            name,
-            size,
-            texture_type
+            name, size, texture_type
         );
-        let texture = BufferTexture::empty_persistent(window.facade(), size, texture_type)
-            .needed_by(name)?;
+        let texture =
+            BufferTexture::empty_persistent(window.facade(), size, texture_type).needed_by(name)?;
         debug!("Buffer texture {:?} created successfully", name);
         let id = entities.add(parent, name)?;
         self.buffer_textures_u8.insert(id, texture);
         debug!(
             "Added persistent buffer_texture<u8> {:?} {:?} as child of {:?}.",
-            name,
-            id,
-            parent
+            name, id, parent
         );
         Ok(BufferTextureId {
             id,
@@ -265,44 +250,35 @@ impl Uniforms {
             );
         };
         self.add_vec2f(entities, texture.0, name, size)
-
     }
 
     #[inline]
     pub fn get_value(&self, id: UniformId) -> Option<UniformValue> {
         match id {
-            UniformId::Texture2d(id) => {
-                self.texture2ds.get(id.0).map(|texture| {
-                    UniformValue::Texture2d(&texture.gl, texture.sampler)
-                })
-            }
-            UniformId::Float(id) => {
-                self.floats.get(id.0).map(
-                    |&value| UniformValue::Float(value),
-                )
-            }
-            UniformId::Vec2f(id) => {
-                self.vec2fs.get(id.0).map(|vec2| {
-                    UniformValue::Vec2([vec2[0], vec2[1]])
-                })
-            }
-            UniformId::Mat4(id) => {
-                self.mat4s.get(id.0).map(|mat4| {
-                    UniformValue::Mat4(
-                        [
-                            [mat4[0][0], mat4[0][1], mat4[0][2], mat4[0][3]],
-                            [mat4[1][0], mat4[1][1], mat4[1][2], mat4[1][3]],
-                            [mat4[2][0], mat4[2][1], mat4[2][2], mat4[2][3]],
-                            [mat4[3][0], mat4[3][1], mat4[3][2], mat4[3][3]],
-                        ],
-                    )
-                })
-            }
-            UniformId::BufferTextureU8(id) => {
-                self.buffer_textures_u8.get(id.id).map(|buffer_texture| {
-                    buffer_texture.as_uniform_value()
-                })
-            }
+            UniformId::Texture2d(id) => self
+                .texture2ds
+                .get(id.0)
+                .map(|texture| UniformValue::Texture2d(&texture.gl, texture.sampler)),
+            UniformId::Float(id) => self
+                .floats
+                .get(id.0)
+                .map(|&value| UniformValue::Float(value)),
+            UniformId::Vec2f(id) => self
+                .vec2fs
+                .get(id.0)
+                .map(|vec2| UniformValue::Vec2([vec2[0], vec2[1]])),
+            UniformId::Mat4(id) => self.mat4s.get(id.0).map(|mat4| {
+                UniformValue::Mat4([
+                    [mat4[0][0], mat4[0][1], mat4[0][2], mat4[0][3]],
+                    [mat4[1][0], mat4[1][1], mat4[1][2], mat4[1][3]],
+                    [mat4[2][0], mat4[2][1], mat4[2][2], mat4[2][3]],
+                    [mat4[3][0], mat4[3][1], mat4[3][2], mat4[3][3]],
+                ])
+            }),
+            UniformId::BufferTextureU8(id) => self
+                .buffer_textures_u8
+                .get(id.id)
+                .map(|buffer_texture| buffer_texture.as_uniform_value()),
         }
     }
 }
@@ -339,14 +315,11 @@ impl<'uniforms> Texture2dRefMut<'uniforms> {
                 data: Cow::Borrowed(pixels),
                 width: size[0] as u32,
                 height: size[1] as u32,
-                format: format,
+                format,
             },
         ).needed_by("texture2d.replace_pixels")?;
 
-        debug!(
-            "Replaced texture {:?} successfully.",
-            self.texture_id,
-        );
+        debug!("Replaced texture {:?} successfully.", self.texture_id,);
         Ok(())
     }
 }

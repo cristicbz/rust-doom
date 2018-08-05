@@ -7,8 +7,7 @@ extern crate serde_derive;
 
 extern crate bincode;
 extern crate byteorder;
-extern crate num;
-extern crate ordermap;
+extern crate indexmap;
 extern crate regex;
 extern crate serde;
 extern crate time;
@@ -31,12 +30,14 @@ pub mod types;
 pub mod util;
 
 pub use archive::Archive;
-pub use error::{Error, Result, ErrorKind};
+pub use error::{Error, ErrorKind, Result};
 pub use image::Image;
 pub use level::Level;
 pub use light::{LightEffect, LightEffectKind, LightInfo};
-pub use meta::{SkyMetadata, ThingMetadata, WadMetadata, MoveEffectDef, TriggerType};
+pub use meta::{MoveEffectDef, SkyMetadata, ThingMetadata, TriggerType, WadMetadata};
 pub use name::WadName;
-pub use tex::{TextureDirectory, TransparentImage, OpaqueImage};
-pub use visitor::{Branch, LevelVisitor, LevelWalker, LevelAnalysis, Marker, StaticQuad,
-                  StaticPoly, SkyQuad, SkyPoly, Decor, ObjectId, Trigger, MoveEffect};
+pub use tex::{OpaqueImage, TextureDirectory, TransparentImage};
+pub use visitor::{
+    Branch, Decor, LevelAnalysis, LevelVisitor, LevelWalker, Marker, MoveEffect, ObjectId, SkyPoly,
+    SkyQuad, StaticPoly, StaticQuad, Trigger,
+};

@@ -1,15 +1,19 @@
 use super::level::{Level, NeighbourHeights};
 use super::light::{self, Contrast, LightInfo};
-use super::meta::{WadMetadata, MoveEffectDef, TriggerType, HeightDef, HeightRef, HeightEffectDef,
-                  ExitEffectDef};
+use super::meta::{
+    ExitEffectDef, HeightDef, HeightEffectDef, HeightRef, MoveEffectDef, TriggerType, WadMetadata,
+};
 use super::tex::TextureDirectory;
-use super::types::{ChildId, ThingType, WadCoord, WadName, WadNode, WadSector, WadSeg, WadThing,
-                   SectorId, WadLinedef, SpecialType};
-use super::util::{from_wad_coords, to_wad_height, from_wad_height, is_sky_flat, is_untextured,
-                  parse_child_id};
-use math::{Line2f, Vec2f, Pnt2f, Deg, Radf, Pnt3f};
+use super::types::{
+    ChildId, SectorId, SpecialType, ThingType, WadCoord, WadLinedef, WadName, WadNode, WadSector,
+    WadSeg, WadThing,
+};
+use super::util::{
+    from_wad_coords, from_wad_height, is_sky_flat, is_untextured, parse_child_id, to_wad_height,
+};
+use indexmap::IndexMap;
 use math::prelude::*;
-use ordermap::OrderMap;
+use math::{Deg, Line2f, Pnt2f, Pnt3f, Radf, Vec2f};
 use std::cmp;
 use std::cmp::Ordering;
 use std::f32::EPSILON;
@@ -24,7 +28,7 @@ pub struct StaticQuad<'a> {
     pub height_range: (f32, f32),
     pub light_info: &'a LightInfo,
     pub scroll: f32,
-    pub tex_name: Option<&'a WadName>,
+    pub tex_name: Option<WadName>,
     pub blocker: bool,
 }
 
@@ -33,7 +37,7 @@ pub struct StaticPoly<'a> {
     pub vertices: &'a [Pnt2f],
     pub height: f32,
     pub light_info: &'a LightInfo,
-    pub tex_name: &'a WadName,
+    pub tex_name: WadName,
 }
 
 pub struct SkyQuad {
@@ -54,7 +58,7 @@ pub struct Decor<'a> {
     pub high: Pnt3f,
     pub half_width: f32,
     pub light_info: &'a LightInfo,
-    pub tex_name: &'a WadName,
+    pub tex_name: WadName,
 }
 
 pub trait LevelVisitor: Sized {
@@ -219,9 +223,8 @@ impl DynamicSectorInfo {
                 wait: effect_def.wait,
                 speed: effect_def.speed,
                 first_height_offset: offset,
-                second_height_offset: second_floor.map(|floor| {
-                    from_wad_height(floor - sector.floor_height)
-                }),
+                second_height_offset: second_floor
+                    .map(|floor| from_wad_height(floor - sector.floor_height)),
                 repeat,
             });
         }
@@ -232,9 +235,8 @@ impl DynamicSectorInfo {
                 wait: effect_def.wait,
                 speed: effect_def.speed,
                 first_height_offset: from_wad_height(first_ceiling - sector.ceiling_height),
-                second_height_offset: second_ceiling.map(|ceiling| {
-                    from_wad_height(ceiling - sector.ceiling_height)
-                }),
+                second_height_offset: second_ceiling
+                    .map(|ceiling| from_wad_height(ceiling - sector.ceiling_height)),
                 repeat,
             });
         }
@@ -246,7 +248,8 @@ fn merge_range<I: IntoIterator<Item = WadCoord>>(
     current: WadCoord,
     with: I,
 ) {
-    *range = with.into_iter()
+    *range = with
+        .into_iter()
         .fold(*range, |range, coord| {
             Some(match range {
                 Some((min, max)) => (min.min(coord), max.max(coord)),
@@ -267,7 +270,7 @@ pub struct MoveEffect {
 }
 
 impl HeightDef {
-    fn to_height(&self, sector: &WadSector, heights: &NeighbourHeights) -> Option<WadCoord> {
+    fn to_height(self, sector: &WadSector, heights: &NeighbourHeights) -> Option<WadCoord> {
         let base = match self.to {
             HeightRef::LowestFloor => heights.lowest_floor,
             HeightRef::NextFloor => {
@@ -302,7 +305,6 @@ impl HeightEffectDef {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Trigger {
     pub trigger_type: TriggerType,
@@ -316,9 +318,8 @@ pub struct Trigger {
     pub move_effects: Vec<MoveEffect>,
 }
 
-
 pub struct LevelAnalysis {
-    dynamic_info: OrderMap<SectorId, DynamicSectorInfo>,
+    dynamic_info: IndexMap<SectorId, DynamicSectorInfo>,
     triggers: Vec<Trigger>,
     num_objects: usize,
 }
@@ -326,7 +327,7 @@ pub struct LevelAnalysis {
 impl LevelAnalysis {
     pub fn new(level: &Level, meta: &WadMetadata) -> Self {
         let mut this = LevelAnalysis {
-            dynamic_info: OrderMap::new(),
+            dynamic_info: IndexMap::new(),
             triggers: Vec::new(),
             num_objects: 0,
         };
@@ -378,12 +379,11 @@ impl LevelAnalysis {
 
         let mut next_dynamic_object_id = ObjectId(1);
         for (i_linedef, linedef) in level.linedefs.iter().enumerate() {
-            let mut trigger =
-                if let Some(trigger) = self.linedef_to_trigger(level, meta, linedef) {
-                    trigger
-                } else {
-                    continue;
-                };
+            let mut trigger = if let Some(trigger) = self.linedef_to_trigger(level, meta, linedef) {
+                trigger
+            } else {
+                continue;
+            };
             num_dynamic_linedefs += 1;
 
             let tag = linedef.sector_tag;
@@ -392,8 +392,7 @@ impl LevelAnalysis {
                     let left_sector_id = sidedef.sector;
                     debug!(
                         "Sector {} with zero tag marked as dynamic, required by manual linedef {}.",
-                        left_sector_id,
-                        i_linedef
+                        left_sector_id, i_linedef
                     );
                     self.dynamic_info
                         .entry(left_sector_id)
@@ -416,9 +415,7 @@ impl LevelAnalysis {
                     }
                     debug!(
                         "Sector {} with the tag {} marked as dynamic, required by linedef {}.",
-                        current_sector_id,
-                        tag,
-                        i_linedef
+                        current_sector_id, tag, i_linedef
                     );
                     self.dynamic_info
                         .entry(current_sector_id)
@@ -433,8 +430,7 @@ impl LevelAnalysis {
             } else {
                 warn!(
                     "No sector with the tag {}, required by linedef {}.",
-                    tag,
-                    i_linedef
+                    tag, i_linedef
                 );
             }
             self.triggers.push(trigger);
@@ -448,8 +444,7 @@ impl LevelAnalysis {
         self.num_objects = next_dynamic_object_id.0 as usize;
         info!(
             "Finished computing dynamic sectors: num_dynamic_sectors={} num_dynamic_linedefs={}",
-            self.num_objects,
-            num_dynamic_linedefs
+            self.num_objects, num_dynamic_linedefs
         );
     }
 
@@ -474,7 +469,6 @@ impl LevelAnalysis {
                 return None;
             }
         };
-
 
         Some(if let Some(meta) = meta.linedef.get(&special_type) {
             Trigger {
@@ -515,7 +509,7 @@ pub struct LevelWalker<'a, V: LevelVisitor + 'a> {
     height_range: (WadCoord, WadCoord),
     bsp_lines: Vec<Line2f>,
 
-    dynamic_info: &'a OrderMap<SectorId, DynamicSectorInfo>,
+    dynamic_info: &'a IndexMap<SectorId, DynamicSectorInfo>,
 
     // The vector contains all (2D) points which are part of the subsector:
     // implicit (intersection of BSP lines) and explicit (seg vertices).
@@ -535,10 +529,10 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         visitor: &'a mut V,
     ) -> LevelWalker<'a, V> {
         LevelWalker {
-            level: level,
-            tex: tex,
-            meta: meta,
-            visitor: visitor,
+            level,
+            tex,
+            meta,
+            visitor,
             height_range: min_max_height(level),
             bsp_lines: Vec::with_capacity(32),
             subsector_points: Vec::with_capacity(32),
@@ -565,7 +559,6 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         self.things();
     }
 
-
     fn floor_id(&self, sector: &WadSector) -> ObjectId {
         self.dynamic_info
             .get(&self.level.sector_id(sector))
@@ -584,21 +577,17 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         self.dynamic_info
             .get(&self.level.sector_id(sector))
             .map_or_else(
-                || {
-                    SectorInfo {
-                        floor_id: ObjectId(0),
-                        ceiling_id: ObjectId(0),
-                        floor_range,
-                        ceiling_range,
-                    }
+                || SectorInfo {
+                    floor_id: ObjectId(0),
+                    ceiling_id: ObjectId(0),
+                    floor_range,
+                    ceiling_range,
                 },
-                |dynamic_info| {
-                    SectorInfo {
-                        floor_id: dynamic_info.floor_id,
-                        ceiling_id: dynamic_info.ceiling_id,
-                        floor_range: dynamic_info.floor_range.unwrap_or(floor_range),
-                        ceiling_range: dynamic_info.ceiling_range.unwrap_or(ceiling_range),
-                    }
+                |dynamic_info| SectorInfo {
+                    floor_id: dynamic_info.floor_id,
+                    ceiling_id: dynamic_info.ceiling_id,
+                    floor_range: dynamic_info.floor_range.unwrap_or(floor_range),
+                    ceiling_range: dynamic_info.ceiling_range.unwrap_or(ceiling_range),
                 },
             )
     }
@@ -676,9 +665,8 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             };
             self.subsector_points.push(v1);
             self.subsector_points.push(v2);
-            self.subsector_seg_lines.push(
-                Line2f::from_two_points(v1, v2),
-            );
+            self.subsector_seg_lines
+                .push(Line2f::from_two_points(v1, v2));
 
             // Also push the wall segments.
             self.seg(sector, &sector_info, seg, (v1, v2));
@@ -699,8 +687,8 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 let within_seg = |d: f32| d <= SEG_TOLERANCE;
                 // The intersection point must lie both within the BSP volume
                 // and the segs volume.
-                let inside_bsp_and_segs = self.bsp_lines.iter().map(&dist).all(within_bsp) &&
-                    self.subsector_seg_lines.iter().map(&dist).all(within_seg);
+                let inside_bsp_and_segs = self.bsp_lines.iter().map(&dist).all(within_bsp)
+                    && self.subsector_seg_lines.iter().map(&dist).all(within_seg);
                 if inside_bsp_and_segs {
                     self.subsector_points.push(point);
                 }
@@ -767,10 +755,10 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                     peg: if unpeg_lower { Peg::Bottom } else { Peg::Top },
                     blocker: true,
                 });
-                if is_sky_flat(&sector.ceiling_texture) {
+                if is_sky_flat(sector.ceiling_texture) {
                     self.sky_quad(info.ceiling_id, vertices, (ceiling, max));
                 }
-                if is_sky_flat(&sector.floor_texture) {
+                if is_sky_flat(sector.floor_texture) {
                     self.sky_quad(info.floor_id, vertices, (min, floor));
                 }
                 return;
@@ -780,10 +768,10 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let (back_floor, back_ceiling) = (back_sector.floor_height, back_sector.ceiling_height);
         let back_info = self.sector_info(back_sector);
 
-        if is_sky_flat(&sector.ceiling_texture) && !is_sky_flat(&back_sector.ceiling_texture) {
+        if is_sky_flat(sector.ceiling_texture) && !is_sky_flat(back_sector.ceiling_texture) {
             self.sky_quad(info.ceiling_id, vertices, (ceiling, max));
         }
-        if is_sky_flat(&sector.floor_texture) && !is_sky_flat(&back_sector.floor_texture) {
+        if is_sky_flat(sector.floor_texture) && !is_sky_flat(back_sector.floor_texture) {
             self.sky_quad(info.floor_id, vertices, (min, floor));
         }
 
@@ -811,7 +799,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             floor
         };
         let ceil = if back_ceiling < ceiling {
-            if !is_sky_flat(&back_sector.ceiling_texture) {
+            if !is_sky_flat(back_sector.ceiling_texture) {
                 self.wall_quad(InternalWallQuad {
                     sector,
                     seg,
@@ -839,12 +827,12 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             height_range: (floor, ceil),
             texture_name: sidedef.middle_texture,
             peg: if unpeg_lower {
-                if is_untextured(&sidedef.upper_texture) {
+                if is_untextured(sidedef.upper_texture) {
                     Peg::TopFloat
                 } else {
                     Peg::Bottom
                 }
-            } else if is_untextured(&sidedef.lower_texture) {
+            } else if is_untextured(sidedef.lower_texture) {
                 Peg::BottomFloat
             } else {
                 Peg::Top
@@ -860,7 +848,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             seg,
             vertices: (v1, v2),
             height_range: (low, high),
-            ref texture_name,
+            texture_name,
             peg,
             blocker,
         } = quad;
@@ -890,18 +878,14 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let bias = (v2 - v1).normalize_or_zero() * POLY_BIAS;
         let (v1, v2) = (v1 + (-bias), v2 + bias);
         let (low, high) = match (size, peg) {
-            (Some(size), Peg::TopFloat) => {
-                (
-                    from_wad_height(low + sidedef.y_offset),
-                    from_wad_height(low + size[1] as i16 + sidedef.y_offset),
-                )
-            }
-            (Some(size), Peg::BottomFloat) => {
-                (
-                    from_wad_height(high + sidedef.y_offset - size[1] as i16),
-                    from_wad_height(high + sidedef.y_offset),
-                )
-            }
+            (Some(size), Peg::TopFloat) => (
+                from_wad_height(low + sidedef.y_offset),
+                from_wad_height(low + size[1] as i16 + sidedef.y_offset),
+            ),
+            (Some(size), Peg::BottomFloat) => (
+                from_wad_height(high + sidedef.y_offset - size[1] as i16),
+                from_wad_height(high + sidedef.y_offset),
+            ),
             _ => (from_wad_height(low), from_wad_height(high)),
         };
 
@@ -925,16 +909,14 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         let s1 = f32::from(seg.offset) + f32::from(sidedef.x_offset);
         let s2 = s1 + to_wad_height((v2 - v1).magnitude());
         let (t1, t2) = match (size, peg) {
-            (Some(_), Peg::Top) |
-            (None, _) => (height, 0.0),
+            (Some(_), Peg::Top) | (None, _) => (height, 0.0),
             (Some(size), Peg::Bottom) => (size[1], size[1] - height),
             (Some(size), Peg::BottomLower) => {
                 // As far as I can tell, this is a special case.
                 let sector_height = f32::from(sector.ceiling_height - sector.floor_height);
                 (size[1] + sector_height, size[1] - height + sector_height)
             }
-            (Some(size), Peg::TopFloat) |
-            (Some(size), Peg::BottomFloat) => (size[1], 0.0),
+            (Some(size), Peg::TopFloat) | (Some(size), Peg::BottomFloat) => (size[1], 0.0),
         };
         let (t1, t2) = (
             t1 + f32::from(sidedef.y_offset),
@@ -951,7 +933,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
             tex_start: (s1, t1),
             tex_end: (s2, t2),
             height_range: (low, high),
-            light_info: light_info,
+            light_info,
             tex_name: size.map(|_| texture_name),
             blocker,
             scroll,
@@ -961,7 +943,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
 
     fn flat_poly(&mut self, sector: &WadSector, info: &SectorInfo) {
         let light_info = light_info(&mut self.light_cache, self.level, sector);
-        let (floor_tex, ceil_tex) = (&sector.floor_texture, &sector.ceiling_texture);
+        let (floor_tex, ceil_tex) = (sector.floor_texture, sector.ceiling_texture);
         let (floor_sky, ceil_sky) = (is_sky_flat(floor_tex), is_sky_flat(ceil_tex));
         let floor_y = from_wad_height(if floor_sky {
             self.height_range.0
@@ -985,7 +967,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 object_id: info.floor_id,
                 vertices: &self.subsector_points,
                 height: floor_y,
-                light_info: light_info,
+                light_info,
                 tex_name: floor_tex,
             });
         }
@@ -1001,7 +983,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 object_id: info.ceiling_id,
                 vertices: &self.subsector_points,
                 height: ceil_y,
-                light_info: light_info,
+                light_info,
                 tex_name: ceil_tex,
             });
         }
@@ -1043,7 +1025,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 let pos = Pnt3f::new(pos[0], from_wad_height(sector.floor_height), pos[1]);
                 self.visitor.visit_marker(pos, yaw.into(), marker);
             } else if let Some(sector) = self.sector_at(pos) {
-                self.decor(thing, &pos, sector);
+                self.decor(thing, pos, sector);
             }
         }
     }
@@ -1053,7 +1035,8 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         loop {
             let (id, is_leaf) = parse_child_id(child_id);
             if is_leaf {
-                let segs = self.level
+                let segs = self
+                    .level
                     .ssector(id)
                     .and_then(|subsector| self.level.ssector_segs(subsector))
                     .and_then(|segs| if segs.is_empty() { None } else { Some(segs) });
@@ -1067,7 +1050,8 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 } else {
                     return None;
                 };
-                return if segs.iter()
+                return if segs
+                    .iter()
                     .filter_map(|seg| self.level.seg_vertices(seg))
                     .map(|(v1, v2)| Line2f::from_two_points(v1, v2))
                     .all(|line| line.signed_distance(pos) <= SEG_TOLERANCE)
@@ -1092,7 +1076,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         }
     }
 
-    fn decor(&mut self, thing: &WadThing, pos: &Pnt2f, sector: &WadSector) {
+    fn decor(&mut self, thing: &WadThing, pos: Pnt2f, sector: &WadSector) {
         let meta = match self.meta.find_thing(thing.thing_type) {
             Some(m) => m,
             None => {
@@ -1110,15 +1094,14 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
 
             match (sprite0, sprite1) {
                 (Some(sprite0), Some(sprite1)) => {
-                    if let Some(image) = self.tex.texture(&sprite0) {
+                    if let Some(image) = self.tex.texture(sprite0) {
                         (sprite0, image.size())
-                    } else if let Some(image) = self.tex.texture(&sprite1) {
+                    } else if let Some(image) = self.tex.texture(sprite1) {
                         (sprite1, image.size())
                     } else {
                         warn!(
                             "No such sprite {} for thing {}",
-                            meta.sprite,
-                            thing.thing_type
+                            meta.sprite, thing.thing_type
                         );
                         return;
                     }
@@ -1126,8 +1109,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 _ => {
                     warn!(
                         "Metadata sprite name ({}) for thing type {} is not a valid WadName.",
-                        meta.sprite,
-                        thing.thing_type
+                        meta.sprite, thing.thing_type
                     );
                     return;
                 }
@@ -1163,11 +1145,11 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
 
         self.visitor.visit_decor(&Decor {
             object_id,
-            low: low,
-            high: high,
-            half_width: half_width,
+            low,
+            high,
+            half_width,
             light_info: light_info(&mut self.light_cache, self.level, sector),
-            tex_name: &name,
+            tex_name: name,
         });
     }
 }
@@ -1268,7 +1250,7 @@ fn points_to_polygon(points: &mut Vec<Pnt2f>) {
         let prev_point = simplified[simplified.len() - 1];
         let new_area = (next_point - current_point).perp_dot(current_point - prev_point) * 0.5;
         if new_area >= 0.0 {
-            if area + new_area > 1.024e-05 {
+            if area + new_area > 1.024e-5 {
                 area = 0.0;
                 simplified.push(current_point);
             } else {
@@ -1292,7 +1274,6 @@ fn points_to_polygon(points: &mut Vec<Pnt2f>) {
     }
     *points = simplified;
 }
-
 
 pub struct VisitorChain<'a, 'b, A: LevelVisitor + 'a, B: LevelVisitor + 'b> {
     first: &'a mut A,
@@ -1366,6 +1347,7 @@ impl<'a, 'b, A: LevelVisitor, B: LevelVisitor> LevelVisitor for VisitorChain<'a,
     }
 }
 
+#[derive(Copy, Clone)]
 struct InternalWallQuad<'a> {
     object_id: ObjectId,
     sector: &'a WadSector,

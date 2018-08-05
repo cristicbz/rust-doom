@@ -1,7 +1,7 @@
 use super::archive::Archive;
 use super::error::Result;
 use super::types::{LightLevel, SectorId, VertexId, WadNode, WadSector};
-use super::types::{WadLinedef, WadSeg, WadSidedef, WadSubsector, WadThing, WadVertex, WadCoord};
+use super::types::{WadCoord, WadLinedef, WadSeg, WadSidedef, WadSubsector, WadThing, WadVertex};
 use super::util::from_wad_coords;
 use math::Pnt2f;
 use std::cmp;
@@ -34,18 +34,25 @@ impl Level {
         let lump = wad.level_lump(index)?;
         info!("Reading level data for '{}'...", lump.name());
         let start_index = lump.index();
-        let things = wad.lump_by_index(start_index + THINGS_OFFSET)?.decode_vec()?;
-        let linedefs = wad.lump_by_index(start_index + LINEDEFS_OFFSET)?
+        let things = wad
+            .lump_by_index(start_index + THINGS_OFFSET)?
             .decode_vec()?;
-        let vertices = wad.lump_by_index(start_index + VERTICES_OFFSET)?
+        let linedefs = wad
+            .lump_by_index(start_index + LINEDEFS_OFFSET)?
+            .decode_vec()?;
+        let vertices = wad
+            .lump_by_index(start_index + VERTICES_OFFSET)?
             .decode_vec()?;
         let segs = wad.lump_by_index(start_index + SEGS_OFFSET)?.decode_vec()?;
-        let subsectors = wad.lump_by_index(start_index + SSECTORS_OFFSET)?
+        let subsectors = wad
+            .lump_by_index(start_index + SSECTORS_OFFSET)?
             .decode_vec()?;
         let nodes = wad.lump_by_index(start_index + NODES_OFFSET)?.decode_vec()?;
-        let sidedefs = wad.lump_by_index(start_index + SIDEDEFS_OFFSET)?
+        let sidedefs = wad
+            .lump_by_index(start_index + SIDEDEFS_OFFSET)?
             .decode_vec()?;
-        let sectors = wad.lump_by_index(start_index + SECTORS_OFFSET)?
+        let sectors = wad
+            .lump_by_index(start_index + SECTORS_OFFSET)?
             .decode_vec()?;
 
         info!("Loaded level '{}':", lump.name());
@@ -59,21 +66,21 @@ impl Level {
         info!("    {:4} sectors", sectors.len());
 
         Ok(Level {
-            things: things,
-            linedefs: linedefs,
-            sidedefs: sidedefs,
-            vertices: vertices,
-            segs: segs,
-            subsectors: subsectors,
-            nodes: nodes,
-            sectors: sectors,
+            things,
+            linedefs,
+            sidedefs,
+            vertices,
+            segs,
+            subsectors,
+            nodes,
+            sectors,
         })
     }
 
     pub fn vertex(&self, id: VertexId) -> Option<Pnt2f> {
-        self.vertices.get(id as usize).map(
-            |v| from_wad_coords(v.x, v.y),
-        )
+        self.vertices
+            .get(id as usize)
+            .map(|v| from_wad_coords(v.x, v.y))
     }
 
     pub fn seg_linedef(&self, seg: &WadSeg) -> Option<&WadLinedef> {
@@ -89,35 +96,33 @@ impl Level {
     }
 
     pub fn seg_sidedef(&self, seg: &WadSeg) -> Option<&WadSidedef> {
-        self.seg_linedef(seg).and_then(
-            |line| if seg.direction == 0 {
+        self.seg_linedef(seg).and_then(|line| {
+            if seg.direction == 0 {
                 self.right_sidedef(line)
             } else {
                 self.left_sidedef(line)
-            },
-        )
+            }
+        })
     }
 
     pub fn seg_back_sidedef(&self, seg: &WadSeg) -> Option<&WadSidedef> {
-        self.seg_linedef(seg).and_then(
-            |line| if seg.direction == 1 {
+        self.seg_linedef(seg).and_then(|line| {
+            if seg.direction == 1 {
                 self.right_sidedef(line)
             } else {
                 self.left_sidedef(line)
-            },
-        )
+            }
+        })
     }
 
     pub fn seg_sector(&self, seg: &WadSeg) -> Option<&WadSector> {
-        self.seg_sidedef(seg).and_then(
-            |side| self.sidedef_sector(side),
-        )
+        self.seg_sidedef(seg)
+            .and_then(|side| self.sidedef_sector(side))
     }
 
     pub fn seg_back_sector(&self, seg: &WadSeg) -> Option<&WadSector> {
-        self.seg_back_sidedef(seg).and_then(
-            |side| self.sidedef_sector(side),
-        )
+        self.seg_back_sidedef(seg)
+            .and_then(|side| self.sidedef_sector(side))
     }
 
     pub fn left_sidedef(&self, linedef: &WadLinedef) -> Option<&WadSidedef> {
@@ -138,11 +143,11 @@ impl Level {
         self.sectors.get(sidedef.sector as usize)
     }
 
-    pub fn ssector(&self, index: usize) -> Option<&WadSubsector> {
-        self.subsectors.get(index)
+    pub fn ssector(&self, index: usize) -> Option<WadSubsector> {
+        self.subsectors.get(index).cloned()
     }
 
-    pub fn ssector_segs(&self, ssector: &WadSubsector) -> Option<&[WadSeg]> {
+    pub fn ssector_segs(&self, ssector: WadSubsector) -> Option<&[WadSeg]> {
         let start = ssector.first_seg as usize;
         let end = start + ssector.num_segs as usize;
         if end <= self.segs.len() {
@@ -153,8 +158,8 @@ impl Level {
     }
 
     pub fn sector_id(&self, sector: &WadSector) -> SectorId {
-        let sector_id = (sector as *const _ as usize - self.sectors.as_ptr() as usize) /
-            mem::size_of::<WadSector>();
+        let sector_id = (sector as *const _ as usize - self.sectors.as_ptr() as usize)
+            / mem::size_of::<WadSector>();
         assert!(sector_id < self.sectors.len());
         sector_id as SectorId
     }
@@ -168,10 +173,9 @@ impl Level {
     }
 
     pub fn sector_min_light(&self, of: &WadSector) -> LightLevel {
-        self.adjacent_sectors(of).map(|sector| sector.light).fold(
-            of.light,
-            cmp::min,
-        )
+        self.adjacent_sectors(of)
+            .map(|sector| sector.light)
+            .fold(of.light, cmp::min)
     }
 
     pub fn neighbour_heights(&self, of: &WadSector) -> Option<NeighbourHeights> {

@@ -3,8 +3,8 @@ use super::errors::Result;
 use super::shaders::{ShaderId, Shaders};
 use super::system::InfallibleSystem;
 use super::uniforms::{UniformId, Uniforms};
+use glium::uniforms::{UniformValue, Uniforms as GliumUniforms};
 use glium::Program;
-use glium::uniforms::{Uniforms as GliumUniforms, UniformValue};
 use idcontain::IdMapVec;
 
 pub const MAX_UNIFORMS: usize = 64;
@@ -42,19 +42,17 @@ impl Materials {
         );
         debug!(
             "Added material {:?} {:?} as child of {:?}.",
-            name,
-            id,
-            shader
+            name, id, shader
         );
-        Ok(self.get_mut(MaterialId(id)).expect(
-            "missing just added material",
-        ))
+        Ok(self
+            .get_mut(MaterialId(id))
+            .expect("missing just added material"))
     }
 
     pub fn get_mut(&mut self, id: MaterialId) -> Option<MaterialRefMut> {
-        self.map.get_mut(id.0).map(|material| {
-            MaterialRefMut { material, id }
-        })
+        self.map
+            .get_mut(id.0)
+            .map(|material| MaterialRefMut { material, id })
     }
 
     pub fn get<'a>(
@@ -73,17 +71,15 @@ impl Materials {
         } else {
             error!(
                 "Missing shader {:?} for material {:?}",
-                material.shader,
-                material_id
+                material.shader, material_id
             );
             return None;
         };
 
         let mut uniform_values = [None; MAX_UNIFORMS];
-        for (value, &uniform) in
-            (&mut uniform_values[..]).iter_mut().zip(
-                &material.uniforms[..],
-            )
+        for (value, &uniform) in (&mut uniform_values[..])
+            .iter_mut()
+            .zip(&material.uniforms[..])
         {
             if let Some((name, id)) = uniform {
                 if let Some(uniform_value) = uniforms.get_value(id) {
@@ -91,9 +87,7 @@ impl Materials {
                 } else {
                     error!(
                         "Missing uniform for material {:?}: name={:?} id={:?}",
-                        material_id,
-                        name,
-                        id
+                        material_id, name, id
                     );
                     return None;
                 }
@@ -130,9 +124,7 @@ impl<'a> MaterialRefMut<'a> {
         // TODO(cristicbz): Replace panic with error maybe? Or better solution for many uniforms.
         panic!(
             "Too many uniforms! material_id={:?} uniform={:?} max={}",
-            self.id,
-            name,
-            MAX_UNIFORMS
+            self.id, name, MAX_UNIFORMS
         );
     }
 
@@ -154,7 +146,9 @@ impl<'context> InfallibleSystem<'context> for Materials {
     }
 
     fn create(_deps: &Entities) -> Self {
-        Materials { map: IdMapVec::with_capacity(32) }
+        Materials {
+            map: IdMapVec::with_capacity(32),
+        }
     }
 
     fn update(&mut self, entities: &Entities) {
@@ -194,7 +188,6 @@ impl<'material> GliumUniforms for MaterialRef<'material> {
             } else {
                 break;
             }
-
         }
     }
 }
