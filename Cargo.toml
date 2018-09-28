@@ -2,6 +2,7 @@
 authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 name = "rs_doom"
 version = "0.0.9"
+edition = "2018"
 
 [[bin]]
 name = "rs_doom"
@@ -13,7 +14,7 @@ game = { path = "game" }
 math = { path = "math" }
 
 clap = "2.32.0"
-env_logger = "0.5.12"
+env_logger = "0.6.1"
 error-chain = "0.12.0"
 time = "0.1.35"
 
@@ -22,4 +23,5 @@ features = ["release_max_level_info"]
 version = "0.4.3"
 
 [workspace]
+
 

@@ -242,7 +242,7 @@ impl<'a> WorldBuilder<'a> {
         let mut triangles = Vec::with_capacity(
             self.triangles
                 .values()
-                .map(|triangles| triangles.len())
+                .map(Vec::len)
                 .sum(),
         );
         for (i_object, object_triangles) in self.triangles {

@@ -3,6 +3,7 @@ use super::meta::WadMetadata;
 use super::types::{WadInfo, WadLump, WadName};
 use bincode;
 use indexmap::IndexMap;
+use log::info;
 use serde::de::DeserializeOwned;
 use std::borrow::Borrow;
 use std::cell::RefCell;

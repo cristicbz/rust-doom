@@ -2,7 +2,8 @@
 authors = ["Cristi Cobzarenco <cristi.cobzarenco@gmail.com>"]
 name = "math"
 version = "0.1.0"
+edition = "2018"
 
 [dependencies]
-cgmath = "0.16.1"
-num-traits = "0.2.5"
+cgmath = "0.17"
+num-traits = "0.2.6"

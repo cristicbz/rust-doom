@@ -3,6 +3,7 @@ use super::error::Result;
 use super::types::{LightLevel, SectorId, VertexId, WadNode, WadSector};
 use super::types::{WadCoord, WadLinedef, WadSeg, WadSidedef, WadSubsector, WadThing, WadVertex};
 use super::util::from_wad_coords;
+use log::{error, info};
 use math::Pnt2f;
 use std::cmp;
 use std::mem;
@@ -47,7 +48,9 @@ impl Level {
         let subsectors = wad
             .lump_by_index(start_index + SSECTORS_OFFSET)?
             .decode_vec()?;
-        let nodes = wad.lump_by_index(start_index + NODES_OFFSET)?.decode_vec()?;
+        let nodes = wad
+            .lump_by_index(start_index + NODES_OFFSET)?
+            .decode_vec()?;
         let sidedefs = wad
             .lump_by_index(start_index + SIDEDEFS_OFFSET)?
             .decode_vec()?;

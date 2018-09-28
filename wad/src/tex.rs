@@ -6,6 +6,7 @@ use super::types::{Colormap, Palette, WadTextureHeader, WadTexturePatchRef};
 use bincode;
 use byteorder::{LittleEndian, ReadBytesExt};
 use indexmap::IndexMap;
+use log::{error, info};
 use math::prelude::*;
 use math::{vec2, Pnt2f, Vec2, Vec2f};
 use std::cmp;

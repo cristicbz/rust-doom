@@ -2,8 +2,10 @@ use super::error::{ErrorKind, Result, ResultExt};
 use super::name::WadName;
 use super::types::{SpecialType, ThingType, WadCoord};
 use indexmap::IndexMap;
+use log::{error, warn};
 use regex::Regex;
 use serde::de::{Deserialize, Deserializer, Error as SerdeDeError};
+use serde_derive::Deserialize;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -351,6 +353,7 @@ mod test {
                     sequence = "A"
                     hanging = false
         "#,
-        ).expect("test: could not parse test metadata");
+        )
+        .expect("test: could not parse test metadata");
     }
 }

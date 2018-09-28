@@ -1,6 +1,7 @@
 use super::entities::{Entities, Entity, EntityId};
 use super::system::InfallibleSystem;
 use idcontain::IdMapVec;
+use log::{debug, error};
 use math::{self, Mat4, Rad};
 
 #[derive(Copy, Clone, Debug)]

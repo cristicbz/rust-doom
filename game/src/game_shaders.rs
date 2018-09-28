@@ -1,11 +1,12 @@
 use super::errors::{Error, Result};
 use super::wad_system::WadSystem;
 use engine::{
-    BufferTextureId, BufferTextureType, ClientFormat, Entities, EntityId, FloatUniformId,
-    MagnifySamplerFilter, MaterialId, Materials, MinifySamplerFilter, RenderPipeline,
-    SamplerBehavior, SamplerWrapFunction, ShaderId, Shaders, System, Texture2dId, Tick, Uniforms,
-    Window,
+    derive_dependencies_from, BufferTextureId, BufferTextureType, ClientFormat, Entities, EntityId,
+    FloatUniformId, MagnifySamplerFilter, MaterialId, Materials, MinifySamplerFilter,
+    RenderPipeline, SamplerBehavior, SamplerWrapFunction, ShaderId, Shaders, System, Texture2dId,
+    Tick, Uniforms, Window,
 };
+use log::{error, info};
 use math::Vec2;
 use wad::tex::BoundsLookup;
 use wad::types::{COLORMAP_SIZE, PALETTE_SIZE};

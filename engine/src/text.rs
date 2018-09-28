@@ -1,14 +1,15 @@
-#![cfg_attr(feature = "cargo-clippy", allow(forget_copy))]
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::forget_copy))]
 
 use super::errors::{Error, Result, ResultExt};
 use super::system::System;
 use super::window::Window;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{ClientFormat, RawImage2d, Texture2d};
-use glium::Frame;
-use glium::{Blend, Surface, VertexBuffer};
-use glium::{DrawParameters, Program};
+use glium::{
+    implement_vertex, uniform, Blend, DrawParameters, Frame, Program, Surface, VertexBuffer,
+};
 use idcontain::{Id, IdSlab};
+use log::{debug, error};
 use math::Pnt2f;
 use rusttype::{self, Font, FontCollection, GlyphId, Point as FontPoint, PositionedGlyph, Scale};
 use std::borrow::Cow;
@@ -43,7 +44,8 @@ impl TextRenderer {
                 height,
                 format: ClientFormat::U8U8,
             },
-        ).unwrap();
+        )
+        .unwrap();
         let (w, h) = (
             width as f32 / win.width() as f32 * 2.0,
             height as f32 / win.height() as f32 * 2.0,
@@ -58,7 +60,8 @@ impl TextRenderer {
                     vertex(x + w, y, 1.0, 1.0),
                     vertex(x + w, y + h, 1.0, 0.0),
                 ],
-            ).unwrap(),
+            )
+            .unwrap(),
             texture,
             visible: true,
         };

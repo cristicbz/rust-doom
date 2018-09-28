@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! type_list {
     () => { $crate::type_list::Nil };
-    ($head:ty, $($tail:ty,)*) => { $crate::type_list::Cons<$head, type_list!($($tail,)*)> };
+    ($head:ty, $($tail:ty,)*) => { $crate::type_list::Cons<$head, $crate::type_list!($($tail,)*)> };
 }
 
 #[macro_export]
@@ -22,7 +22,7 @@ macro_rules! derive_dependencies_from {
             for $name<'context>
         where
             ContextT: $crate::type_list::PluckList<
-                type_list!($($dependency,)*),
+                $crate::type_list!($($dependency,)*),
                 IndicesT,
             >,
         {

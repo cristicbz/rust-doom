@@ -1,6 +1,3 @@
-extern crate cgmath;
-extern crate num_traits;
-
 pub mod prelude {
     pub use super::InnerSpaceExt as MathPreludeInnerSpaceExt;
     pub use cgmath::prelude::{
@@ -16,7 +13,7 @@ pub mod prelude {
 }
 
 pub use cgmath::{
-    frustum, ortho, perspective, vec2, vec3, vec4, Angle, ApproxEq, Array, BaseFloat, BaseNum,
+    frustum, ortho, perspective, vec2, vec3, vec4, AbsDiffEq, Angle, Array, BaseFloat, BaseNum,
     Decomposed, Deg, ElementWise, EuclideanSpace, Euler, InnerSpace, Matrix, MetricSpace, Rad,
     Rotation, Rotation2, Rotation3, SquareMatrix, Transform, Transform2, Transform3, VectorSpace,
 };

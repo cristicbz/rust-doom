@@ -1,5 +1,6 @@
 use super::errors::{Error, Result};
-use engine::System;
+use engine::{derive_dependencies_from, System};
+use log::info;
 use std::path::PathBuf;
 use wad::{
     Archive, Level as WadLevel, LevelAnalysis, LevelVisitor, LevelWalker, TextureDirectory, WadName,
@@ -47,7 +48,8 @@ impl WadSystem {
             &self.textures,
             self.archive.metadata(),
             visitor,
-        ).walk();
+        )
+        .walk();
     }
 }
 

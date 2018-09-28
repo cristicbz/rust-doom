@@ -5,6 +5,7 @@ use super::system::InfallibleSystem;
 use super::window::Window;
 use glium::program::{Program, ProgramCreationInput};
 use idcontain::IdMapVec;
+use log::{debug, error};
 use std::fs::File;
 use std::io::Read;
 use std::io::Result as IoResult;
@@ -63,7 +64,8 @@ impl Shaders {
                 outputs_srgb: true,
                 uses_point_size: false,
             },
-        ).needed_by(name)?;
+        )
+        .needed_by(name)?;
         debug!("Shader {:?} loaded successfully", name);
         let id = entities.add(parent, name)?;
         self.map.insert(id, Shader { program });

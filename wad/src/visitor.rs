@@ -12,6 +12,7 @@ use super::util::{
     from_wad_coords, from_wad_height, is_sky_flat, is_untextured, parse_child_id, to_wad_height,
 };
 use indexmap::IndexMap;
+use log::{debug, error, info, warn};
 use math::prelude::*;
 use math::{Deg, Line2f, Pnt2f, Pnt3f, Radf, Vec2f};
 use std::cmp;

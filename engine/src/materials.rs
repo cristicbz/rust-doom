@@ -3,6 +3,7 @@ use super::errors::Result;
 use super::shaders::{ShaderId, Shaders};
 use super::system::InfallibleSystem;
 use super::uniforms::{UniformId, Uniforms};
+use log::{debug, error};
 use glium::uniforms::{UniformValue, Uniforms as GliumUniforms};
 use glium::Program;
 use idcontain::IdMapVec;
