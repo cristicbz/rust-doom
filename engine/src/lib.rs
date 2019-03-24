@@ -1,22 +1,7 @@
-#![cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
-
-#[cfg(test)]
-extern crate env_logger;
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
 
 #[macro_use]
 extern crate error_chain;
-#[macro_use]
-extern crate glium;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate idcontain;
-
-extern crate glium_typed_buffer_any as glium_typed;
-extern crate math;
-extern crate num_traits;
-extern crate rusttype;
-extern crate unicode_normalization;
 
 #[macro_use]
 mod context_macros;

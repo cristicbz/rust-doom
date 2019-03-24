@@ -11,6 +11,7 @@ use super::transforms::Transforms;
 use super::uniforms::Uniforms;
 use super::window::Window;
 use glium::{BackfaceCullingMode, Depth, DepthTest, DrawParameters, Surface};
+use log::{error, info};
 use math::prelude::*;
 use math::Mat4;
 

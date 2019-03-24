@@ -5,8 +5,10 @@ use super::vertex::{SkyVertex, SpriteVertex, StaticVertex};
 use super::wad_system::WadSystem;
 use super::world::{World, WorldBuilder};
 use engine::{
-    Entities, EntityId, Meshes, RenderPipeline, System, Tick, Transforms, Uniforms, Window,
+    derive_dependencies_from, Entities, EntityId, Meshes, RenderPipeline, System, Tick, Transforms,
+    Uniforms, Window,
 };
+use log::{debug, error, info, warn};
 use math::prelude::*;
 use math::{vec2, Line2f, Pnt2f, Pnt3f, Rad, Trans3, Vec3f};
 use time;
@@ -85,10 +87,11 @@ impl Level {
         let action_and_line = action.map(|action| {
             let look3d = transform.rot.rotate_vector(-Vec3f::unit_z());
             let look2d = vec2(look3d.x, look3d.z).normalize_or_zero();
-            let ranged = look2d * match action {
-                PlayerAction::Push => 0.5,
-                PlayerAction::Shoot => 100.0,
-            };
+            let ranged = look2d
+                * match action {
+                    PlayerAction::Push => 0.5,
+                    PlayerAction::Shoot => 100.0,
+                };
             (action, Line2f::from_origin_and_displace(position, ranged))
         });
 
@@ -179,7 +182,7 @@ impl<'context> System<'context> for Level {
     }
 
     // Allow float_cmp, because we're checking equality against floats we set to a specific value.
-    #[cfg_attr(feature = "cargo-clippy", allow(float_cmp))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::float_cmp))]
     fn update(&mut self, mut deps: Dependencies) -> Result<()> {
         if deps.wad.level_changed() {
             deps.entities.remove(self.root);
@@ -404,17 +407,20 @@ impl<'a> Builder<'a> {
                 .object_indices
                 .values()
                 .map(|indices| indices.wall.len() + indices.flat.len())
-                .sum::<usize>() / 3,
+                .sum::<usize>()
+                / 3,
             builder
                 .object_indices
                 .values()
                 .map(|indices| indices.sky.len())
-                .sum::<usize>() / 3,
+                .sum::<usize>()
+                / 3,
             builder
                 .object_indices
                 .values()
                 .map(|indices| indices.decor.len())
-                .sum::<usize>() / 3,
+                .sum::<usize>()
+                / 3,
         );
 
         info!("Creating static meshes and models...");
@@ -506,7 +512,7 @@ impl<'a> Builder<'a> {
         })
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
     fn wall_vertex(
         &mut self,
         xz: Pnt2f,

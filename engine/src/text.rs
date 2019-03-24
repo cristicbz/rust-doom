@@ -1,14 +1,15 @@
-#![cfg_attr(feature = "cargo-clippy", allow(forget_copy))]
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::forget_copy))]
 
 use super::errors::{Error, Result, ResultExt};
 use super::system::System;
 use super::window::Window;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{ClientFormat, RawImage2d, Texture2d};
-use glium::Frame;
-use glium::{Blend, Surface, VertexBuffer};
-use glium::{DrawParameters, Program};
+use glium::{
+    implement_vertex, uniform, Blend, DrawParameters, Frame, Program, Surface, VertexBuffer,
+};
 use idcontain::{Id, IdSlab};
+use log::{debug, error};
 use math::Pnt2f;
 use rusttype::{self, Font, FontCollection, GlyphId, Point as FontPoint, PositionedGlyph, Scale};
 use std::borrow::Cow;
@@ -43,7 +44,8 @@ impl TextRenderer {
                 height,
                 format: ClientFormat::U8U8,
             },
-        ).unwrap();
+        )
+        .unwrap();
         let (w, h) = (
             width as f32 / win.width() as f32 * 2.0,
             height as f32 / win.height() as f32 * 2.0,
@@ -58,7 +60,8 @@ impl TextRenderer {
                     vertex(x + w, y, 1.0, 1.0),
                     vertex(x + w, y + h, 1.0, 0.0),
                 ],
-            ).unwrap(),
+            )
+            .unwrap(),
             texture,
             visible: true,
         };
@@ -198,7 +201,7 @@ impl<'context> System<'context> for TextRenderer {
         File::open(FONT_PATH)
             .and_then(|mut file| file.read_to_end(&mut font_bytes))
             .chain_err(|| format!("Failed to read font at {:?}.", FONT_PATH))?;
-        Ok(TextRenderer {
+        Ok(Self {
             font: FontCollection::from_bytes(font_bytes)
                 .chain_err(|| format!("Failed to parse font at {:?}.", FONT_PATH))?
                 .font_at(0)
@@ -251,7 +254,7 @@ impl<'a> LayoutIter<'a> {
     fn new(font: &'a Font<'static>, scale: Scale, width: u32, text: &'a str) -> Self {
         let v_metrics = font.v_metrics(scale);
 
-        LayoutIter {
+        Self {
             font,
             scale,
             width,

@@ -1,7 +1,8 @@
 use super::entities::{Entities, Entity, EntityId};
 use super::errors::{Error, ErrorKind};
 use super::system::InfallibleSystem;
-use idcontain::IdMap;
+use idcontain::{derive_flat, IdMap};
+use log::{debug, error};
 use math::prelude::*;
 use math::Trans3;
 

@@ -5,8 +5,8 @@ pub struct Lights {
 }
 
 impl Lights {
-    pub fn new() -> Lights {
-        Lights {
+    pub fn new() -> Self {
+        Self {
             lights: Vec::with_capacity(256),
         }
     }

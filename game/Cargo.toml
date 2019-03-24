@@ -2,6 +2,7 @@
 name = "game"
 version = "0.1.0"
 authors = ["Cristi Cobzarenco <cristi.cobzarenco@gmail.com>"]
+edition = "2018"
 
 [dependencies]
 engine = { path = "../engine" }
@@ -19,4 +20,4 @@ version = "0.4.3"
 
 [dependencies.glium]
 features = ["glutin"]
-version = "0.22.0"
+version = "0.23.0"

@@ -9,8 +9,8 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(center: Pnt3f, radius: f32) -> Sphere {
-        Sphere { center, radius }
+    pub fn new(center: Pnt3f, radius: f32) -> Self {
+        Self { center, radius }
     }
 
     pub fn sweep_triangle(
@@ -19,7 +19,7 @@ impl Sphere {
         normal: Vec3f,
         vel: Vec3f,
     ) -> Option<ContactInfo> {
-        let Sphere { center, radius } = *self;
+        let Self { center, radius } = *self;
         let speed = vel.magnitude();
         if speed == 0.0 {
             return None;

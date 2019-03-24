@@ -7,6 +7,7 @@ use glium::texture::buffer_texture::{BufferTexture, BufferTextureType};
 use glium::texture::{ClientFormat, PixelValue, RawImage2d, Texture2d as GliumTexture2d};
 use glium::uniforms::{AsUniformValue, SamplerBehavior, UniformValue};
 use idcontain::IdMapVec;
+use log::{debug, error};
 use math::{Mat4, Vec2, Vec2f};
 use std::borrow::Cow;
 use std::marker::PhantomData;
@@ -168,7 +169,8 @@ impl Uniforms {
                 height: size[1] as u32,
                 format,
             },
-        ).needed_by(name)?;
+        )
+        .needed_by(name)?;
         debug!("Texture {:?} created successfully", name);
         let id = entities.add(parent, name)?;
         self.texture2ds.insert(id, Texture2d { gl, sampler });
@@ -278,7 +280,7 @@ impl Uniforms {
             UniformId::BufferTextureU8(id) => self
                 .buffer_textures_u8
                 .get(id.id)
-                .map(|buffer_texture| buffer_texture.as_uniform_value()),
+                .map(AsUniformValue::as_uniform_value),
         }
     }
 }
@@ -317,7 +319,8 @@ impl<'uniforms> Texture2dRefMut<'uniforms> {
                 height: size[1] as u32,
                 format,
             },
-        ).needed_by("texture2d.replace_pixels")?;
+        )
+        .needed_by("texture2d.replace_pixels")?;
 
         debug!("Replaced texture {:?} successfully.", self.texture_id,);
         Ok(())

@@ -5,8 +5,9 @@ use super::window::Window;
 pub use glium::index::IndexBuffer;
 use glium::index::{IndicesSource, PrimitiveType};
 use glium::vertex::{Vertex, VertexBuffer, VerticesSource};
-pub use glium_typed::TypedVertexBufferAny;
+pub use glium_typed_buffer_any::TypedVertexBufferAny;
 use idcontain::IdMapVec;
+use log::{debug, error};
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Copy, Clone)]
 pub struct MeshId(EntityId);
@@ -191,7 +192,8 @@ impl<'a, VertexDataT> MeshAdder<'a, VertexDataT, ()> {
                     self.context.window.facade(),
                     PrimitiveType::TrianglesList,
                     indices,
-                ).needed_by(self.context.name)?,
+                )
+                .needed_by(self.context.name)?,
             ),
             vertices: self.vertices,
             context: self.context,
@@ -208,7 +210,8 @@ impl<'a, VertexDataT> MeshAdder<'a, VertexDataT, ()> {
                     self.context.window.facade(),
                     PrimitiveType::TrianglesList,
                     indices,
-                ).needed_by(self.context.name)?,
+                )
+                .needed_by(self.context.name)?,
             ),
             vertices: self.vertices,
             context: self.context,
@@ -280,7 +283,7 @@ impl<'context> InfallibleSystem<'context> for Meshes {
     }
 }
 
-#[cfg_attr(feature = "cargo-clippy", allow(large_enum_variant))]
+#[cfg_attr(feature = "cargo-clippy", allow(clippy::large_enum_variant))]
 enum InternalMeshData {
     Owned {
         vertices: TypedVertexBufferAny,

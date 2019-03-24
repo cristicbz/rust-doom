@@ -1,6 +1,7 @@
 use super::system::InfallibleSystem;
 use super::tick::Tick;
 use idcontain::{Id, IdSlab};
+use log::info;
 use std::borrow::Cow;
 use std::fmt::Write;
 use std::mem;
@@ -58,7 +59,7 @@ impl FrameTimers {
             ref mut times_since_logged,
             ..
         } = &mut self.timers[timer_id.0];
-        mem::replace(last_start, None).map(|last_start| {
+        last_start.take().map(|last_start| {
             let elapsed = duration_to_seconds(last_start.elapsed());
             *seconds_since_logged += elapsed;
             *times_since_logged += 1.0;
@@ -169,7 +170,7 @@ impl<'context> InfallibleSystem<'context> for FrameTimers {
     }
 
     fn create(_: &Tick) -> Self {
-        let mut this = FrameTimers {
+        let mut this = Self {
             timers: IdSlab::with_capacity(16),
             last_logged: None,
             log_buffer: String::with_capacity(512),

@@ -4,7 +4,7 @@ use math::Vec2;
 use std::vec::Vec;
 
 pub mod error {
-    error_chain!{}
+    error_chain! {}
 }
 
 use self::error::{ErrorKind, Result, ResultExt};
@@ -20,14 +20,14 @@ pub struct Image {
 }
 
 impl Image {
-    pub fn new(width: usize, height: usize) -> Result<Image> {
+    pub fn new(width: usize, height: usize) -> Result<Self> {
         ensure!(
             width <= MAX_IMAGE_SIZE && height <= MAX_IMAGE_SIZE,
             "image too large {}x{}",
             width,
             height
         );
-        Ok(Image {
+        Ok(Self {
             width,
             height,
             x_offset: 0,
@@ -36,12 +36,12 @@ impl Image {
         })
     }
 
-    pub fn new_from_header(header: &WadTextureHeader) -> Result<Image> {
-        Image::new(header.width as usize, header.height as usize)
+    pub fn new_from_header(header: &WadTextureHeader) -> Result<Self> {
+        Self::new(header.width as usize, header.height as usize)
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(needless_range_loop))]
-    pub fn from_buffer(buffer: &[u8]) -> Result<Image> {
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::needless_range_loop))]
+    pub fn from_buffer(buffer: &[u8]) -> Result<Self> {
         let mut reader = buffer;
         let width = reader
             .read_u16::<LittleEndian>()
@@ -157,7 +157,7 @@ impl Image {
             }
         }
 
-        Ok(Image {
+        Ok(Self {
             width,
             height,
             x_offset,
@@ -166,7 +166,7 @@ impl Image {
         })
     }
 
-    pub fn blit(&mut self, source: &Image, offset: Vec2<isize>, ignore_transparency: bool) {
+    pub fn blit(&mut self, source: &Self, offset: Vec2<isize>, ignore_transparency: bool) {
         // Figure out the region in source which is not out of bounds when
         // copied into self.
         let y_start = if offset[1] < 0 {
@@ -203,8 +203,7 @@ impl Image {
             .map(|row| &row[..copy_width]);
 
         let dest_rows = &mut self.pixels[(x_start as isize + offset[0]) as usize
-                                             + (y_start as isize + offset[1]) as usize
-                                                 * dest_pitch..];
+            + (y_start as isize + offset[1]) as usize * dest_pitch..];
         let dest_rows = dest_rows
             .chunks_mut(dest_pitch)
             .take(copy_height)

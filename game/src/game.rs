@@ -14,20 +14,23 @@ use engine::{
 use std::marker::PhantomData;
 use std::path::PathBuf;
 
-pub struct Game(Box<AbstractGame>);
+pub struct Game(Box<dyn AbstractGame>);
 
 impl Game {
     pub fn new(config: &GameConfig) -> Result<Self> {
         let context = ContextBuilder::new()
             // Engine configs and systems.
-            .inject(TickConfig { timestep: 1.0 / 60.0 })
+            .inject(TickConfig {
+                timestep: 1.0 / 60.0,
+            })
             .inject(WindowConfig {
                 width: config.width,
                 height: config.height,
                 title: format!("Rusty Doom v{}", config.version),
             })
-            .inject(ShaderConfig { root_path: SHADER_ROOT.into() })
-
+            .inject(ShaderConfig {
+                root_path: SHADER_ROOT.into(),
+            })
             .system(Tick::bind())?
             .system(FrameTimers::bind())?
             .system(Window::bind())?
@@ -41,7 +44,6 @@ impl Game {
             .system(Materials::bind())?
             .system(RenderPipeline::bind())?
             .system(TextRenderer::bind())?
-
             // Game configs and systems.
             .inject(WadConfig {
                 wad_path: config.wad_file.clone(),
@@ -51,17 +53,15 @@ impl Game {
             .inject(HudBindings::default())
             .inject(PlayerBindings::default())
             .inject(PlayerConfig::default())
-
             .system(WadSystem::bind())?
             .system(GameShaders::bind())?
             .system(Level::bind())?
             .system(Hud::bind())?
             .system(Player::bind())?
-
             .system(Renderer::bind())?
             .build()?;
 
-        Ok(Game(ContextWrapper::boxed(context)))
+        Ok(Self(ContextWrapper::boxed(context)))
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -94,8 +94,8 @@ where
     ContextT: Context + Peek<WadSystem, WadIndexT> + 'static,
     WadIndexT: 'static,
 {
-    fn boxed(context: ContextT) -> Box<AbstractGame> {
-        Box::new(ContextWrapper {
+    fn boxed(context: ContextT) -> Box<dyn AbstractGame> {
+        Box::new(Self {
             context,
             phantom: PhantomData,
         })
@@ -119,10 +119,8 @@ where
     }
 
     fn load_level(&mut self, level_index: usize) -> Result<()> {
-        {
-            let wad = self.context.peek_mut();
-            wad.change_level(level_index);
-        }
+        let wad = self.context.peek_mut();
+        wad.change_level(level_index);
         self.context.step()?;
         self.context.step()?;
         Ok(())

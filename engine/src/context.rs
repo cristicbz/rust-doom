@@ -1,6 +1,7 @@
 use super::errors::{Result, ResultExt};
 use super::system::{BoundSystem, System};
 use super::type_list::{Cons, Nil, Peek, Pluck, PluckInto};
+use log::info;
 use std::marker::PhantomData;
 
 pub trait Context {
@@ -24,10 +25,9 @@ pub struct ContextBuilder<SystemListT> {
     systems: SystemListT,
 }
 
-#[cfg_attr(feature = "cargo-clippy", allow(new_without_default))]
 impl ContextBuilder<Cons<InjectMut<ControlFlow>, Nil>> {
     pub fn new() -> Self {
-        ContextBuilder {
+        Self {
             systems: Cons {
                 head: InjectMut(ControlFlow {
                     quit_requested: false,
@@ -35,6 +35,12 @@ impl ContextBuilder<Cons<InjectMut<ControlFlow>, Nil>> {
                 tail: Nil,
             },
         }
+    }
+}
+
+impl Default for ContextBuilder<Cons<InjectMut<ControlFlow>, Nil>> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -169,9 +175,7 @@ pub trait DependenciesFrom<ContextT, IndicesT>: Sized {
 }
 
 impl<ContextT> DependenciesFrom<ContextT, ()> for () {
-    fn dependencies_from(_: ContextT) -> Self {
-        ()
-    }
+    fn dependencies_from(_: ContextT) -> Self {}
 }
 
 impl<'context, ContextT, IndexT, SystemT> DependenciesFrom<ContextT, IndexT> for &'context SystemT

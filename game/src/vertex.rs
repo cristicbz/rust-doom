@@ -1,4 +1,6 @@
-#![cfg_attr(feature = "cargo-clippy", allow(forget_copy))]
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::forget_copy))]
+
+use glium::implement_vertex;
 
 #[repr(C)]
 #[derive(Copy, Clone)]

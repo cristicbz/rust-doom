@@ -6,6 +6,7 @@ use super::uniforms::{UniformId, Uniforms};
 use glium::uniforms::{UniformValue, Uniforms as GliumUniforms};
 use glium::Program;
 use idcontain::IdMapVec;
+use log::{debug, error};
 
 pub const MAX_UNIFORMS: usize = 64;
 

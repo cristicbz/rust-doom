@@ -2,7 +2,7 @@ use glium;
 use idcontain::Id;
 use std::result::Result as StdResult;
 
-#[cfg_attr(feature = "cargo-clippy", allow(unused_doc_comment))]
+#[cfg_attr(feature = "cargo-clippy", allow(clippy::unused_doc_comment))]
 error_chain! {
     errors {
         CreateWindow(width: u32, height: u32) {
@@ -79,7 +79,8 @@ impl<S> NeededBy for StdResult<S, glium::texture::buffer_texture::CreationError>
                 | e @ BufferCreationError(BufferTypeNotSupported) => {
                     ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned())
                 }
-            }).into()
+            })
+            .into()
         })
     }
 }
@@ -102,7 +103,8 @@ impl<S> NeededBy for StdResult<S, glium::ProgramCreationError> {
                 | e @ PointSizeNotSupported => {
                     ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned())
                 }
-            }).into()
+            })
+            .into()
         })
     }
 }

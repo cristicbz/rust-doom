@@ -1,19 +1,10 @@
 #[macro_use]
-extern crate clap;
-extern crate env_logger;
-#[macro_use]
 extern crate error_chain;
-#[macro_use]
-extern crate log;
-extern crate time;
 
-extern crate engine;
-extern crate game;
-extern crate wad;
-
-use clap::{App, AppSettings, Arg};
-use errors::{Error, Result};
+use crate::errors::{Error, Result};
+use clap::{value_t, App, AppSettings, Arg};
 use game::{Game, GameConfig};
+use log::info;
 use std::path::PathBuf;
 use std::str::FromStr;
 use wad::Archive;
@@ -157,8 +148,9 @@ impl RunMode {
 fn run() -> Result<()> {
     env_logger::Builder::from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-    ).default_format_timestamp(false)
-        .init();
+    )
+    .default_format_timestamp(false)
+    .init();
 
     match RunMode::from_args()? {
         RunMode::ListLevelNames(GameConfig {
