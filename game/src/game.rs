@@ -119,10 +119,8 @@ where
     }
 
     fn load_level(&mut self, level_index: usize) -> Result<()> {
-        {
-            let wad = self.context.peek_mut();
-            wad.change_level(level_index);
-        }
+        let wad = self.context.peek_mut();
+        wad.change_level(level_index);
         self.context.step()?;
         self.context.step()?;
         Ok(())

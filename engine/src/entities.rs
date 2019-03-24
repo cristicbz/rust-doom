@@ -98,14 +98,12 @@ impl Entities {
 
         if let Some(old_child) = old_child.into() {
             debug!("Old child {:?}", old_child);
-            {
-                let new = &mut slab[new_id];
-                new.next = OptionId::some(old_child);
-                if parent_dead {
-                    debug!("Parent already dead, setting liveness appropriately.");
-                    new.liveness = Liveness::DeadDueToParent;
-                    removed.push(new_id);
-                }
+            let new = &mut slab[new_id];
+            new.next = OptionId::some(old_child);
+            if parent_dead {
+                debug!("Parent already dead, setting liveness appropriately.");
+                new.liveness = Liveness::DeadDueToParent;
+                removed.push(new_id);
             }
             slab[old_child].previous = OptionId::some(new_id);
         } else if parent_dead {

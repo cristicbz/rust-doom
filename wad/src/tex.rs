@@ -333,7 +333,7 @@ impl TextureDirectory {
     }
 }
 
-struct AtlasEntry<'a, ImageType: 'a> {
+struct AtlasEntry<'a, ImageType> {
     name: WadName,
     image: &'a ImageType,
     frame_offset: usize,
