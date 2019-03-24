@@ -227,7 +227,7 @@ impl<'a> WorldBuilder<'a> {
     pub fn new(objects: &'a [EntityId]) -> Self {
         let mut triangles = VecMap::with_capacity(objects.len() - 1);
         triangles.insert(0, Vec::with_capacity(16_384));
-        WorldBuilder {
+        Self {
             nodes: Vec::with_capacity(128),
             chunks: Vec::with_capacity(128),
             verts: Vec::with_capacity(4096),

@@ -327,7 +327,7 @@ pub struct LevelAnalysis {
 
 impl LevelAnalysis {
     pub fn new(level: &Level, meta: &WadMetadata) -> Self {
-        let mut this = LevelAnalysis {
+        let mut this = Self {
             dynamic_info: IndexMap::new(),
             triggers: Vec::new(),
             num_objects: 0,
@@ -528,8 +528,8 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
         tex: &'a TextureDirectory,
         meta: &'a WadMetadata,
         visitor: &'a mut V,
-    ) -> LevelWalker<'a, V> {
-        LevelWalker {
+    ) -> Self {
+        Self {
             level,
             tex,
             meta,
@@ -1368,7 +1368,7 @@ const THING_TYPE_TELEPORT_START: ThingType = 11;
 const THING_TYPE_TELEPORT_END: ThingType = 14;
 
 impl Marker {
-    fn from(thing_type: ThingType) -> Option<Marker> {
+    fn from(thing_type: ThingType) -> Option<Self> {
         match thing_type {
             THING_TYPE_PLAYER1_START => Some(Marker::StartPos { player: 0 }),
             THING_TYPE_PLAYER2_START => Some(Marker::StartPos { player: 1 }),

@@ -201,7 +201,7 @@ impl<'context> System<'context> for TextRenderer {
         File::open(FONT_PATH)
             .and_then(|mut file| file.read_to_end(&mut font_bytes))
             .chain_err(|| format!("Failed to read font at {:?}.", FONT_PATH))?;
-        Ok(TextRenderer {
+        Ok(Self {
             font: FontCollection::from_bytes(font_bytes)
                 .chain_err(|| format!("Failed to parse font at {:?}.", FONT_PATH))?
                 .font_at(0)
@@ -254,7 +254,7 @@ impl<'a> LayoutIter<'a> {
     fn new(font: &'a Font<'static>, scale: Scale, width: u32, text: &'a str) -> Self {
         let v_metrics = font.v_metrics(scale);
 
-        LayoutIter {
+        Self {
             font,
             scale,
             width,

@@ -170,7 +170,7 @@ impl<'context> InfallibleSystem<'context> for FrameTimers {
     }
 
     fn create(_: &Tick) -> Self {
-        let mut this = FrameTimers {
+        let mut this = Self {
             timers: IdSlab::with_capacity(16),
             last_logged: None,
             log_buffer: String::with_capacity(512),

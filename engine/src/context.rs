@@ -27,7 +27,7 @@ pub struct ContextBuilder<SystemListT> {
 
 impl ContextBuilder<Cons<InjectMut<ControlFlow>, Nil>> {
     pub fn new() -> Self {
-        ContextBuilder {
+        Self {
             systems: Cons {
                 head: InjectMut(ControlFlow {
                     quit_requested: false,

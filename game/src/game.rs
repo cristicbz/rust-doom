@@ -14,7 +14,7 @@ use engine::{
 use std::marker::PhantomData;
 use std::path::PathBuf;
 
-pub struct Game(Box<AbstractGame>);
+pub struct Game(Box<dyn AbstractGame>);
 
 impl Game {
     pub fn new(config: &GameConfig) -> Result<Self> {
@@ -61,7 +61,7 @@ impl Game {
             .system(Renderer::bind())?
             .build()?;
 
-        Ok(Game(ContextWrapper::boxed(context)))
+        Ok(Self(ContextWrapper::boxed(context)))
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -94,8 +94,8 @@ where
     ContextT: Context + Peek<WadSystem, WadIndexT> + 'static,
     WadIndexT: 'static,
 {
-    fn boxed(context: ContextT) -> Box<AbstractGame> {
-        Box::new(ContextWrapper {
+    fn boxed(context: ContextT) -> Box<dyn AbstractGame> {
+        Box::new(Self {
             context,
             phantom: PhantomData,
         })

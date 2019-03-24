@@ -198,7 +198,7 @@ impl<'context> InfallibleSystem<'context> for Entities {
     }
 
     fn create(_deps: ()) -> Self {
-        Entities {
+        Self {
             slab: IdSlab::with_capacity(1024),
             first_root: OptionId::none(),
             removed: Vec::with_capacity(1024),
@@ -209,7 +209,7 @@ impl<'context> InfallibleSystem<'context> for Entities {
     // TODO(cristicbz): Split up into simpler, more self-documenting functions.
     #[cfg_attr(feature = "cargo-clippy", allow(clippy::cyclomatic_complexity))]
     fn update(&mut self, _dependencies: ()) {
-        let Entities {
+        let Self {
             ref mut removed,
             ref mut last_removed,
             ref mut slab,
@@ -438,7 +438,7 @@ mod test {
             let c1 = entities.add(root_c, "c1").unwrap();
 
             let a2y = entities.add(a2, "a2y").unwrap();
-            Tree1 {
+            Self {
                 root_a,
                 root_b,
                 root_c,

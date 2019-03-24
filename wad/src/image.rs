@@ -20,14 +20,14 @@ pub struct Image {
 }
 
 impl Image {
-    pub fn new(width: usize, height: usize) -> Result<Image> {
+    pub fn new(width: usize, height: usize) -> Result<Self> {
         ensure!(
             width <= MAX_IMAGE_SIZE && height <= MAX_IMAGE_SIZE,
             "image too large {}x{}",
             width,
             height
         );
-        Ok(Image {
+        Ok(Self {
             width,
             height,
             x_offset: 0,
@@ -36,12 +36,12 @@ impl Image {
         })
     }
 
-    pub fn new_from_header(header: &WadTextureHeader) -> Result<Image> {
-        Image::new(header.width as usize, header.height as usize)
+    pub fn new_from_header(header: &WadTextureHeader) -> Result<Self> {
+        Self::new(header.width as usize, header.height as usize)
     }
 
     #[cfg_attr(feature = "cargo-clippy", allow(clippy::needless_range_loop))]
-    pub fn from_buffer(buffer: &[u8]) -> Result<Image> {
+    pub fn from_buffer(buffer: &[u8]) -> Result<Self> {
         let mut reader = buffer;
         let width = reader
             .read_u16::<LittleEndian>()
@@ -157,7 +157,7 @@ impl Image {
             }
         }
 
-        Ok(Image {
+        Ok(Self {
             width,
             height,
             x_offset,
@@ -166,7 +166,7 @@ impl Image {
         })
     }
 
-    pub fn blit(&mut self, source: &Image, offset: Vec2<isize>, ignore_transparency: bool) {
+    pub fn blit(&mut self, source: &Self, offset: Vec2<isize>, ignore_transparency: bool) {
         // Figure out the region in source which is not out of bounds when
         // copied into self.
         let y_start = if offset[1] < 0 {
