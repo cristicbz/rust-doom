@@ -239,12 +239,7 @@ impl<'a> WorldBuilder<'a> {
 
     pub fn build(self) -> World {
         let mut dynamic_chunks = IdMapVec::with_capacity(self.objects.len() - 1);
-        let mut triangles = Vec::with_capacity(
-            self.triangles
-                .values()
-                .map(Vec::len)
-                .sum(),
-        );
+        let mut triangles = Vec::with_capacity(self.triangles.values().map(Vec::len).sum());
         for (i_object, object_triangles) in self.triangles {
             let tri_start = triangles.len() as u32;
             triangles.extend(object_triangles);
@@ -410,8 +405,9 @@ impl<'a> LevelVisitor for WorldBuilder<'a> {
                 Pnt3f::new(v2[0], low, v2[1]),
                 Pnt3f::new(v2[0], high, v2[1]),
                 Pnt3f::new(v1[0], high, v1[1]),
-            ].iter()
-                .cloned(),
+            ]
+            .iter()
+            .cloned(),
             normal,
         );
     }

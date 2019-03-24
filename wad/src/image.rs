@@ -4,7 +4,7 @@ use math::Vec2;
 use std::vec::Vec;
 
 pub mod error {
-    error_chain!{}
+    error_chain! {}
 }
 
 use self::error::{ErrorKind, Result, ResultExt};
@@ -203,8 +203,7 @@ impl Image {
             .map(|row| &row[..copy_width]);
 
         let dest_rows = &mut self.pixels[(x_start as isize + offset[0]) as usize
-                                             + (y_start as isize + offset[1]) as usize
-                                                 * dest_pitch..];
+            + (y_start as isize + offset[1]) as usize * dest_pitch..];
         let dest_rows = dest_rows
             .chunks_mut(dest_pitch)
             .take(copy_height)

@@ -79,7 +79,8 @@ impl<S> NeededBy for StdResult<S, glium::texture::buffer_texture::CreationError>
                 | e @ BufferCreationError(BufferTypeNotSupported) => {
                     ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned())
                 }
-            }).into()
+            })
+            .into()
         })
     }
 }
@@ -102,7 +103,8 @@ impl<S> NeededBy for StdResult<S, glium::ProgramCreationError> {
                 | e @ PointSizeNotSupported => {
                     ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned())
                 }
-            }).into()
+            })
+            .into()
         })
     }
 }

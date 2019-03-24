@@ -43,7 +43,7 @@ pub fn new_light(level: &Level, sector: &WadSector) -> LightInfo {
             return LightInfo {
                 level: base_level,
                 effect: None,
-            }
+            };
         }
     };
     let sync = match sector.sector_type {
