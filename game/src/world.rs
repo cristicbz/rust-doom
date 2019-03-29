@@ -49,7 +49,6 @@ impl World {
         while let Some(index) = stack.pop() {
             for child in self.nodes[index].intersect_sphere(sphere, vel) {
                 let chunk = match child {
-                    Child::Stump => continue,
                     Child::Node(index) => {
                         stack.push(index);
                         continue;
@@ -147,7 +146,6 @@ struct Node {
 enum Child {
     Leaf(usize),
     Node(usize),
-    Stump,
 }
 
 impl Child {
@@ -161,14 +159,11 @@ impl Child {
                 assert!(index < i32::MAX as usize);
                 (index as i32)
             }
-            Child::Stump => 0,
         }
     }
 
     fn unpack(packed: i32) -> Self {
-        if packed == 0 {
-            Child::Stump
-        } else if packed > 0 {
+        if packed > 0 {
             Child::Node(packed as usize)
         } else {
             Child::Leaf((-packed) as usize)
@@ -310,9 +305,9 @@ impl<'a> WorldBuilder<'a> {
 
 impl<'a> LevelVisitor for WorldBuilder<'a> {
     fn visit_bsp_root(&mut self, line: &Line2f) {
-        let index = self.nodes.len();
+        assert_eq!(self.nodes.len(), 0);
         self.nodes.push(Node::new(*line));
-        self.node_stack.borrow_mut().push(index);
+        self.node_stack.borrow_mut().push(0);
     }
 
     fn visit_bsp_node(&mut self, line: &Line2f, branch: Branch) {
