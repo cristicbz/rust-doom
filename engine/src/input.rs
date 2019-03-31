@@ -1,6 +1,7 @@
 use super::errors::{Error, Result};
 use super::system::System;
 use super::window::Window;
+use crate::internal_derive::DependenciesFrom;
 pub use glium::glutin::MouseButton;
 pub use glium::glutin::VirtualKeyCode as Scancode;
 use glium::glutin::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -117,10 +118,9 @@ impl Input {
     }
 }
 
-derive_dependencies_from! {
-    pub struct Dependencies<'context> {
-        window: &'context mut Window,
-    }
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    window: &'context mut Window,
 }
 
 pub struct Input {

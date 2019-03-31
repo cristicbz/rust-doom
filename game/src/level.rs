@@ -5,7 +5,7 @@ use super::vertex::{SkyVertex, SpriteVertex, StaticVertex};
 use super::wad_system::WadSystem;
 use super::world::{World, WorldBuilder};
 use engine::{
-    derive_dependencies_from, Entities, EntityId, Meshes, RenderPipeline, System, Tick, Transforms,
+    DependenciesFrom, Entities, EntityId, Meshes, RenderPipeline, System, Tick, Transforms,
     Uniforms, Window,
 };
 use log::{debug, error, info, warn};
@@ -34,19 +34,18 @@ pub struct Level {
     volume: World,
 }
 
-derive_dependencies_from! {
-    pub struct Dependencies<'context> {
-        window: &'context Window,
-        entities: &'context mut Entities,
-        uniforms: &'context mut Uniforms,
-        meshes: &'context mut Meshes,
-        render: &'context mut RenderPipeline,
-        wad: &'context mut WadSystem,
-        tick: &'context Tick,
-        transforms: &'context mut Transforms,
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    window: &'context Window,
+    entities: &'context mut Entities,
+    uniforms: &'context mut Uniforms,
+    meshes: &'context mut Meshes,
+    render: &'context mut RenderPipeline,
+    wad: &'context mut WadSystem,
+    tick: &'context Tick,
+    transforms: &'context mut Transforms,
 
-        game_shaders: &'context GameShaders,
-    }
+    game_shaders: &'context GameShaders,
 }
 
 #[derive(Copy, Clone, Debug)]

@@ -3,6 +3,7 @@ use super::materials::MaterialId;
 use super::meshes::MeshId;
 use super::system::InfallibleSystem;
 use super::uniforms::{Mat4UniformId, Uniforms};
+use crate::internal_derive::DependenciesFrom;
 use idcontain::IdMapVec;
 use log::{debug, error};
 use math::prelude::*;
@@ -36,11 +37,10 @@ impl RenderPipeline {
     }
 }
 
-derive_dependencies_from! {
-    pub struct Dependencies<'context> {
-        entities: &'context mut Entities,
-        uniforms: &'context mut Uniforms,
-    }
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    entities: &'context mut Entities,
+    uniforms: &'context mut Uniforms,
 }
 
 pub struct RenderPipeline {

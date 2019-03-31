@@ -3,9 +3,6 @@
 #[macro_use]
 extern crate error_chain;
 
-#[macro_use]
-mod context_macros;
-
 pub mod context;
 pub mod system;
 pub mod type_list;
@@ -52,3 +49,11 @@ pub use glium::texture::{ClientFormat, PixelValue};
 pub use glium::uniforms::{
     MagnifySamplerFilter, MinifySamplerFilter, SamplerBehavior, SamplerWrapFunction,
 };
+
+mod internal_derive {
+    pub use super::context::DependenciesFrom;
+    pub use engine_derive::InternalDependenciesFrom as DependenciesFrom;
+}
+
+pub use context::DependenciesFrom;
+pub use engine_derive::DependenciesFrom;
