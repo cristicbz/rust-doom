@@ -1,5 +1,5 @@
 pub use super::name::WadName;
-use serde_derive::Deserialize;
+use serde::Deserialize;
 
 pub type LightLevel = i16;
 pub type LinedefFlags = u16;
