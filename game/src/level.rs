@@ -11,7 +11,7 @@ use engine::{
 use log::{debug, error, info, warn};
 use math::prelude::*;
 use math::{vec2, Line2f, Pnt2f, Pnt3f, Rad, Trans3, Vec3f};
-use time;
+use std::time::Instant;
 use vec_map::VecMap;
 use wad::tex::Bounds as WadBounds;
 use wad::{
@@ -332,7 +332,7 @@ impl<'a> Builder<'a> {
     fn build(deps: &mut Dependencies) -> Result<Level> {
         info!("Building new level...");
 
-        let start_time = time::precise_time_s();
+        let start_time = Instant::now();
         let root = deps.entities.add_root("level_root");
 
         let mut objects = Vec::new();
@@ -395,7 +395,7 @@ impl<'a> Builder<'a> {
              \tnum_static_tris = {}\n\
              \tnum_sky_tris = {}\n\
              \tnum_sprite_tris = {}",
-            (time::precise_time_s() - start_time) * 1000.0,
+            start_time.elapsed().f64_seconds() * 1000.0,
             builder.num_wall_quads,
             builder.num_floor_polys,
             builder.num_ceil_polys,

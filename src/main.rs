@@ -3,7 +3,9 @@ extern crate error_chain;
 
 use game::{self, Game, GameConfig};
 use log::info;
+use math::DurationExt;
 use std::path::PathBuf;
+use std::time::Instant;
 use structopt::StructOpt;
 use wad::Archive;
 
@@ -106,13 +108,13 @@ impl App {
                     ..self.into_config()
                 })?;
                 info!("Loading all levels...");
-                let t0 = time::precise_time_s();
+                let t0 = Instant::now();
                 for level_index in 1..game.num_levels() {
                     game.load_level(level_index)?;
                 }
                 info!(
                     "Done loading all levels in {:.4}s. Shutting down...",
-                    time::precise_time_s() - t0
+                    t0.elapsed().f64_seconds()
                 );
             }
             Some(Command::ListLevelNames) => {

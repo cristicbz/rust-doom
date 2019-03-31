@@ -11,7 +11,7 @@ use math::prelude::*;
 use math::{vec2, Pnt2f, Vec2, Vec2f};
 use std::cmp;
 use std::mem;
-use time;
+use std::time::Instant;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Bounds {
@@ -64,7 +64,7 @@ impl TextureDirectory {
         info!("  {:4} patches", patches.len());
 
         // Read textures.
-        let t0 = time::precise_time_s();
+        let start_time = Instant::now();
         info!("Reading & assembling textures...");
         let mut textures = IndexMap::new();
         let mut textures_buffer = Vec::new();
@@ -85,7 +85,7 @@ impl TextureDirectory {
                 String::from_utf8_lossy(lump_name)
             );
         }
-        info!("Done in {:.2}ms.", (time::precise_time_s() - t0) * 1000.0);
+        info!("Done in {:.2}ms.", start_time.elapsed().f64_milliseconds());
 
         // Read flats.
         let flats = read_flats(wad)?;
@@ -368,7 +368,7 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     patches.reserve(num_patches);
     let mut missing_patches = 0usize;
     info!("Reading {} patches....", num_patches);
-    let t0 = time::precise_time_s();
+    let start_time = Instant::now();
     let mut image_buffer = Vec::new();
     for i_patch in 0..num_patches {
         let name: WadName = match bincode::deserialize_from(&mut lump) {
@@ -403,7 +403,7 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
     }
     info!(
         "Done in {:.2}ms; {} missing patches.",
-        (time::precise_time_s() - t0) * 1000.0,
+        start_time.elapsed().f64_milliseconds(),
         missing_patches
     );
     Ok(patches)
@@ -476,7 +476,7 @@ fn read_sprites(wad: &Archive, textures: &mut IndexMap<WadName, Image>) -> Resul
     let start_index = wad.required_named_lump(b"S_START\0")?.index() + 1;
     let end_index = wad.required_named_lump(b"S_END\0\0\0")?.index();
     info!("Reading {} sprites....", end_index - start_index);
-    let t0 = time::precise_time_s();
+    let start_time = Instant::now();
     let mut image_buffer = Vec::new();
     for index in start_index..end_index {
         let lump = wad.lump_by_index(index)?;
@@ -492,7 +492,7 @@ fn read_sprites(wad: &Archive, textures: &mut IndexMap<WadName, Image>) -> Resul
             }
         }
     }
-    info!("Done in {:.2}ms.", (time::precise_time_s() - t0) * 1000.0);
+    info!("Done in {:.2}ms.", start_time.elapsed().f64_milliseconds());
     Ok(end_index - start_index)
 }
 

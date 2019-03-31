@@ -1,5 +1,7 @@
 pub mod prelude {
-    pub use super::InnerSpaceExt as MathPreludeInnerSpaceExt;
+    pub use super::{
+        DurationExt as MathPreludeDurationExt, InnerSpaceExt as MathPreludeInnerSpaceExt,
+    };
     pub use cgmath::prelude::{
         Angle as MathPreludeAngle, Array as MathPreludeArray,
         ElementWise as MathPreludeElementWise, EuclideanSpace as MathPreludeEuclideanSpace,
@@ -17,6 +19,7 @@ pub use cgmath::{
     Decomposed, Deg, ElementWise, EuclideanSpace, Euler, InnerSpace, Matrix, MetricSpace, Rad,
     Rotation, Rotation2, Rotation3, SquareMatrix, Transform, Transform2, Transform3, VectorSpace,
 };
+
 pub use num_traits::{Float, NumCast};
 
 pub mod contact;
@@ -26,6 +29,8 @@ pub mod sphere;
 pub use self::contact::ContactInfo;
 pub use self::line::Line2;
 pub use self::sphere::Sphere;
+
+use std::time::Duration;
 
 pub trait InnerSpaceExt: InnerSpace
 where
@@ -37,6 +42,19 @@ where
 
     fn normalize_or_zero_self(&mut self) {
         *self = *self / self.magnitude().max(Self::Scalar::default_epsilon())
+    }
+}
+
+pub trait DurationExt {
+    fn f64_seconds(&self) -> f64;
+    fn f64_milliseconds(&self) -> f64 {
+        self.f64_seconds() * 1e3
+    }
+}
+
+impl DurationExt for Duration {
+    fn f64_seconds(&self) -> f64 {
+        (self.as_secs() as f64) + (self.subsec_nanos() as f64) * 1e-9
     }
 }
 
