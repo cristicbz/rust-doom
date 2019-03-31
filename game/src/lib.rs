@@ -15,7 +15,7 @@ mod wad_system;
 mod world;
 
 pub use self::errors::{Error, ErrorKind, Result};
-pub use self::game::{Game, GameConfig};
+pub use self::game::{create, Game, GameConfig};
 pub use self::level::Level;
 
 pub const SHADER_ROOT: &str = "assets/shaders";
