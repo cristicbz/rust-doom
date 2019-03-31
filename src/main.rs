@@ -9,60 +9,12 @@ use wad::Archive;
 
 use self::errors::Result;
 
-mod errors {
-    error_chain! {
-        foreign_links {
-            Argument(::clap::Error);
-        }
-        errors {}
-        links {
-            Engine(::engine::Error, ::engine::ErrorKind);
-            Game(::game::Error, ::game::ErrorKind);
-            Wad(::wad::Error, ::wad::ErrorKind);
-        }
-    }
-}
-
-fn parse_resolution(size_str: &str) -> Result<(u32, u32)> {
-    let size_if_ok = size_str
-        .find('x')
-        .and_then(|x_index| {
-            if x_index == 0 || x_index + 1 == size_str.len() {
-                None
-            } else {
-                Some((&size_str[..x_index], &size_str[x_index + 1..]))
-            }
-        })
-        .map(|(width, height)| (width.parse::<u32>(), height.parse::<u32>()))
-        .and_then(|size| match size {
-            (Ok(width), Ok(height)) => Some((width, height)),
-            _ => None,
-        });
-
-    if let Some(size) = size_if_ok {
-        Ok(size)
-    } else {
-        bail!("resolution format must be WIDTHxHEIGHT");
-    }
-}
-
-#[derive(StructOpt, Copy, Clone)]
-pub enum Command {
-    /// Load metadata and all levels in WAD, then exit.
-    #[structopt(name = "check")]
-    Check,
-
-    /// List the names and indices of all the leves in the WAD, then exit.
-    #[structopt(name = "list-levels")]
-    ListLevelNames,
-}
-
 #[derive(StructOpt)]
 #[structopt(
     name = "Rusty Doom",
     raw(setting = "structopt::clap::AppSettings::ColoredHelp")
 )]
-struct Args {
+struct App {
     #[structopt(
         short = "i",
         long = "iwad",
@@ -116,8 +68,62 @@ struct Args {
     command: Option<Command>,
 }
 
-impl Args {
-    pub fn into_config(self) -> GameConfig {
+#[derive(StructOpt, Copy, Clone)]
+enum Command {
+    /// Load metadata and all levels in WAD, then exit.
+    #[structopt(name = "check")]
+    Check,
+
+    /// List the names and indices of all the leves in the WAD, then exit.
+    #[structopt(name = "list-levels")]
+    ListLevelNames,
+}
+
+impl App {
+    pub fn run_from_args() -> Result<()> {
+        Self::from_args().run()
+    }
+
+    pub fn run(self) -> Result<()> {
+        env_logger::Builder::from_env(
+            env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+        )
+        .default_format_timestamp(false)
+        .init();
+
+        match self.command {
+            None => {
+                let mut game = game::create(&self.into_config())?;
+                game.run()?;
+                info!("Game main loop ended, shutting down...");
+            }
+            Some(Command::Check) => {
+                let mut game = game::create(&GameConfig {
+                    initial_level_index: 0,
+                    ..self.into_config()
+                })?;
+                info!("Loading all levels...");
+                let t0 = time::precise_time_s();
+                for level_index in 1..game.num_levels() {
+                    game.load_level(level_index)?;
+                }
+                info!(
+                    "Done loading all levels in {:.4}s. Shutting down...",
+                    time::precise_time_s() - t0
+                );
+            }
+            Some(Command::ListLevelNames) => {
+                let wad = Archive::open(&self.iwad, &self.metadata)?;
+                for i_level in 0..wad.num_levels() {
+                    println!("{:3} {:8}", i_level, wad.level_lump(i_level)?.name());
+                }
+            }
+        }
+        info!("Clean shutdown.");
+        Ok(())
+    }
+
+    fn into_config(self) -> GameConfig {
         GameConfig {
             wad_file: self.iwad,
             metadata_file: self.metadata,
@@ -130,44 +136,39 @@ impl Args {
     }
 }
 
-fn run() -> Result<()> {
-    env_logger::Builder::from_env(
-        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-    )
-    .default_format_timestamp(false)
-    .init();
+/// Parse a resolution string like `WIDTHxHEIGHT` into `(width, height)`.
+fn parse_resolution(size_str: &str) -> Result<(u32, u32)> {
+    let size_if_ok = size_str
+        .find('x')
+        .and_then(|x_index| {
+            if x_index == 0 || x_index + 1 == size_str.len() {
+                None
+            } else {
+                Some((&size_str[..x_index], &size_str[x_index + 1..]))
+            }
+        })
+        .map(|(width, height)| (width.parse::<u32>(), height.parse::<u32>()))
+        .and_then(|size| match size {
+            (Ok(width), Ok(height)) => Some((width, height)),
+            _ => None,
+        });
 
-    let args = Args::from_args();
-    match args.command {
-        None => {
-            let mut game = game::create(&args.into_config())?;
-            game.run()?;
-            info!("Game main loop ended, shutting down...");
-        }
-        Some(Command::Check) => {
-            let mut game = game::create(&GameConfig {
-                initial_level_index: 0,
-                ..args.into_config()
-            })?;
-            info!("Loading all levels...");
-            let t0 = time::precise_time_s();
-            for level_index in 1..game.num_levels() {
-                game.load_level(level_index)?;
-            }
-            info!(
-                "Done loading all levels in {:.4}s. Shutting down...",
-                time::precise_time_s() - t0
-            );
-        }
-        Some(Command::ListLevelNames) => {
-            let wad = Archive::open(&args.iwad, &args.metadata)?;
-            for i_level in 0..wad.num_levels() {
-                println!("{:3} {:8}", i_level, wad.level_lump(i_level)?.name());
-            }
-        }
+    if let Some(size) = size_if_ok {
+        Ok(size)
+    } else {
+        bail!("resolution format must be WIDTHxHEIGHT");
     }
-    info!("Clean shutdown.");
-    Ok(())
 }
 
-quick_main!(run);
+mod errors {
+    error_chain! {
+        errors {}
+        links {
+            Engine(::engine::Error, ::engine::ErrorKind);
+            Game(::game::Error, ::game::ErrorKind);
+            Wad(::wad::Error, ::wad::ErrorKind);
+        }
+    }
+}
+
+quick_main!(App::run_from_args);

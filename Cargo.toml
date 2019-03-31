@@ -14,7 +14,6 @@ engine = { path = "engine" }
 game = { path = "game" }
 math = { path = "math" }
 
-clap = "2.32.0"
 env_logger = "0.6.1"
 error-chain = "0.12.0"
 time = "0.1.35"
