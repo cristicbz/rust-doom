@@ -80,11 +80,14 @@ enum Command {
 }
 
 impl App {
+    /// Parse options from command-line arguments and run.
     pub fn run_from_args() -> Result<()> {
         Self::from_args().run()
     }
 
+    /// Either play the game (if no `Command` was passed), or perform the command.
     pub fn run(self) -> Result<()> {
+        // Init logging, with default `info` level.
         env_logger::Builder::from_env(
             env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
         )
@@ -123,6 +126,7 @@ impl App {
         Ok(())
     }
 
+    /// Populate `GameConfig` fields from the parsed command-line arguments.
     fn into_config(self) -> GameConfig {
         GameConfig {
             wad_file: self.iwad,
@@ -156,7 +160,7 @@ fn parse_resolution(size_str: &str) -> Result<(u32, u32)> {
     if let Some(size) = size_if_ok {
         Ok(size)
     } else {
-        bail!("resolution format must be WIDTHxHEIGHT");
+        bail!("Resolution format must be WIDTHxHEIGHT");
     }
 }
 
