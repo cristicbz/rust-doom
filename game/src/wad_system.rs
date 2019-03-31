@@ -1,5 +1,5 @@
 use super::errors::{Error, Result};
-use engine::{derive_dependencies_from, System};
+use engine::{DependenciesFrom, System};
 use log::info;
 use std::path::PathBuf;
 use wad::{
@@ -53,10 +53,9 @@ impl WadSystem {
     }
 }
 
-derive_dependencies_from! {
-    pub struct Dependencies<'context> {
-        config: &'context Config,
-    }
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    config: &'context Config,
 }
 
 impl<'context> System<'context> for WadSystem {

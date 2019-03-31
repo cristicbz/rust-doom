@@ -1,7 +1,7 @@
 use super::errors::{Error, Result};
 use super::wad_system::WadSystem;
 use engine::{
-    derive_dependencies_from, BufferTextureId, BufferTextureType, ClientFormat, Entities, EntityId,
+    BufferTextureId, BufferTextureType, ClientFormat, DependenciesFrom, Entities, EntityId,
     FloatUniformId, MagnifySamplerFilter, MaterialId, Materials, MinifySamplerFilter,
     RenderPipeline, SamplerBehavior, SamplerWrapFunction, ShaderId, Shaders, System, Texture2dId,
     Tick, Uniforms, Window,
@@ -39,18 +39,17 @@ impl GameShaders {
     }
 }
 
-derive_dependencies_from! {
-    pub struct Dependencies<'context> {
-        tick: &'context Tick,
-        window: &'context Window,
-        entities: &'context mut Entities,
-        shaders: &'context mut Shaders,
-        uniforms: &'context mut Uniforms,
-        render: &'context mut RenderPipeline,
-        materials: &'context mut Materials,
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    tick: &'context Tick,
+    window: &'context Window,
+    entities: &'context mut Entities,
+    shaders: &'context mut Shaders,
+    uniforms: &'context mut Uniforms,
+    render: &'context mut RenderPipeline,
+    materials: &'context mut Materials,
 
-        wad: &'context mut WadSystem,
-    }
+    wad: &'context mut WadSystem,
 }
 
 impl<'context> System<'context> for GameShaders {

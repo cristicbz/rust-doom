@@ -1,7 +1,7 @@
 use super::level::{Level, PlayerAction};
 use engine::{
-    derive_dependencies_from, Analog2d, Entities, EntityId, Gesture, InfallibleSystem, Input,
-    MouseButton, Projection, Projections, RenderPipeline, Scancode, Tick, Transforms, Window,
+    Analog2d, DependenciesFrom, Entities, EntityId, Gesture, InfallibleSystem, Input, MouseButton,
+    Projection, Projections, RenderPipeline, Scancode, Tick, Transforms, Window,
 };
 use log::error;
 use math::prelude::*;
@@ -91,21 +91,20 @@ impl Default for Config {
     }
 }
 
-derive_dependencies_from! {
-    pub struct Dependencies<'context> {
-        bindings: &'context Bindings,
-        config: &'context Config,
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    bindings: &'context Bindings,
+    config: &'context Config,
 
-        tick: &'context Tick,
-        window: &'context Window,
-        input: &'context Input,
-        entities: &'context mut Entities,
-        transforms: &'context mut Transforms,
-        projections: &'context mut Projections,
-        render: &'context mut RenderPipeline,
+    tick: &'context Tick,
+    window: &'context Window,
+    input: &'context Input,
+    entities: &'context mut Entities,
+    transforms: &'context mut Transforms,
+    projections: &'context mut Projections,
+    render: &'context mut RenderPipeline,
 
-        level: &'context mut Level,
-    }
+    level: &'context mut Level,
 }
 
 pub struct Player {

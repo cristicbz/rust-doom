@@ -10,24 +10,24 @@ use super::tick::Tick;
 use super::transforms::Transforms;
 use super::uniforms::Uniforms;
 use super::window::Window;
+use crate::internal_derive::DependenciesFrom;
 use glium::{BackfaceCullingMode, Depth, DepthTest, DrawParameters, Surface};
 use log::{error, info};
 use math::prelude::*;
 use math::Mat4;
 
-derive_dependencies_from! {
-    pub struct Dependencies<'context> {
-        pipe: &'context mut RenderPipeline,
-        meshes: &'context Meshes,
-        materials: &'context Materials,
-        shaders: &'context Shaders,
-        text: &'context TextRenderer,
-        window: &'context Window,
-        transforms: &'context Transforms,
-        projections: &'context Projections,
-        uniforms: &'context mut Uniforms,
-        tick: &'context Tick,
-    }
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    pipe: &'context mut RenderPipeline,
+    meshes: &'context Meshes,
+    materials: &'context Materials,
+    shaders: &'context Shaders,
+    text: &'context TextRenderer,
+    window: &'context Window,
+    transforms: &'context Transforms,
+    projections: &'context Projections,
+    uniforms: &'context mut Uniforms,
+    tick: &'context Tick,
 }
 
 pub struct Renderer {

@@ -1,6 +1,6 @@
 use super::wad_system::WadSystem;
 use engine::{
-    derive_dependencies_from, ControlFlow, Gesture, InfallibleSystem, Input, Scancode, TextId,
+    DependenciesFrom, ControlFlow, Gesture, InfallibleSystem, Input, Scancode, TextId,
     TextRenderer, Window,
 };
 use math::prelude::*;
@@ -35,16 +35,15 @@ impl Default for Bindings {
     }
 }
 
-derive_dependencies_from! {
-    pub struct Dependencies<'context> {
-        bindings: &'context Bindings,
-        window: &'context Window,
-        input: &'context mut Input,
-        text: &'context mut TextRenderer,
-        control_flow: &'context mut ControlFlow,
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    bindings: &'context Bindings,
+    window: &'context Window,
+    input: &'context mut Input,
+    text: &'context mut TextRenderer,
+    control_flow: &'context mut ControlFlow,
 
-        wad: &'context mut WadSystem,
-    }
+    wad: &'context mut WadSystem,
 }
 
 pub struct Hud {

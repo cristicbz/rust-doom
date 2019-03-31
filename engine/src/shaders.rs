@@ -3,6 +3,8 @@ use super::errors::{ErrorKind, NeededBy, Result, ResultExt};
 use super::platform;
 use super::system::InfallibleSystem;
 use super::window::Window;
+use crate::internal_derive::DependenciesFrom;
+
 use glium::program::{Program, ProgramCreationInput};
 use idcontain::IdMapVec;
 use log::{debug, error};
@@ -82,11 +84,10 @@ pub struct Shader {
     program: Program,
 }
 
-derive_dependencies_from! {
-    pub struct Dependencies<'context> {
-        config: &'context ShaderConfig,
-        entities: &'context Entities,
-    }
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    config: &'context ShaderConfig,
+    entities: &'context Entities,
 }
 
 impl<'context> InfallibleSystem<'context> for Shaders {
