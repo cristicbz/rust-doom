@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate error_chain;
 
-use game::{Game, GameConfig};
+use game::{self, Game, GameConfig};
 use log::info;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -140,12 +140,12 @@ fn run() -> Result<()> {
     let args = Args::from_args();
     match args.command {
         None => {
-            let mut game = Game::new(&args.into_config())?;
+            let mut game = game::create(&args.into_config())?;
             game.run()?;
             info!("Game main loop ended, shutting down...");
         }
         Some(Command::Check) => {
-            let mut game = Game::new(&GameConfig {
+            let mut game = game::create(&GameConfig {
                 initial_level_index: 0,
                 ..args.into_config()
             })?;
