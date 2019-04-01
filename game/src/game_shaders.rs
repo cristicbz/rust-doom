@@ -1,4 +1,4 @@
-use super::errors::{Error, Result};
+use super::{Error, Result};
 use super::wad_system::WadSystem;
 use engine::{
     BufferTextureId, BufferTextureType, ClientFormat, DependenciesFrom, Entities, EntityId,

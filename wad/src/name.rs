@@ -1,4 +1,4 @@
-use super::error::{ErrorKind, Result};
+use super::errors::{Error, Result};
 use serde::de::{Deserialize, Deserializer, Error as SerdeDeError};
 use std::borrow::Borrow;
 use std::fmt;
@@ -22,7 +22,7 @@ impl WadName {
             | b @ b']'
             | b @ b'\\' => b,
             b => {
-                bail!(ErrorKind::invalid_byte_in_wad_name(b, &self.0));
+                return Err(Error::invalid_byte_in_wad_name(b, &self.0));
             }
         };
 
@@ -33,17 +33,16 @@ impl WadName {
             }
         }
 
-        bail!(ErrorKind::wad_name_too_long(&self.0));
+        return Err(Error::wad_name_too_long(&self.0));
     }
 
     pub fn from_bytes(value: &[u8]) -> Result<WadName> {
         let mut name = [0u8; 8];
         let mut nulled = false;
         for (dest, &src) in name.iter_mut().zip(value.iter()) {
-            ensure!(
-                src.is_ascii(),
-                ErrorKind::invalid_byte_in_wad_name(src, value)
-            );
+            if !src.is_ascii() {
+                return Err(Error::invalid_byte_in_wad_name(src, value));
+            }
 
             let new_byte = match src.to_ascii_uppercase() {
                 b @ b'A'...b'Z'
@@ -58,22 +57,21 @@ impl WadName {
                     break;
                 }
                 b => {
-                    bail!(ErrorKind::invalid_byte_in_wad_name(b, value));
+                    return Err(Error::invalid_byte_in_wad_name(b, value));
                 }
             };
             *dest = new_byte;
         }
 
-        ensure!(
-            nulled || value.len() <= 8,
-            ErrorKind::wad_name_too_long(value)
-        );
+        if !nulled && value.len() > 8 {
+            return Err(Error::wad_name_too_long(value));
+        }
         Ok(WadName(name))
     }
 }
 
 impl FromStr for WadName {
-    type Err = super::error::Error;
+    type Err = Error;
     fn from_str(value: &str) -> Result<WadName> {
         WadName::from_bytes(value.as_bytes())
     }

@@ -15,8 +15,8 @@ game = { path = "game" }
 math = { path = "math" }
 
 env_logger = "0.6.1"
-error-chain = "0.12.0"
 structopt = "0.2.15"
+failure = "0.1.5"
 
 [dependencies.log]
 features = ["release_max_level_info"]

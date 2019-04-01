@@ -1,5 +1,5 @@
 use super::entities::{Entities, Entity, EntityId};
-use super::errors::{Error, ErrorKind};
+use super::errors::ErrorKind;
 use super::system::InfallibleSystem;
 use idcontain::{derive_flat, IdMap};
 use log::{debug, error};
@@ -67,10 +67,10 @@ impl Transforms {
                     }
                 }
                 Ok(None) => return ParentLookup::IsRoot,
-                Err(Error(ErrorKind::NoSuchEntity(..), _)) => {
-                    return ParentLookup::Removed;
-                }
-                Err(error) => panic!("unexpected error in `parent_of`: {}", error),
+                Err(error) => match error.kind() {
+                    ErrorKind::NoSuchEntity { .. } => return ParentLookup::Removed,
+                    _ => panic!("unexpected error in `parent_of`: {}", error),
+                },
             }
         }
     }

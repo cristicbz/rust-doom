@@ -1,9 +1,9 @@
-use super::errors::{Error, Result};
 use super::game_shaders::{GameShaders, LevelMaterials};
 use super::lights::Lights;
 use super::vertex::{SkyVertex, SpriteVertex, StaticVertex};
 use super::wad_system::WadSystem;
 use super::world::{World, WorldBuilder};
+use super::{Error, Result};
 use engine::{
     DependenciesFrom, Entities, EntityId, Meshes, RenderPipeline, System, Tick, Transforms,
     Uniforms, Window,

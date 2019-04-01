@@ -1,4 +1,4 @@
-use super::errors::{Error, NeededBy, Result};
+use super::errors::{Error, Result};
 use super::materials::Materials;
 use super::meshes::Meshes;
 use super::pipeline::{Model, RenderPipeline};
@@ -152,7 +152,7 @@ impl<'context> System<'context> for Renderer {
                     &material,
                     &self.draw_parameters,
                 )
-                .needed_by("renderer")?;
+                .map_err(Error::glium("renderer"))?;
         }
 
         // Render text. TODO(cristicbz): text should render itself :(

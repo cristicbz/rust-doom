@@ -1,4 +1,4 @@
-use super::error::{ErrorKind, Result, ResultExt};
+use super::errors::{Error, Result};
 use super::meta::WadMetadata;
 use super::types::{WadInfo, WadLump, WadName};
 use bincode;
@@ -60,15 +60,14 @@ impl Archive {
 
     fn open_wad(wad_path: &Path) -> Result<OpenWad> {
         // Open file, read and check header.
-        let mut file = BufReader::new(File::open(&wad_path).chain_err(ErrorKind::on_file_open)?);
+        let mut file = BufReader::new(File::open(&wad_path).map_err(Error::on_file_open)?);
 
         let header: WadInfo =
-            bincode::deserialize_from(&mut file).chain_err(ErrorKind::bad_wad_header)?;
+            bincode::deserialize_from(&mut file).map_err(Error::bad_wad_header)?;
 
-        ensure!(
-            header.identifier == IWAD_HEADER,
-            ErrorKind::bad_wad_header_identifier(&header.identifier)
-        );
+        if header.identifier != IWAD_HEADER {
+            return Err(Error::bad_wad_header_identifier(&header.identifier));
+        }
 
         // Read lump info.
         let mut lumps = Vec::with_capacity(header.num_lumps as usize);
@@ -76,10 +75,12 @@ impl Archive {
         let mut index_map = IndexMap::new();
 
         file.seek(SeekFrom::Start(header.info_table_offset as u64))
-            .chain_err(|| ErrorKind::seeking_to_info_table_offset(header.info_table_offset))?;
+            .map_err(Error::seeking_to_info_table_offset(
+                header.info_table_offset,
+            ))?;
         for i_lump in 0..header.num_lumps {
-            let fileinfo: WadLump = bincode::deserialize_from(&mut file)
-                .chain_err(|| ErrorKind::bad_lump_info(i_lump))?;
+            let fileinfo: WadLump =
+                bincode::deserialize_from(&mut file).map_err(Error::bad_lump_info(i_lump))?;
 
             index_map.insert(fileinfo.name, lumps.len());
             lumps.push(LumpInfo {
@@ -122,7 +123,7 @@ impl Archive {
         Q: Hash + Eq + Debug,
     {
         self.named_lump(name)?
-            .ok_or_else(|| ErrorKind::missing_required_lump(name).into())
+            .ok_or_else(|| Error::missing_required_lump(name))
     }
 
     pub fn named_lump<Q>(&self, name: &Q) -> Result<Option<LumpReader>>
@@ -142,7 +143,7 @@ impl Archive {
             info: self
                 .lumps
                 .get(index)
-                .ok_or_else(|| ErrorKind::missing_required_lump(&index))?,
+                .ok_or_else(|| Error::missing_required_lump(&index))?,
             index,
         })
     }
@@ -174,16 +175,22 @@ impl<'a> LumpReader<'a> {
             let element_size = mem::size_of::<T>();
             let num_elements = info.size / element_size;
 
-            ensure!(
-                info.size > 0 && (info.size % element_size == 0),
-                ErrorKind::bad_lump_size(index, info.name.as_ref(), info.size, element_size)
-            );
+            if info.size == 0 || (info.size % element_size != 0) {
+                return Err(Error::bad_lump_size(
+                    index,
+                    info.name.as_ref(),
+                    info.size,
+                    element_size,
+                ));
+            }
 
             (0..num_elements)
                 .map(move |i_element| {
-                    bincode::deserialize_from(&mut file).chain_err(|| {
-                        ErrorKind::bad_lump_element(index, info.name.as_ref(), i_element)
-                    })
+                    bincode::deserialize_from(&mut file).map_err(Error::bad_lump_element(
+                        index,
+                        info.name.as_ref(),
+                        i_element,
+                    ))
                 })
                 .collect()
         })
@@ -193,12 +200,21 @@ impl<'a> LumpReader<'a> {
         let LumpReader { info, index, .. } = *self;
         self.read(|file| {
             let element_size = mem::size_of::<T>();
-            ensure!(
-                info.size > 0 && (info.size == element_size),
-                ErrorKind::bad_lump_size(index, info.name.as_ref(), info.size, element_size)
-            );
-            Ok(bincode::deserialize_from(file)
-                .chain_err(|| ErrorKind::bad_lump_element(index, info.name.as_ref(), 0))?)
+            if element_size == 0 || (info.size != element_size) {
+                return Err(Error::bad_lump_size(
+                    index,
+                    info.name.as_ref(),
+                    info.size,
+                    element_size,
+                ));
+            }
+            Ok(
+                bincode::deserialize_from(file).map_err(Error::bad_lump_element(
+                    index,
+                    info.name.as_ref(),
+                    0,
+                ))?,
+            )
         })
     }
 
@@ -210,16 +226,20 @@ impl<'a> LumpReader<'a> {
         self.read(|file| {
             let blob_size = B::default().as_mut().len();
             assert!(blob_size > 0);
-            ensure!(
-                info.size > 0 && (info.size % blob_size == 0),
-                ErrorKind::bad_lump_size(index, info.name.as_ref(), info.size, blob_size)
-            );
+            if info.size == 0 || (info.size % blob_size != 0) {
+                return Err(Error::bad_lump_size(
+                    index,
+                    info.name.as_ref(),
+                    info.size,
+                    blob_size,
+                ));
+            }
             let num_blobs = info.size / blob_size;
             let mut blobs = Vec::with_capacity(num_blobs);
             for _ in 0..num_blobs {
                 blobs.push(B::default());
                 file.read_exact(blobs.last_mut().expect("empty blobs").as_mut())
-                    .chain_err(|| ErrorKind::reading_lump(index, info.name.as_ref()))?;
+                    .map_err(Error::reading_lump(index, info.name.as_ref()))?;
             }
             Ok(blobs)
         })
@@ -231,7 +251,7 @@ impl<'a> LumpReader<'a> {
             let old_size = bytes.len();
             bytes.resize(old_size + info.size, 0u8);
             file.read_exact(&mut bytes[old_size..])
-                .chain_err(|| ErrorKind::reading_lump(index, info.name.as_ref()))?;
+                .map_err(Error::reading_lump(index, info.name.as_ref()))?;
             Ok(())
         })
     }
@@ -252,7 +272,7 @@ impl<'a> LumpReader<'a> {
         } = *self;
         let mut file = archive.file.borrow_mut();
         file.seek(SeekFrom::Start(info.offset))
-            .chain_err(|| ErrorKind::seeking_to_lump(index, info.name.as_ref()))?;
+            .map_err(Error::seeking_to_lump(index, info.name.as_ref()))?;
         with(&mut Read::take(&mut *file, info.size as u64))
     }
 }

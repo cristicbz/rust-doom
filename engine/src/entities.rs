@@ -1,4 +1,4 @@
-use super::errors::{ErrorKind, Result};
+use super::errors::{Error, Result};
 use super::system::InfallibleSystem;
 use idcontain::{Id, IdSlab, OptionId};
 use log::{debug, error};
@@ -93,7 +93,7 @@ impl Entities {
 
         if !parent_exists {
             slab.remove(new_id);
-            bail!(ErrorKind::NoSuchEntity("add", Some(name), parent.cast()));
+            return Err(Error::no_such_entity("add", Some(name), parent.cast()));
         }
 
         if let Some(old_child) = old_child.into() {
@@ -131,11 +131,10 @@ impl Entities {
 
     #[inline]
     pub fn parent_of(&self, id: EntityId) -> Result<Option<EntityId>> {
-        if let Some(entity) = self.slab.get(id) {
-            Ok(entity.parent.into_option())
-        } else {
-            bail!(ErrorKind::NoSuchEntity("parent_of", None, id.cast()));
-        }
+        self.slab
+            .get(id)
+            .ok_or_else(|| Error::no_such_entity("parent_of", None, id.cast()))
+            .map(|entity| entity.parent.into_option())
     }
 
     #[inline]

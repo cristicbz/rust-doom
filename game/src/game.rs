@@ -1,4 +1,4 @@
-use super::errors::Result;
+use super::errors::{Result, ResultExt};
 use super::game_shaders::GameShaders;
 use super::hud::{Bindings as HudBindings, Hud};
 use super::level::Level;
@@ -33,48 +33,51 @@ pub struct GameConfig {
 }
 
 pub fn create(config: &GameConfig) -> Result<impl Game> {
-    let context = ContextBuilder::new()
-        // Engine configs and systems.
-        .inject(TickConfig {
-            timestep: 1.0 / 60.0,
-        })
-        .inject(WindowConfig {
-            width: config.width,
-            height: config.height,
-            title: format!("Rusty Doom v{}", config.version),
-        })
-        .inject(ShaderConfig {
-            root_path: SHADER_ROOT.into(),
-        })
-        .system(Tick::bind())?
-        .system(FrameTimers::bind())?
-        .system(Window::bind())?
-        .system(Input::bind())?
-        .system(Entities::bind())?
-        .system(Transforms::bind())?
-        .system(Projections::bind())?
-        .system(Shaders::bind())?
-        .system(Uniforms::bind())?
-        .system(Meshes::bind())?
-        .system(Materials::bind())?
-        .system(RenderPipeline::bind())?
-        .system(TextRenderer::bind())?
-        // Game configs and systems.
-        .inject(WadConfig {
-            wad_path: config.wad_file.clone(),
-            metadata_path: config.metadata_file.clone(),
-            initial_level_index: config.initial_level_index,
-        })
-        .inject(HudBindings::default())
-        .inject(PlayerBindings::default())
-        .inject(PlayerConfig::default())
-        .system(WadSystem::bind())?
-        .system(GameShaders::bind())?
-        .system(Level::bind())?
-        .system(Hud::bind())?
-        .system(Player::bind())?
-        .system(Renderer::bind())?
-        .build()?;
+    let context = (|| {
+        ContextBuilder::new()
+            // Engine configs and systems.
+            .inject(TickConfig {
+                timestep: 1.0 / 60.0,
+            })
+            .inject(WindowConfig {
+                width: config.width,
+                height: config.height,
+                title: format!("Rusty Doom v{}", config.version),
+            })
+            .inject(ShaderConfig {
+                root_path: SHADER_ROOT.into(),
+            })
+            .system(Tick::bind())?
+            .system(FrameTimers::bind())?
+            .system(Window::bind())?
+            .system(Input::bind())?
+            .system(Entities::bind())?
+            .system(Transforms::bind())?
+            .system(Projections::bind())?
+            .system(Shaders::bind())?
+            .system(Uniforms::bind())?
+            .system(Meshes::bind())?
+            .system(Materials::bind())?
+            .system(RenderPipeline::bind())?
+            .system(TextRenderer::bind())?
+            // Game configs and systems.
+            .inject(WadConfig {
+                wad_path: config.wad_file.clone(),
+                metadata_path: config.metadata_file.clone(),
+                initial_level_index: config.initial_level_index,
+            })
+            .inject(HudBindings::default())
+            .inject(PlayerBindings::default())
+            .inject(PlayerConfig::default())
+            .system(WadSystem::bind())?
+            .system(GameShaders::bind())?
+            .system(Level::bind())?
+            .system(Hud::bind())?
+            .system(Player::bind())?
+            .system(Renderer::bind())?
+            .build()
+    })()
+    .err_context(|_| "when building context at startup")?;
 
     Ok(GameImpl::new(context))
 }

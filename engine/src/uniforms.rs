@@ -1,5 +1,5 @@
 use super::entities::{Entities, Entity, EntityId};
-use super::errors::{NeededBy, Result};
+use super::errors::{Error, Result};
 use super::system::InfallibleSystem;
 use super::window::Window;
 use glium::buffer::Content as BufferContent;
@@ -170,7 +170,7 @@ impl Uniforms {
                 format,
             },
         )
-        .needed_by(name)?;
+        .map_err(Error::glium(name))?;
         debug!("Texture {:?} created successfully", name);
         let id = entities.add(parent, name)?;
         self.texture2ds.insert(id, Texture2d { gl, sampler });
@@ -204,8 +204,8 @@ impl Uniforms {
             "Creating persistent buffer_texture<u7> {:?}, size={:?}, type={:?}",
             name, size, texture_type
         );
-        let texture =
-            BufferTexture::empty_persistent(window.facade(), size, texture_type).needed_by(name)?;
+        let texture = BufferTexture::empty_persistent(window.facade(), size, texture_type)
+            .map_err(Error::glium(name))?;
         debug!("Buffer texture {:?} created successfully", name);
         let id = entities.add(parent, name)?;
         self.buffer_textures_u8.insert(id, texture);
@@ -245,11 +245,11 @@ impl Uniforms {
         let size = if let Some(size) = size {
             size
         } else {
-            bail!(
-                "Missing texture {:?} to get size for, when adding size uniform {:?}.",
-                texture,
-                name
-            );
+            return Err(Error::no_such_component(
+                "adding size uniform for texture",
+                Some(name),
+                texture.0.cast(),
+            ));
         };
         self.add_vec2f(entities, texture.0, name, size)
     }
@@ -320,7 +320,7 @@ impl<'uniforms> Texture2dRefMut<'uniforms> {
                 format,
             },
         )
-        .needed_by("texture2d.replace_pixels")?;
+        .map_err(Error::glium("texture2d.replace_pixels"))?;
 
         debug!("Replaced texture {:?} successfully.", self.texture_id,);
         Ok(())

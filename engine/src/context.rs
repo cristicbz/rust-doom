@@ -1,4 +1,4 @@
-use super::errors::{Result, ResultExt};
+use super::errors::{Error, Result};
 use super::system::{BoundSystem, System};
 use super::type_list::{Cons, Nil, Peek, Pluck, PluckInto};
 use log::info;
@@ -91,7 +91,7 @@ impl<SystemListT> ContextBuilder<SystemListT> {
     where
         SystemListT: SystemList<IndicesT> + Peek<ControlFlow, ControlIndexT>,
     {
-        SystemListT::setup_list(&mut self.systems).chain_err(|| "Context setup failed.")?;
+        SystemListT::setup_list(&mut self.systems).map_err(Error::context_setup)?;
         info!("Context set up.");
         Ok(ContextObject {
             systems: Some(self.systems),
@@ -153,7 +153,7 @@ where
     }
 
     fn step(&mut self) -> Result<()> {
-        SystemListT::update_list(self.systems_mut()).chain_err(|| "Context update failed.")
+        SystemListT::update_list(self.systems_mut()).map_err(Error::context_update)
     }
 
     fn destroy(&mut self) -> Result<()> {
@@ -162,9 +162,9 @@ where
         } else {
             return Ok(());
         };
-        SystemListT::teardown_list(&mut systems).chain_err(|| "Context teardown failed.")?;
+        SystemListT::teardown_list(&mut systems).map_err(Error::context_teardown)?;
         info!("Context tore down.");
-        SystemListT::destroy_list(systems).chain_err(|| "Context destruction failed.")?;
+        SystemListT::destroy_list(systems).map_err(Error::context_destruction)?;
         info!("Context destroyed.");
         Ok(())
     }
@@ -333,27 +333,27 @@ where
     fn raw_setup(&mut self, context: &'context mut ContextT) -> Result<()> {
         info!("Setting up system {:?}...", Self::debug_name());
         self.setup(<Self as System>::Dependencies::dependencies_from(context))
-            .chain_err(|| format!("Failed to set up system {:?}.", Self::debug_name()))
+            .map_err(Error::system_setup(Self::debug_name()))
     }
 
     #[inline]
     fn raw_update(&mut self, context: &'context mut ContextT) -> Result<()> {
         self.update(<Self as System>::Dependencies::dependencies_from(context))
-            .chain_err(|| format!("Failed to update system {:?}.", Self::debug_name()))
+            .map_err(Error::system_update(Self::debug_name()))
     }
 
     #[inline]
     fn raw_teardown(&mut self, context: &'context mut ContextT) -> Result<()> {
         info!("Tearing down system {:?}...", Self::debug_name());
         self.teardown(<Self as System>::Dependencies::dependencies_from(context))
-            .chain_err(|| format!("Failed to tear down system {:?}.", Self::debug_name()))
+            .map_err(Error::system_teardown(Self::debug_name()))
     }
 
     #[inline]
     fn raw_destroy(self, context: &'context mut ContextT) -> Result<()> {
         info!("Destroying system {:?}...", Self::debug_name());
         self.destroy(<Self as System>::Dependencies::dependencies_from(context))
-            .chain_err(|| format!("Failed to destroy system {:?}.", Self::debug_name()))
+            .map_err(Error::system_destruction(Self::debug_name()))
     }
 }
 
@@ -367,7 +367,7 @@ where
     fn raw_create(context: &'context mut ContextT) -> Result<Self> {
         info!("Creating system {:?}...", Self::debug_name());
         Self::create(<Self as System>::Dependencies::dependencies_from(context))
-            .chain_err(|| format!("Failed to create system {:?}.", Self::debug_name()))
+            .map_err(Error::system_creation(Self::debug_name()))
     }
 }
 

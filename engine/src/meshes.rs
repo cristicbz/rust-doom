@@ -1,5 +1,5 @@
 use super::entities::{Entities, Entity, EntityId};
-use super::errors::{NeededBy, Result};
+use super::errors::{Error, Result};
 use super::system::InfallibleSystem;
 use super::window::Window;
 pub use glium::index::IndexBuffer;
@@ -133,7 +133,7 @@ impl<'a, IndexDataT> MeshAdder<'a, (), IndexDataT> {
         Ok(MeshAdder {
             vertices: OwnedVertexData(
                 VertexBuffer::immutable(self.context.window.facade(), vertices)
-                    .needed_by(self.context.name)?
+                    .map_err(Error::glium(self.context.name))?
                     .into(),
             ),
             indices: self.indices,
@@ -151,7 +151,7 @@ impl<'a, IndexDataT> MeshAdder<'a, (), IndexDataT> {
         Ok(MeshAdder {
             vertices: OwnedVertexData(
                 VertexBuffer::persistent(self.context.window.facade(), vertices)
-                    .needed_by(self.context.name)?
+                    .map_err(Error::glium(self.context.name))?
                     .into(),
             ),
             indices: self.indices,
@@ -193,7 +193,7 @@ impl<'a, VertexDataT> MeshAdder<'a, VertexDataT, ()> {
                     PrimitiveType::TrianglesList,
                     indices,
                 )
-                .needed_by(self.context.name)?,
+                .map_err(Error::glium(self.context.name))?,
             ),
             vertices: self.vertices,
             context: self.context,
@@ -211,7 +211,7 @@ impl<'a, VertexDataT> MeshAdder<'a, VertexDataT, ()> {
                     PrimitiveType::TrianglesList,
                     indices,
                 )
-                .needed_by(self.context.name)?,
+                .map_err(Error::glium(self.context.name))?,
             ),
             vertices: self.vertices,
             context: self.context,

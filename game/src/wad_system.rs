@@ -1,4 +1,4 @@
-use super::errors::{Error, Result};
+use super::{Error, Result};
 use engine::{DependenciesFrom, System};
 use log::info;
 use std::path::PathBuf;
@@ -72,12 +72,13 @@ impl<'context> System<'context> for WadSystem {
         let level_index = deps.config.initial_level_index;
         let level_name = archive.level_lump(level_index)?.name();
 
-        ensure!(
-            level_index < archive.num_levels(),
-            "Level index {} is not in valid range 0..{}, see --list-levels for level names.",
-            level_index,
-            archive.num_levels()
-        );
+        if level_index >= archive.num_levels() {
+            return Err(Error::from(format!(
+                "Level index {} is not in valid range 0..{}, see --list-levels for level names.",
+                level_index,
+                archive.num_levels()
+            )));
+        }
 
         info!(
             "Loading initial level {:?} ({})...",

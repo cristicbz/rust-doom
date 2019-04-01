@@ -1,6 +1,6 @@
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::forget_copy))]
 
-use super::errors::{Error, Result, ResultExt};
+use super::errors::{Error, Result};
 use super::system::System;
 use super::window::Window;
 use glium::index::{NoIndices, PrimitiveType};
@@ -200,12 +200,16 @@ impl<'context> System<'context> for TextRenderer {
         let mut font_bytes = Vec::with_capacity(1024 * 1024); // 1MB
         File::open(FONT_PATH)
             .and_then(|mut file| file.read_to_end(&mut font_bytes))
-            .chain_err(|| format!("Failed to read font at {:?}.", FONT_PATH))?;
+            .map_err(|error| {
+                Error::font(error, format!("Failed to read font at {:?}.", FONT_PATH))
+            })?;
         Ok(Self {
             font: FontCollection::from_bytes(font_bytes)
-                .chain_err(|| format!("Failed to parse font at {:?}.", FONT_PATH))?
+                .map_err(|error| {
+                    Error::font(error, format!("Failed to parse font at {:?}.", FONT_PATH))
+                })?
                 .font_at(0)
-                .chain_err(|| format!("No fonts in {:?}.", FONT_PATH))?,
+                .map_err(|error| Error::font(error, format!("No fonts in {:?}.", FONT_PATH)))?,
             slab: IdSlab::with_capacity(16),
             program: Program::from_source(window.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
             draw_params: DrawParameters {

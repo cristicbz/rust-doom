@@ -1,13 +1,8 @@
+use super::errors::{Error, Result};
 use super::types::WadTextureHeader;
 use byteorder::{LittleEndian, ReadBytesExt};
 use math::Vec2;
 use std::vec::Vec;
-
-pub mod error {
-    error_chain! {}
-}
-
-use self::error::{ErrorKind, Result, ResultExt};
 
 pub const MAX_IMAGE_SIZE: usize = 4096;
 
@@ -21,12 +16,9 @@ pub struct Image {
 
 impl Image {
     pub fn new(width: usize, height: usize) -> Result<Self> {
-        ensure!(
-            width <= MAX_IMAGE_SIZE && height <= MAX_IMAGE_SIZE,
-            "image too large {}x{}",
-            width,
-            height
-        );
+        if width > MAX_IMAGE_SIZE || height > MAX_IMAGE_SIZE {
+            return Err(Error::image_too_large(width, height));
+        }
         Ok(Self {
             width,
             height,
@@ -45,23 +37,20 @@ impl Image {
         let mut reader = buffer;
         let width = reader
             .read_u16::<LittleEndian>()
-            .chain_err(|| "missing width")? as usize;
+            .map_err(Error::image_context("missing width"))? as usize;
         let height = reader
             .read_u16::<LittleEndian>()
-            .chain_err(|| "missing height")? as usize;
-        ensure!(
-            width <= MAX_IMAGE_SIZE && height <= MAX_IMAGE_SIZE,
-            "image too large {}x{}",
-            width,
-            height
-        );
+            .map_err(Error::image_context("missing height"))? as usize;
+        if width > MAX_IMAGE_SIZE || height > MAX_IMAGE_SIZE {
+            return Err(Error::image_too_large(width, height));
+        }
 
         let x_offset = reader
             .read_i16::<LittleEndian>()
-            .chain_err(|| "missing x offset")? as isize;
+            .map_err(Error::image_context("missing x offset"))? as isize;
         let y_offset = reader
             .read_i16::<LittleEndian>()
-            .chain_err(|| "missing y offset")? as isize;
+            .map_err(Error::image_context("missing y offset"))? as isize;
 
         let mut pixels = vec![!0; width * height];
 
@@ -71,22 +60,23 @@ impl Image {
             // defined starting at `offset' in the buffer.
             let offset = reader
                 .read_u32::<LittleEndian>()
-                .chain_err(|| format!("unfinished column {}, {}x{}", i_column, width, height))?
+                .map_err(Error::unfinished_image_column(i_column, width, height))?
                 as isize;
-            ensure!(
-                offset < buffer.len() as isize,
-                "invalid column offset in {}, offset={}, size={}",
-                i_column,
-                offset,
-                buffer.len()
-            );
+            if offset >= buffer.len() as isize {
+                return Err(Error::image(format!(
+                    "invalid column offset in {}, offset={}, size={}",
+                    i_column,
+                    offset,
+                    buffer.len()
+                )));
+            }
             let mut source = buffer[offset as usize..].iter();
             let mut i_run = 0;
             loop {
                 // The first byte contains the vertical coordinate of the run's
                 // start.
                 let row_start = *source.next().ok_or_else(|| {
-                    ErrorKind::from(format!("unfinshed column {}, run {}", i_column, i_run))
+                    Error::image(format!("unfinshed column {}, run {}", i_column, i_run))
                 })? as usize;
 
                 // The special value of 255 means this is the last run in the
@@ -98,31 +88,27 @@ impl Image {
                 // The second byte is the length of this run. Skip an additional
                 // byte which is ignored for some reason.
                 let run_length = *source.next().ok_or_else(|| {
-                    ErrorKind::from(format!(
+                    Error::image(format!(
                         "missing run length: column {}, run {}",
                         i_column, i_run
                     ))
                 })? as usize;
 
                 // Check that the run fits in the image.
-                ensure!(
-                    row_start + run_length <= height,
-                    "run too big: column {}, run {} ({} +{}), size {}x{}",
-                    i_column,
-                    i_run,
-                    row_start,
-                    run_length,
-                    width,
-                    height
-                );
+                if row_start + run_length > height {
+                    return Err(Error::image(format!(
+                        "run too big: column {}, run {} ({} +{}), size {}x{}",
+                        i_column, i_run, row_start, run_length, width, height
+                    )));
+                }
 
                 // An ignored padding byte.
-                ensure!(
-                    source.next().is_some(),
-                    "missing padding byte 1: column {}, run {}",
-                    i_column,
-                    i_run
-                );
+                if source.next().is_none() {
+                    return Err(Error::image(format!(
+                        "missing padding byte 1: column {}, run {}",
+                        i_column, i_run
+                    )));
+                }
 
                 // Iterator to the beginning of the run in `pixels`. Guaranteed to be in bounds
                 // by the check above.
@@ -133,26 +119,27 @@ impl Image {
 
                 // Copy the bytes from source to destination, but first check there's enough of
                 // those left.
-                ensure!(
-                    source.size_hint().0 >= run_length,
-                    "source underrun: column {}, run {} ({}, +{}), bytes  left {}",
-                    i_column,
-                    i_run,
-                    row_start,
-                    run_length,
-                    source.size_hint().0
-                );
+                if source.size_hint().0 < run_length {
+                    return Err(Error::image(format!(
+                        "source underrun: column {}, run {} ({}, +{}), bytes  left {}",
+                        i_column,
+                        i_run,
+                        row_start,
+                        run_length,
+                        source.size_hint().0
+                    )));
+                }
                 for dest_pixel in &mut destination {
                     *dest_pixel = u16::from(*source.next().expect("missing pixel despite check"));
                 }
 
                 // And another ignored byte after the run.
-                ensure!(
-                    source.next().is_some(),
-                    "missing padding byte 2: column {}, run {}",
-                    i_column,
-                    i_run
-                );
+                if source.next().is_none() {
+                    return Err(Error::image(format!(
+                        "missing padding byte 2: column {}, run {}",
+                        i_column, i_run
+                    )));
+                }
                 i_run += 1;
             }
         }

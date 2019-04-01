@@ -1,5 +1,5 @@
 use super::archive::Archive;
-use super::error::{ErrorKind, Result, ResultExt};
+use super::errors::{Error, Result};
 use super::image::Image;
 use super::name::WadName;
 use super::types::{Colormap, Palette, WadTextureHeader, WadTexturePatchRef};
@@ -361,8 +361,7 @@ fn read_patches(wad: &Archive) -> Result<Vec<(WadName, Option<Image>)>> {
 
     let num_patches = lump
         .read_u32::<LittleEndian>()
-        .chain_err(|| ErrorKind::CorruptWad("Missing number of patches in PNAMES".to_owned()))?
-        as usize;
+        .map_err(Error::missing_number_of_patches)? as usize;
     let mut patches = Vec::with_capacity(num_patches);
 
     patches.reserve(num_patches);
@@ -504,18 +503,15 @@ fn read_textures(
     let mut lump = lump_buffer;
     let num_textures = lump
         .read_u32::<LittleEndian>()
-        .chain_err(|| ErrorKind::CorruptWad("Misisng number of textures.".to_owned()))?
-        as usize;
+        .map_err(Error::missing_number_of_textures)? as usize;
 
     let offsets_end = num_textures * mem::size_of::<u32>();
-    ensure!(
-        offsets_end < lump.len(),
-        ErrorKind::CorruptWad(format!(
-            "Textures lump too small for offsets {} < {}",
+    if offsets_end >= lump.len() {
+        return Err(Error::textures_lump_too_small_for_offsets(
             lump.len(),
-            offsets_end
-        ))
-    );
+            offsets_end,
+        ));
+    }
     let mut offsets = &lump[..offsets_end];
 
     for i_texture in 0..num_textures {
@@ -523,14 +519,13 @@ fn read_textures(
             .read_u32::<LittleEndian>()
             .expect("could not read from size-checked offset buffer in texture lump")
             as usize;
-        ensure!(
-            offset < lump_buffer.len(),
-            ErrorKind::CorruptWad(format!(
-                "Textures lump too small for offsets {} < {}",
-                lump.len(),
-                offsets_end
-            ))
-        );
+
+        if offset >= lump_buffer.len() {
+            return Err(Error::textures_lump_too_small_for_offsets(
+                lump_buffer.len(),
+                offset,
+            ));
+        }
 
         lump = &lump_buffer[offset..];
         let header: WadTextureHeader = match bincode::deserialize_from(&mut lump) {
