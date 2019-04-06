@@ -1,8 +1,5 @@
-#[macro_use]
-extern crate error_chain;
-
 mod archive;
-mod error;
+mod errors;
 mod image;
 mod level;
 mod light;
@@ -15,7 +12,7 @@ pub mod types;
 pub mod util;
 
 pub use self::archive::Archive;
-pub use self::error::{Error, ErrorKind, Result};
+pub use self::errors::{Error, ErrorKind, Result};
 pub use self::image::Image;
 pub use self::level::Level;
 pub use self::light::{LightEffect, LightEffectKind, LightInfo};

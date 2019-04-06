@@ -1,4 +1,4 @@
-use super::errors::{Error, NeededBy, Result};
+use super::errors::{Error, ErrorKind, Result};
 use super::materials::Materials;
 use super::meshes::Meshes;
 use super::pipeline::{Model, RenderPipeline};
@@ -11,6 +11,7 @@ use super::transforms::Transforms;
 use super::uniforms::Uniforms;
 use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
+use failchain::ResultExt;
 use glium::{BackfaceCullingMode, Depth, DepthTest, DrawParameters, Surface};
 use log::{error, info};
 use math::prelude::*;
@@ -152,11 +153,13 @@ impl<'context> System<'context> for Renderer {
                     &material,
                     &self.draw_parameters,
                 )
-                .needed_by("renderer")?;
+                .map_err(ErrorKind::glium("renderer"))?;
         }
 
         // Render text. TODO(cristicbz): text should render itself :(
-        deps.text.render(&mut frame)?;
+        deps.text
+            .render(&mut frame)
+            .chain_err(|| ErrorKind::System("render bypass", TextRenderer::debug_name()))?;
 
         // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
         frame

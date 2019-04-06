@@ -1,11 +1,14 @@
-use super::errors::{Error, Result};
+use super::errors::{Error, ErrorKind, Result};
 use engine::{DependenciesFrom, System};
+use failchain::{bail, ResultExt};
 use log::info;
 use std::path::PathBuf;
 use wad::{
-    Archive, Level as WadLevel, LevelAnalysis, LevelVisitor, LevelWalker, TextureDirectory, WadName,
+    Archive, Level as WadLevel, LevelAnalysis, LevelVisitor, LevelWalker, Result as WadResult,
+    TextureDirectory, WadName,
 };
 
+#[derive(Debug)]
 pub struct Config {
     pub wad_path: PathBuf,
     pub metadata_path: PathBuf,
@@ -67,23 +70,34 @@ impl<'context> System<'context> for WadSystem {
     }
 
     fn create(deps: Dependencies) -> Result<Self> {
-        let archive = Archive::open(&deps.config.wad_path, &deps.config.metadata_path)?;
-        let textures = TextureDirectory::from_archive(&archive)?;
-        let level_index = deps.config.initial_level_index;
-        let level_name = archive.level_lump(level_index)?.name();
+        let (archive, textures, level_index, level_name) = (|| -> WadResult<_> {
+            let archive = Archive::open(&deps.config.wad_path, &deps.config.metadata_path)?;
+            let textures = TextureDirectory::from_archive(&archive)?;
+            let level_index = deps.config.initial_level_index;
+            let level_name = archive.level_lump(level_index)?.name();
+            Ok((archive, textures, level_index, level_name))
+        })()
+        .chain_err(|| ErrorKind(format!("WAD setup failed with: {:#?}", deps.config)))?;
 
-        ensure!(
-            level_index < archive.num_levels(),
-            "Level index {} is not in valid range 0..{}, see --list-levels for level names.",
-            level_index,
-            archive.num_levels()
-        );
+        if level_index >= archive.num_levels() {
+            bail!(
+                ErrorKind,
+                "Level index {} is not in valid range 0..{}, see --list-levels for level names.",
+                level_index,
+                archive.num_levels()
+            );
+        }
 
         info!(
             "Loading initial level {:?} ({})...",
             level_name, level_index
         );
-        let level = WadLevel::from_archive(&archive, level_index)?;
+        let level = WadLevel::from_archive(&archive, level_index).chain_err(|| {
+            ErrorKind(format!(
+                "when loading WAD level with config {:#?}",
+                deps.config
+            ))
+        })?;
         info!("Analysing level...");
         let analysis = LevelAnalysis::new(&level, archive.metadata());
 
@@ -111,12 +125,27 @@ impl<'context> System<'context> for WadSystem {
                 self.next_level_index = self.current_level_index;
             } else {
                 self.current_level_index = self.next_level_index;
-                self.level_name = self.archive.level_lump(self.next_level_index)?.name();
+                self.level_name = self
+                    .archive
+                    .level_lump(self.next_level_index)
+                    .chain_err(|| {
+                        ErrorKind(format!(
+                            "while accessing level name for next level request {}",
+                            self.next_level_index
+                        ))
+                    })?
+                    .name();
                 info!(
                     "Loading new level {:?} ({})...",
                     self.level_name, self.next_level_index
                 );
-                self.level = WadLevel::from_archive(&self.archive, self.current_level_index)?;
+                self.level = WadLevel::from_archive(&self.archive, self.current_level_index)
+                    .chain_err(|| {
+                        ErrorKind(format!(
+                            "while loading next level {} ({}) for next level request",
+                            self.level_name, self.next_level_index
+                        ))
+                    })?;
                 info!("Analysing new level...");
                 self.analysis = LevelAnalysis::new(&self.level, self.archive.metadata());
                 info!("Level replaced.");

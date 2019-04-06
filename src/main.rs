@@ -1,15 +1,13 @@
-#[macro_use]
-extern crate error_chain;
-
+use failure::{bail, Error};
 use game::{self, Game, GameConfig};
-use log::info;
+use log::{error, info};
 use math::DurationExt;
+use std::env;
 use std::path::PathBuf;
+use std::process;
 use std::time::Instant;
 use structopt::StructOpt;
 use wad::Archive;
-
-use self::errors::Result;
 
 #[derive(StructOpt)]
 #[structopt(
@@ -83,12 +81,12 @@ enum Command {
 
 impl App {
     /// Parse options from command-line arguments and run.
-    pub fn run_from_args() -> Result<()> {
+    pub fn run_from_args() -> Result<(), Error> {
         Self::from_args().run()
     }
 
     /// Either play the game (if no `Command` was passed), or perform the command.
-    pub fn run(self) -> Result<()> {
+    pub fn run(self) -> Result<(), Error> {
         // Init logging, with default `info` level.
         env_logger::Builder::from_env(
             env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
@@ -143,7 +141,7 @@ impl App {
 }
 
 /// Parse a resolution string like `WIDTHxHEIGHT` into `(width, height)`.
-fn parse_resolution(size_str: &str) -> Result<(u32, u32)> {
+fn parse_resolution(size_str: &str) -> Result<(u32, u32), Error> {
     let size_if_ok = size_str
         .find('x')
         .and_then(|x_index| {
@@ -166,15 +164,22 @@ fn parse_resolution(size_str: &str) -> Result<(u32, u32)> {
     }
 }
 
-mod errors {
-    error_chain! {
-        errors {}
-        links {
-            Engine(::engine::Error, ::engine::ErrorKind);
-            Game(::game::Error, ::game::ErrorKind);
-            Wad(::wad::Error, ::wad::ErrorKind);
+fn main() {
+    if let Err(error) = App::run_from_args() {
+        error!("Fatal error: {}", error);
+        let mut cause = error.as_fail();
+        while let Some(new_cause) = cause.cause() {
+            cause = new_cause;
+            error!("    caused by: {}", cause);
         }
+        if env::var("RUST_BACKTRACE")
+            .map(|value| value == "1")
+            .unwrap_or(false)
+        {
+            error!("Backtrace:\n{}", error.backtrace());
+        } else {
+            error!("Run with RUST_BACKTRACE=1 to capture backtrace.");
+        }
+        process::exit(1);
     }
 }
-
-quick_main!(App::run_from_args);

@@ -1,11 +1,11 @@
-use std::error::Error as StdError;
+use failure::Fail;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::marker::PhantomData;
 use std::result::Result as StdResult;
 
 pub trait System<'context>: Sized + 'context {
     type Dependencies;
-    type Error: StdError + Send + 'static;
+    type Error: Fail;
 
     fn debug_name() -> &'static str;
 
@@ -68,11 +68,7 @@ impl Display for NoError {
     }
 }
 
-impl StdError for NoError {
-    fn description(&self) -> &'static str {
-        unreachable!();
-    }
-}
+impl Fail for NoError {}
 
 impl<'context, SystemT> System<'context> for SystemT
 where
