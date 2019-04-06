@@ -1,10 +1,11 @@
 use super::archive::Archive;
-use super::error::{ErrorKind, Result, ResultExt};
+use super::errors::{ErrorKind, Result};
 use super::image::Image;
 use super::name::WadName;
 use super::types::{Colormap, Palette, WadTextureHeader, WadTexturePatchRef};
 use bincode;
 use byteorder::{LittleEndian, ReadBytesExt};
+use failchain::{ensure, ResultExt};
 use indexmap::IndexMap;
 use log::{error, info};
 use math::prelude::*;
@@ -510,11 +511,10 @@ fn read_textures(
     let offsets_end = num_textures * mem::size_of::<u32>();
     ensure!(
         offsets_end < lump.len(),
-        ErrorKind::CorruptWad(format!(
-            "Textures lump too small for offsets {} < {}",
-            lump.len(),
-            offsets_end
-        ))
+        ErrorKind::CorruptWad,
+        "Textures lump too small for offsets {} < {}",
+        lump.len(),
+        offsets_end,
     );
     let mut offsets = &lump[..offsets_end];
 
@@ -525,11 +525,10 @@ fn read_textures(
             as usize;
         ensure!(
             offset < lump_buffer.len(),
-            ErrorKind::CorruptWad(format!(
-                "Textures lump too small for offsets {} < {}",
-                lump.len(),
-                offsets_end
-            ))
+            ErrorKind::CorruptWad,
+            "Textures lump too small for offsets {} < {}",
+            lump.len(),
+            offsets_end
         );
 
         lump = &lump_buffer[offset..];

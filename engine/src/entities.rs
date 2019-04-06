@@ -1,5 +1,6 @@
 use super::errors::{ErrorKind, Result};
 use super::system::InfallibleSystem;
+use failchain::bail;
 use idcontain::{Id, IdSlab, OptionId};
 use log::{debug, error};
 use std::fmt::Write;
@@ -93,7 +94,11 @@ impl Entities {
 
         if !parent_exists {
             slab.remove(new_id);
-            bail!(ErrorKind::NoSuchEntity("add", Some(name), parent.cast()));
+            bail!(ErrorKind::NoSuchEntity {
+                context: "add",
+                needed_by: Some(name),
+                id: parent.cast(),
+            });
         }
 
         if let Some(old_child) = old_child.into() {
@@ -130,12 +135,8 @@ impl Entities {
     }
 
     #[inline]
-    pub fn parent_of(&self, id: EntityId) -> Result<Option<EntityId>> {
-        if let Some(entity) = self.slab.get(id) {
-            Ok(entity.parent.into_option())
-        } else {
-            bail!(ErrorKind::NoSuchEntity("parent_of", None, id.cast()));
-        }
+    pub fn get(&self, id: EntityId) -> Option<&Entity> {
+        self.slab.get(id)
     }
 
     #[inline]
@@ -397,6 +398,13 @@ pub struct Entity {
     previous: OptionId<Entity>,
 
     liveness: Liveness,
+}
+
+impl Entity {
+    #[inline]
+    pub fn parent(&self) -> Option<EntityId> {
+        self.parent.into_option()
+    }
 }
 
 #[cfg(test)]

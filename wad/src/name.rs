@@ -1,4 +1,5 @@
-use super::error::{ErrorKind, Result};
+use super::errors::{ErrorKind, Result};
+use failchain::{bail, ensure};
 use serde::de::{Deserialize, Deserializer, Error as SerdeDeError};
 use std::borrow::Borrow;
 use std::fmt;
@@ -73,7 +74,7 @@ impl WadName {
 }
 
 impl FromStr for WadName {
-    type Err = super::error::Error;
+    type Err = super::errors::Error;
     fn from_str(value: &str) -> Result<WadName> {
         WadName::from_bytes(value.as_bytes())
     }

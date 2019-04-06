@@ -1,5 +1,4 @@
 use super::entities::{Entities, Entity, EntityId};
-use super::errors::{Error, ErrorKind};
 use super::system::InfallibleSystem;
 use idcontain::{derive_flat, IdMap};
 use log::{debug, error};
@@ -55,22 +54,21 @@ impl Transforms {
     fn lookup_parent(&self, entities: &Entities, id: EntityId) -> ParentLookup {
         let mut id = id;
         loop {
-            match entities.parent_of(id) {
-                Ok(Some(parent_id)) => {
-                    if let Some(parent_index) = self.map.id_to_index(parent_id) {
-                        return ParentLookup::Found {
-                            parent_id,
-                            parent_index,
-                        };
-                    } else {
-                        id = parent_id;
-                    }
+            let parent_id = match entities.get(id) {
+                None => return ParentLookup::Removed,
+                Some(entity) => match entity.parent() {
+                    None => return ParentLookup::IsRoot,
+                    Some(parent_id) => parent_id,
+                },
+            };
+            match self.map.id_to_index(parent_id) {
+                Some(parent_index) => {
+                    return ParentLookup::Found {
+                        parent_id,
+                        parent_index,
+                    };
                 }
-                Ok(None) => return ParentLookup::IsRoot,
-                Err(Error(ErrorKind::NoSuchEntity(..), _)) => {
-                    return ParentLookup::Removed;
-                }
-                Err(error) => panic!("unexpected error in `parent_of`: {}", error),
+                None => id = parent_id,
             }
         }
     }

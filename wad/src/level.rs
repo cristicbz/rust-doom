@@ -1,5 +1,5 @@
 use super::archive::Archive;
-use super::error::Result;
+use super::errors::Result;
 use super::types::{LightLevel, SectorId, VertexId, WadNode, WadSector};
 use super::types::{WadCoord, WadLinedef, WadSeg, WadSidedef, WadSubsector, WadThing, WadVertex};
 use super::util::from_wad_coords;

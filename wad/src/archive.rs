@@ -1,7 +1,8 @@
-use super::error::{ErrorKind, Result, ResultExt};
+use super::errors::{ErrorKind, Result};
 use super::meta::WadMetadata;
 use super::types::{WadInfo, WadLump, WadName};
 use bincode;
+use failchain::{ensure, ResultExt};
 use indexmap::IndexMap;
 use log::info;
 use serde::de::DeserializeOwned;
@@ -176,9 +177,8 @@ impl<'a> LumpReader<'a> {
 
             ensure!(
                 info.size > 0 && (info.size % element_size == 0),
-                ErrorKind::bad_lump_size(index, info.name.as_ref(), info.size, element_size)
+                ErrorKind::bad_lump_size(index, info.name.as_ref(), info.size, element_size),
             );
-
             (0..num_elements)
                 .map(move |i_element| {
                     bincode::deserialize_from(&mut file).chain_err(|| {
@@ -194,7 +194,7 @@ impl<'a> LumpReader<'a> {
         self.read(|file| {
             let element_size = mem::size_of::<T>();
             ensure!(
-                info.size > 0 && (info.size == element_size),
+                element_size > 0 && info.size == element_size,
                 ErrorKind::bad_lump_size(index, info.name.as_ref(), info.size, element_size)
             );
             Ok(bincode::deserialize_from(file)
@@ -211,8 +211,8 @@ impl<'a> LumpReader<'a> {
             let blob_size = B::default().as_mut().len();
             assert!(blob_size > 0);
             ensure!(
-                info.size > 0 && (info.size % blob_size == 0),
-                ErrorKind::bad_lump_size(index, info.name.as_ref(), info.size, blob_size)
+                info.size > 0 && (info.size % blob_size) == 0,
+                ErrorKind::bad_lump_size(index, info.name.as_ref(), info.size, blob_size),
             );
             let num_blobs = info.size / blob_size;
             let mut blobs = Vec::with_capacity(num_blobs);

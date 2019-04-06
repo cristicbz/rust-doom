@@ -1,10 +1,9 @@
-use super::errors::{Error, Result};
 use super::wad_system::WadSystem;
 use engine::{
-    BufferTextureId, BufferTextureType, ClientFormat, DependenciesFrom, Entities, EntityId,
+    BufferTextureId, BufferTextureType, ClientFormat, DependenciesFrom, Entities, EntityId, Error,
     FloatUniformId, MagnifySamplerFilter, MaterialId, Materials, MinifySamplerFilter,
-    RenderPipeline, SamplerBehavior, SamplerWrapFunction, ShaderId, Shaders, System, Texture2dId,
-    Tick, Uniforms, Window,
+    RenderPipeline, Result, SamplerBehavior, SamplerWrapFunction, ShaderId, Shaders, System,
+    Texture2dId, Tick, Uniforms, Window,
 };
 use log::{error, info};
 use math::Vec2;

@@ -1,4 +1,4 @@
-use super::errors::{Error, ErrorKind, Result, ResultExt};
+use super::errors::{Error, ErrorKind, Result};
 use super::platform;
 use super::system::System;
 use glium::glutin::{Api, ContextBuilder, EventsLoop, GlProfile, GlRequest, WindowBuilder};
@@ -68,7 +68,7 @@ impl<'context> System<'context> for Window {
             .with_depth_buffer(OPENGL_DEPTH_SIZE);
 
         let display = Display::new(window, context, &events)
-            .chain_err(|| ErrorKind::CreateWindow(config.width, config.height))?;
+            .map_err(ErrorKind::create_window(config.width, config.height))?;
 
         Ok(Window {
             display,

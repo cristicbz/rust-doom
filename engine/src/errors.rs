@@ -1,150 +1,177 @@
+use failchain::{BoxedError, ChainErrorKind};
+use failure::Fail;
 use glium;
 use idcontain::Id;
 use std::result::Result as StdResult;
 
-#[cfg_attr(feature = "cargo-clippy", allow(clippy::unused_doc_comment))]
-error_chain! {
-    errors {
-        CreateWindow(width: u32, height: u32) {
-            description("Window creation failed.")
-            display("Window creation failed with {}x{}", width, height)
+pub type Error = BoxedError<ErrorKind>;
+pub type Result<T> = StdResult<T, Error>;
+
+#[derive(Clone, Eq, PartialEq, Debug, Fail)]
+pub enum ErrorKind {
+    #[fail(display = "{}", 0)]
+    CreateWindow(String),
+
+    #[fail(display = "I/O error when accessing `{}` for resource `{}`.", 0, 1)]
+    ResourceIo(&'static str, &'static str),
+
+    #[fail(
+        display = "Linking/compiling shader for `{}` failed with:\n{}",
+        needed_by, log
+    )]
+    Shader { log: String, needed_by: String },
+
+    #[fail(
+        display = "Feature needed by `{}` is not supported on this platform.",
+        needed_by
+    )]
+    UnsupportedFeature { needed_by: String },
+
+    #[fail(
+        display = "Out of video memory when trying to allocate `{}`.",
+        needed_by
+    )]
+    OutOfVideoMemory { needed_by: String },
+
+    #[fail(
+        display = "No entity with id `{:?}`, needed by `{:?}` when `{}`",
+        id, needed_by, context
+    )]
+    NoSuchEntity {
+        context: &'static str,
+        needed_by: Option<&'static str>,
+        id: Id<()>,
+    },
+
+    #[fail(
+        display = "No component with id `{:?}`, needed by `{:?}` when `{}`",
+        id, needed_by, context
+    )]
+    NoSuchComponent {
+        context: &'static str,
+        needed_by: Option<&'static str>,
+        id: Id<()>,
+    },
+
+    #[fail(display = "Context {} error", 0)]
+    Context(&'static str),
+
+    #[fail(display = "System {} failed for `{}`.", 0, 1)]
+    System(&'static str, &'static str),
+}
+
+impl ChainErrorKind for ErrorKind {
+    type Error = Error;
+}
+
+impl ErrorKind {
+    pub(crate) fn create_window(
+        width: u32,
+        height: u32,
+    ) -> (impl FnOnce(glium::backend::glutin::DisplayCreationError) -> Self) {
+        move |error| {
+            Self::from(ErrorKind::CreateWindow(format!(
+                "Window creation failed with {}x{}: {}",
+                width, height, error
+            )))
         }
-        ResourceIo(kind: &'static str, needed_by: String) {
-            description("I/O error when accessing resource.")
-            display("I/O error when accessing `{}` resource `{}`.", kind, needed_by)
-        }
-        Shader(log: String, needed_by: String) {
-            description("Shader compilation error.")
-            display("Linking/compiling shader for `{}` failed with:\n{}", needed_by, log)
-        }
-        UnsupportedFeature(feature: String, needed_by: String) {
-            description("Unsupported graphics feature.")
-            display("Feature `{}` needed by `{}` is not supported on this platform.",
-                    feature, needed_by)
-        }
-        OutOfVideoMemory(needed_by: String) {
-            description("Out of video memory.")
-            display("Out of video memory when trying to allocate `{}`.", needed_by)
-        }
-        NoSuchEntity(context: &'static str, needed_by: Option<&'static str>, id: Id<()>) {
-            description("No such entity.")
-            display("No entity with id `{:?}`, needed by `{:?}` when `{}`", id, needed_by, context)
-        }
+    }
+
+    pub(crate) fn glium<NeededByT: Into<String>, ErrorT: ConvertGlium>(
+        needed_by: NeededByT,
+    ) -> (impl FnOnce(ErrorT) -> Error) {
+        move |error| error.convert_glium(needed_by.into()).into()
     }
 }
 
-pub trait NeededBy: Sized {
-    type Success;
-
-    fn needed_by(self, by: &str) -> Result<Self::Success>;
+pub(crate) trait ConvertGlium: Fail + Sized {
+    fn convert_glium(self, needed_by: String) -> ErrorKind;
 }
 
-impl<S> NeededBy for StdResult<S, glium::vertex::BufferCreationError> {
-    type Success = S;
+pub(crate) trait UnsupportedFeature: Fail + Sized {}
 
-    fn needed_by(self, by: &str) -> Result<Self::Success> {
-        self.map_err(|e| ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into())
+impl<T: UnsupportedFeature> ConvertGlium for T {
+    fn convert_glium(self, needed_by: String) -> ErrorKind {
+        ErrorKind::UnsupportedFeature { needed_by }
     }
 }
 
-impl<S> NeededBy for StdResult<S, glium::index::BufferCreationError> {
-    type Success = S;
+impl UnsupportedFeature for glium::vertex::BufferCreationError {}
+impl UnsupportedFeature for glium::index::BufferCreationError {}
+impl UnsupportedFeature for glium::texture::TextureCreationError {}
 
-    fn needed_by(self, by: &str) -> Result<Self::Success> {
-        self.map_err(|e| ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into())
-    }
-}
-
-impl<S> NeededBy for StdResult<S, glium::texture::TextureCreationError> {
-    type Success = S;
-
-    fn needed_by(self, by: &str) -> Result<Self::Success> {
-        self.map_err(|e| ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into())
-    }
-}
-
-impl<S> NeededBy for StdResult<S, glium::texture::buffer_texture::CreationError> {
-    type Success = S;
-
-    fn needed_by(self, by: &str) -> Result<Self::Success> {
+impl ConvertGlium for glium::texture::buffer_texture::CreationError {
+    fn convert_glium(self, needed_by: String) -> ErrorKind {
         use glium::buffer::BufferCreationError::*;
         use glium::texture::buffer_texture::CreationError::*;
         use glium::texture::buffer_texture::TextureCreationError::*;
-        self.map_err(|e| {
-            (match e {
-                BufferCreationError(OutOfMemory) => ErrorKind::OutOfVideoMemory(by.to_owned()),
-                e @ TextureCreationError(FormatNotSupported)
-                | e @ TextureCreationError(NotSupported)
-                | e @ TextureCreationError(TooLarge)
-                | e @ BufferCreationError(BufferTypeNotSupported) => {
-                    ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned())
-                }
-            })
-            .into()
-        })
-    }
-}
 
-impl<S> NeededBy for StdResult<S, glium::ProgramCreationError> {
-    type Success = S;
-
-    fn needed_by(self, by: &str) -> Result<Self::Success> {
-        use glium::ProgramCreationError::*;
-        self.map_err(|e| {
-            (match e {
-                CompilationError(log) | LinkingError(log) => ErrorKind::Shader(log, by.to_owned()),
-                BinaryHeaderError => {
-                    ErrorKind::Shader("Binary header error.".to_owned(), by.to_owned())
-                }
-
-                e @ ShaderTypeNotSupported
-                | e @ CompilationNotSupported
-                | e @ TransformFeedbackNotSupported
-                | e @ PointSizeNotSupported => {
-                    ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned())
-                }
-            })
-            .into()
-        })
-    }
-}
-
-impl<S> NeededBy for StdResult<S, glium::DrawError> {
-    type Success = S;
-
-    fn needed_by(self, by: &str) -> Result<Self::Success> {
-        use glium::DrawError::*;
-        self.map_err(|e| match e {
-            e @ FixedIndexRestartingNotSupported
-            | e @ ViewportTooLarge
-            | e @ UnsupportedVerticesPerPatch
-            | e @ TessellationNotSupported
-            | e @ SamplersNotSupported
-            | e @ TransformFeedbackNotSupported
-            | e @ SmoothingNotSupported
-            | e @ ProvokingVertexNotSupported
-            | e @ RasterizerDiscardNotSupported
-            | e @ DepthClampNotSupported
-            | e @ BlendingParameterNotSupported => {
-                ErrorKind::UnsupportedFeature(e.to_string(), by.to_owned()).into()
+        match self {
+            BufferCreationError(OutOfMemory) => ErrorKind::OutOfVideoMemory { needed_by },
+            TextureCreationError(FormatNotSupported)
+            | TextureCreationError(NotSupported)
+            | TextureCreationError(TooLarge)
+            | BufferCreationError(BufferTypeNotSupported) => {
+                ErrorKind::UnsupportedFeature { needed_by }
             }
+        }
+    }
+}
 
-            e @ NoDepthBuffer
-            | e @ AttributeTypeMismatch
-            | e @ AttributeMissing
-            | e @ InvalidDepthRange
-            | e @ UniformTypeMismatch { .. }
-            | e @ UniformBufferToValue { .. }
-            | e @ UniformValueToBlock { .. }
-            | e @ UniformBlockLayoutMismatch { .. }
-            | e @ TessellationWithoutPatches
-            | e @ InstancesCountMismatch
-            | e @ VerticesSourcesLengthMismatch
-            | e @ SubroutineNotFound { .. }
-            | e @ SubroutineUniformMissing { .. }
-            | e @ SubroutineUniformToValue { .. }
-            | e @ ClipPlaneIndexOutOfBounds { .. }
-            | e @ WrongQueryOperation => panic!("Invalid draw call: {:?}", e),
-        })
+impl ConvertGlium for glium::ProgramCreationError {
+    fn convert_glium(self, needed_by: String) -> ErrorKind {
+        use glium::ProgramCreationError::*;
+        match &self {
+            CompilationError(log) | LinkingError(log) => ErrorKind::Shader {
+                log: log.clone(),
+                needed_by,
+            },
+
+            BinaryHeaderError => ErrorKind::Shader {
+                log: "Binary header error.".to_owned(),
+                needed_by,
+            },
+
+            ShaderTypeNotSupported
+            | CompilationNotSupported
+            | TransformFeedbackNotSupported
+            | PointSizeNotSupported => ErrorKind::UnsupportedFeature { needed_by },
+        }
+    }
+}
+
+impl ConvertGlium for glium::DrawError {
+    fn convert_glium(self, needed_by: String) -> ErrorKind {
+        use glium::DrawError::*;
+        match self {
+            FixedIndexRestartingNotSupported
+            | ViewportTooLarge
+            | UnsupportedVerticesPerPatch
+            | TessellationNotSupported
+            | SamplersNotSupported
+            | TransformFeedbackNotSupported
+            | SmoothingNotSupported
+            | ProvokingVertexNotSupported
+            | RasterizerDiscardNotSupported
+            | DepthClampNotSupported
+            | BlendingParameterNotSupported => ErrorKind::UnsupportedFeature { needed_by },
+
+            NoDepthBuffer
+            | AttributeTypeMismatch
+            | AttributeMissing
+            | InvalidDepthRange
+            | UniformTypeMismatch { .. }
+            | UniformBufferToValue { .. }
+            | UniformValueToBlock { .. }
+            | UniformBlockLayoutMismatch { .. }
+            | TessellationWithoutPatches
+            | InstancesCountMismatch
+            | VerticesSourcesLengthMismatch
+            | SubroutineNotFound { .. }
+            | SubroutineUniformMissing { .. }
+            | SubroutineUniformToValue { .. }
+            | ClipPlaneIndexOutOfBounds { .. }
+            | WrongQueryOperation => panic!("Invalid draw call: {:?}", self),
+        }
     }
 }

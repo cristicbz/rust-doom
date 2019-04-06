@@ -1,13 +1,9 @@
+use super::errors::{ErrorKind, Result};
 use super::types::WadTextureHeader;
 use byteorder::{LittleEndian, ReadBytesExt};
+use failchain::{ensure, ResultExt};
 use math::Vec2;
 use std::vec::Vec;
-
-pub mod error {
-    error_chain! {}
-}
-
-use self::error::{ErrorKind, Result, ResultExt};
 
 pub const MAX_IMAGE_SIZE: usize = 4096;
 
@@ -23,9 +19,7 @@ impl Image {
     pub fn new(width: usize, height: usize) -> Result<Self> {
         ensure!(
             width <= MAX_IMAGE_SIZE && height <= MAX_IMAGE_SIZE,
-            "image too large {}x{}",
-            width,
-            height
+            ErrorKind::image_too_large(width, height),
         );
         Ok(Self {
             width,
@@ -45,23 +39,25 @@ impl Image {
         let mut reader = buffer;
         let width = reader
             .read_u16::<LittleEndian>()
-            .chain_err(|| "missing width")? as usize;
+            .chain_err(|| ErrorKind::CorruptWad("Image missing width.".to_owned()))?
+            as usize;
         let height = reader
             .read_u16::<LittleEndian>()
-            .chain_err(|| "missing height")? as usize;
+            .chain_err(|| ErrorKind::CorruptWad("Image missing height.".to_owned()))?
+            as usize;
         ensure!(
             width <= MAX_IMAGE_SIZE && height <= MAX_IMAGE_SIZE,
-            "image too large {}x{}",
-            width,
-            height
+            ErrorKind::image_too_large(width, height),
         );
 
         let x_offset = reader
             .read_i16::<LittleEndian>()
-            .chain_err(|| "missing x offset")? as isize;
+            .chain_err(|| ErrorKind::CorruptWad("Image missing x offset".to_owned()))?
+            as isize;
         let y_offset = reader
             .read_i16::<LittleEndian>()
-            .chain_err(|| "missing y offset")? as isize;
+            .chain_err(|| ErrorKind::CorruptWad("Image missing y offset".to_owned()))?
+            as isize;
 
         let mut pixels = vec![!0; width * height];
 
@@ -71,11 +67,12 @@ impl Image {
             // defined starting at `offset' in the buffer.
             let offset = reader
                 .read_u32::<LittleEndian>()
-                .chain_err(|| format!("unfinished column {}, {}x{}", i_column, width, height))?
+                .chain_err(|| ErrorKind::unfinished_image_column(i_column, None, width, height))?
                 as isize;
             ensure!(
                 offset < buffer.len() as isize,
-                "invalid column offset in {}, offset={}, size={}",
+                ErrorKind::CorruptWad,
+                "Invalid image column offset in {}, offset={}, size={}.",
                 i_column,
                 offset,
                 buffer.len()
@@ -86,7 +83,7 @@ impl Image {
                 // The first byte contains the vertical coordinate of the run's
                 // start.
                 let row_start = *source.next().ok_or_else(|| {
-                    ErrorKind::from(format!("unfinshed column {}, run {}", i_column, i_run))
+                    ErrorKind::unfinished_image_column(i_column, Some(i_run), width, height)
                 })? as usize;
 
                 // The special value of 255 means this is the last run in the
@@ -98,8 +95,8 @@ impl Image {
                 // The second byte is the length of this run. Skip an additional
                 // byte which is ignored for some reason.
                 let run_length = *source.next().ok_or_else(|| {
-                    ErrorKind::from(format!(
-                        "missing run length: column {}, run {}",
+                    ErrorKind::CorruptWad(format!(
+                        "Missing image run length: column {}, run {}",
                         i_column, i_run
                     ))
                 })? as usize;
@@ -107,19 +104,21 @@ impl Image {
                 // Check that the run fits in the image.
                 ensure!(
                     row_start + run_length <= height,
-                    "run too big: column {}, run {} ({} +{}), size {}x{}",
+                    ErrorKind::CorruptWad,
+                    "Image run too big: column {}, run {} ({} +{}), size {}x{}",
                     i_column,
                     i_run,
                     row_start,
                     run_length,
                     width,
-                    height
+                    height,
                 );
 
                 // An ignored padding byte.
                 ensure!(
                     source.next().is_some(),
-                    "missing padding byte 1: column {}, run {}",
+                    ErrorKind::CorruptWad,
+                    "Image missing padding byte 1: column {}, run {}",
                     i_column,
                     i_run
                 );
@@ -135,7 +134,8 @@ impl Image {
                 // those left.
                 ensure!(
                     source.size_hint().0 >= run_length,
-                    "source underrun: column {}, run {} ({}, +{}), bytes  left {}",
+                    ErrorKind::CorruptWad,
+                    "Image source underrun: column {}, run {} ({}, +{}), bytes left {}",
                     i_column,
                     i_run,
                     row_start,
@@ -149,7 +149,8 @@ impl Image {
                 // And another ignored byte after the run.
                 ensure!(
                     source.next().is_some(),
-                    "missing padding byte 2: column {}, run {}",
+                    ErrorKind::CorruptWad,
+                    "Image missing padding byte 2: column {}, run {}",
                     i_column,
                     i_run
                 );
@@ -257,33 +258,4 @@ impl Image {
     pub fn into_pixels(self) -> Vec<u16> {
         self.pixels
     }
-
-    //pub fn save_bmp<P: AsRef<Path> + Debug>(
-    //    &self,
-    //    palette: &[[u8; 3]; 256],
-    //    path: &P,
-    //) -> Result<()> {
-    //    let mut pixels = vec![0u8; 3 * self.width * self.height];
-    //    for (index, pixel) in self.pixels.iter().enumerate() {
-    //        let pixel = palette[(pixel & 0xff) as usize];
-    //        pixels[index * 3] = pixel[2];
-    //        pixels[index * 3 + 1] = pixel[1];
-    //        pixels[index * 3 + 2] = pixel[0];
-    //    }
-    //    let surface = Surface::from_data(
-    //        &mut pixels[..],
-    //        self.width as u32,
-    //        self.height as u32,
-    //        self.width as u32 * 3,
-    //        PixelFormatEnum::BGR24,
-    //    ).map_err(|error| {
-    //        ErrorKind::from(format!("failed to create surface: {}", error))
-    //    })?;
-
-    //    surface.save_bmp(path).map_err(|error| {
-    //        ErrorKind::from(format!("failed to save bmp to {:?}: {}", path, error))
-    //    })?;
-
-    //    Ok(())
-    //}
 }

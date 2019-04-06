@@ -1,8 +1,5 @@
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
 
-#[macro_use]
-extern crate error_chain;
-
 pub mod context;
 pub mod system;
 pub mod type_list;
