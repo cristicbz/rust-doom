@@ -2,6 +2,7 @@ use super::errors::{ErrorKind, Result};
 use super::types::WadTextureHeader;
 use byteorder::{LittleEndian, ReadBytesExt};
 use failchain::{ensure, ResultExt};
+use log::{debug, warn};
 use math::Vec2;
 use std::vec::Vec;
 
@@ -170,6 +171,14 @@ impl Image {
     pub fn blit(&mut self, source: &Self, offset: Vec2<isize>, ignore_transparency: bool) {
         // Figure out the region in source which is not out of bounds when
         // copied into self.
+        if offset[0] >= self.width as isize || offset[1] >= self.height as isize {
+            warn!(
+                "Fully out of bounds blit {:?} in {}x{}",
+                offset, self.width, self.height
+            );
+            return;
+        }
+
         let y_start = if offset[1] < 0 {
             (-offset[1]) as usize
         } else {
@@ -190,6 +199,20 @@ impl Image {
         } else {
             (self.width as isize - offset[0]) as usize
         };
+
+        debug!(
+            "Blit {}x{} <- {}x{} +{}x{} ({}x{} - {}x{})",
+            self.width,
+            self.height,
+            source.width,
+            source.height,
+            offset[0],
+            offset[1],
+            x_start,
+            x_end,
+            y_start,
+            y_end
+        );
 
         let src_pitch = source.width as usize;
         let dest_pitch = self.width as usize;
