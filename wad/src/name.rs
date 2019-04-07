@@ -18,6 +18,7 @@ impl WadName {
             b @ b'A'...b'Z'
             | b @ b'0'...b'9'
             | b @ b'_'
+            | b @ b'%'
             | b @ b'-'
             | b @ b'['
             | b @ b']'
@@ -53,6 +54,7 @@ impl WadName {
                 | b @ b'-'
                 | b @ b'['
                 | b @ b']'
+                | b @ b'%'
                 | b @ b'\\' => b,
                 b'\0' => {
                     nulled = true;
@@ -127,6 +129,34 @@ impl<'de> Deserialize<'de> for WadName {
         D: Deserializer<'de>,
     {
         WadName::from_bytes(&<[u8; 8]>::deserialize(deserializer)?).map_err(D::Error::custom)
+    }
+}
+
+pub trait IntoWadName {
+    fn into_wad_name(self) -> Result<WadName>;
+}
+
+impl IntoWadName for &[u8] {
+    fn into_wad_name(self) -> Result<WadName> {
+        WadName::from_bytes(self)
+    }
+}
+
+impl IntoWadName for &[u8; 8] {
+    fn into_wad_name(self) -> Result<WadName> {
+        WadName::from_bytes(self)
+    }
+}
+
+impl IntoWadName for &str {
+    fn into_wad_name(self) -> Result<WadName> {
+        WadName::from_str(self)
+    }
+}
+
+impl IntoWadName for WadName {
+    fn into_wad_name(self) -> Result<WadName> {
+        Ok(self)
     }
 }
 

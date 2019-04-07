@@ -1,5 +1,6 @@
 use super::errors::{ErrorKind, Result};
 use super::meta::WadMetadata;
+use super::name::IntoWadName;
 use super::types::{WadInfo, WadLump, WadName};
 use bincode;
 use failchain::{ensure, ResultExt};
@@ -117,13 +118,13 @@ impl Archive {
         self.lump_by_index(self.levels[level_index])
     }
 
-    pub fn required_named_lump<Q>(&self, name: &Q) -> Result<LumpReader>
+    pub fn required_named_lump<'a, Q>(&self, name: &'a Q) -> Result<LumpReader>
     where
-        WadName: Borrow<Q>,
-        Q: Hash + Eq + Debug,
+        &'a Q: IntoWadName,
     {
-        self.named_lump(name)?
-            .ok_or_else(|| ErrorKind::missing_required_lump(name).into())
+        let name: WadName = name.into_wad_name()?;
+        self.named_lump(&name)?
+            .ok_or_else(|| ErrorKind::missing_required_lump(&name).into())
     }
 
     pub fn named_lump<Q>(&self, name: &Q) -> Result<Option<LumpReader>>
