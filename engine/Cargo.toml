@@ -9,7 +9,7 @@ math = { path = "../math" }
 engine_derive = { path = "../engine_derive" }
 
 glium-typed-buffer-any = "0.4.0"
-idcontain = "0.7.5"
+idcontain = "0.7.6"
 num-traits = "0.2.5"
 rusttype = "0.7.5"
 unicode-normalization = "0.1.7"
