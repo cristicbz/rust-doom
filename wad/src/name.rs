@@ -15,8 +15,8 @@ pub struct WadName([u8; 8]);
 impl WadName {
     pub fn push(&mut self, new_byte: u8) -> Result<()> {
         let new_byte = match new_byte.to_ascii_uppercase() {
-            b @ b'A'...b'Z'
-            | b @ b'0'...b'9'
+            b @ b'A'..=b'Z'
+            | b @ b'0'..=b'9'
             | b @ b'_'
             | b @ b'%'
             | b @ b'-'
@@ -48,8 +48,8 @@ impl WadName {
             );
 
             let new_byte = match src.to_ascii_uppercase() {
-                b @ b'A'...b'Z'
-                | b @ b'0'...b'9'
+                b @ b'A'..=b'Z'
+                | b @ b'0'..=b'9'
                 | b @ b'_'
                 | b @ b'-'
                 | b @ b'['

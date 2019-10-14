@@ -225,7 +225,7 @@ dependencies = [
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "glium 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glium-typed-buffer-any 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "idcontain 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "idcontain 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "math 0.1.0",
  "num-traits 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -313,7 +313,7 @@ dependencies = [
  "failchain 0.1015.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "glium 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "idcontain 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "idcontain 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "math 0.1.0",
  "vec_map 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -409,7 +409,7 @@ dependencies = [
 
 [[package]]
 name = "idcontain"
-version = "0.7.5"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "rand 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1212,7 +1212,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum glutin 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)" = "535c6eda58adbb227604b2db10a022ffd6339d7ea3e970f338e7d98aeb24fcc3"
 "checksum heck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "20564e78d53d2bb135c343b3f47714a56af2061f1c928fdb541dc7b9fdd94205"
 "checksum humantime 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3ca7e5f2e110db35f93b837c81797f3714500b81d517bf20c431b16d3ca4f114"
-"checksum idcontain 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)" = "8d0a07d8713f77b5351fb571e044fea2004c0a6002d9b544dbd334bfe962a5d4"
+"checksum idcontain 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)" = "ac8585ec0d305ed759febd914d2632b5b68275ba7afdf011e291ad5afd8dd5a7"
 "checksum indexmap 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7e81a7c05f79578dbc15793d8b619db9ba32b4577003ef3af1a91c416798c58d"
 "checksum khronos_api 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 "checksum lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bc5729f27f159ddd61f4df6228e827e86643d4d3e7c32183cb30a1c08f604a14"

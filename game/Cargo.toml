@@ -10,7 +10,7 @@ math = { path = "../math" }
 wad = { path = "../wad" }
 
 vec_map = "0.8.1"
-idcontain = "0.7.5"
+idcontain = "0.7.6"
 failure = "0.1.5"
 failchain = "0.1015"
 
