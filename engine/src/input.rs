@@ -172,14 +172,8 @@ impl<'context> System<'context> for Input {
                 .window()
                 .hide_cursor(self.mouse_grabbed);
         }
-        let (center_x, center_y) = (deps.window.width() / 2, deps.window.height() / 2);
         if self.mouse_grabbed {
-            let _ = deps
-                .window
-                .facade()
-                .gl_window()
-                .window()
-                .set_cursor_position((center_x as i32, center_y as i32).into());
+            let _ = deps.window.facade().gl_window().window();
         }
         self.current_update_index += 1;
         self.mouse_rel = Vec2f::zero();
@@ -190,13 +184,17 @@ impl<'context> System<'context> for Input {
             } => {
                 self.quit_requested_index = self.current_update_index;
             }
-            Event::DeviceEvent {
+            Event::WindowEvent {
                 event:
-                    DeviceEvent::Key(KeyboardInput {
-                        state,
-                        virtual_keycode: Some(virtual_keycode),
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state,
+                                virtual_keycode: Some(virtual_keycode),
+                                ..
+                            },
                         ..
-                    }),
+                    },
                 ..
             } => {
                 self.keyboard_state[virtual_keycode as usize] = match state {
