@@ -12,7 +12,7 @@ use wad::Archive;
 #[derive(StructOpt)]
 #[structopt(
     name = "Rusty Doom",
-    raw(setting = "structopt::clap::AppSettings::ColoredHelp")
+    setting = structopt::clap::AppSettings::ColoredHelp
 )]
 struct App {
     #[structopt(
@@ -40,7 +40,7 @@ struct App {
         long = "resolution",
         default_value = "1280x720",
         value_name = "WIDTHxHEIGHT",
-        parse(try_from_str = "parse_resolution")
+        parse(try_from_str = parse_resolution)
     )]
     /// Size of the game window.
     resolution: (u32, u32),
@@ -91,7 +91,7 @@ impl App {
         env_logger::Builder::from_env(
             env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
         )
-        .default_format_timestamp(false)
+        .format_timestamp(None)
         .init();
 
         match self.command {

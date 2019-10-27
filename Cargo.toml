@@ -14,13 +14,13 @@ engine = { path = "engine" }
 game = { path = "game" }
 math = { path = "math" }
 
-env_logger = "0.6.1"
-structopt = "0.2.15"
+env_logger = "0.7.1"
+structopt = "0.3.3"
 failure = "0.1.5"
 
 [dependencies.log]
 features = ["release_max_level_info"]
-version = "0.4.3"
+version = "0.4.8"
 
 [workspace]
 

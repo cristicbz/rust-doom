@@ -8,6 +8,6 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
-syn = "0.15.29"
-quote = "0.6.11"
-proc-macro2 = "0.4.27"
+syn = "1.0.7"
+quote = "1.0.2"
+proc-macro2 = "1.0.6"
