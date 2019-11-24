@@ -8,10 +8,10 @@ edition = "2018"
 math = { path = "../math" }
 engine_derive = { path = "../engine_derive" }
 
-glium-typed-buffer-any = "0.4.0"
+glium-typed-buffer-any = "0.5.0"
 idcontain = "0.7.6"
 num-traits = "0.2.5"
-rusttype = "0.7.5"
+rusttype = "0.8.1"
 unicode-normalization = "0.1.7"
 failure = "0.1.5"
 failchain = "0.1015"
@@ -22,7 +22,7 @@ version = "0.4.3"
 
 [dependencies.glium]
 features = ["glutin"]
-version = "0.23.0"
+version = "0.25.1"
 
 [dev-dependencies]
 env_logger = "*"

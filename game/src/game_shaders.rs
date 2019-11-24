@@ -138,7 +138,7 @@ impl<'context> Dependencies<'context> {
                 ),
                 minify_filter: MinifySamplerFilter::Nearest,
                 magnify_filter: MagnifySamplerFilter::Nearest,
-                max_anisotropy: 1,
+                ..SamplerBehavior::default()
             }),
         )?)
     }
@@ -400,7 +400,7 @@ impl<'context> Dependencies<'context> {
             ),
             minify_filter: MinifySamplerFilter::Nearest,
             magnify_filter: MagnifySamplerFilter::Nearest,
-            max_anisotropy: 1,
+            ..SamplerBehavior::default()
         });
         let dummy_texture;
         let image_ref = match texture_spec {
