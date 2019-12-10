@@ -3,7 +3,7 @@
 Rust Doom
 =========
 
-A little Doom 1 & 2 Renderer written in [Rust](https://github.com/rust-lang/rust). Mostly written while I was learning the language about 2 years ago, so it might not the best example of Rust code! PR-s are welcome.
+A little Doom 1 & 2 Renderer written in [Rust](https://github.com/rust-lang/rust). Mostly written while I was learning the language about 5 years ago, so it might not the best example of Rust code! PR-s are welcome.
 
 The code is mostly based on the endlessly useful [Doom Wiki](http://doomwiki.org) and the [Unofficial Doom Specs](http://www.gamers.org/dhs/helpdocs/dmsp1666.html). It is **not** a port of the original Doom C source code into Rust; I've been doing my best to make the code as idiomatic as possible and have not looked at the original in a long time.
 
