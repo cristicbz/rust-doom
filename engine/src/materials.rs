@@ -62,11 +62,7 @@ impl Materials {
         uniforms: &'a Uniforms,
         material_id: MaterialId,
     ) -> Option<MaterialRef<'a>> {
-        let material = if let Some(material) = self.map.get(material_id.0) {
-            material
-        } else {
-            return None;
-        };
+        let material = self.map.get(material_id.0)?;
         let shader = if let Some(shader) = shaders.get(material.shader) {
             shader
         } else {

@@ -19,7 +19,7 @@ impl Lights {
                 // TODO(cristicbz): Remove this restriction.
                 assert!(self.lights.len() < 255);
                 self.lights.push(light_info.clone());
-                (self.lights.len() - 1)
+                self.lights.len() - 1
             }) as u8
     }
 

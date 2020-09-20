@@ -11,7 +11,6 @@ use std::io::Read;
 use std::path::Path;
 use std::result::Result as StdResult;
 use std::str::FromStr;
-use toml;
 
 #[derive(Debug, Deserialize)]
 pub struct SkyMetadata {
@@ -146,7 +145,7 @@ impl WadMetadata {
         let path = path.as_ref();
         File::open(path)
             .and_then(|mut file| file.read_to_string(&mut contents))
-            .chain_err(|| ErrorKind::on_metadata_read())?;
+            .chain_err(ErrorKind::on_metadata_read)?;
         WadMetadata::from_text(&contents)
     }
 

@@ -157,7 +157,7 @@ impl Child {
             }
             Child::Node(index) => {
                 assert!(index < i32::MAX as usize);
-                (index as i32)
+                index as i32
             }
         }
     }
