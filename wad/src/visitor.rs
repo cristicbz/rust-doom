@@ -274,13 +274,7 @@ impl HeightDef {
     fn to_height(self, sector: &WadSector, heights: &NeighbourHeights) -> Option<WadCoord> {
         let base = match self.to {
             HeightRef::LowestFloor => heights.lowest_floor,
-            HeightRef::NextFloor => {
-                if let Some(height) = heights.next_floor {
-                    height
-                } else {
-                    return None;
-                }
-            }
+            HeightRef::NextFloor => heights.next_floor?,
             HeightRef::HighestFloor => heights.highest_floor,
             HeightRef::LowestCeiling => heights.lowest_ceiling,
             HeightRef::HighestCeiling => heights.highest_ceiling,
@@ -1041,16 +1035,8 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                     .ssector(id)
                     .and_then(|subsector| self.level.ssector_segs(subsector))
                     .and_then(|segs| if segs.is_empty() { None } else { Some(segs) });
-                let segs = if let Some(segs) = segs {
-                    segs
-                } else {
-                    return None;
-                };
-                let sector = if let Some(sector) = self.level.seg_sector(&segs[0]) {
-                    sector
-                } else {
-                    return None;
-                };
+                let segs = segs?;
+                let sector = self.level.seg_sector(&segs[0])?;
                 return if segs
                     .iter()
                     .filter_map(|seg| self.level.seg_vertices(seg))
@@ -1062,11 +1048,7 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                     None
                 };
             } else {
-                let node = if let Some(node) = self.level.nodes.get(id) {
-                    node
-                } else {
-                    return None;
-                };
+                let node = self.level.nodes.get(id)?;
                 let partition = partition_line(node);
                 if partition.signed_distance(pos) > 0.0f32 {
                     child_id = node.left;

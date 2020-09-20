@@ -1,6 +1,5 @@
 use failchain::{BoxedError, ChainErrorKind};
 use failure::Fail;
-use glium;
 use idcontain::Id;
 use std::result::Result as StdResult;
 
@@ -68,18 +67,18 @@ impl ErrorKind {
     pub(crate) fn create_window(
         width: u32,
         height: u32,
-    ) -> (impl FnOnce(glium::backend::glutin::DisplayCreationError) -> Self) {
+    ) -> impl FnOnce(glium::backend::glutin::DisplayCreationError) -> Self {
         move |error| {
-            Self::from(ErrorKind::CreateWindow(format!(
+            ErrorKind::CreateWindow(format!(
                 "Window creation failed with {}x{}: {}",
                 width, height, error
-            )))
+            ))
         }
     }
 
     pub(crate) fn glium<NeededByT: Into<String>, ErrorT: ConvertGlium>(
         needed_by: NeededByT,
-    ) -> (impl FnOnce(ErrorT) -> Error) {
+    ) -> impl FnOnce(ErrorT) -> Error {
         move |error| error.convert_glium(needed_by.into()).into()
     }
 }

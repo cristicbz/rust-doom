@@ -2,7 +2,6 @@ use super::errors::{ErrorKind, Result};
 use super::meta::WadMetadata;
 use super::name::IntoWadName;
 use super::types::{WadInfo, WadLump, WadName};
-use bincode;
 use failchain::{ensure, ResultExt};
 use indexmap::IndexMap;
 use log::info;

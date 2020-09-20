@@ -3,7 +3,6 @@ use super::errors::{ErrorKind, Result};
 use super::image::Image;
 use super::name::WadName;
 use super::types::{Colormap, Palette, WadTextureHeader, WadTexturePatchRef};
-use bincode;
 use byteorder::{LittleEndian, ReadBytesExt};
 use failchain::{ensure, ResultExt};
 use indexmap::IndexMap;
