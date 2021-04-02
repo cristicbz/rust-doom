@@ -14,9 +14,9 @@ engine = { path = "engine" }
 game = { path = "game" }
 math = { path = "math" }
 
-env_logger = "0.7.1"
-structopt = "0.3.3"
-failure = "0.1.5"
+env_logger = "0.8.3"
+structopt = "0.3.21"
+failure = "0.1.8"
 
 [dependencies.log]
 features = ["release_max_level_info"]

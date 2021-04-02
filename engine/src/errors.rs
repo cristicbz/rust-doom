@@ -121,7 +121,7 @@ impl ConvertGlium for glium::ProgramCreationError {
     fn convert_glium(self, needed_by: String) -> ErrorKind {
         use glium::ProgramCreationError::*;
         match &self {
-            CompilationError(log) | LinkingError(log) => ErrorKind::Shader {
+            CompilationError(log, _) | LinkingError(log) => ErrorKind::Shader {
                 log: log.clone(),
                 needed_by,
             },

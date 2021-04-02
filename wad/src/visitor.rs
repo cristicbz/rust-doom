@@ -1224,7 +1224,7 @@ fn points_to_polygon(points: &mut Vec<Pnt2f>) {
     });
 
     // Remove duplicates.
-    let mut simplified = Vec::new();
+    let mut simplified = Vec::with_capacity(points.len());
     simplified.push((*points)[0]);
     let mut current_point = (*points)[1];
     let mut area = 0.0;

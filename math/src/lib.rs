@@ -12,6 +12,7 @@ pub mod prelude {
         Transform2 as MathPreludeTransform2, Transform3 as MathPreludeTransform3,
         VectorSpace as MathPreludeVectorSpace, Zero as MathPreludeZero,
     };
+    pub use num_traits::One;
 }
 
 pub use cgmath::{

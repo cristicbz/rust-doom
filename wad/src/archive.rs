@@ -197,8 +197,8 @@ impl<'a> LumpReader<'a> {
                 element_size > 0 && info.size == element_size,
                 ErrorKind::bad_lump_size(index, info.name.as_ref(), info.size, element_size)
             );
-            Ok(bincode::deserialize_from(file)
-                .chain_err(|| ErrorKind::bad_lump_element(index, info.name.as_ref(), 0))?)
+            bincode::deserialize_from(file)
+                .chain_err(|| ErrorKind::bad_lump_element(index, info.name.as_ref(), 0))
         })
     }
 

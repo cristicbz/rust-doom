@@ -94,9 +94,9 @@ pub struct MeshRef<'a> {
     indices: Option<&'a IndexBuffer<u32>>,
 }
 
-impl<'a, 'b: 'a> Into<IndicesSource<'a>> for &'a MeshRef<'b> {
-    fn into(self) -> IndicesSource<'a> {
-        self.indices.map_or(
+impl<'a, 'b: 'a> From<&'a MeshRef<'b>> for IndicesSource<'a> {
+    fn from(mesh: &'a MeshRef<'b>) -> Self {
+        mesh.indices.map_or(
             IndicesSource::NoIndices {
                 primitives: PrimitiveType::TrianglesList,
             },
@@ -105,9 +105,9 @@ impl<'a, 'b: 'a> Into<IndicesSource<'a>> for &'a MeshRef<'b> {
     }
 }
 
-impl<'a, 'b: 'a> Into<VerticesSource<'a>> for &'a MeshRef<'b> {
-    fn into(self) -> VerticesSource<'a> {
-        self.vertices.into()
+impl<'a, 'b: 'a> From<&'a MeshRef<'b>> for VerticesSource<'a> {
+    fn from(mesh: &'a MeshRef<'b>) -> Self {
+        mesh.vertices.into()
     }
 }
 

@@ -1,8 +1,13 @@
 use super::errors::{Error, ErrorKind, Result};
 use super::platform;
 use super::system::System;
-use glium::glutin::{Api, ContextBuilder, EventsLoop, GlProfile, GlRequest, WindowBuilder};
-use glium::{Display, Frame, Surface};
+use glium::{
+    glutin::{
+        dpi::PhysicalSize, event_loop::EventLoop, window::WindowBuilder, Api, ContextBuilder,
+        GlProfile, GlRequest,
+    },
+    Display, Frame, Surface,
+};
 
 const OPENGL_DEPTH_SIZE: u8 = 24;
 
@@ -14,7 +19,7 @@ pub struct WindowConfig {
 
 pub struct Window {
     display: Display,
-    events: EventsLoop,
+    event_loop: Option<EventLoop<()>>,
     width: u32,
     height: u32,
 }
@@ -38,12 +43,12 @@ impl Window {
         frame
     }
 
-    pub fn events(&mut self) -> &mut EventsLoop {
-        &mut self.events
-    }
-
     pub fn facade(&self) -> &Display {
         &self.display
+    }
+
+    pub(crate) fn take_event_loop(&mut self) -> Option<EventLoop<()>> {
+        self.event_loop.take()
     }
 }
 
@@ -52,10 +57,13 @@ impl<'context> System<'context> for Window {
     type Error = Error;
 
     fn create(config: &'context WindowConfig) -> Result<Self> {
-        let events = EventsLoop::new();
+        let events = EventLoop::new();
 
         let window = WindowBuilder::new()
-            .with_dimensions((config.width, config.height).into())
+            .with_inner_size(PhysicalSize {
+                width: config.width,
+                height: config.height,
+            })
             .with_title(config.title.clone());
 
         let context = ContextBuilder::new()
@@ -64,7 +72,6 @@ impl<'context> System<'context> for Window {
                 Api::OpenGl,
                 (platform::GL_MAJOR_VERSION, platform::GL_MINOR_VERSION),
             ))
-            .with_vsync(true)
             .with_depth_buffer(OPENGL_DEPTH_SIZE);
 
         let display = Display::new(window, context, &events)
@@ -72,7 +79,7 @@ impl<'context> System<'context> for Window {
 
         Ok(Window {
             display,
-            events,
+            event_loop: Some(events),
             width: config.width,
             height: config.height,
         })

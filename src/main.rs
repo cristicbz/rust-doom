@@ -96,9 +96,7 @@ impl App {
 
         match self.command {
             None => {
-                let mut game = game::create(&self.into_config())?;
-                game.run()?;
-                info!("Game main loop ended, shutting down...");
+                game::create(&self.into_config())?.run();
             }
             Some(Command::Check) => {
                 let mut game = game::create(&GameConfig {
@@ -122,7 +120,6 @@ impl App {
                 }
             }
         }
-        info!("Clean shutdown.");
         Ok(())
     }
 

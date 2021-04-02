@@ -12,7 +12,7 @@ use glium::{
 use idcontain::{Id, IdSlab};
 use log::{debug, error};
 use math::Pnt2f;
-use rusttype::{self, Font, FontCollection, GlyphId, Point as FontPoint, PositionedGlyph, Scale};
+use rusttype::{self, Font, GlyphId, Point as FontPoint, PositionedGlyph, Scale};
 use std::borrow::Cow;
 use std::fs::File;
 use std::io::Read;
@@ -48,7 +48,7 @@ impl ChainErrorKind for ErrorKind {
 impl TextRenderer {
     pub fn insert(&mut self, win: &Window, text: &str, pos: Pnt2f, padding: u32) -> TextId {
         debug!("Creating text...");
-        let (width, height) = self.rasterise(text, padding).unwrap();
+        let (width, height) = self.rasterise(text, padding);
         let texture = Texture2d::new(
             win.facade(),
             RawImage2d {
@@ -117,7 +117,7 @@ impl TextRenderer {
         Ok(())
     }
 
-    fn rasterise(&mut self, text: &str, padding: u32) -> Result<(u32, u32)> {
+    fn rasterise(&mut self, text: &str, padding: u32) -> (u32, u32) {
         debug!("Rasterising text {:?}...", text);
         let scale = Scale::uniform(POINT_SIZE);
         let (width, height) = LayoutIter::new(&self.font, scale, !0, text)
@@ -156,7 +156,7 @@ impl TextRenderer {
                 });
             }
         }
-        Ok((width, height))
+        (width, height)
     }
 }
 
@@ -215,10 +215,8 @@ impl<'context> System<'context> for TextRenderer {
             .and_then(|mut file| file.read_to_end(&mut font_bytes))
             .chain_err(|| ErrorKind(format!("Cannot read font at {}", FONT_PATH)))?;
         Ok(Self {
-            font: FontCollection::from_bytes(font_bytes)
-                .chain_err(|| ErrorKind(format!("Failed to parse font at {:?}.", FONT_PATH)))?
-                .font_at(0)
-                .chain_err(|| ErrorKind(format!("No fonts in {:?}.", FONT_PATH)))?,
+            font: Font::try_from_vec_and_index(font_bytes, 0)
+                .ok_or_else(|| ErrorKind(format!("Failed to parse font at {:?}.", FONT_PATH)))?,
             slab: IdSlab::with_capacity(16),
             program: Program::from_source(window.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
             draw_params: DrawParameters {

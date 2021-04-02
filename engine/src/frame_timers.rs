@@ -82,7 +82,7 @@ impl FrameTimers {
             .last_logged
             .map(|last_logged| current_time.duration_since(last_logged))
         {
-            Some(duration) if duration.as_secs() >= 10 => {
+            Some(duration) if duration.as_secs() >= 1 => {
                 self.last_logged = Some(current_time);
             }
             None => {

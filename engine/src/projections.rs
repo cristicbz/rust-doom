@@ -90,8 +90,13 @@ struct StoredProjection {
     matrix: Mat4,
 }
 
-impl Into<Mat4> for Projection {
-    fn into(self) -> Mat4 {
-        math::perspective(self.fov, self.aspect_ratio, self.near, self.far)
+impl From<Projection> for Mat4 {
+    fn from(projection: Projection) -> Self {
+        math::perspective(
+            projection.fov,
+            projection.aspect_ratio,
+            projection.near,
+            projection.far,
+        )
     }
 }
