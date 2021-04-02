@@ -122,7 +122,7 @@ struct Globals {
 impl<'context> Dependencies<'context> {
     fn load_palette(&mut self, parent: EntityId) -> Result<Texture2dId> {
         let palette = self.wad.textures.build_palette_texture(0, 0, 32);
-        Ok(self.uniforms.add_texture_2d(
+        self.uniforms.add_texture_2d(
             self.window,
             self.entities,
             parent,
@@ -140,7 +140,7 @@ impl<'context> Dependencies<'context> {
                 magnify_filter: MagnifySamplerFilter::Nearest,
                 ..SamplerBehavior::default()
             }),
-        )?)
+        )
     }
 
     fn load_globals(&mut self, parent: EntityId) -> Result<Globals> {
@@ -458,9 +458,8 @@ impl<'context> Dependencies<'context> {
         name: &'static str,
         asset: &'static str,
     ) -> Result<ShaderId> {
-        Ok(self
-            .shaders
-            .add(self.window, self.entities, parent, name, asset)?)
+        self.shaders
+            .add(self.window, self.entities, parent, name, asset)
     }
 }
 

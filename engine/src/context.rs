@@ -1,29 +1,27 @@
 use super::errors::{ErrorKind, Result};
+use super::input::Input;
 use super::system::{BoundSystem, System};
 use super::type_list::{Cons, Nil, Peek, Pluck, PluckInto};
+use super::window::Window;
 use failchain::ResultExt;
-use log::info;
-use std::marker::PhantomData;
+use failure::{AsFail, Fail};
+use glium::glutin::event_loop::ControlFlow as GlutinControlFlow;
+use std::{marker::PhantomData, time::Instant};
 
 pub trait Context {
-    fn quit_requested(&self) -> bool;
     fn step(&mut self) -> Result<()>;
     fn destroy(&mut self) -> Result<()>;
 
-    fn run(&mut self) -> Result<()> {
-        while !self.quit_requested() {
-            self.step()?;
-        }
-        Ok(())
-    }
-}
-
-pub struct ControlFlow {
-    pub quit_requested: bool,
+    fn run(self) -> !;
 }
 
 pub struct ContextBuilder<SystemListT> {
     systems: SystemListT,
+}
+
+pub struct ControlFlow {
+    pub quit_requested: bool,
+    pub sleep_until: Option<Instant>,
 }
 
 impl ContextBuilder<Cons<InjectMut<ControlFlow>, Nil>> {
@@ -32,6 +30,7 @@ impl ContextBuilder<Cons<InjectMut<ControlFlow>, Nil>> {
             systems: Cons {
                 head: InjectMut(ControlFlow {
                     quit_requested: false,
+                    sleep_until: None,
                 }),
                 tail: Nil,
             },
@@ -44,7 +43,6 @@ impl Default for ContextBuilder<Cons<InjectMut<ControlFlow>, Nil>> {
         Self::new()
     }
 }
-
 impl<SystemListT> ContextBuilder<SystemListT> {
     pub fn inject<InjectT>(
         self,
@@ -86,14 +84,17 @@ impl<SystemListT> ContextBuilder<SystemListT> {
         })
     }
 
-    pub fn build<ControlIndexT, IndicesT>(
+    pub fn build<ControlFlowIndexT, WindowIndexT, InputIndexT, IndicesT>(
         mut self,
-    ) -> Result<ContextObject<SystemListT, (ControlIndexT, IndicesT)>>
+    ) -> Result<ContextObject<SystemListT, (ControlFlowIndexT, WindowIndexT, InputIndexT, IndicesT)>>
     where
-        SystemListT: SystemList<IndicesT> + Peek<ControlFlow, ControlIndexT>,
+        SystemListT: SystemList<IndicesT>
+            + Peek<ControlFlow, ControlFlowIndexT>
+            + Peek<Window, WindowIndexT>
+            + Peek<Input, InputIndexT>,
     {
         SystemListT::setup_list(&mut self.systems).chain_err(|| ErrorKind::Context("setup"))?;
-        info!("Context set up.");
+        log::info!("Context set up.");
         Ok(ContextObject {
             systems: Some(self.systems),
             indices: PhantomData,
@@ -144,17 +145,70 @@ where
     }
 }
 
-impl<SystemListT, ControlIndexT, IndicesT> Context
-    for ContextObject<SystemListT, (ControlIndexT, IndicesT)>
+impl<SystemListT, ControlFlowIndexT, WindowIndexT, InputIndexT, IndicesT> Context
+    for ContextObject<SystemListT, (ControlFlowIndexT, WindowIndexT, InputIndexT, IndicesT)>
 where
-    SystemListT: SystemList<IndicesT> + Peek<ControlFlow, ControlIndexT>,
+    SystemListT: SystemList<IndicesT>
+        + Peek<ControlFlow, ControlFlowIndexT>
+        + Peek<Window, WindowIndexT>
+        + Peek<Input, InputIndexT>
+        + 'static,
+    ControlFlowIndexT: 'static,
+    WindowIndexT: 'static,
+    InputIndexT: 'static,
+    IndicesT: 'static,
 {
-    fn quit_requested(&self) -> bool {
-        self.systems().peek().quit_requested
-    }
-
     fn step(&mut self) -> Result<()> {
         SystemListT::update_list(self.systems_mut()).chain_err(|| ErrorKind::Context("update"))
+    }
+
+    fn run(mut self) -> ! {
+        let event_loop = {
+            let window: &mut Window = self.systems_mut().peek_mut();
+            window.take_event_loop().expect("none event loop in window")
+        };
+
+        event_loop.run(move |event, _target, glutin_control_flow| {
+            if *glutin_control_flow == GlutinControlFlow::Exit {
+                return;
+            }
+            let input: &mut Input = self.systems_mut().peek_mut();
+            if !input.handle_event(event) {
+                return;
+            }
+            let result = self.step().and_then(|_| {
+                let input: &mut Input = self.systems_mut().peek_mut();
+                input.reset();
+                let control_flow: &mut ControlFlow = self.systems_mut().peek_mut();
+                *glutin_control_flow = control_flow
+                    .sleep_until
+                    .take()
+                    .map_or(GlutinControlFlow::Poll, GlutinControlFlow::WaitUntil);
+                if !control_flow.quit_requested {
+                    return Ok(());
+                }
+                *glutin_control_flow = GlutinControlFlow::Exit;
+                self.destroy()
+            });
+
+            if let Err(error) = result {
+                log::error!("Fatal error: {}", error);
+                let mut cause = error.as_fail();
+                while let Some(new_cause) = cause.cause() {
+                    cause = new_cause;
+                    log::error!("    caused by: {}", cause);
+                }
+                if std::env::var("RUST_BACKTRACE")
+                    .map(|value| value == "1")
+                    .unwrap_or(false)
+                {
+                    log::error!("Backtrace:\n{:?}", error.backtrace());
+                } else {
+                    log::error!("Run with RUST_BACKTRACE=1 to capture backtrace.");
+                }
+                *glutin_control_flow = GlutinControlFlow::Exit;
+            }
+        })
     }
 
     fn destroy(&mut self) -> Result<()> {
@@ -164,9 +218,9 @@ where
             return Ok(());
         };
         SystemListT::teardown_list(&mut systems).chain_err(|| ErrorKind::Context("teardown"))?;
-        info!("Context tore down.");
+        log::info!("Context tore down.");
         SystemListT::destroy_list(systems).chain_err(|| ErrorKind::Context("destruction"))?;
-        info!("Context destroyed.");
+        log::info!("Context destroyed.");
         Ok(())
     }
 }
@@ -332,7 +386,7 @@ where
 {
     #[inline]
     fn raw_setup(&mut self, context: &'context mut ContextT) -> Result<()> {
-        info!("Setting up system {:?}...", Self::debug_name());
+        log::info!("Setting up system {:?}...", Self::debug_name());
         self.setup(<Self as System>::Dependencies::dependencies_from(context))
             .chain_err(|| ErrorKind::System("setup", Self::debug_name()))
     }
@@ -345,14 +399,14 @@ where
 
     #[inline]
     fn raw_teardown(&mut self, context: &'context mut ContextT) -> Result<()> {
-        info!("Tearing down system {:?}...", Self::debug_name());
+        log::info!("Tearing down system {:?}...", Self::debug_name());
         self.teardown(<Self as System>::Dependencies::dependencies_from(context))
             .chain_err(|| ErrorKind::System("teardown", Self::debug_name()))
     }
 
     #[inline]
     fn raw_destroy(self, context: &'context mut ContextT) -> Result<()> {
-        info!("Destroying system {:?}...", Self::debug_name());
+        log::info!("Destroying system {:?}...", Self::debug_name());
         self.destroy(<Self as System>::Dependencies::dependencies_from(context))
             .chain_err(|| ErrorKind::System("destruction", Self::debug_name()))
     }
@@ -366,7 +420,7 @@ where
 {
     #[inline]
     fn raw_create(context: &'context mut ContextT) -> Result<Self> {
-        info!("Creating system {:?}...", Self::debug_name());
+        log::info!("Creating system {:?}...", Self::debug_name());
         Self::create(<Self as System>::Dependencies::dependencies_from(context))
             .chain_err(|| ErrorKind::System("creation", Self::debug_name()))
     }

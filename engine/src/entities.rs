@@ -146,7 +146,7 @@ impl Entities {
 
     pub fn debug_tree_dump(&self, indent: usize) -> String {
         let mut output = "Entity tree dump:\n".to_owned();
-        let mut stack = Vec::new();
+        let mut stack = Vec::with_capacity(self.slab.len());
         stack.push((
             0,
             if let Some(root) = self.first_root.into_option() {

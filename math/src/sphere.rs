@@ -179,5 +179,5 @@ fn is_point_inside_triangle(verts: &[Pnt3f; 3], point: Pnt3f) -> bool {
     let beta = w.cross(v).dot(n) / n2;
     let alpha = 1.0 - gamma - beta;
 
-    0.0 <= alpha && alpha <= 1.0 && 0.0 <= gamma && gamma <= 1.0 && 0.0 <= beta && beta <= 1.0
+    (0.0..=1.0).contains(&alpha) && (0.0..=1.0).contains(&gamma) && (0.0..=1.0).contains(&beta)
 }

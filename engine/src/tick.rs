@@ -1,9 +1,16 @@
+use super::context::ControlFlow;
 use super::system::InfallibleSystem;
-use std::thread;
+use crate::internal_derive::DependenciesFrom;
 use std::time::{Duration, Instant};
 
 pub struct Config {
     pub timestep: f32,
+}
+
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    config: &'context Config,
+    _control_flow: &'context mut ControlFlow,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -56,15 +63,15 @@ pub struct Tick {
 }
 
 impl<'context> InfallibleSystem<'context> for Tick {
-    type Dependencies = &'context Config;
+    type Dependencies = Dependencies<'context>;
 
     fn debug_name() -> &'static str {
         "tick"
     }
 
-    fn create(config: &Config) -> Self {
+    fn create(deps: Self::Dependencies) -> Self {
         Tick {
-            timestep: config.timestep,
+            timestep: deps.config.timestep,
             index: TickIndex(0),
 
             drift: 0.0,
@@ -74,8 +81,8 @@ impl<'context> InfallibleSystem<'context> for Tick {
         }
     }
 
-    fn update(&mut self, _: &Config) {
-        let mut current_time = Instant::now();
+    fn update(&mut self, deps: Self::Dependencies) {
+        let current_time = Instant::now();
         let last_time = if let Some(instant) = self.last_time {
             instant
         } else {
@@ -89,35 +96,20 @@ impl<'context> InfallibleSystem<'context> for Tick {
 
         // If we just renderered a frame, but simulation is still ahead of real time by more than
         // one timestep, sleep to get back in sync.
-        if self.drift < -self.timestep {
-            let sleep_duration = duration_from_seconds(-self.drift - self.timestep + 1e-3);
+        self.slept = 0.0;
+        self.is_frame = self.drift < self.timestep;
+
+        if self.drift < self.timestep {
+            let sleep_seconds = (self.timestep - self.drift).max(0.0);
+            let sleep_duration = duration_from_seconds(sleep_seconds);
             let sleep_until = current_time + sleep_duration;
 
             // Sleep for the entire time minus one millisecond.
-            thread::sleep(sleep_duration - Duration::from_millis(1));
+            deps._control_flow.sleep_until = Some(sleep_until);
 
-            // Busy wait remaining time (approx 1ms).
-            let new_current_time = loop {
-                let new_current_time = Instant::now();
-                if new_current_time >= sleep_until {
-                    break new_current_time;
-                }
-                thread::yield_now();
-            };
-
-            // Update drift with newly waited time.
-            self.slept = duration_to_seconds(new_current_time.duration_since(current_time));
-            self.drift += self.slept;
-
-            // Report the amount slept.
-            current_time = new_current_time;
-        } else {
-            self.slept = 0.0;
+            self.slept = sleep_seconds;
         }
         self.last_time = Some(current_time);
-
-        // Render a frame this tick iff the drift is less than one timestep.
-        self.is_frame = self.drift <= self.timestep;
 
         // Update the deterministic tick index.
         self.index.0 += 1;

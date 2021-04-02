@@ -16,7 +16,7 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 
 pub trait Game {
-    fn run(&mut self) -> Result<()>;
+    fn run(self) -> !;
     fn destroy(&mut self) -> Result<()>;
     fn num_levels(&self) -> usize;
     fn load_level(&mut self, level_index: usize) -> Result<()>;
@@ -87,7 +87,7 @@ struct GameImpl<WadIndexT, ContextT>
 where
     ContextT: Context + Peek<WadSystem, WadIndexT>,
 {
-    context: ContextT,
+    context: Option<ContextT>,
     phantom: PhantomData<WadIndexT>,
 }
 
@@ -97,7 +97,7 @@ where
 {
     fn new(context: ContextT) -> Self {
         Self {
-            context,
+            context: Some(context),
             phantom: PhantomData,
         }
     }
@@ -107,37 +107,33 @@ impl<WadIndexT, ContextT> Game for GameImpl<WadIndexT, ContextT>
 where
     ContextT: Context + Peek<WadSystem, WadIndexT>,
 {
-    fn run(&mut self) -> Result<()> {
-        self.context
-            .run()
-            .chain_err(|| ErrorKind("during run".to_owned()))?;
-        self.context
-            .destroy()
-            .chain_err(|| ErrorKind("during shutdown".to_owned()))?;
-        Ok(())
+    fn run(mut self) -> ! {
+        self.context.take().unwrap().run()
     }
 
     fn num_levels(&self) -> usize {
-        let wad = self.context.peek();
-        wad.archive.num_levels()
+        self.context.as_ref().unwrap().peek().archive.num_levels()
     }
 
     fn load_level(&mut self, level_index: usize) -> Result<()> {
-        let wad = self.context.peek_mut();
+        let context = self.context.as_mut().unwrap();
+        let wad = context.peek_mut();
         wad.change_level(level_index);
-        self.context
+        context
             .step()
             .chain_err(|| ErrorKind("during load_level first step".to_owned()))?;
-        self.context
+        context
             .step()
             .chain_err(|| ErrorKind("during load_level second step".to_owned()))?;
         Ok(())
     }
 
     fn destroy(&mut self) -> Result<()> {
-        self.context
-            .destroy()
-            .chain_err(|| ErrorKind("during explicit destroy".to_owned()))?;
+        if let Some(context) = self.context.as_mut() {
+            context
+                .destroy()
+                .chain_err(|| ErrorKind("during explicit destroy".to_owned()))?;
+        }
         Ok(())
     }
 }
@@ -147,6 +143,8 @@ where
     ContextT: Context + Peek<WadSystem, WadIndexT>,
 {
     fn drop(&mut self) {
-        let _ = self.context.destroy();
+        if let Some(mut context) = self.context.take() {
+            let _ = context.destroy();
+        }
     }
 }
