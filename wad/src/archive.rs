@@ -52,10 +52,10 @@ impl Archive {
 
         Ok(Archive {
             file,
-            meta,
-            lumps,
             index_map,
+            lumps,
             levels,
+            meta,
         })
     }
 
