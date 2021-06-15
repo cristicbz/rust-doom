@@ -186,8 +186,8 @@ impl Uniforms {
         self.texture2ds
             .get_mut(texture_id.0)
             .map(|texture| Texture2dRefMut {
-                texture_id,
                 texture,
+                texture_id,
             })
     }
 
