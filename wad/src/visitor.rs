@@ -335,7 +335,7 @@ impl LevelAnalysis {
     }
 
     pub fn take_triggers(&mut self) -> Vec<Trigger> {
-        mem::replace(&mut self.triggers, Vec::new())
+        mem::take(&mut self.triggers)
     }
 
     fn compute_dynamic_sectors(&mut self, level: &Level, meta: &WadMetadata) {

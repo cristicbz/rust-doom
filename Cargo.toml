@@ -3,7 +3,7 @@ authors = ["Cristian Cobzarenco <cristi.cobzarenco@gmail.com>"]
 description = "A Doom Renderer/Level Viewer written in Rust."
 name = "rs_doom"
 version = "0.0.9"
-edition = "2018"
+edition = "2021"
 
 [[bin]]
 name = "rs_doom"
