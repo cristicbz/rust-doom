@@ -232,7 +232,7 @@ impl<'a> Iterator for AdjacentSectorsIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         // TODO(cristicbz): Precompute an adjacency matrix for sectors.
-        while let Some(line) = self.linedefs.next() {
+        for line in &mut self.linedefs {
             let left = match self.level.left_sidedef(line) {
                 Some(l) => l.sector,
                 None => continue,
