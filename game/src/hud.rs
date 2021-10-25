@@ -1,6 +1,6 @@
 use super::wad_system::WadSystem;
 use engine::{
-    DependenciesFrom, ControlFlow, Gesture, InfallibleSystem, Input, Scancode, TextId,
+    ControlFlow, DependenciesFrom, Gesture, InfallibleSystem, Input, Scancode, TextId,
     TextRenderer, Window,
 };
 use math::prelude::*;

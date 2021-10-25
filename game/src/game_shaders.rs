@@ -163,9 +163,9 @@ impl<'context> Dependencies<'context> {
         let sprite_shader = self.load_shader(parent, "sprite_shader", "sprite")?;
 
         Ok(Globals {
-            palette,
             time,
             lights_buffer_texture,
+            palette,
             static_shader,
             sky_shader,
             sprite_shader,
