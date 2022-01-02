@@ -610,11 +610,11 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
     }
 
     fn children(&mut self, node: &WadNode, partition: Line2f) {
-        self.bsp_lines.push(partition);
+        self.bsp_lines.push(partition.inverted_halfspaces());
         self.node(node.left, Branch::Positive);
         self.bsp_lines.pop();
 
-        self.bsp_lines.push(partition.inverted_halfspaces());
+        self.bsp_lines.push(partition);
         self.node(node.right, Branch::Negative);
         self.bsp_lines.pop();
     }
@@ -679,10 +679,11 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 };
 
                 let dist = |l: &Line2f| l.signed_distance(point);
-                let within_bsp = |d: f32| d >= -BSP_TOLERANCE;
+                let within_bsp = |d: f32| d <= BSP_TOLERANCE;
                 let within_seg = |d: f32| d <= SEG_TOLERANCE;
                 // The intersection point must lie both within the BSP volume
-                // and the segs volume.
+                // and the segs volume i.e. whose signed_distance must have same sign (negative as
+                // wad coords reverted by `from_wad_coords`).
                 let inside_bsp_and_segs = self.bsp_lines.iter().map(&dist).all(within_bsp)
                     && self.subsector_seg_lines.iter().map(&dist).all(within_seg);
                 if inside_bsp_and_segs {
