@@ -39,7 +39,7 @@ impl<T: BaseFloat> Line2<T> {
     }
 
     pub fn signed_distance(&self, to: Pnt2<T>) -> T {
-        to.to_vec().perp_dot(self.displace) + self.displace.perp_dot(self.origin.to_vec())
+        (to - self.origin).perp_dot(self.displace)
     }
 
     pub fn segment_intersect_offset(&self, other: &Line2<T>) -> Option<T> {

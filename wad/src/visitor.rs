@@ -19,6 +19,7 @@ use std::cmp;
 use std::cmp::Ordering;
 use std::f32::EPSILON;
 use std::mem;
+use std::ops::Add;
 use vec_map::VecMap;
 
 pub struct StaticQuad<'a> {
@@ -609,11 +610,11 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
     }
 
     fn children(&mut self, node: &WadNode, partition: Line2f) {
-        self.bsp_lines.push(partition);
+        self.bsp_lines.push(partition.inverted_halfspaces());
         self.node(node.left, Branch::Positive);
         self.bsp_lines.pop();
 
-        self.bsp_lines.push(partition.inverted_halfspaces());
+        self.bsp_lines.push(partition);
         self.node(node.right, Branch::Negative);
         self.bsp_lines.pop();
     }
@@ -678,10 +679,11 @@ impl<'a, V: LevelVisitor> LevelWalker<'a, V> {
                 };
 
                 let dist = |l: &Line2f| l.signed_distance(point);
-                let within_bsp = |d: f32| d >= -BSP_TOLERANCE;
+                let within_bsp = |d: f32| d <= BSP_TOLERANCE;
                 let within_seg = |d: f32| d <= SEG_TOLERANCE;
                 // The intersection point must lie both within the BSP volume
-                // and the segs volume.
+                // and the segs volume i.e. whose signed_distance must have same sign (negative as
+                // wad coords reverted by `from_wad_coords`).
                 let inside_bsp_and_segs = self.bsp_lines.iter().map(&dist).all(within_bsp)
                     && self.subsector_seg_lines.iter().map(&dist).all(within_seg);
                 if inside_bsp_and_segs {
@@ -1182,45 +1184,22 @@ fn min_max_height(level: &Level) -> (WadCoord, WadCoord) {
 }
 
 fn polygon_center(points: &[Pnt2f]) -> Pnt2f {
-    let mut center = Pnt2f::origin();
-    for p in points.iter() {
-        center += p.to_vec();
-    }
-    center / (points.len() as f32)
+    points
+        .iter()
+        .map(|p| p.to_vec())
+        .fold(Pnt2f::origin(), Add::add)
+        / (points.len() as f32)
 }
 
 fn points_to_polygon(points: &mut Vec<Pnt2f>) {
-    // Sort points in polygonal CCW order around their center.
+    // Sort points in polygonal CCW order around their center by their atan2's angle.
     let center = polygon_center(points);
     points.sort_unstable_by(|a, b| {
-        let ac = *a - center;
-        let bc = *b - center;
-        if ac[0] >= 0.0 && bc[0] < 0.0 {
-            return Ordering::Less;
-        }
-        if ac[0] < 0.0 && bc[0] >= 0.0 {
-            return Ordering::Greater;
-        }
-        if ac[0] == 0.0 && bc[0] == 0.0 {
-            if ac[1] >= 0.0 || bc[1] >= 0.0 {
-                return if a[1] > b[1] {
-                    Ordering::Less
-                } else {
-                    Ordering::Greater
-                };
-            }
-            return if b[1] > a[1] {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            };
-        }
+        let (ca, cb) = (*a - center, *b - center);
 
-        if ac.perp_dot(bc) < 0.0 {
-            Ordering::Less
-        } else {
-            Ordering::Greater
-        }
+        cb.y.atan2(cb.x)
+            .partial_cmp(&ca.y.atan2(ca.x))
+            .unwrap_or(Ordering::Equal)
     });
 
     // Remove duplicates.
@@ -1247,9 +1226,7 @@ fn points_to_polygon(points: &mut Vec<Pnt2f>) {
         points.clear();
         return;
     }
-    while (simplified[0] - simplified[simplified.len() - 1]).magnitude() < 0.0032 {
-        simplified.pop();
-    }
+    simplified.dedup_by(|&mut a, &mut b| (a - b).magnitude() < 0.0032);
 
     let center = polygon_center(&simplified);
     for point in &mut simplified {
