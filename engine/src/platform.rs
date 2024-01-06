@@ -1,7 +1,5 @@
 #[cfg(target_os = "linux")]
 mod internal {
-    pub const GL_MAJOR_VERSION: u8 = 3;
-    pub const GL_MINOR_VERSION: u8 = 1;
     pub const GLSL_VERSION_STRING: &str = "140";
 }
 

@@ -14,7 +14,7 @@ engine = { path = "engine" }
 game = { path = "game" }
 math = { path = "math" }
 
-env_logger = "0.8.3"
+env_logger = "0.10.1"
 structopt = "0.3.21"
 failure = "0.1.8"
 
@@ -23,5 +23,3 @@ features = ["release_max_level_info"]
 version = "0.4.8"
 
 [workspace]
-
-

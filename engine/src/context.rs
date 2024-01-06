@@ -5,14 +5,14 @@ use super::type_list::{Cons, Nil, Peek, Pluck, PluckInto};
 use super::window::Window;
 use failchain::ResultExt;
 use failure::{AsFail, Fail};
-use glium::glutin::event_loop::ControlFlow as GlutinControlFlow;
 use std::{marker::PhantomData, time::Instant};
+use winit::event_loop::ControlFlow as WinitControlFlow;
 
 pub trait Context {
     fn step(&mut self) -> Result<()>;
     fn destroy(&mut self) -> Result<()>;
 
-    fn run(self) -> !;
+    fn run(self) -> Result<()>;
 }
 
 pub struct ContextBuilder<SystemListT> {
@@ -162,53 +162,58 @@ where
         SystemListT::update_list(self.systems_mut()).chain_err(|| ErrorKind::Context("update"))
     }
 
-    fn run(mut self) -> ! {
+    fn run(mut self) -> Result<()> {
         let event_loop = {
             let window: &mut Window = self.systems_mut().peek_mut();
             window.take_event_loop().expect("none event loop in window")
         };
 
-        event_loop.run(move |event, _target, glutin_control_flow| {
-            if *glutin_control_flow == GlutinControlFlow::Exit {
-                return;
-            }
-            let input: &mut Input = self.systems_mut().peek_mut();
-            if !input.handle_event(event) {
-                return;
-            }
-            let result = self.step().and_then(|_| {
+        event_loop
+            .run(move |event, target| {
+                if target.exiting() {
+                    return;
+                }
                 let input: &mut Input = self.systems_mut().peek_mut();
-                input.reset();
-                let control_flow: &mut ControlFlow = self.systems_mut().peek_mut();
-                *glutin_control_flow = control_flow
-                    .sleep_until
-                    .take()
-                    .map_or(GlutinControlFlow::Poll, GlutinControlFlow::WaitUntil);
-                if !control_flow.quit_requested {
-                    return Ok(());
+                if !input.handle_event(event) {
+                    return;
                 }
-                *glutin_control_flow = GlutinControlFlow::Exit;
-                self.destroy()
-            });
+                let result = self.step().and_then(|_| {
+                    let input: &mut Input = self.systems_mut().peek_mut();
+                    input.reset();
+                    let control_flow: &mut ControlFlow = self.systems_mut().peek_mut();
+                    target.set_control_flow(
+                        control_flow
+                            .sleep_until
+                            .take()
+                            .map_or(WinitControlFlow::Poll, WinitControlFlow::WaitUntil),
+                    );
+                    if !control_flow.quit_requested {
+                        return Ok(());
+                    }
+                    target.exit();
+                    self.destroy()
+                });
 
-            if let Err(error) = result {
-                log::error!("Fatal error: {}", error);
-                let mut cause = error.as_fail();
-                while let Some(new_cause) = cause.cause() {
-                    cause = new_cause;
-                    log::error!("    caused by: {}", cause);
+                if let Err(error) = result {
+                    log::error!("Fatal error: {}", error);
+                    let mut cause = error.as_fail();
+                    while let Some(new_cause) = cause.cause() {
+                        cause = new_cause;
+                        log::error!("    caused by: {}", cause);
+                    }
+                    if std::env::var("RUST_BACKTRACE")
+                        .map(|value| value == "1")
+                        .unwrap_or(false)
+                    {
+                        log::error!("Backtrace:\n{:?}", error.backtrace());
+                    } else {
+                        log::error!("Run with RUST_BACKTRACE=1 to capture backtrace.");
+                    }
+                    target.exit();
                 }
-                if std::env::var("RUST_BACKTRACE")
-                    .map(|value| value == "1")
-                    .unwrap_or(false)
-                {
-                    log::error!("Backtrace:\n{:?}", error.backtrace());
-                } else {
-                    log::error!("Run with RUST_BACKTRACE=1 to capture backtrace.");
-                }
-                *glutin_control_flow = GlutinControlFlow::Exit;
-            }
-        })
+            })
+            .chain_err(|| ErrorKind::Context("Event loop"))?;
+        Ok(())
     }
 
     fn destroy(&mut self) -> Result<()> {

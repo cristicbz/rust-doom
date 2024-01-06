@@ -25,7 +25,7 @@ pub use self::context::{Context, ContextBuilder, ControlFlow};
 pub use self::entities::{Entities, Entity, EntityId};
 pub use self::errors::{Error, ErrorKind, Result};
 pub use self::frame_timers::{FrameTimerId, FrameTimers};
-pub use self::input::{Analog2d, Gesture, Input, MouseButton, Scancode};
+pub use self::input::{Analog2d, Gesture, Input, MouseButton};
 pub use self::materials::{MaterialId, MaterialRefMut, Materials};
 pub use self::meshes::{Mesh, MeshId, Meshes};
 pub use self::pipeline::RenderPipeline;

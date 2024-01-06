@@ -1,12 +1,13 @@
 use super::level::{Level, PlayerAction};
 use engine::{
     Analog2d, DependenciesFrom, Entities, EntityId, Gesture, InfallibleSystem, Input, MouseButton,
-    Projection, Projections, RenderPipeline, Scancode, Tick, Transforms, Window,
+    Projection, Projections, RenderPipeline, Tick, Transforms, Window,
 };
 use log::error;
 use math::prelude::*;
 use math::{vec3, Deg, Euler, Pnt3f, Quat, Rad, Sphere, Trans3, Vec3f};
 use std::f32::consts::FRAC_PI_2;
+use winit::keyboard::KeyCode;
 
 pub struct Bindings {
     pub movement: Analog2d,
@@ -22,19 +23,19 @@ impl Default for Bindings {
     fn default() -> Bindings {
         Bindings {
             movement: Analog2d::Gestures {
-                x_positive: Gesture::KeyHold(Scancode::D),
-                x_negative: Gesture::KeyHold(Scancode::A),
-                y_positive: Gesture::KeyHold(Scancode::S),
-                y_negative: Gesture::KeyHold(Scancode::W),
+                x_positive: Gesture::KeyHold(KeyCode::KeyD),
+                x_negative: Gesture::KeyHold(KeyCode::KeyA),
+                y_positive: Gesture::KeyHold(KeyCode::KeyS),
+                y_negative: Gesture::KeyHold(KeyCode::KeyW),
                 step: 1.0,
             },
             look: Analog2d::Sum {
                 analogs: vec![
                     Analog2d::Gestures {
-                        x_positive: Gesture::KeyHold(Scancode::Right),
-                        x_negative: Gesture::KeyHold(Scancode::Left),
-                        y_positive: Gesture::KeyHold(Scancode::Down),
-                        y_negative: Gesture::KeyHold(Scancode::Up),
+                        x_positive: Gesture::KeyHold(KeyCode::ArrowRight),
+                        x_negative: Gesture::KeyHold(KeyCode::ArrowLeft),
+                        y_positive: Gesture::KeyHold(KeyCode::ArrowDown),
+                        y_negative: Gesture::KeyHold(KeyCode::ArrowUp),
                         step: 0.015,
                     },
                     Analog2d::Mouse {
@@ -42,11 +43,11 @@ impl Default for Bindings {
                     },
                 ],
             },
-            jump: Gesture::KeyHold(Scancode::Space),
-            push: Gesture::KeyTrigger(Scancode::E),
+            jump: Gesture::KeyHold(KeyCode::Space),
+            push: Gesture::KeyTrigger(KeyCode::KeyE),
             shoot: Gesture::ButtonTrigger(MouseButton::Left),
-            fly: Gesture::KeyTrigger(Scancode::F),
-            clip: Gesture::KeyTrigger(Scancode::C),
+            fly: Gesture::KeyTrigger(KeyCode::KeyF),
+            clip: Gesture::KeyTrigger(KeyCode::KeyC),
         }
     }
 }
