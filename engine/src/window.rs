@@ -1,15 +1,11 @@
-use super::errors::{Error, ErrorKind, Result};
-use super::platform;
-use super::system::System;
-use glium::{
-    glutin::{
-        dpi::PhysicalSize, event_loop::EventLoop, window::WindowBuilder, Api, ContextBuilder,
-        GlProfile, GlRequest,
-    },
-    Display, Frame, Surface,
-};
+use crate::ErrorKind;
 
-const OPENGL_DEPTH_SIZE: u8 = 24;
+use super::errors::{Error, Result};
+use super::system::System;
+use glium::backend::glutin::SimpleWindowBuilder;
+use glium::glutin::surface::WindowSurface;
+use glium::{Display, Frame, Surface};
+use winit::event_loop::EventLoop;
 
 pub struct WindowConfig {
     pub width: u32,
@@ -18,7 +14,8 @@ pub struct WindowConfig {
 }
 
 pub struct Window {
-    display: Display,
+    display: Display<WindowSurface>,
+    window: winit::window::Window,
     event_loop: Option<EventLoop<()>>,
     width: u32,
     height: u32,
@@ -43,8 +40,12 @@ impl Window {
         frame
     }
 
-    pub fn facade(&self) -> &Display {
+    pub fn facade(&self) -> &Display<WindowSurface> {
         &self.display
+    }
+
+    pub fn window(&self) -> &winit::window::Window {
+        &self.window
     }
 
     pub(crate) fn take_event_loop(&mut self) -> Option<EventLoop<()>> {
@@ -57,28 +58,16 @@ impl<'context> System<'context> for Window {
     type Error = Error;
 
     fn create(config: &'context WindowConfig) -> Result<Self> {
-        let events = EventLoop::new();
+        let events = EventLoop::new().map_err(|e| ErrorKind::CreateWindow(e.to_string()))?;
 
-        let window = WindowBuilder::new()
-            .with_inner_size(PhysicalSize {
-                width: config.width,
-                height: config.height,
-            })
-            .with_title(config.title.clone());
-
-        let context = ContextBuilder::new()
-            .with_gl_profile(GlProfile::Core)
-            .with_gl(GlRequest::Specific(
-                Api::OpenGl,
-                (platform::GL_MAJOR_VERSION, platform::GL_MINOR_VERSION),
-            ))
-            .with_depth_buffer(OPENGL_DEPTH_SIZE);
-
-        let display = Display::new(window, context, &events)
-            .map_err(ErrorKind::create_window(config.width, config.height))?;
+        let (window, display) = SimpleWindowBuilder::new()
+            .with_inner_size(config.width, config.height)
+            .with_title(&config.title)
+            .build(&events);
 
         Ok(Window {
             display,
+            window,
             event_loop: Some(events),
             width: config.width,
             height: config.height,

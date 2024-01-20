@@ -64,18 +64,6 @@ impl ChainErrorKind for ErrorKind {
 }
 
 impl ErrorKind {
-    pub(crate) fn create_window(
-        width: u32,
-        height: u32,
-    ) -> impl FnOnce(glium::backend::glutin::DisplayCreationError) -> Self {
-        move |error| {
-            ErrorKind::CreateWindow(format!(
-                "Window creation failed with {}x{}: {}",
-                width, height, error
-            ))
-        }
-    }
-
     pub(crate) fn glium<NeededByT: Into<String>, ErrorT: ConvertGlium>(
         needed_by: NeededByT,
     ) -> impl FnOnce(ErrorT) -> Error {
@@ -153,6 +141,7 @@ impl ConvertGlium for glium::DrawError {
             | ProvokingVertexNotSupported
             | RasterizerDiscardNotSupported
             | DepthClampNotSupported
+            | ClipControlNotSupported
             | BlendingParameterNotSupported => ErrorKind::UnsupportedFeature { needed_by },
 
             NoDepthBuffer
@@ -170,6 +159,7 @@ impl ConvertGlium for glium::DrawError {
             | SubroutineUniformMissing { .. }
             | SubroutineUniformToValue { .. }
             | ClipPlaneIndexOutOfBounds { .. }
+            | InsufficientImageUnits
             | WrongQueryOperation => panic!("Invalid draw call: {:?}", self),
         }
     }

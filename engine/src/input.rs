@@ -2,21 +2,23 @@ use super::errors::{Error, Result};
 use super::system::System;
 use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
-use glium::glutin::event::{
-    DeviceEvent, ElementState, Event, KeyboardInput, StartCause, VirtualKeyCode, WindowEvent,
-};
 use math::Vec2f;
 use num_traits::Zero;
 use std::vec::Vec;
+use winit::{
+    event::{DeviceEvent, ElementState, Event, KeyEvent, StartCause, WindowEvent},
+    keyboard::{KeyCode, PhysicalKey},
+    window::CursorGrabMode,
+};
 
-pub use glium::glutin::event::{MouseButton, VirtualKeyCode as Scancode};
+pub use winit::event::MouseButton;
 
 pub type Sensitivity = f32;
 
 pub enum Gesture {
     NoGesture,
-    KeyHold(VirtualKeyCode),
-    KeyTrigger(VirtualKeyCode),
+    KeyHold(KeyCode),
+    KeyTrigger(KeyCode),
     ButtonHold(MouseButton),
     ButtonTrigger(MouseButton),
     AnyOf(Vec<Gesture>),
@@ -50,7 +52,7 @@ impl Input {
         self.mouse_rel = Vec2f::zero();
     }
 
-    pub(crate) fn handle_event(&mut self, event: Event<'_, ()>) -> bool {
+    pub(crate) fn handle_event(&mut self, event: Event<()>) -> bool {
         match event {
             Event::NewEvents(StartCause::WaitCancelled { .. }) => {}
             Event::NewEvents(StartCause::ResumeTimeReached {
@@ -59,7 +61,7 @@ impl Input {
             Event::NewEvents(_) => {
                 self.new_step = true;
             }
-            Event::MainEventsCleared => {
+            Event::AboutToWait => {
                 let new_step = self.new_step;
                 self.new_step = false;
                 return new_step;
@@ -73,10 +75,10 @@ impl Input {
             Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
+                        event:
+                            KeyEvent {
                                 state,
-                                virtual_keycode: Some(virtual_keycode),
+                                physical_key: PhysicalKey::Code(virtual_keycode),
                                 ..
                             },
                         ..
@@ -233,19 +235,14 @@ impl<'context> System<'context> for Input {
         if self.new_mouse_grabbed != self.mouse_grabbed {
             self.mouse_grabbed = self.new_mouse_grabbed;
             deps.window
-                .facade()
-                .gl_window()
                 .window()
-                .set_cursor_grab(self.mouse_grabbed)
+                .set_cursor_grab(if self.mouse_grabbed {
+                    CursorGrabMode::Locked
+                } else {
+                    CursorGrabMode::None
+                })
                 .ok();
-            deps.window
-                .facade()
-                .gl_window()
-                .window()
-                .set_cursor_visible(!self.mouse_grabbed);
-        }
-        if self.mouse_grabbed {
-            let _ = deps.window.facade().gl_window().window();
+            deps.window.window().set_cursor_visible(!self.mouse_grabbed);
         }
         Ok(())
     }
@@ -267,6 +264,8 @@ fn mouse_button_to_index(button: MouseButton) -> usize {
         MouseButton::Left => 1,
         MouseButton::Middle => 2,
         MouseButton::Right => 3,
-        MouseButton::Other(index) => ((index + 4) as usize).min(NUM_MOUSE_BUTTONS - 1),
+        MouseButton::Back => 4,
+        MouseButton::Forward => 5,
+        MouseButton::Other(index) => ((index + 6) as usize).min(NUM_MOUSE_BUTTONS - 1),
     }
 }

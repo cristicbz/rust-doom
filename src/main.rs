@@ -96,7 +96,7 @@ impl App {
 
         match self.command {
             None => {
-                game::create(&self.into_config())?.run();
+                game::create(&self.into_config())?.run()?;
             }
             Some(Command::Check) => {
                 let mut game = game::create(&GameConfig {
