@@ -1,11 +1,13 @@
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::forget_copy))]
 
+use bytemuck::{Pod, Zeroable};
 use glium::implement_vertex;
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Pod, Zeroable, Default)]
 pub struct StaticVertex {
     pub a_pos: [f32; 3],
+    pub _padding_1: f32,
     pub a_atlas_uv: [f32; 2],
     pub a_tile_uv: [f32; 2],
     pub a_tile_size: [f32; 2],
@@ -13,6 +15,7 @@ pub struct StaticVertex {
     pub a_row_height: f32,
     pub a_num_frames: u8,
     pub a_light: u8,
+    pub _padding_2: u16,
 }
 
 implement_vertex! {
@@ -28,15 +31,17 @@ implement_vertex! {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Pod, Zeroable, Default)]
 pub struct SpriteVertex {
     pub a_pos: [f32; 3],
+    pub _padding_1: f32,
     pub a_atlas_uv: [f32; 2],
     pub a_tile_uv: [f32; 2],
     pub a_tile_size: [f32; 2],
     pub a_local_x: f32,
     pub a_num_frames: u8,
     pub a_light: u8,
+    pub _padding_2: u16,
 }
 
 implement_vertex! {
@@ -51,9 +56,10 @@ implement_vertex! {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Pod, Zeroable, Default)]
 pub struct SkyVertex {
     pub a_pos: [f32; 3],
+    pub _padding_1: f32,
 }
 
 implement_vertex! {

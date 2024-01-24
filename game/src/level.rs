@@ -424,20 +424,20 @@ impl<'a> Builder<'a> {
         info!("Creating static meshes and models...");
         let global_static_mesh = deps
             .meshes
-            .add(deps.window, deps.entities, root, "global_world_static_mesh")
-            .immutable(&builder.static_vertices)?
+            .add(deps.entities, root, "global_world_static_mesh")
+            .immutable(&builder.static_vertices, deps.window.device())?
             .build_unindexed()?;
 
         let global_sky_mesh = deps
             .meshes
-            .add(deps.window, deps.entities, root, "global_world_sky_mesh")
-            .immutable(&builder.sky_vertices)?
+            .add(deps.entities, root, "global_world_sky_mesh")
+            .immutable(&builder.sky_vertices, deps.window.device())?
             .build_unindexed()?;
 
         let global_decor_mesh = deps
             .meshes
-            .add(deps.window, deps.entities, root, "global_world_decor_mesh")
-            .immutable(&builder.decor_vertices)?
+            .add(deps.entities, root, "global_world_decor_mesh")
+            .immutable(&builder.decor_vertices, deps.window.device())?
             .build_unindexed()?;
 
         for (id, indices) in &builder.object_indices {
@@ -446,9 +446,9 @@ impl<'a> Builder<'a> {
                 let entity = deps.entities.add(object, "flats")?;
                 let mesh = deps
                     .meshes
-                    .add(deps.window, deps.entities, entity, "object_flats_mesh")
+                    .add(deps.entities, entity, "object_flats_mesh")
                     .shared(global_static_mesh)
-                    .immutable_indices(&indices.flat)?
+                    .immutable_indices(&indices.flat, deps.window.device())?
                     .build()?;
                 deps.transforms.attach_identity(entity);
                 deps.render
@@ -459,9 +459,9 @@ impl<'a> Builder<'a> {
                 let entity = deps.entities.add(object, "walls")?;
                 let mesh = deps
                     .meshes
-                    .add(deps.window, deps.entities, entity, "object_walls_mesh")
+                    .add(deps.entities, entity, "object_walls_mesh")
                     .shared(global_static_mesh)
-                    .immutable_indices(&indices.wall)?
+                    .immutable_indices(&indices.wall, deps.window.device())?
                     .build()?;
                 deps.transforms.attach_identity(entity);
                 deps.render
@@ -472,9 +472,9 @@ impl<'a> Builder<'a> {
                 let entity = deps.entities.add(object, "decor")?;
                 let mesh = deps
                     .meshes
-                    .add(deps.window, deps.entities, entity, "object_decor_mesh")
+                    .add(deps.entities, entity, "object_decor_mesh")
                     .shared(global_decor_mesh)
-                    .immutable_indices(&indices.decor)?
+                    .immutable_indices(&indices.decor, deps.window.device())?
                     .build()?;
                 deps.transforms.attach_identity(entity);
                 deps.render
@@ -485,9 +485,9 @@ impl<'a> Builder<'a> {
                 let entity = deps.entities.add(object, "sky")?;
                 let mesh = deps
                     .meshes
-                    .add(deps.window, deps.entities, entity, "object_sky_mesh")
+                    .add(deps.entities, entity, "object_sky_mesh")
                     .shared(global_sky_mesh)
-                    .immutable_indices(&indices.sky)?
+                    .immutable_indices(&indices.sky, deps.window.device())?
                     .build()?;
                 deps.transforms.attach_identity(entity);
                 deps.render
@@ -530,6 +530,7 @@ impl<'a> Builder<'a> {
             a_num_frames: bounds.num_frames as u8,
             a_row_height: bounds.row_height as f32,
             a_light: light_info,
+            ..Default::default()
         });
         self
     }
@@ -544,6 +545,7 @@ impl<'a> Builder<'a> {
             a_num_frames: bounds.num_frames as u8,
             a_row_height: bounds.row_height as f32,
             a_light: light_info,
+            ..Default::default()
         });
         self
     }
@@ -551,6 +553,7 @@ impl<'a> Builder<'a> {
     fn sky_vertex(&mut self, xz: Pnt2f, y: f32) -> &mut Self {
         self.sky_vertices.push(SkyVertex {
             a_pos: [xz[0], y, xz[1]],
+            ..Default::default()
         });
         self
     }
@@ -572,6 +575,7 @@ impl<'a> Builder<'a> {
             a_tile_size: [bounds.size[0], bounds.size[1]],
             a_num_frames: 1,
             a_light: light_info,
+            ..Default::default()
         });
         self
     }

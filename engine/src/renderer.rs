@@ -12,7 +12,6 @@ use super::uniforms::Uniforms;
 use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
 use failchain::ResultExt;
-use glium::{BackfaceCullingMode, Depth, DepthTest, DrawParameters, Surface};
 use log::{error, info};
 use math::prelude::*;
 use math::Mat4;
@@ -32,11 +31,10 @@ pub struct Dependencies<'context> {
 }
 
 pub struct Renderer {
-    draw_parameters: DrawParameters<'static>,
     removed: Vec<usize>,
-    texture: wgpu::Texture,
+    _texture: wgpu::Texture,
     view: wgpu::TextureView,
-    depth_texture: wgpu::Texture,
+    _depth_texture: wgpu::Texture,
     depth_view: wgpu::TextureView,
 }
 
@@ -78,19 +76,10 @@ impl<'context> System<'context> for Renderer {
             });
         let depth_view = depth_texture.create_view(&Default::default());
         Ok(Renderer {
-            draw_parameters: DrawParameters {
-                depth: Depth {
-                    test: DepthTest::IfLess,
-                    write: true,
-                    ..Depth::default()
-                },
-                backface_culling: BackfaceCullingMode::CullClockwise,
-                ..DrawParameters::default()
-            },
             removed: Vec::with_capacity(32),
-            texture,
+            _texture: texture,
             view,
-            depth_texture,
+            _depth_texture: depth_texture,
             depth_view,
         })
     }
@@ -120,7 +109,7 @@ impl<'context> System<'context> for Renderer {
             pipe.camera = None;
             return Ok(());
         };
-        let view_matrix = view_transform.into();
+        // let view_matrix: Mat4 = view_transform.into();
 
         // Set projection.
         *deps
@@ -185,15 +174,16 @@ impl<'context> System<'context> for Renderer {
                 // If the model has a transform, then multiply it with the view transform to get the
                 // modelview matrix. If there is no transform, model is assumed to be in world space, so
                 // modelview = view.
-                *deps
-                    .uniforms
-                    .get_mat4_mut(pipe.modelview)
-                    .expect("modelview uniform missing") =
-                    if let Some(model_transform) = deps.transforms.get_absolute(entity) {
-                        Mat4::from(view_transform.concat(model_transform))
-                    } else {
-                        view_matrix
-                    };
+                // TODO: Writing to uniforms can only be done by submitting a write buffer command, and needs to be done in advance of rendering.
+                // *deps
+                //     .uniforms
+                //     .get_mat4_mut(pipe.modelview)
+                //     .expect("modelview uniform missing") =
+                //     if let Some(model_transform) = deps.transforms.get_absolute(entity) {
+                //         Mat4::from(view_transform.concat(model_transform))
+                //     } else {
+                //         view_matrix
+                //     };
 
                 let material = if let Some(material) =
                     deps.materials.get(deps.shaders, deps.uniforms, material)
@@ -210,15 +200,13 @@ impl<'context> System<'context> for Renderer {
                     continue;
                 };
 
-                frame
-                    .draw(
-                        &mesh,
-                        &mesh,
-                        material.shader(),
-                        &material,
-                        &self.draw_parameters,
-                    )
-                    .map_err(ErrorKind::glium("renderer"))?;
+                render_pass.set_pipeline(material.pipeline());
+                render_pass.set_bind_group(0, material.global_bind_group(), &[]);
+                render_pass.set_bind_group(1, material.material_bind_group(), &[]);
+                render_pass.set_bind_group(2, material.model_bind_group(), &[]);
+                render_pass.set_vertex_buffer(0, mesh.vertex_buffer());
+                render_pass.set_index_buffer(mesh.index_buffer(), wgpu::IndexFormat::Uint32);
+                render_pass.draw_indexed(0..mesh.index_count(), 0, 0..1);
             }
 
             // Render text. TODO(cristicbz): text should render itself :(

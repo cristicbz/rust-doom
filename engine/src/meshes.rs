@@ -1,13 +1,10 @@
 use super::entities::{Entities, Entity, EntityId};
-use super::errors::{ErrorKind, Result};
+use super::errors::Result;
 use super::system::InfallibleSystem;
-use super::window::Window;
-pub use glium::index::IndexBuffer;
-use glium::index::{IndicesSource, PrimitiveType};
-use glium::vertex::{Vertex, VertexBuffer, VerticesSource};
-pub use glium_typed_buffer_any::TypedVertexBufferAny;
+use bytemuck::Pod;
 use idcontain::IdMapVec;
 use log::{debug, error};
+use wgpu::util::DeviceExt;
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Copy, Clone)]
 pub struct MeshId(EntityId);
@@ -19,7 +16,6 @@ pub struct Meshes {
 impl Meshes {
     pub fn add<'a>(
         &'a mut self,
-        window: &'a Window,
         entities: &'a mut Entities,
         parent: EntityId,
         name: &'static str,
@@ -27,7 +23,6 @@ impl Meshes {
         MeshAdder {
             context: MeshAdderContext {
                 meshes: self,
-                window,
                 entities,
                 parent,
                 name,
@@ -85,29 +80,26 @@ impl Meshes {
 }
 
 pub struct MeshRefMut<'a> {
-    pub vertices: Option<&'a mut TypedVertexBufferAny>,
-    pub indices: Option<&'a mut IndexBuffer<u32>>,
+    pub vertices: Option<&'a mut wgpu::Buffer>,
+    pub indices: Option<&'a mut wgpu::Buffer>,
 }
 
 pub struct MeshRef<'a> {
-    vertices: &'a TypedVertexBufferAny,
-    indices: Option<&'a IndexBuffer<u32>>,
+    vertices: &'a wgpu::Buffer,
+    indices: Option<&'a wgpu::Buffer>,
 }
 
-impl<'a, 'b: 'a> From<&'a MeshRef<'b>> for IndicesSource<'a> {
-    fn from(mesh: &'a MeshRef<'b>) -> Self {
-        mesh.indices.map_or(
-            IndicesSource::NoIndices {
-                primitives: PrimitiveType::TrianglesList,
-            },
-            |indices| indices.into(),
-        )
+impl<'a> MeshRef<'a> {
+    pub(crate) fn vertex_buffer(&self) -> wgpu::BufferSlice<'a> {
+        self.vertices.slice(..)
     }
-}
 
-impl<'a, 'b: 'a> From<&'a MeshRef<'b>> for VerticesSource<'a> {
-    fn from(mesh: &'a MeshRef<'b>) -> Self {
-        mesh.vertices.into()
+    pub(crate) fn index_buffer(&self) -> wgpu::BufferSlice<'a> {
+        self.indices.expect("index buffer not present").slice(..)
+    }
+
+    pub(crate) fn index_count(&self) -> u32 {
+        self.indices.expect("index buffer not present").size() as u32 / 4
     }
 }
 
@@ -118,24 +110,26 @@ pub struct MeshAdder<'a, VertexDataT, IndexDataT> {
     indices: IndexDataT,
 }
 
-pub struct OwnedVertexData(TypedVertexBufferAny);
+pub struct OwnedVertexData(wgpu::Buffer);
 pub struct SharedVertexData(MeshId);
-pub struct IndexData(IndexBuffer<u32>);
+pub struct IndexData(wgpu::Buffer);
 
 impl<'a, IndexDataT> MeshAdder<'a, (), IndexDataT> {
     pub fn immutable<VertexT>(
         self,
         vertices: &[VertexT],
+        device: &wgpu::Device,
     ) -> Result<MeshAdder<'a, OwnedVertexData, IndexDataT>>
     where
-        VertexT: Vertex + Send + 'static,
+        VertexT: Pod + Send + 'static,
     {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
         Ok(MeshAdder {
-            vertices: OwnedVertexData(
-                VertexBuffer::immutable(self.context.window.facade(), vertices)
-                    .map_err(ErrorKind::glium(self.context.name))?
-                    .into(),
-            ),
+            vertices: OwnedVertexData(buffer),
             indices: self.indices,
             context: self.context,
         })
@@ -144,16 +138,18 @@ impl<'a, IndexDataT> MeshAdder<'a, (), IndexDataT> {
     pub fn persistent<VertexT>(
         self,
         vertices: &[VertexT],
+        device: &wgpu::Device,
     ) -> Result<MeshAdder<'a, OwnedVertexData, IndexDataT>>
     where
-        VertexT: Vertex + Send + 'static,
+        VertexT: Pod + Send + 'static,
     {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
         Ok(MeshAdder {
-            vertices: OwnedVertexData(
-                VertexBuffer::persistent(self.context.window.facade(), vertices)
-                    .map_err(ErrorKind::glium(self.context.name))?
-                    .into(),
-            ),
+            vertices: OwnedVertexData(buffer),
             indices: self.indices,
             context: self.context,
         })
@@ -185,16 +181,15 @@ impl<'a, VertexDataT> MeshAdder<'a, VertexDataT, ()> {
     pub fn immutable_indices(
         self,
         indices: &[u32],
+        device: &wgpu::Device,
     ) -> Result<MeshAdder<'a, VertexDataT, IndexData>> {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
         Ok(MeshAdder {
-            indices: IndexData(
-                IndexBuffer::persistent(
-                    self.context.window.facade(),
-                    PrimitiveType::TrianglesList,
-                    indices,
-                )
-                .map_err(ErrorKind::glium(self.context.name))?,
-            ),
+            indices: IndexData(buffer),
             vertices: self.vertices,
             context: self.context,
         })
@@ -203,16 +198,15 @@ impl<'a, VertexDataT> MeshAdder<'a, VertexDataT, ()> {
     pub fn persistent_indices(
         self,
         indices: &[u32],
+        device: &wgpu::Device,
     ) -> Result<MeshAdder<'a, VertexDataT, IndexData>> {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
         Ok(MeshAdder {
-            indices: IndexData(
-                IndexBuffer::persistent(
-                    self.context.window.facade(),
-                    PrimitiveType::TrianglesList,
-                    indices,
-                )
-                .map_err(ErrorKind::glium(self.context.name))?,
-            ),
+            indices: IndexData(buffer),
             vertices: self.vertices,
             context: self.context,
         })
@@ -286,18 +280,17 @@ impl<'context> InfallibleSystem<'context> for Meshes {
 #[cfg_attr(feature = "cargo-clippy", allow(clippy::large_enum_variant))]
 enum InternalMeshData {
     Owned {
-        vertices: TypedVertexBufferAny,
-        indices: Option<IndexBuffer<u32>>,
+        vertices: wgpu::Buffer,
+        indices: Option<wgpu::Buffer>,
     },
     Inherit {
         vertices_from: MeshId,
-        indices: IndexBuffer<u32>,
+        indices: wgpu::Buffer,
     },
 }
 
 struct MeshAdderContext<'a> {
     meshes: &'a mut Meshes,
-    window: &'a Window,
     entities: &'a mut Entities,
     parent: EntityId,
     name: &'static str,

@@ -172,6 +172,22 @@ impl<'a> MaterialRef<'a> {
     pub fn shader(&self) -> &Program {
         self.shader
     }
+
+    pub(crate) fn pipeline(&self) -> &'a wgpu::RenderPipeline {
+        todo!()
+    }
+
+    pub(crate) fn global_bind_group(&self) -> &'a wgpu::BindGroup {
+        todo!()
+    }
+
+    pub(crate) fn material_bind_group(&self) -> &'a wgpu::BindGroup {
+        todo!()
+    }
+
+    pub(crate) fn model_bind_group(&self) -> &'a wgpu::BindGroup {
+        todo!()
+    }
 }
 
 impl<'material> GliumUniforms for MaterialRef<'material> {
