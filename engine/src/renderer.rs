@@ -34,6 +34,10 @@ pub struct Dependencies<'context> {
 pub struct Renderer {
     draw_parameters: DrawParameters<'static>,
     removed: Vec<usize>,
+    texture: wgpu::Texture,
+    view: wgpu::TextureView,
+    depth_texture: wgpu::Texture,
+    depth_view: wgpu::TextureView,
 }
 
 impl<'context> System<'context> for Renderer {
@@ -44,7 +48,35 @@ impl<'context> System<'context> for Renderer {
         "renderer"
     }
 
-    fn create(_deps: Dependencies) -> Result<Self> {
+    fn create(deps: Dependencies) -> Result<Self> {
+        let texture = deps
+            .window
+            .device()
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("Intermediate attachment"),
+                size: deps.window.size(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: deps.window.texture_format(),
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            });
+        let view = texture.create_view(&Default::default());
+        let depth_texture = deps
+            .window
+            .device()
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("Depth atachment"),
+                size: deps.window.size(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            });
+        let depth_view = depth_texture.create_view(&Default::default());
         Ok(Renderer {
             draw_parameters: DrawParameters {
                 depth: Depth {
@@ -56,6 +88,10 @@ impl<'context> System<'context> for Renderer {
                 ..DrawParameters::default()
             },
             removed: Vec::with_capacity(32),
+            texture,
+            view,
+            depth_texture,
+            depth_view,
         })
     }
 
@@ -99,46 +135,69 @@ impl<'context> System<'context> for Renderer {
         let mut frame = deps.window.draw();
         let surface_texture = deps.window.surface_texture()?;
         let view = surface_texture.texture.create_view(&Default::default());
-        let encoder = deps
+        let mut encoder = deps
             .window
             .device()
             .create_command_encoder(&Default::default());
-        for (index, &Model { mesh, material }) in pipe.models.access().iter().enumerate() {
-            // For each model we need to assemble three things to render it: transform, mesh and
-            // material. We get the entity id and query the corresponding systems for it.
-            let entity = pipe
-                .models
-                .index_to_id(index)
-                .expect("bad index enumerating models: mesh");
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.view,
+                    resolve_target: Some(&view),
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            for (index, &Model { mesh, material }) in pipe.models.access().iter().enumerate() {
+                // For each model we need to assemble three things to render it: transform, mesh and
+                // material. We get the entity id and query the corresponding systems for it.
+                let entity = pipe
+                    .models
+                    .index_to_id(index)
+                    .expect("bad index enumerating models: mesh");
 
-            // If the mesh is missing, the entity was (probably) removed. So we add it to the
-            // removed stack and continue.
-            let mesh = if let Some(mesh) = deps.meshes.get(mesh) {
-                mesh
-            } else {
-                info!(
-                    "Mesh missing {:?} in model for entity {:?}, removing.",
-                    mesh, entity
-                );
-                self.removed.push(index);
-                continue;
-            };
-
-            // If the model has a transform, then multiply it with the view transform to get the
-            // modelview matrix. If there is no transform, model is assumed to be in world space, so
-            // modelview = view.
-            *deps
-                .uniforms
-                .get_mat4_mut(pipe.modelview)
-                .expect("modelview uniform missing") =
-                if let Some(model_transform) = deps.transforms.get_absolute(entity) {
-                    Mat4::from(view_transform.concat(model_transform))
+                // If the mesh is missing, the entity was (probably) removed. So we add it to the
+                // removed stack and continue.
+                let mesh = if let Some(mesh) = deps.meshes.get(mesh) {
+                    mesh
                 } else {
-                    view_matrix
+                    info!(
+                        "Mesh missing {:?} in model for entity {:?}, removing.",
+                        mesh, entity
+                    );
+                    self.removed.push(index);
+                    continue;
                 };
 
-            let material =
-                if let Some(material) = deps.materials.get(deps.shaders, deps.uniforms, material) {
+                // If the model has a transform, then multiply it with the view transform to get the
+                // modelview matrix. If there is no transform, model is assumed to be in world space, so
+                // modelview = view.
+                *deps
+                    .uniforms
+                    .get_mat4_mut(pipe.modelview)
+                    .expect("modelview uniform missing") =
+                    if let Some(model_transform) = deps.transforms.get_absolute(entity) {
+                        Mat4::from(view_transform.concat(model_transform))
+                    } else {
+                        view_matrix
+                    };
+
+                let material = if let Some(material) =
+                    deps.materials.get(deps.shaders, deps.uniforms, material)
+                {
                     material
                 } else {
                     // If there is a mesh but no material, the model is badly set up. This is an
@@ -151,33 +210,33 @@ impl<'context> System<'context> for Renderer {
                     continue;
                 };
 
+                frame
+                    .draw(
+                        &mesh,
+                        &mesh,
+                        material.shader(),
+                        &material,
+                        &self.draw_parameters,
+                    )
+                    .map_err(ErrorKind::glium("renderer"))?;
+            }
+
+            // Render text. TODO(cristicbz): text should render itself :(
+            deps.text
+                .render(&mut frame)
+                .chain_err(|| ErrorKind::System("render bypass", TextRenderer::debug_name()))?;
+
+            // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
             frame
-                .draw(
-                    &mesh,
-                    &mesh,
-                    material.shader(),
-                    &material,
-                    &self.draw_parameters,
-                )
-                .map_err(ErrorKind::glium("renderer"))?;
+                .finish()
+                .expect("Cannot handle context loss currently :(");
+
+            // Remove any missing models.
+            for &index in self.removed.iter().rev() {
+                pipe.models.remove_by_index(index);
+            }
+            self.removed.clear();
         }
-
-        // Render text. TODO(cristicbz): text should render itself :(
-        deps.text
-            .render(&mut frame)
-            .chain_err(|| ErrorKind::System("render bypass", TextRenderer::debug_name()))?;
-
-        // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
-        frame
-            .finish()
-            .expect("Cannot handle context loss currently :(");
-
-        // Remove any missing models.
-        for &index in self.removed.iter().rev() {
-            pipe.models.remove_by_index(index);
-        }
-        self.removed.clear();
-
         deps.window.queue().submit([encoder.finish()]);
         surface_texture.present();
         Ok(())

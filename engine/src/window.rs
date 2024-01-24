@@ -20,6 +20,7 @@ pub struct Window {
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
+    texture_format: wgpu::TextureFormat,
     display: Display<WindowSurface>,
     window: Arc<winit::window::Window>,
     event_loop: Option<EventLoop<()>>,
@@ -52,6 +53,18 @@ impl Window {
 
     pub fn queue(&self) -> &wgpu::Queue {
         &self.queue
+    }
+
+    pub fn size(&self) -> wgpu::Extent3d {
+        wgpu::Extent3d {
+            width: self.width,
+            height: self.height,
+            depth_or_array_layers: 1,
+        }
+    }
+
+    pub fn texture_format(&self) -> wgpu::TextureFormat {
+        self.texture_format
     }
 
     pub fn surface_texture(&self) -> Result<wgpu::SurfaceTexture> {
@@ -108,6 +121,7 @@ impl<'context> System<'context> for Window {
             queue,
             surface,
             display,
+            texture_format: configuration.format,
             window,
             event_loop: Some(events),
             width: config.width,
