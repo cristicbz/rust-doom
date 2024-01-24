@@ -97,6 +97,12 @@ impl<'context> System<'context> for Renderer {
 
         // Render all the models in turn.
         let mut frame = deps.window.draw();
+        let surface_texture = deps.window.surface_texture()?;
+        let view = surface_texture.texture.create_view(&Default::default());
+        let encoder = deps
+            .window
+            .device()
+            .create_command_encoder(&Default::default());
         for (index, &Model { mesh, material }) in pipe.models.access().iter().enumerate() {
             // For each model we need to assemble three things to render it: transform, mesh and
             // material. We get the entity id and query the corresponding systems for it.
@@ -171,6 +177,9 @@ impl<'context> System<'context> for Renderer {
             pipe.models.remove_by_index(index);
         }
         self.removed.clear();
+
+        deps.window.queue().submit([encoder.finish()]);
+        surface_texture.present();
         Ok(())
     }
 }

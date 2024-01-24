@@ -4,6 +4,7 @@ use crate::ErrorKind;
 
 use super::errors::{Error, Result};
 use super::system::System;
+use failchain::BoxedError;
 use glium::backend::glutin::SimpleWindowBuilder;
 use glium::glutin::surface::WindowSurface;
 use glium::{Display, Frame, Surface};
@@ -43,6 +44,20 @@ impl Window {
         let mut frame = self.display.draw();
         frame.clear_all_srgb((0.06, 0.07, 0.09, 0.0), 1.0, 0);
         frame
+    }
+
+    pub fn device(&self) -> &wgpu::Device {
+        &self.device
+    }
+
+    pub fn queue(&self) -> &wgpu::Queue {
+        &self.queue
+    }
+
+    pub fn surface_texture(&self) -> Result<wgpu::SurfaceTexture> {
+        self.surface
+            .get_current_texture()
+            .map_err(|_| BoxedError::from(ErrorKind::Context("Could not get current texture")))
     }
 
     pub fn facade(&self) -> &Display<WindowSurface> {
