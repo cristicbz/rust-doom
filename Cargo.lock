@@ -593,7 +593,6 @@ dependencies = [
  "failure",
  "futures",
  "glium",
- "glium-typed-buffer-any",
  "idcontain",
  "image",
  "lock_api",
@@ -939,15 +938,6 @@ dependencies = [
  "smallvec",
  "takeable-option",
  "winit",
-]
-
-[[package]]
-name = "glium-typed-buffer-any"
-version = "0.6.0"
-source = "git+https://github.com/hovinen/glium-typed-buffer-any?branch=update-dependency#7345beb3904df211d699ee05875934cc7ac20b55"
-dependencies = [
- "glium",
- "smallvec",
 ]
 
 [[package]]

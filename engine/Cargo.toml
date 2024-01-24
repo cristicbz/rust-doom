@@ -25,11 +25,6 @@ cgmath = "0.18.0"
 pollster = "0.3.0"
 lock_api = "0.4.11"
 
-[dependencies.glium-typed-buffer-any]
-version = "0.6.0"
-git = "https://github.com/hovinen/glium-typed-buffer-any"
-branch = "update-dependency"
-
 [dependencies.log]
 features = ["release_max_level_info"]
 version = "0.4.14"
