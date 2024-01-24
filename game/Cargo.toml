@@ -13,7 +13,16 @@ vec_map = "0.8.2"
 idcontain = "0.7.6"
 failure = "0.1.8"
 failchain = "0.1018.2"
-winit = "0.29.9"
+winit = "0.29.10"
+wgpu = "0.19.0"
+bytemuck = { version = "1.14.0", features = ["derive"] }
+futures = "0.3.30"
+tobj = "4.0.0"
+image = "0.24.8"
+anyhow = "1.0.79"
+cgmath = "0.18.0"
+pollster = "0.3.0"
+lock_api = "0.4.11"
 
 [dependencies.log]
 features = ["release_max_level_info"]
