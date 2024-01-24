@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::ErrorKind;
 
 use super::errors::{Error, Result};
@@ -14,8 +16,11 @@ pub struct WindowConfig {
 }
 
 pub struct Window {
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    surface: wgpu::Surface<'static>,
     display: Display<WindowSurface>,
-    window: winit::window::Window,
+    window: Arc<winit::window::Window>,
     event_loop: Option<EventLoop<()>>,
     width: u32,
     height: u32,
@@ -65,7 +70,28 @@ impl<'context> System<'context> for Window {
             .with_title(&config.title)
             .build(&events);
 
+        let window = Arc::new(window);
+        let instance = create_instance();
+        let surface = instance
+            .create_surface(window.clone())
+            .map_err(|_| ErrorKind::Context("Could not create surface"))?;
+        let (device, adapter, queue) = pollster::block_on(create_device(instance, &surface))
+            .map_err(|_| ErrorKind::Context("Could not create WGPU device"))?;
+        let configuration = surface
+            .get_default_config(
+                &adapter,
+                window.inner_size().width,
+                window.inner_size().height,
+            )
+            .ok_or(ErrorKind::Context(
+                "Could not get default surface configuration",
+            ))?;
+        surface.configure(&device, &configuration);
+
         Ok(Window {
+            device,
+            queue,
+            surface,
             display,
             window,
             event_loop: Some(events),
@@ -77,4 +103,36 @@ impl<'context> System<'context> for Window {
     fn debug_name() -> &'static str {
         "window"
     }
+}
+
+fn create_instance() -> wgpu::Instance {
+    wgpu::Instance::new(wgpu::InstanceDescriptor::default())
+}
+
+async fn create_device(
+    instance: wgpu::Instance,
+    surface: &wgpu::Surface<'static>,
+) -> Result<(wgpu::Device, wgpu::Adapter, wgpu::Queue)> {
+    let adapter = instance
+        .request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(),
+            compatible_surface: Some(surface),
+            force_fallback_adapter: false,
+        })
+        .await
+        .unwrap();
+
+    let (device, queue) = adapter
+        .request_device(
+            &wgpu::DeviceDescriptor {
+                label: None,
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::default(),
+            },
+            None,
+        )
+        .await
+        .unwrap();
+
+    Ok((device, adapter, queue))
 }
