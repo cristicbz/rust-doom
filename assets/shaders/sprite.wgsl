@@ -7,9 +7,6 @@
 @group(1) @binding(0) var u_atlas: texture_2d<f32>;
 @group(1) @binding(1) var u_palette: texture_2d<f32>;
 
-@group(1) @binding(0) var u_atlas: sampler;
-@group(1) @binding(1) var u_palette: sampler;
-
 @group(2) @binding(0) var<uniform> u_modelview: mat4x4<f32>;
 
 struct VertexInput {

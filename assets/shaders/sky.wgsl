@@ -3,7 +3,7 @@
 
 @group(1) @binding(0) var u_texture: texture_2d<f32>;
 @group(1) @binding(1) var u_palette: texture_2d<f32>;
-@group(1) @binding(3) var u_tiled_band_size: f32;
+@group(1) @binding(2) var u_tiled_band_size: f32;
 
 @group(2) @binding(0) var<uniform> u_modelview: mat4x4<f32>;
 

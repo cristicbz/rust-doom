@@ -9,9 +9,11 @@ use failchain::ResultExt;
 use glium::program::{Program, ProgramCreationInput};
 use idcontain::IdMapVec;
 use log::{debug, error};
+use math::{Mat4, Vec2};
 use std::fs::File;
 use std::io::Read;
 use std::io::Result as IoResult;
+use std::num::{NonZeroU32, NonZeroU64};
 use std::path::{Path, PathBuf};
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Copy, Clone)]
@@ -24,6 +26,9 @@ pub struct ShaderConfig {
 pub struct Shaders {
     map: IdMapVec<Entity, Shader>,
     root: PathBuf,
+    global_bind_group_layout: wgpu::BindGroupLayout,
+    material_bind_group_layout: wgpu::BindGroupLayout,
+    model_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl Shaders {
@@ -85,7 +90,11 @@ impl Shaders {
                 .device()
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some(name),
-                    bind_group_layouts: &[],
+                    bind_group_layouts: &[
+                        &self.global_bind_group_layout,
+                        &self.material_bind_group_layout,
+                        &self.model_bind_group_layout,
+                    ],
                     push_constant_ranges: &[],
                 });
 
@@ -159,6 +168,7 @@ pub struct Shader {
 pub struct Dependencies<'context> {
     config: &'context ShaderConfig,
     entities: &'context Entities,
+    window: &'context Window,
 }
 
 impl<'context> InfallibleSystem<'context> for Shaders {
@@ -169,9 +179,121 @@ impl<'context> InfallibleSystem<'context> for Shaders {
     }
 
     fn create(deps: Dependencies) -> Self {
+        let global_bind_group_layout = deps.window.device().create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor {
+                label: Some("global_bind_group_layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: NonZeroU64::new(std::mem::size_of::<Mat4>() as u64),
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: NonZeroU64::new(std::mem::size_of::<u8>() as u64),
+                        },
+                        count: NonZeroU32::new(256),
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: NonZeroU64::new(
+                                std::mem::size_of::<Vec2<f32>>() as u64
+                            ),
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: NonZeroU64::new(std::mem::size_of::<f32>() as u64),
+                        },
+                        count: None,
+                    },
+                ],
+            },
+        );
+        let material_bind_group_layout = deps.window.device().create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor {
+                label: Some("material_bind_group_layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: NonZeroU64::new(std::mem::size_of::<f32>() as u64),
+                        },
+                        count: None,
+                    },
+                ],
+            },
+        );
+        let model_bind_group_layout =
+            deps.window
+                .device()
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("model_bind_group_layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: NonZeroU64::new(std::mem::size_of::<Mat4>() as u64),
+                        },
+                        count: None,
+                    }],
+                });
+
         Shaders {
             map: IdMapVec::with_capacity(32),
             root: deps.config.root_path.clone(),
+            global_bind_group_layout,
+            material_bind_group_layout,
+            model_bind_group_layout,
         }
     }
 
