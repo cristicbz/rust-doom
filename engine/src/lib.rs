@@ -31,7 +31,7 @@ pub use self::meshes::{Mesh, MeshId, Meshes};
 pub use self::pipeline::RenderPipeline;
 pub use self::projections::{Projection, Projections};
 pub use self::renderer::Renderer;
-pub use self::shaders::{ShaderConfig, ShaderId, Shaders};
+pub use self::shaders::{ShaderConfig, ShaderId, ShaderVertex, Shaders};
 pub use self::system::{InfallibleSystem, System};
 pub use self::text::{Text, TextId, TextRenderer};
 pub use self::tick::{Config as TickConfig, Tick, TickIndex};

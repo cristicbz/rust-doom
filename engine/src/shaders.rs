@@ -27,7 +27,7 @@ pub struct Shaders {
 }
 
 impl Shaders {
-    pub fn add(
+    pub fn add<VertexT: ShaderVertex>(
         &mut self,
         window: &Window,
         entities: &mut Entities,
@@ -37,6 +37,9 @@ impl Shaders {
     ) -> Result<ShaderId> {
         let mut fragment_path = self.root.clone();
         fragment_path.push(asset_path);
+
+        let wgsl_path = fragment_path.clone();
+        fragment_path.set_extension("wgsl");
 
         let mut vertex_path = fragment_path.clone();
         fragment_path.set_extension("frag");
@@ -69,9 +72,69 @@ impl Shaders {
             },
         )
         .map_err(ErrorKind::glium(name))?;
+
+        let shader_module = window
+            .device()
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(name),
+                source: wgpu::ShaderSource::Wgsl(wgsl_path.to_string_lossy().into()),
+            });
+
+        let pipeline_layout =
+            window
+                .device()
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some(name),
+                    bind_group_layouts: &[],
+                    push_constant_ranges: &[],
+                });
+
+        let pipeline = window
+            .device()
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some(name),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader_module,
+                    entry_point: "main_vs",
+                    buffers: &[VertexT::desc()],
+                },
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    unclipped_depth: false,
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    conservative: false,
+                },
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth32Float,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::Less,
+                    stencil: wgpu::StencilState::default(),
+                    bias: wgpu::DepthBiasState::default(),
+                }),
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader_module,
+                    entry_point: "main_fs",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: window.texture_format(),
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::all(),
+                    })],
+                }),
+                multiview: None,
+            });
+
         debug!("Shader {:?} loaded successfully", name);
         let id = entities.add(parent, name)?;
-        self.map.insert(id, Shader { program });
+        self.map.insert(id, Shader { program, pipeline });
         debug!("Added shader {:?} {:?} as child of {:?}.", name, id, parent);
         Ok(ShaderId(id))
     }
@@ -79,10 +142,17 @@ impl Shaders {
     pub fn get(&self, shader_id: ShaderId) -> Option<&Program> {
         self.map.get(shader_id.0).map(|shader| &shader.program)
     }
+
+    pub(crate) fn get_pipeline(&self, shader_id: ShaderId) -> Option<&wgpu::RenderPipeline> {
+        self.map
+            .get(shader_id.0)
+            .map(|shader: &Shader| &shader.pipeline)
+    }
 }
 
 pub struct Shader {
     program: Program,
+    pipeline: wgpu::RenderPipeline,
 }
 
 #[derive(DependenciesFrom)]
@@ -127,4 +197,8 @@ impl<'context> InfallibleSystem<'context> for Shaders {
 
 fn read_utf8_file(path: &Path, into: &mut String) -> IoResult<()> {
     File::open(path)?.read_to_string(into).map(|_| ())
+}
+
+pub trait ShaderVertex {
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a>;
 }

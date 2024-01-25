@@ -1,9 +1,11 @@
+use crate::vertex::{SkyVertex, SpriteVertex, StaticVertex};
+
 use super::wad_system::WadSystem;
 use engine::{
     BufferTextureId, BufferTextureType, ClientFormat, DependenciesFrom, Entities, EntityId, Error,
     FloatUniformId, MagnifySamplerFilter, MaterialId, Materials, MinifySamplerFilter,
-    RenderPipeline, Result, SamplerBehavior, SamplerWrapFunction, ShaderId, Shaders, System,
-    Texture2dId, Tick, Uniforms, Window,
+    RenderPipeline, Result, SamplerBehavior, SamplerWrapFunction, ShaderId, ShaderVertex, Shaders,
+    System, Texture2dId, Tick, Uniforms, Window,
 };
 use log::{error, info};
 use math::Vec2;
@@ -158,9 +160,9 @@ impl<'context> Dependencies<'context> {
             BufferTextureType::Float,
         )?;
 
-        let static_shader = self.load_shader(parent, "static_shader", "static")?;
-        let sky_shader = self.load_shader(parent, "sky_shader", "sky")?;
-        let sprite_shader = self.load_shader(parent, "sprite_shader", "sprite")?;
+        let static_shader = self.load_shader::<StaticVertex>(parent, "static_shader", "static")?;
+        let sky_shader = self.load_shader::<SkyVertex>(parent, "sky_shader", "sky")?;
+        let sprite_shader = self.load_shader::<SpriteVertex>(parent, "sprite_shader", "sprite")?;
 
         Ok(Globals {
             time,
@@ -452,14 +454,14 @@ impl<'context> Dependencies<'context> {
         })
     }
 
-    fn load_shader(
+    fn load_shader<VertexT: ShaderVertex>(
         &mut self,
         parent: EntityId,
         name: &'static str,
         asset: &'static str,
     ) -> Result<ShaderId> {
         self.shaders
-            .add(self.window, self.entities, parent, name, asset)
+            .add::<VertexT>(self.window, self.entities, parent, name, asset)
     }
 }
 

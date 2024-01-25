@@ -14,7 +14,6 @@ use crate::internal_derive::DependenciesFrom;
 use failchain::ResultExt;
 use log::{error, info};
 use math::prelude::*;
-use math::Mat4;
 
 #[derive(DependenciesFrom)]
 pub struct Dependencies<'context> {
@@ -112,6 +111,7 @@ impl<'context> System<'context> for Renderer {
         // let view_matrix: Mat4 = view_transform.into();
 
         // Set projection.
+        // TODO: This needs to be put in a buffer and copied to the GPU.
         *deps
             .uniforms
             .get_mat4_mut(pipe.projection)

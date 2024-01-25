@@ -3,7 +3,6 @@ use super::errors::Result;
 use super::shaders::{ShaderId, Shaders};
 use super::system::InfallibleSystem;
 use super::uniforms::{UniformId, Uniforms};
-use glium::uniforms::{UniformValue, Uniforms as GliumUniforms};
 use glium::Program;
 use idcontain::IdMapVec;
 use log::{debug, error};
@@ -73,6 +72,14 @@ impl Materials {
             return None;
         };
 
+        let Some(pipeline) = shaders.get_pipeline(material.shader) else {
+            error!(
+                "Missing pipeline {:?} for material {:?}",
+                material.shader, material_id
+            );
+            return None;
+        };
+
         let mut uniform_values = [None; MAX_UNIFORMS];
         for (value, &uniform) in (&mut uniform_values[..])
             .iter_mut()
@@ -93,9 +100,16 @@ impl Materials {
             }
         }
 
+        let global_bind_group = todo!();
+        let material_bind_group = todo!();
+        let model_bind_group = todo!();
+
         Some(MaterialRef {
             shader,
-            uniform_values,
+            pipeline,
+            global_bind_group,
+            material_bind_group,
+            model_bind_group,
         })
     }
 }
@@ -132,7 +146,10 @@ impl<'a> MaterialRefMut<'a> {
 
 pub struct MaterialRef<'a> {
     shader: &'a Program,
-    uniform_values: [Option<(&'static str, UniformValue<'a>)>; MAX_UNIFORMS],
+    pipeline: &'a wgpu::RenderPipeline,
+    global_bind_group: &'a wgpu::BindGroup,
+    material_bind_group: &'a wgpu::BindGroup,
+    model_bind_group: &'a wgpu::BindGroup,
 }
 
 impl<'context> InfallibleSystem<'context> for Materials {
@@ -174,34 +191,19 @@ impl<'a> MaterialRef<'a> {
     }
 
     pub(crate) fn pipeline(&self) -> &'a wgpu::RenderPipeline {
-        todo!()
+        &self.pipeline
     }
 
     pub(crate) fn global_bind_group(&self) -> &'a wgpu::BindGroup {
-        todo!()
+        &self.global_bind_group
     }
 
     pub(crate) fn material_bind_group(&self) -> &'a wgpu::BindGroup {
-        todo!()
+        &self.material_bind_group
     }
 
     pub(crate) fn model_bind_group(&self) -> &'a wgpu::BindGroup {
-        todo!()
-    }
-}
-
-impl<'material> GliumUniforms for MaterialRef<'material> {
-    fn visit_values<'a, F>(&'a self, mut set_uniform: F)
-    where
-        F: FnMut(&str, UniformValue<'a>),
-    {
-        for uniform in &self.uniform_values[..] {
-            if let Some((name, value)) = *uniform {
-                set_uniform(name, value);
-            } else {
-                break;
-            }
-        }
+        &self.model_bind_group
     }
 }
 
