@@ -4,8 +4,8 @@ use super::vertex::{SkyVertex, SpriteVertex, StaticVertex};
 use super::wad_system::WadSystem;
 use super::world::{World, WorldBuilder};
 use engine::{
-    DependenciesFrom, Entities, EntityId, Error, Meshes, RenderPipeline, Result, System, Tick,
-    Transforms, Uniforms, Window,
+    DependenciesFrom, Entities, EntityId, Error, Meshes, RenderPipeline, Result, Shaders, System,
+    Tick, Transforms, Uniforms, Window,
 };
 use log::{debug, error, info, warn};
 use math::prelude::*;
@@ -43,6 +43,7 @@ pub struct Dependencies<'context> {
     wad: &'context mut WadSystem,
     tick: &'context Tick,
     transforms: &'context mut Transforms,
+    shaders: &'context Shaders,
 
     game_shaders: &'context GameShaders,
 }
@@ -426,19 +427,19 @@ impl<'a> Builder<'a> {
         let global_static_mesh = deps
             .meshes
             .add(deps.entities, root, "global_world_static_mesh")
-            .immutable(&builder.static_vertices, deps.window.device())?
+            .immutable(&builder.static_vertices, deps.window.device(), deps.shaders)?
             .build_unindexed()?;
 
         let global_sky_mesh = deps
             .meshes
             .add(deps.entities, root, "global_world_sky_mesh")
-            .immutable(&builder.sky_vertices, deps.window.device())?
+            .immutable(&builder.sky_vertices, deps.window.device(), deps.shaders)?
             .build_unindexed()?;
 
         let global_decor_mesh = deps
             .meshes
             .add(deps.entities, root, "global_world_decor_mesh")
-            .immutable(&builder.decor_vertices, deps.window.device())?
+            .immutable(&builder.decor_vertices, deps.window.device(), deps.shaders)?
             .build_unindexed()?;
 
         for (id, indices) in &builder.object_indices {
@@ -448,8 +449,8 @@ impl<'a> Builder<'a> {
                 let mesh = deps
                     .meshes
                     .add(deps.entities, entity, "object_flats_mesh")
-                    .shared(global_static_mesh)
-                    .immutable_indices(&indices.flat, deps.window.device())?
+                    .shared(global_static_mesh, deps.window.device(), deps.shaders)
+                    .immutable_indices(&indices.flat, deps.window.device(), deps.shaders)?
                     .build()?;
                 deps.transforms.attach_identity(entity);
                 deps.render
@@ -461,8 +462,8 @@ impl<'a> Builder<'a> {
                 let mesh = deps
                     .meshes
                     .add(deps.entities, entity, "object_walls_mesh")
-                    .shared(global_static_mesh)
-                    .immutable_indices(&indices.wall, deps.window.device())?
+                    .shared(global_static_mesh, deps.window.device(), deps.shaders)
+                    .immutable_indices(&indices.wall, deps.window.device(), deps.shaders)?
                     .build()?;
                 deps.transforms.attach_identity(entity);
                 deps.render
@@ -474,8 +475,8 @@ impl<'a> Builder<'a> {
                 let mesh = deps
                     .meshes
                     .add(deps.entities, entity, "object_decor_mesh")
-                    .shared(global_decor_mesh)
-                    .immutable_indices(&indices.decor, deps.window.device())?
+                    .shared(global_decor_mesh, deps.window.device(), deps.shaders)
+                    .immutable_indices(&indices.decor, deps.window.device(), deps.shaders)?
                     .build()?;
                 deps.transforms.attach_identity(entity);
                 deps.render
@@ -487,8 +488,8 @@ impl<'a> Builder<'a> {
                 let mesh = deps
                     .meshes
                     .add(deps.entities, entity, "object_sky_mesh")
-                    .shared(global_sky_mesh)
-                    .immutable_indices(&indices.sky, deps.window.device())?
+                    .shared(global_sky_mesh, deps.window.device(), deps.shaders)
+                    .immutable_indices(&indices.sky, deps.window.device(), deps.shaders)?
                     .build()?;
                 deps.transforms.attach_identity(entity);
                 deps.render

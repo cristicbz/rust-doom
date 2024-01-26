@@ -165,6 +165,10 @@ impl Shaders {
     pub(crate) fn material_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
         &self.material_bind_group_layout
     }
+
+    pub(crate) fn model_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
+        &self.model_bind_group_layout
+    }
 }
 
 pub struct Shader {
