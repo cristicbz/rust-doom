@@ -3,8 +3,7 @@ use crate::vertex::{SkyVertex, SpriteVertex, StaticVertex};
 use super::wad_system::WadSystem;
 use engine::{
     BufferTextureId, BufferTextureType, DependenciesFrom, Entities, EntityId, Error,
-    FloatUniformId, MagnifySamplerFilter, MaterialId, Materials, MinifySamplerFilter,
-    RenderPipeline, Result, SamplerBehavior, SamplerWrapFunction, ShaderId, ShaderVertex, Shaders,
+    FloatUniformId, MaterialId, Materials, RenderPipeline, Result, ShaderId, ShaderVertex, Shaders,
     System, Tick, Uniforms, Window,
 };
 use log::{error, info};
@@ -132,16 +131,6 @@ impl<'context> Dependencies<'context> {
             &palette.pixels,
             Vec2::new(COLORMAP_SIZE, palette.pixels.len() / PALETTE_SIZE),
             wgpu::TextureFormat::Rgba8Unorm,
-            Some(SamplerBehavior {
-                wrap_function: (
-                    SamplerWrapFunction::Clamp,
-                    SamplerWrapFunction::Clamp,
-                    SamplerWrapFunction::Clamp,
-                ),
-                minify_filter: MinifySamplerFilter::Nearest,
-                magnify_filter: MagnifySamplerFilter::Nearest,
-                ..SamplerBehavior::default()
-            }),
         )
     }
 
@@ -365,16 +354,6 @@ impl<'context> Dependencies<'context> {
         name: &'static str,
         texture_spec: TextureSpec,
     ) -> Result<wgpu::Texture> {
-        let sampler = Some(SamplerBehavior {
-            wrap_function: (
-                SamplerWrapFunction::Repeat,
-                SamplerWrapFunction::Repeat,
-                SamplerWrapFunction::Repeat,
-            ),
-            minify_filter: MinifySamplerFilter::Nearest,
-            magnify_filter: MagnifySamplerFilter::Nearest,
-            ..SamplerBehavior::default()
-        });
         let dummy_texture;
         let image_ref = match texture_spec {
             TextureSpec::TextureName(texture_name) => {
@@ -410,7 +389,6 @@ impl<'context> Dependencies<'context> {
                 pixels,
                 size,
                 wgpu::TextureFormat::Rgba8Unorm,
-                sampler,
             )?,
             ImageRef::Opaque { pixels, size } => self.uniforms.add_texture_2d(
                 self.window,
@@ -420,7 +398,6 @@ impl<'context> Dependencies<'context> {
                 pixels,
                 size,
                 wgpu::TextureFormat::Rgba8Unorm,
-                sampler,
             )?,
         })
     }

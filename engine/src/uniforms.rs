@@ -154,15 +154,13 @@ impl Uniforms {
         pixels: &'a [PixelT],
         size: Vec2<usize>,
         format: wgpu::TextureFormat,
-        sampler: Option<SamplerBehavior>,
     ) -> Result<wgpu::Texture> {
         debug!(
-            "Creating texture {:?}: pixels={}, size={:?}, format={:?}, sampler={:?}",
+            "Creating texture {:?}: pixels={}, size={:?}, format={:?}",
             name,
             pixels.len(),
             size,
             format,
-            sampler,
         );
         let texture = window.device().create_texture_with_data(
             window.queue(),
