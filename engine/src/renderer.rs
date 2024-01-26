@@ -13,7 +13,7 @@ use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
 use failchain::ResultExt;
 use log::{error, info};
-use math::prelude::*;
+use math::{prelude::*, Mat4};
 
 #[derive(DependenciesFrom)]
 pub struct Dependencies<'context> {
@@ -108,17 +108,17 @@ impl<'context> System<'context> for Renderer {
             pipe.camera = None;
             return Ok(());
         };
-        // let view_matrix: Mat4 = view_transform.into();
+        let view_matrix: Mat4 = view_transform.into();
 
-        // Set projection.
-        // TODO: This needs to be put in a buffer and copied to the GPU.
-        *deps
-            .uniforms
-            .get_mat4_mut(pipe.projection)
-            .expect("projection uniform missing") = *deps
-            .projections
-            .get_matrix(camera_id)
-            .expect("camera projection missing");
+        // Set view-projection.
+        deps.uniforms.update_projection(
+            *deps
+                .projections
+                .get_matrix(camera_id)
+                .expect("camera projection missing")
+                * view_matrix,
+            deps.window.queue(),
+        );
 
         // Render all the models in turn.
         let mut frame = deps.window.draw();

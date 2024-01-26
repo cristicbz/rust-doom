@@ -4,7 +4,9 @@ use super::entities::{Entities, Entity, EntityId};
 use super::errors::{ErrorKind, Result};
 use super::system::InfallibleSystem;
 use super::window::Window;
+use crate::internal_derive::DependenciesFrom;
 use bytemuck::Pod;
+use cgmath::SquareMatrix;
 use failchain::bail;
 use glium::buffer::Content as BufferContent;
 use glium::texture::buffer_texture::{BufferTexture, BufferTextureType};
@@ -14,7 +16,6 @@ use idcontain::IdMapVec;
 use log::{debug, error};
 use math::{Mat4, Vec2, Vec2f};
 use std::borrow::Cow;
-use std::default;
 use std::marker::PhantomData;
 use wgpu::util::DeviceExt;
 
@@ -57,6 +58,8 @@ pub struct Uniforms {
     mat4s: IdMapVec<Entity, Mat4>,
     vec2fs: IdMapVec<Entity, Vec2f>,
     global_bind_group: Option<wgpu::BindGroup>,
+    projection_buffer: wgpu::Buffer,
+    time_buffer: wgpu::Buffer,
 }
 
 impl Uniforms {
@@ -70,6 +73,8 @@ impl Uniforms {
             ref mut mat4s,
             ref mut vec2fs,
             global_bind_group: _,
+            projection_buffer: _,
+            time_buffer: _,
         } = *self;
         for &entity in entities.last_removed() {
             if texture2ds.remove(entity).is_some() {
@@ -322,7 +327,7 @@ impl Uniforms {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: todo!(),
+                    resource: self.projection_buffer.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -334,7 +339,7 @@ impl Uniforms {
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
-                    resource: todo!(),
+                    resource: self.time_buffer.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 4,
@@ -348,6 +353,15 @@ impl Uniforms {
         self.global_bind_group
             .as_ref()
             .expect("Global bind group must be set to render")
+    }
+
+    pub(crate) fn update_projection(&self, projection: Mat4, queue: &wgpu::Queue) {
+        let projection: [[f32; 4]; 4] = projection.into();
+        queue.write_buffer(
+            &self.projection_buffer,
+            0,
+            bytemuck::cast_slice(&projection),
+        );
     }
 }
 
@@ -393,14 +407,37 @@ impl<'uniforms> Texture2dRefMut<'uniforms> {
     }
 }
 
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    window: &'context Window,
+    entities: &'context Entities,
+}
+
 impl<'context> InfallibleSystem<'context> for Uniforms {
-    type Dependencies = &'context Entities;
+    type Dependencies = Dependencies<'context>;
 
     fn debug_name() -> &'static str {
         "uniforms"
     }
 
-    fn create(_deps: &Entities) -> Self {
+    fn create(deps: Dependencies<'context>) -> Self {
+        let projection: [[f32; 4]; 4] = Mat4::identity().into();
+        let projection_buffer =
+            deps.window
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Projection buffer"),
+                    contents: bytemuck::cast_slice(&projection),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+        let time_buffer =
+            deps.window
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Time buffer"),
+                    contents: bytemuck::cast_slice(&[0.0f32]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
         Uniforms {
             texture2ds: IdMapVec::with_capacity(32),
             floats: IdMapVec::with_capacity(32),
@@ -408,10 +445,12 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
             mat4s: IdMapVec::with_capacity(32),
             vec2fs: IdMapVec::with_capacity(32),
             global_bind_group: None,
+            projection_buffer,
+            time_buffer,
         }
     }
 
-    fn update(&mut self, entities: &Entities) {
+    fn update(&mut self, deps: Dependencies<'context>) {
         // Explicitly destructure all fields since the for-loop needs to be changed when adding a
         // new map.
         let Uniforms {
@@ -421,8 +460,10 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
             ref mut mat4s,
             ref mut vec2fs,
             global_bind_group: _,
+            projection_buffer: _,
+            time_buffer: _,
         } = *self;
-        for &entity in entities.last_removed() {
+        for &entity in deps.entities.last_removed() {
             if texture2ds.remove(entity).is_some() {
                 debug!("Removed uniform<texture2d> {:?}.", entity);
             }
@@ -441,12 +482,12 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
         }
     }
 
-    fn teardown(&mut self, entities: &Entities) {
-        self.update(entities);
+    fn teardown(&mut self, deps: Dependencies<'context>) {
+        self.update(deps.entities);
     }
 
-    fn destroy(mut self, entities: &Entities) {
-        self.update(entities);
+    fn destroy(mut self, deps: Dependencies<'context>) {
+        self.update(deps.entities);
         if !self.texture2ds.is_empty() {
             error!(
                 "Uniforms <texture2d> leaked, {} instances.",

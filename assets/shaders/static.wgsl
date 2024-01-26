@@ -1,4 +1,4 @@
-@group(0) @binding(0) var<uniform> u_projection: mat4x4<f32>;
+@group(0) @binding(0) var<uniform> u_viewproj: mat4x4<f32>;
 // TODO: There should be a separate sampler for the palette, using clamp semantics rather than repeat
 @group(0) @binding(1) var u_sampler: sampler;
 @group(0) @binding(2) var<uniform> u_lights: array<u8>;
@@ -8,7 +8,7 @@
 @group(1) @binding(0) var u_atlas: texture_2d<f32>;
 @group(1) @binding(1) var<uniform> u_atlas_size: vec2<f32>;
 
-@group(2) @binding(0) var<uniform> u_modelview: mat4x4<f32>;
+@group(2) @binding(0) var<uniform> u_model: mat4x4<f32>;
 
 struct VertexInput {
     @location(0) a_pos: vec3<f32>;
@@ -50,7 +50,7 @@ fn main_vs(in: VertexInput) -> VertexOutput {
         out.v_atlas_uv = vec2(atlas_u, atlas_v);
     }
     out.v_tile_size = in.a_tile_size;
-    let projected_pos = u_projection * u_modelview * vec4(in.a_pos, 1);
+    let projected_pos = u_viewproj * u_model * vec4(in.a_pos, 1);
     out.v_dist = projected_pos.w;
     out.v_light = u_lights[in.a_light];
     out.clip_position = projected_pos;

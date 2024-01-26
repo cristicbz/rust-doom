@@ -9,7 +9,7 @@ use failchain::ResultExt;
 use glium::program::{Program, ProgramCreationInput};
 use idcontain::IdMapVec;
 use log::{debug, error};
-use math::{Mat4, Vec2};
+use math::{Mat4, Vec2, Vec3};
 use std::fs::File;
 use std::io::Read;
 use std::io::Result as IoResult;
@@ -284,16 +284,32 @@ impl<'context> InfallibleSystem<'context> for Shaders {
                 .device()
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("model_bind_group_layout"),
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: NonZeroU64::new(std::mem::size_of::<Mat4>() as u64),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: NonZeroU64::new(
+                                    std::mem::size_of::<Mat4>() as u64
+                                ),
+                            },
+                            count: None,
                         },
-                        count: None,
-                    }],
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: NonZeroU64::new(
+                                    std::mem::size_of::<Vec3<f32>>() as u64
+                                ),
+                            },
+                            count: None,
+                        },
+                    ],
                 });
 
         Shaders {
