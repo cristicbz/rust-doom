@@ -5,10 +5,8 @@ use crate::ErrorKind;
 use super::errors::{Error, Result};
 use super::system::System;
 use failchain::BoxedError;
-use glium::backend::glutin::SimpleWindowBuilder;
-use glium::glutin::surface::WindowSurface;
-use glium::{Display, Frame, Surface};
 use winit::event_loop::EventLoop;
+use winit::window::WindowBuilder;
 
 pub struct WindowConfig {
     pub width: u32,
@@ -21,7 +19,6 @@ pub struct Window {
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
     texture_format: wgpu::TextureFormat,
-    display: Display<WindowSurface>,
     window: Arc<winit::window::Window>,
     event_loop: Option<EventLoop<()>>,
     width: u32,
@@ -39,12 +36,6 @@ impl Window {
 
     pub fn aspect_ratio(&self) -> f32 {
         self.width as f32 / self.height as f32
-    }
-
-    pub fn draw(&self) -> Frame {
-        let mut frame = self.display.draw();
-        frame.clear_all_srgb((0.06, 0.07, 0.09, 0.0), 1.0, 0);
-        frame
     }
 
     pub fn device(&self) -> &wgpu::Device {
@@ -73,10 +64,6 @@ impl Window {
             .map_err(|_| BoxedError::from(ErrorKind::Context("Could not get current texture")))
     }
 
-    pub fn facade(&self) -> &Display<WindowSurface> {
-        &self.display
-    }
-
     pub fn window(&self) -> &winit::window::Window {
         &self.window
     }
@@ -93,12 +80,14 @@ impl<'context> System<'context> for Window {
     fn create(config: &'context WindowConfig) -> Result<Self> {
         let events = EventLoop::new().map_err(|e| ErrorKind::CreateWindow(e.to_string()))?;
 
-        let (window, display) = SimpleWindowBuilder::new()
-            .with_inner_size(config.width, config.height)
-            .with_title(&config.title)
-            .build(&events);
+        let window = Arc::new(
+            WindowBuilder::new()
+                .with_inner_size(winit::dpi::LogicalSize::new(config.width, config.height))
+                .with_title(&config.title)
+                .build(&events)
+                .map_err(|e| ErrorKind::CreateWindow(e.to_string()))?,
+        );
 
-        let window = Arc::new(window);
         let instance = create_instance();
         let surface = instance
             .create_surface(window.clone())
@@ -120,7 +109,6 @@ impl<'context> System<'context> for Window {
             device,
             queue,
             surface,
-            display,
             texture_format: configuration.format,
             window,
             event_loop: Some(events),

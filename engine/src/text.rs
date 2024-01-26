@@ -5,7 +5,7 @@ use super::window::Window;
 use failchain::{ChainErrorKind, ResultExt, UnboxedError};
 use failure::Fail;
 use glium::index::{NoIndices, PrimitiveType};
-use glium::texture::{ClientFormat, RawImage2d, Texture2d};
+use glium::texture::Texture2d;
 use glium::{
     implement_vertex, uniform, Blend, DrawParameters, Frame, Program, Surface, VertexBuffer,
 };
@@ -13,7 +13,6 @@ use idcontain::{Id, IdSlab};
 use log::{debug, error};
 use math::Pnt2f;
 use rusttype::{self, Font, GlyphId, Point as FontPoint, PositionedGlyph, Scale};
-use std::borrow::Cow;
 use std::fs::File;
 use std::io::Read;
 use std::ops::{Index, IndexMut};
@@ -49,32 +48,14 @@ impl TextRenderer {
     pub fn insert(&mut self, win: &Window, text: &str, pos: Pnt2f, padding: u32) -> TextId {
         debug!("Creating text...");
         let (width, height) = self.rasterise(text, padding);
-        let texture = Texture2d::new(
-            win.facade(),
-            RawImage2d {
-                data: Cow::Borrowed(&self.pixel_buffer),
-                width,
-                height,
-                format: ClientFormat::U8U8,
-            },
-        )
-        .unwrap();
+        let texture = todo!();
         let (w, h) = (
             width as f32 / win.width() as f32 * 2.0,
             height as f32 / win.height() as f32 * 2.0,
         );
         let (x, y) = (pos.x * 2.0 - 1.0, 1.0 - pos.y * 2.0 - h);
         let text = Text {
-            buffer: VertexBuffer::immutable(
-                win.facade(),
-                &[
-                    vertex(x, y, 0.0, 1.0),
-                    vertex(x, y + h, 0.0, 0.0),
-                    vertex(x + w, y, 1.0, 1.0),
-                    vertex(x + w, y + h, 1.0, 0.0),
-                ],
-            )
-            .unwrap(),
+            buffer: todo!(),
             texture,
             visible: true,
         };
@@ -218,7 +199,7 @@ impl<'context> System<'context> for TextRenderer {
             font: Font::try_from_vec_and_index(font_bytes, 0)
                 .ok_or_else(|| ErrorKind(format!("Failed to parse font at {:?}.", FONT_PATH)))?,
             slab: IdSlab::with_capacity(16),
-            program: Program::from_source(window.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
+            program: todo!(),
             draw_params: DrawParameters {
                 blend: Blend::alpha_blending(),
                 ..DrawParameters::default()

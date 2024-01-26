@@ -63,14 +63,6 @@ impl ChainErrorKind for ErrorKind {
     type Error = Error;
 }
 
-impl ErrorKind {
-    pub(crate) fn glium<NeededByT: Into<String>, ErrorT: ConvertGlium>(
-        needed_by: NeededByT,
-    ) -> impl FnOnce(ErrorT) -> Error {
-        move |error| error.convert_glium(needed_by.into()).into()
-    }
-}
-
 pub(crate) trait ConvertGlium: Fail + Sized {
     fn convert_glium(self, needed_by: String) -> ErrorKind;
 }

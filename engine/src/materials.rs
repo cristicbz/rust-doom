@@ -3,7 +3,6 @@ use super::errors::Result;
 use super::shaders::{ShaderId, Shaders};
 use super::system::InfallibleSystem;
 use super::uniforms::{UniformId, Uniforms};
-use glium::Program;
 use idcontain::IdMapVec;
 use log::{debug, error};
 use wgpu::util::DeviceExt;
@@ -64,15 +63,6 @@ impl Materials {
         material_id: MaterialId,
     ) -> Option<MaterialRef<'a>> {
         let material = self.map.get(material_id.0)?;
-        let shader = if let Some(shader) = shaders.get(material.shader) {
-            shader
-        } else {
-            error!(
-                "Missing shader {:?} for material {:?}",
-                material.shader, material_id
-            );
-            return None;
-        };
 
         let Some(pipeline) = shaders.get_pipeline(material.shader) else {
             error!(
@@ -103,7 +93,6 @@ impl Materials {
         }
 
         Some(MaterialRef {
-            shader,
             pipeline,
             bind_group: material
                 .bind_group
@@ -204,7 +193,6 @@ impl<'a> MaterialRefMut<'a> {
 }
 
 pub struct MaterialRef<'a> {
-    shader: &'a Program,
     pipeline: &'a wgpu::RenderPipeline,
     bind_group: &'a wgpu::BindGroup,
 }
@@ -243,10 +231,6 @@ impl<'context> InfallibleSystem<'context> for Materials {
 }
 
 impl<'a> MaterialRef<'a> {
-    pub fn shader(&self) -> &Program {
-        self.shader
-    }
-
     pub(crate) fn pipeline(&self) -> &'a wgpu::RenderPipeline {
         &self.pipeline
     }

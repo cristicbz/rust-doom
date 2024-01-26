@@ -1,4 +1,4 @@
-use super::errors::{Error, ErrorKind, Result};
+use super::errors::{Error, Result};
 use super::materials::Materials;
 use super::meshes::Meshes;
 use super::pipeline::{Model, RenderPipeline};
@@ -11,7 +11,6 @@ use super::transforms::Transforms;
 use super::uniforms::Uniforms;
 use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
-use failchain::ResultExt;
 use log::{error, info};
 use math::{prelude::*, Mat4};
 
@@ -21,7 +20,7 @@ pub struct Dependencies<'context> {
     meshes: &'context Meshes,
     materials: &'context Materials,
     shaders: &'context Shaders,
-    text: &'context TextRenderer,
+    _text: &'context TextRenderer,
     window: &'context Window,
     transforms: &'context Transforms,
     projections: &'context Projections,
@@ -121,7 +120,6 @@ impl<'context> System<'context> for Renderer {
         );
 
         // Render all the models in turn.
-        let mut frame = deps.window.draw();
         let surface_texture = deps.window.surface_texture()?;
         let view = surface_texture.texture.create_view(&Default::default());
         let mut encoder = deps
@@ -198,14 +196,10 @@ impl<'context> System<'context> for Renderer {
             }
 
             // Render text. TODO(cristicbz): text should render itself :(
-            deps.text
-                .render(&mut frame)
-                .chain_err(|| ErrorKind::System("render bypass", TextRenderer::debug_name()))?;
-
-            // TODO(cristicbz): Re-architect a little bit to support rebuilding the context.
-            frame
-                .finish()
-                .expect("Cannot handle context loss currently :(");
+            // TODO
+            // deps.text
+            //     .render(&mut frame)
+            //     .chain_err(|| ErrorKind::System("render bypass", TextRenderer::debug_name()))?;
 
             // Remove any missing models.
             for &index in self.removed.iter().rev() {

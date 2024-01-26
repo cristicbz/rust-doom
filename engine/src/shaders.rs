@@ -6,7 +6,6 @@ use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
 
 use failchain::ResultExt;
-use glium::program::{Program, ProgramCreationInput};
 use idcontain::IdMapVec;
 use log::{debug, error};
 use math::{Mat4, Vec2, Vec3};
@@ -61,22 +60,6 @@ impl Shaders {
             .chain_err(|| ErrorKind::ResourceIo("fragment shader", name))?;
         read_utf8_file(&vertex_path, &mut vertex_source)
             .chain_err(|| ErrorKind::ResourceIo("vertex shader", name))?;
-
-        let program = Program::new(
-            window.facade(),
-            ProgramCreationInput::SourceCode {
-                vertex_shader: &vertex_source,
-                tessellation_control_shader: None,
-                tessellation_evaluation_shader: None,
-                geometry_shader: None,
-                fragment_shader: &fragment_source,
-                transform_feedback_varyings: None,
-                // TODO(cristicbz): More configurable things! SRGB should not be hard coded.
-                outputs_srgb: true,
-                uses_point_size: false,
-            },
-        )
-        .map_err(ErrorKind::glium(name))?;
 
         let shader_module = window
             .device()
@@ -143,13 +126,9 @@ impl Shaders {
 
         debug!("Shader {:?} loaded successfully", name);
         let id = entities.add(parent, name)?;
-        self.map.insert(id, Shader { program, pipeline });
+        self.map.insert(id, Shader { pipeline });
         debug!("Added shader {:?} {:?} as child of {:?}.", name, id, parent);
         Ok(ShaderId(id))
-    }
-
-    pub fn get(&self, shader_id: ShaderId) -> Option<&Program> {
-        self.map.get(shader_id.0).map(|shader| &shader.program)
     }
 
     pub(crate) fn get_pipeline(&self, shader_id: ShaderId) -> Option<&wgpu::RenderPipeline> {
@@ -172,7 +151,6 @@ impl Shaders {
 }
 
 pub struct Shader {
-    program: Program,
     pipeline: wgpu::RenderPipeline,
 }
 
