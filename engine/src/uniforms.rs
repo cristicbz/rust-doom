@@ -2,6 +2,7 @@ use super::entities::{Entities, Entity, EntityId};
 use super::errors::{ErrorKind, Result};
 use super::system::InfallibleSystem;
 use super::window::Window;
+use bytemuck::Pod;
 use failchain::bail;
 use glium::buffer::Content as BufferContent;
 use glium::texture::buffer_texture::{BufferTexture, BufferTextureType};
@@ -12,6 +13,7 @@ use log::{debug, error};
 use math::{Mat4, Vec2, Vec2f};
 use std::borrow::Cow;
 use std::marker::PhantomData;
+use wgpu::util::DeviceExt;
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Copy, Clone)]
 pub struct Texture2dId(EntityId);
@@ -143,7 +145,7 @@ impl Uniforms {
         self.vec2fs.get_mut(id.0)
     }
 
-    pub fn add_texture_2d<'a, PixelT: PixelValue>(
+    pub fn add_texture_2d<'a, PixelT: Pod>(
         &mut self,
         window: &Window,
         entities: &mut Entities,
@@ -151,9 +153,9 @@ impl Uniforms {
         name: &'static str,
         pixels: &'a [PixelT],
         size: Vec2<usize>,
-        format: ClientFormat,
+        format: wgpu::TextureFormat,
         sampler: Option<SamplerBehavior>,
-    ) -> Result<Texture2dId> {
+    ) -> Result<wgpu::Texture> {
         debug!(
             "Creating texture {:?}: pixels={}, size={:?}, format={:?}, sampler={:?}",
             name,
@@ -162,24 +164,32 @@ impl Uniforms {
             format,
             sampler,
         );
-        let gl = GliumTexture2d::new(
-            window.facade(),
-            RawImage2d {
-                data: Cow::Borrowed(pixels),
-                width: size[0] as u32,
-                height: size[1] as u32,
+        let texture = window.device().create_texture_with_data(
+            window.queue(),
+            &wgpu::TextureDescriptor {
+                label: Some(name),
+                size: wgpu::Extent3d {
+                    width: size[0] as u32,
+                    height: size[1] as u32,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
                 format,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
             },
-        )
-        .map_err(ErrorKind::glium(name))?;
+            wgpu::util::TextureDataOrder::LayerMajor,
+            bytemuck::cast_slice(pixels),
+        );
         debug!("Texture {:?} created successfully", name);
         let id = entities.add(parent, name)?;
-        self.texture2ds.insert(id, Texture2d { gl, sampler });
         debug!(
             "Added texture {:?} {:?} as child of {:?}.",
             name, id, parent
         );
-        Ok(Texture2dId(id))
+        Ok(texture)
     }
 
     pub fn get_texture_2d_mut(&mut self, texture_id: Texture2dId) -> Option<Texture2dRefMut> {

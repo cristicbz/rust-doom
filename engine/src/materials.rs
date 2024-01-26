@@ -1,5 +1,3 @@
-use crate::Window;
-
 use super::entities::{Entities, Entity, EntityId};
 use super::errors::Result;
 use super::shaders::{ShaderId, Shaders};
@@ -8,6 +6,7 @@ use super::uniforms::{UniformId, Uniforms};
 use glium::Program;
 use idcontain::IdMapVec;
 use log::{debug, error};
+use wgpu::util::DeviceExt;
 
 pub const MAX_UNIFORMS: usize = 64;
 
@@ -30,43 +29,17 @@ impl Materials {
     pub fn add<'a>(
         &'a mut self,
         entities: &mut Entities,
-        shaders: &Shaders,
-        window: &Window,
         parent: EntityId,
         shader: ShaderId,
         name: &'static str,
     ) -> Result<MaterialRefMut<'a>> {
-        let bind_group = window
-            .device()
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some(name),
-                layout: &shaders.material_bind_group_layout(),
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&atlas_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Buffer(
-                            atlas_size_buffer.as_entire_binding(),
-                        ),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: wgpu::BindingResource::Buffer(
-                            tiled_band_size_buffer.as_entire_binding(),
-                        ),
-                    },
-                ],
-            });
         let id = entities.add(parent, name)?;
         self.map.insert(
             id,
             Material {
                 shader,
                 uniforms: [None; MAX_UNIFORMS],
-                bind_group,
+                bind_group: None,
             },
         );
         debug!(
@@ -132,7 +105,10 @@ impl Materials {
         Some(MaterialRef {
             shader,
             pipeline,
-            material_bind_group: &material.bind_group,
+            bind_group: material
+                .bind_group
+                .as_ref()
+                .expect("Bind group must be present when rendering"),
         })
     }
 }
@@ -162,6 +138,66 @@ impl<'a> MaterialRefMut<'a> {
         );
     }
 
+    pub fn with_atlas(
+        &mut self,
+        atlas: &wgpu::Texture,
+        device: &wgpu::Device,
+        shaders: &Shaders,
+    ) -> &mut Self {
+        let atlas_view = atlas.create_view(&Default::default());
+        let atlas_size = [atlas.width() as f32, atlas.height() as f32];
+        let atlas_size_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&atlas_size),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        self.material.bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &shaders.material_bind_group_layout(),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&atlas_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: atlas_size_buffer.as_entire_binding(),
+                },
+            ],
+        }));
+        self
+    }
+
+    pub fn with_sky_texture(
+        &mut self,
+        texture: &wgpu::Texture,
+        tiled_band_size: f32,
+        device: &wgpu::Device,
+        shaders: &Shaders,
+    ) -> &mut Self {
+        let texture_view = texture.create_view(&Default::default());
+        let tiled_band_size_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&[tiled_band_size]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        self.material.bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &shaders.material_bind_group_layout(),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: tiled_band_size_buffer.as_entire_binding(),
+                },
+            ],
+        }));
+        self
+    }
+
     pub fn id(&self) -> MaterialId {
         self.id
     }
@@ -170,7 +206,7 @@ impl<'a> MaterialRefMut<'a> {
 pub struct MaterialRef<'a> {
     shader: &'a Program,
     pipeline: &'a wgpu::RenderPipeline,
-    material_bind_group: &'a wgpu::BindGroup,
+    bind_group: &'a wgpu::BindGroup,
 }
 
 impl<'context> InfallibleSystem<'context> for Materials {
@@ -215,13 +251,13 @@ impl<'a> MaterialRef<'a> {
         &self.pipeline
     }
 
-    pub(crate) fn material_bind_group(&self) -> &'a wgpu::BindGroup {
-        &self.material_bind_group
+    pub(crate) fn bind_group(&self) -> &'a wgpu::BindGroup {
+        &self.bind_group
     }
 }
 
 struct Material {
     shader: ShaderId,
     uniforms: [Option<(&'static str, UniformId)>; MAX_UNIFORMS],
-    bind_group: wgpu::BindGroup,
+    bind_group: Option<wgpu::BindGroup>,
 }

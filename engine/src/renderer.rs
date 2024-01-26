@@ -235,7 +235,7 @@ impl<'context> System<'context> for Renderer {
                 let model_bind_group = todo!();
 
                 render_pass.set_pipeline(material.pipeline());
-                render_pass.set_bind_group(1, material.material_bind_group(), &[]);
+                render_pass.set_bind_group(1, material.bind_group(), &[]);
                 render_pass.set_bind_group(2, &model_bind_group, &[]);
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer());
                 render_pass.set_index_buffer(mesh.index_buffer(), wgpu::IndexFormat::Uint32);

@@ -2,10 +2,10 @@ use crate::vertex::{SkyVertex, SpriteVertex, StaticVertex};
 
 use super::wad_system::WadSystem;
 use engine::{
-    BufferTextureId, BufferTextureType, ClientFormat, DependenciesFrom, Entities, EntityId, Error,
+    BufferTextureId, BufferTextureType, DependenciesFrom, Entities, EntityId, Error,
     FloatUniformId, MagnifySamplerFilter, MaterialId, Materials, MinifySamplerFilter,
     RenderPipeline, Result, SamplerBehavior, SamplerWrapFunction, ShaderId, ShaderVertex, Shaders,
-    System, Texture2dId, Tick, Uniforms, Window,
+    System, Tick, Uniforms, Window,
 };
 use log::{error, info};
 use math::Vec2;
@@ -115,14 +115,14 @@ pub struct GameShaders {
 struct Globals {
     time: FloatUniformId,
     lights_buffer_texture: BufferTextureId<u8>,
-    palette: Texture2dId,
+    palette: wgpu::Texture,
     static_shader: ShaderId,
     sky_shader: ShaderId,
     sprite_shader: ShaderId,
 }
 
 impl<'context> Dependencies<'context> {
-    fn load_palette(&mut self, parent: EntityId) -> Result<Texture2dId> {
+    fn load_palette(&mut self, parent: EntityId) -> Result<wgpu::Texture> {
         let palette = self.wad.textures.build_palette_texture(0, 0, 32);
         self.uniforms.add_texture_2d(
             self.window,
@@ -131,7 +131,7 @@ impl<'context> Dependencies<'context> {
             "palette",
             &palette.pixels,
             Vec2::new(COLORMAP_SIZE, palette.pixels.len() / PALETTE_SIZE),
-            ClientFormat::U8U8U8,
+            wgpu::TextureFormat::Rgba8Unorm,
             Some(SamplerBehavior {
                 wrap_function: (
                     SamplerWrapFunction::Clamp,
@@ -183,26 +183,15 @@ impl<'context> Dependencies<'context> {
             .materials
             .add(
                 self.entities,
-                self.shaders,
-                self.window,
                 parent,
                 globals.static_shader,
                 "flats_material",
             )?
+            .with_atlas(&flats_atlas.texture, self.window.device(), self.shaders)
             .add_uniform("u_modelview", modelview)
             .add_uniform("u_projection", projection)
             .add_uniform("u_time", globals.time)
             .add_uniform("u_lights", globals.lights_buffer_texture)
-            .add_uniform("u_palette", globals.palette)
-            .add_uniform("u_atlas", flats_atlas.texture)
-            .add_uniform(
-                "u_atlas_size",
-                self.uniforms.add_texture2d_size(
-                    self.entities,
-                    "flats_atlas_size_uniform",
-                    flats_atlas.texture,
-                )?,
-            )
             .id();
 
         let walls_atlas = self.load_walls_atlas(parent)?;
@@ -210,44 +199,29 @@ impl<'context> Dependencies<'context> {
             .materials
             .add(
                 self.entities,
-                self.shaders,
-                self.window,
                 parent,
                 globals.static_shader,
                 "walls_material",
             )?
+            .with_atlas(&walls_atlas.texture, self.window.device(), self.shaders)
             .add_uniform("u_modelview", modelview)
             .add_uniform("u_projection", projection)
             .add_uniform("u_time", globals.time)
             .add_uniform("u_lights", globals.lights_buffer_texture)
-            .add_uniform("u_palette", globals.palette)
-            .add_uniform("u_atlas", walls_atlas.texture)
-            .add_uniform(
-                "u_atlas_size",
-                self.uniforms.add_texture2d_size(
-                    self.entities,
-                    "walls_atlas_size_uniform",
-                    walls_atlas.texture,
-                )?,
-            )
             .id();
 
         let sky_uniforms = self.load_sky_uniforms(parent)?;
         let sky_material = self
             .materials
-            .add(
-                self.entities,
+            .add(self.entities, parent, globals.sky_shader, "sky_material")?
+            .with_sky_texture(
+                &sky_uniforms.texture,
+                sky_uniforms.tiled_band_size,
+                self.window.device(),
                 self.shaders,
-                self.window,
-                parent,
-                globals.sky_shader,
-                "sky_material",
-            )?
+            )
             .add_uniform("u_modelview", modelview)
             .add_uniform("u_projection", projection)
-            .add_uniform("u_palette", globals.palette)
-            .add_uniform("u_texture", sky_uniforms.texture)
-            .add_uniform("u_tiled_band_size", sky_uniforms.tiled_band_size)
             .id();
 
         let decor_atlas = self.load_decor_atlas(parent)?;
@@ -255,26 +229,15 @@ impl<'context> Dependencies<'context> {
             .materials
             .add(
                 self.entities,
-                self.shaders,
-                self.window,
                 parent,
                 globals.sprite_shader,
                 "decor_material",
             )?
+            .with_atlas(&decor_atlas.texture, self.window.device(), self.shaders)
             .add_uniform("u_modelview", modelview)
             .add_uniform("u_projection", projection)
             .add_uniform("u_time", globals.time)
             .add_uniform("u_lights", globals.lights_buffer_texture)
-            .add_uniform("u_palette", globals.palette)
-            .add_uniform("u_atlas", decor_atlas.texture)
-            .add_uniform(
-                "u_atlas_size",
-                self.uniforms.add_texture2d_size(
-                    self.entities,
-                    "decor_atlas_size_uniform",
-                    decor_atlas.texture,
-                )?,
-            )
             .id();
 
         Ok(LevelMaterials {
@@ -392,12 +355,7 @@ impl<'context> Dependencies<'context> {
                 "sky_texture",
                 TextureSpec::TextureName(texture_name),
             )?,
-            tiled_band_size: self.uniforms.add_float(
-                self.entities,
-                parent,
-                "sky_tiled_band_size_uniform",
-                tiled_band_size,
-            )?,
+            tiled_band_size,
         })
     }
 
@@ -406,7 +364,7 @@ impl<'context> Dependencies<'context> {
         parent: EntityId,
         name: &'static str,
         texture_spec: TextureSpec,
-    ) -> Result<Texture2dId> {
+    ) -> Result<wgpu::Texture> {
         let sampler = Some(SamplerBehavior {
             wrap_function: (
                 SamplerWrapFunction::Repeat,
@@ -451,7 +409,7 @@ impl<'context> Dependencies<'context> {
                 name,
                 pixels,
                 size,
-                ClientFormat::U8U8,
+                wgpu::TextureFormat::Rgba8Unorm,
                 sampler,
             )?,
             ImageRef::Opaque { pixels, size } => self.uniforms.add_texture_2d(
@@ -461,7 +419,7 @@ impl<'context> Dependencies<'context> {
                 name,
                 pixels,
                 size,
-                ClientFormat::U8,
+                wgpu::TextureFormat::Rgba8Unorm,
                 sampler,
             )?,
         })
@@ -479,12 +437,12 @@ impl<'context> Dependencies<'context> {
 }
 
 struct SkyUniforms {
-    tiled_band_size: FloatUniformId,
-    texture: Texture2dId,
+    tiled_band_size: f32,
+    texture: wgpu::Texture,
 }
 
 struct Atlas {
-    texture: Texture2dId,
+    texture: wgpu::Texture,
     bounds: BoundsLookup,
 }
 
