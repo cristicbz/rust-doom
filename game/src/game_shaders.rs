@@ -183,6 +183,8 @@ impl<'context> Dependencies<'context> {
             .materials
             .add(
                 self.entities,
+                self.shaders,
+                self.window,
                 parent,
                 globals.static_shader,
                 "flats_material",
@@ -208,6 +210,8 @@ impl<'context> Dependencies<'context> {
             .materials
             .add(
                 self.entities,
+                self.shaders,
+                self.window,
                 parent,
                 globals.static_shader,
                 "walls_material",
@@ -231,7 +235,14 @@ impl<'context> Dependencies<'context> {
         let sky_uniforms = self.load_sky_uniforms(parent)?;
         let sky_material = self
             .materials
-            .add(self.entities, parent, globals.sky_shader, "sky_material")?
+            .add(
+                self.entities,
+                self.shaders,
+                self.window,
+                parent,
+                globals.sky_shader,
+                "sky_material",
+            )?
             .add_uniform("u_modelview", modelview)
             .add_uniform("u_projection", projection)
             .add_uniform("u_palette", globals.palette)
@@ -244,6 +255,8 @@ impl<'context> Dependencies<'context> {
             .materials
             .add(
                 self.entities,
+                self.shaders,
+                self.window,
                 parent,
                 globals.sprite_shader,
                 "decor_material",

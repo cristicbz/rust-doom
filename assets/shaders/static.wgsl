@@ -1,11 +1,11 @@
 @group(0) @binding(0) var<uniform> u_projection: mat4x4<f32>;
 @group(0) @binding(1) var u_sampler: sampler;
 @group(0) @binding(2) var<uniform> u_lights: array<u8>;
-@group(0) @binding(3) var<uniform> u_atlas_size: vec2<f32>;
-@group(0) @binding(4) var<uniform> u_time: f32;
+@group(0) @binding(3) var<uniform> u_time: f32;
+@group(0) @binding(4) var u_palette: texture_2d<f32>;
 
 @group(1) @binding(0) var u_atlas: texture_2d<f32>;
-@group(1) @binding(1) var u_palette: texture_2d<f32>;
+@group(1) @binding(1) var<uniform> u_atlas_size: vec2<f32>;
 
 @group(2) @binding(0) var<uniform> u_modelview: mat4x4<f32>;
 

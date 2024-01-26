@@ -232,9 +232,11 @@ impl<'context> System<'context> for Renderer {
                     continue;
                 };
 
+                let model_bind_group = todo!();
+
                 render_pass.set_pipeline(material.pipeline());
                 render_pass.set_bind_group(1, material.material_bind_group(), &[]);
-                render_pass.set_bind_group(2, material.model_bind_group(), &[]);
+                render_pass.set_bind_group(2, &model_bind_group, &[]);
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer());
                 render_pass.set_index_buffer(mesh.index_buffer(), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..mesh.index_count(), 0, 0..1);

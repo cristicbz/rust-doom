@@ -1,3 +1,5 @@
+use crate::Window;
+
 use super::entities::{Entities, Entity, EntityId};
 use super::errors::Result;
 use super::shaders::{ShaderId, Shaders};
@@ -28,16 +30,43 @@ impl Materials {
     pub fn add<'a>(
         &'a mut self,
         entities: &mut Entities,
+        shaders: &Shaders,
+        window: &Window,
         parent: EntityId,
         shader: ShaderId,
         name: &'static str,
     ) -> Result<MaterialRefMut<'a>> {
+        let bind_group = window
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some(name),
+                layout: &shaders.material_bind_group_layout(),
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&atlas_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Buffer(
+                            atlas_size_buffer.as_entire_binding(),
+                        ),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::Buffer(
+                            tiled_band_size_buffer.as_entire_binding(),
+                        ),
+                    },
+                ],
+            });
         let id = entities.add(parent, name)?;
         self.map.insert(
             id,
             Material {
                 shader,
                 uniforms: [None; MAX_UNIFORMS],
+                bind_group,
             },
         );
         debug!(
@@ -100,16 +129,10 @@ impl Materials {
             }
         }
 
-        let global_bind_group = todo!();
-        let material_bind_group = todo!();
-        let model_bind_group = todo!();
-
         Some(MaterialRef {
             shader,
             pipeline,
-            global_bind_group,
-            material_bind_group,
-            model_bind_group,
+            material_bind_group: &material.bind_group,
         })
     }
 }
@@ -147,9 +170,7 @@ impl<'a> MaterialRefMut<'a> {
 pub struct MaterialRef<'a> {
     shader: &'a Program,
     pipeline: &'a wgpu::RenderPipeline,
-    global_bind_group: &'a wgpu::BindGroup,
     material_bind_group: &'a wgpu::BindGroup,
-    model_bind_group: &'a wgpu::BindGroup,
 }
 
 impl<'context> InfallibleSystem<'context> for Materials {
@@ -194,20 +215,13 @@ impl<'a> MaterialRef<'a> {
         &self.pipeline
     }
 
-    pub(crate) fn global_bind_group(&self) -> &'a wgpu::BindGroup {
-        &self.global_bind_group
-    }
-
     pub(crate) fn material_bind_group(&self) -> &'a wgpu::BindGroup {
         &self.material_bind_group
-    }
-
-    pub(crate) fn model_bind_group(&self) -> &'a wgpu::BindGroup {
-        &self.model_bind_group
     }
 }
 
 struct Material {
     shader: ShaderId,
     uniforms: [Option<(&'static str, UniformId)>; MAX_UNIFORMS],
+    bind_group: wgpu::BindGroup,
 }
