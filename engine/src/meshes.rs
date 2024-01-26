@@ -37,13 +37,16 @@ impl Meshes {
             InternalMeshData::Owned {
                 ref vertices,
                 ref indices,
+                ref bind_group,
             } => MeshRef {
                 vertices,
                 indices: indices.as_ref(),
+                bind_group,
             },
             InternalMeshData::Inherit {
                 vertices_from,
                 ref indices,
+                ref bind_group,
             } => MeshRef {
                 vertices: match self
                     .map
@@ -55,6 +58,7 @@ impl Meshes {
                     _ => panic!("unowned mesh in stored vertices_from"),
                 },
                 indices: Some(indices),
+                bind_group,
             },
         })
     }
@@ -64,6 +68,7 @@ impl Meshes {
             InternalMeshData::Owned {
                 ref mut vertices,
                 ref mut indices,
+                bind_group: _,
             } => MeshRefMut {
                 vertices: Some(vertices),
                 indices: indices.as_mut(),
@@ -71,6 +76,7 @@ impl Meshes {
             InternalMeshData::Inherit {
                 vertices_from: _vertices_from,
                 ref mut indices,
+                bind_group: _,
             } => MeshRefMut {
                 vertices: None,
                 indices: Some(indices),
@@ -87,6 +93,7 @@ pub struct MeshRefMut<'a> {
 pub struct MeshRef<'a> {
     vertices: &'a wgpu::Buffer,
     indices: Option<&'a wgpu::Buffer>,
+    bind_group: &'a wgpu::BindGroup,
 }
 
 impl<'a> MeshRef<'a> {
@@ -100,6 +107,10 @@ impl<'a> MeshRef<'a> {
 
     pub(crate) fn index_count(&self) -> u32 {
         self.indices.expect("index buffer not present").size() as u32 / 4
+    }
+
+    pub(crate) fn bind_group(&self) -> &wgpu::BindGroup {
+        self.bind_group
     }
 }
 
@@ -282,10 +293,12 @@ enum InternalMeshData {
     Owned {
         vertices: wgpu::Buffer,
         indices: Option<wgpu::Buffer>,
+        bind_group: wgpu::BindGroup,
     },
     Inherit {
         vertices_from: MeshId,
         indices: wgpu::Buffer,
+        bind_group: wgpu::BindGroup,
     },
 }
 

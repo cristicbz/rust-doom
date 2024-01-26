@@ -172,19 +172,7 @@ impl<'context> System<'context> for Renderer {
                     continue;
                 };
 
-                // If the model has a transform, then multiply it with the view transform to get the
-                // modelview matrix. If there is no transform, model is assumed to be in world space, so
-                // modelview = view.
-                // TODO: Writing to uniforms can only be done by submitting a write buffer command, and needs to be done in advance of rendering.
-                // *deps
-                //     .uniforms
-                //     .get_mat4_mut(pipe.modelview)
-                //     .expect("modelview uniform missing") =
-                //     if let Some(model_transform) = deps.transforms.get_absolute(entity) {
-                //         Mat4::from(view_transform.concat(model_transform))
-                //     } else {
-                //         view_matrix
-                //     };
+                // TODO: Set u_right on the mesh
 
                 let material = if let Some(material) =
                     deps.materials.get(deps.shaders, deps.uniforms, material)
@@ -201,11 +189,9 @@ impl<'context> System<'context> for Renderer {
                     continue;
                 };
 
-                let model_bind_group = todo!();
-
                 render_pass.set_pipeline(material.pipeline());
                 render_pass.set_bind_group(1, material.bind_group(), &[]);
-                render_pass.set_bind_group(2, &model_bind_group, &[]);
+                render_pass.set_bind_group(2, mesh.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer());
                 render_pass.set_index_buffer(mesh.index_buffer(), wgpu::IndexFormat::Uint32);
                 render_pass.draw_indexed(0..mesh.index_count(), 0, 0..1);
