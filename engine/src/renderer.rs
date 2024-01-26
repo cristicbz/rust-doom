@@ -35,6 +35,7 @@ pub struct Renderer {
     view: wgpu::TextureView,
     _depth_texture: wgpu::Texture,
     depth_view: wgpu::TextureView,
+    global_bind_group: wgpu::BindGroup,
 }
 
 impl<'context> System<'context> for Renderer {
@@ -74,12 +75,42 @@ impl<'context> System<'context> for Renderer {
                 view_formats: &[],
             });
         let depth_view = depth_texture.create_view(&Default::default());
+        let global_bind_group =
+            deps.window
+                .device()
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Global bind group"),
+                    layout: deps.shaders.global_bind_group_layout(),
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: todo!(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: todo!(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: todo!(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 3,
+                            resource: todo!(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 4,
+                            resource: todo!(),
+                        },
+                    ],
+                });
         Ok(Renderer {
             removed: Vec::with_capacity(32),
             _texture: texture,
             view,
             _depth_texture: depth_texture,
             depth_view,
+            global_bind_group,
         })
     }
 
@@ -150,6 +181,7 @@ impl<'context> System<'context> for Renderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            render_pass.set_bind_group(0, &self.global_bind_group, &[]);
             for (index, &Model { mesh, material }) in pipe.models.access().iter().enumerate() {
                 // For each model we need to assemble three things to render it: transform, mesh and
                 // material. We get the entity id and query the corresponding systems for it.
@@ -201,7 +233,6 @@ impl<'context> System<'context> for Renderer {
                 };
 
                 render_pass.set_pipeline(material.pipeline());
-                render_pass.set_bind_group(0, material.global_bind_group(), &[]);
                 render_pass.set_bind_group(1, material.material_bind_group(), &[]);
                 render_pass.set_bind_group(2, material.model_bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer());

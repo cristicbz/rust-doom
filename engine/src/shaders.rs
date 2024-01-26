@@ -157,6 +157,10 @@ impl Shaders {
             .get(shader_id.0)
             .map(|shader: &Shader| &shader.pipeline)
     }
+
+    pub(crate) fn global_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
+        &self.global_bind_group_layout
+    }
 }
 
 pub struct Shader {
