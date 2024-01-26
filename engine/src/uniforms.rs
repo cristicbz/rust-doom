@@ -1,21 +1,18 @@
 use crate::Shaders;
 
 use super::entities::{Entities, Entity, EntityId};
-use super::errors::{ErrorKind, Result};
+use super::errors::Result;
 use super::system::InfallibleSystem;
 use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
 use bytemuck::Pod;
 use cgmath::SquareMatrix;
-use failchain::bail;
 use glium::buffer::Content as BufferContent;
 use glium::texture::buffer_texture::{BufferTexture, BufferTextureType};
-use glium::texture::{ClientFormat, PixelValue, RawImage2d, Texture2d as GliumTexture2d};
-use glium::uniforms::{AsUniformValue, SamplerBehavior, UniformValue};
+use glium::uniforms::{AsUniformValue, UniformValue};
 use idcontain::IdMapVec;
 use log::{debug, error};
 use math::{Mat4, Vec2, Vec2f};
-use std::borrow::Cow;
 use std::marker::PhantomData;
 use wgpu::util::DeviceExt;
 
@@ -247,38 +244,10 @@ impl Uniforms {
         queue.write_buffer(buffer, 0, &data);
     }
 
-    pub fn add_texture2d_size(
-        &mut self,
-        entities: &mut Entities,
-        name: &'static str,
-        texture: Texture2dId,
-    ) -> Result<Vec2fUniformId> {
-        let size = self.texture2ds.get(texture.0).map(|texture| {
-            let texture = &texture.gl;
-            Vec2::new(
-                texture.get_width() as f32,
-                texture.get_height().unwrap_or(1) as f32,
-            )
-        });
-        let size = if let Some(size) = size {
-            size
-        } else {
-            bail!(ErrorKind::NoSuchComponent {
-                context: "adding size uniform for texture",
-                needed_by: Some(name),
-                id: texture.0.cast(),
-            });
-        };
-        self.add_vec2f(entities, texture.0, name, size)
-    }
-
     #[inline]
     pub fn get_value(&self, id: UniformId) -> Option<UniformValue> {
         match id {
-            UniformId::Texture2d(id) => self
-                .texture2ds
-                .get(id.0)
-                .map(|texture| UniformValue::Texture2d(&texture.gl, texture.sampler)),
+            UniformId::Texture2d(_) => unimplemented!(),
             UniformId::Float(id) => self
                 .floats
                 .get(id.0)
@@ -371,36 +340,37 @@ pub struct Texture2dRefMut<'uniforms> {
 }
 
 impl<'uniforms> Texture2dRefMut<'uniforms> {
-    pub fn get_sampler_mut(&mut self) -> &mut Option<SamplerBehavior> {
-        &mut self.texture.sampler
-    }
-
-    pub fn replace_pixels<'pixels, PixelT: PixelValue>(
+    pub fn replace_pixels<'pixels, PixelT: Pod>(
         &mut self,
         window: &Window,
         pixels: &'pixels [PixelT],
         size: Vec2<usize>,
-        format: ClientFormat,
-        sampler: Option<SamplerBehavior>,
     ) -> Result<()> {
         debug!(
-            "Replacing texture {:?}: pixels={}, size={:?}, format={:?}, sampler={:?}",
+            "Replacing texture {:?}: pixels={}, size={:?}",
             self.texture_id,
             pixels.len(),
             size,
-            format,
-            sampler,
         );
-        self.texture.gl = GliumTexture2d::new(
-            window.facade(),
-            RawImage2d {
-                data: Cow::Borrowed(pixels),
+        window.queue().write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &self.texture.texture,
+                mip_level: 1,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            bytemuck::cast_slice(pixels),
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some((size[0] * std::mem::size_of::<PixelT>()) as u32),
+                rows_per_image: Some(size[1] as u32),
+            },
+            wgpu::Extent3d {
                 width: size[0] as u32,
                 height: size[1] as u32,
-                format,
+                depth_or_array_layers: 1,
             },
-        )
-        .map_err(ErrorKind::glium("texture2d.replace_pixels"))?;
+        );
 
         debug!("Replaced texture {:?} successfully.", self.texture_id,);
         Ok(())
@@ -517,8 +487,7 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
 }
 
 struct Texture2d {
-    gl: GliumTexture2d,
-    sampler: Option<SamplerBehavior>,
+    texture: wgpu::Texture,
 }
 
 impl From<Texture2dId> for UniformId {
