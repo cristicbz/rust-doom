@@ -259,10 +259,11 @@ impl<'context> System<'context> for Level {
             .get_float_mut(deps.game_shaders.time())
             .expect("missing time");
         let light_infos = &mut self.lights;
-        deps.uniforms
-            .map_buffer_texture_u8(deps.game_shaders.lights_buffer_texture(), |buffer| {
-                light_infos.fill_buffer_at(time, buffer)
-            });
+        deps.uniforms.map_buffer_u8(
+            deps.game_shaders.lights_buffer(),
+            |buffer| light_infos.fill_buffer_at(time, buffer),
+            deps.window.queue(),
+        );
         Ok(())
     }
 

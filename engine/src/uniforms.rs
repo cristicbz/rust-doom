@@ -1,3 +1,5 @@
+use crate::Shaders;
+
 use super::entities::{Entities, Entity, EntityId};
 use super::errors::{ErrorKind, Result};
 use super::system::InfallibleSystem;
@@ -12,6 +14,7 @@ use idcontain::IdMapVec;
 use log::{debug, error};
 use math::{Mat4, Vec2, Vec2f};
 use std::borrow::Cow;
+use std::default;
 use std::marker::PhantomData;
 use wgpu::util::DeviceExt;
 
@@ -53,6 +56,7 @@ pub struct Uniforms {
     buffer_textures_u8: IdMapVec<Entity, BufferTexture<u8>>,
     mat4s: IdMapVec<Entity, Mat4>,
     vec2fs: IdMapVec<Entity, Vec2f>,
+    global_bind_group: Option<wgpu::BindGroup>,
 }
 
 impl Uniforms {
@@ -65,6 +69,7 @@ impl Uniforms {
             ref mut buffer_textures_u8,
             ref mut mat4s,
             ref mut vec2fs,
+            global_bind_group: _,
         } = *self;
         for &entity in entities.last_removed() {
             if texture2ds.remove(entity).is_some() {
@@ -200,7 +205,7 @@ impl Uniforms {
     }
 
     // TODO(cristicbz): Make u8 a type param.
-    pub fn add_persistent_buffer_texture_u8(
+    pub fn add_persistent_buffer_u8(
         &mut self,
         window: &Window,
         entities: &mut Entities,
@@ -208,34 +213,33 @@ impl Uniforms {
         name: &'static str,
         size: usize,
         texture_type: BufferTextureType,
-    ) -> Result<BufferTextureId<u8>> {
+    ) -> Result<wgpu::Buffer> {
         debug!(
-            "Creating persistent buffer_texture<u7> {:?}, size={:?}, type={:?}",
+            "Creating persistent buffer {:?}, size={:?}, type={:?}",
             name, size, texture_type
         );
-        let texture = BufferTexture::empty_persistent(window.facade(), size, texture_type)
-            .map_err(ErrorKind::glium(name))?;
+        let buffer = window.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some(name),
+            size: size as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         debug!("Buffer texture {:?} created successfully", name);
         let id = entities.add(parent, name)?;
-        self.buffer_textures_u8.insert(id, texture);
         debug!(
-            "Added persistent buffer_texture<u8> {:?} {:?} as child of {:?}.",
+            "Added persistent buffer {:?} {:?} as child of {:?}.",
             name, id, parent
         );
-        Ok(BufferTextureId {
-            id,
-            _phantom: PhantomData,
-        })
+        Ok(buffer)
     }
 
-    pub fn map_buffer_texture_u8<F>(&mut self, id: BufferTextureId<u8>, writer: F)
+    pub fn map_buffer_u8<F>(&mut self, buffer: &wgpu::Buffer, writer: F, queue: &wgpu::Queue)
     where
         F: FnOnce(&mut [u8]),
     {
-        // TODO(cristicbz): Handle missing.
-        if let Some(buffer) = self.buffer_textures_u8.get_mut(id.id) {
-            writer(&mut *buffer.map());
-        }
+        let mut data = vec![0u8; buffer.size() as usize];
+        writer(&mut data);
+        queue.write_buffer(buffer, 0, &data);
     }
 
     pub fn add_texture2d_size(
@@ -291,6 +295,59 @@ impl Uniforms {
                 .get(id.id)
                 .map(AsUniformValue::as_uniform_value),
         }
+    }
+
+    pub fn set_globals(
+        &mut self,
+        device: &wgpu::Device,
+        shaders: &Shaders,
+        lights_buffer: &wgpu::Buffer,
+        palette: &wgpu::Texture,
+    ) {
+        // TODO: Create a second sampler for the palette, using clamp address mode.
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Texture sampler"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+        let palette_view = palette.create_view(&Default::default());
+        self.global_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Global bind group"),
+            layout: shaders.global_bind_group_layout(),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: todo!(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: lights_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: todo!(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(&palette_view),
+                },
+            ],
+        }))
+    }
+
+    pub(crate) fn global_bind_group(&self) -> &wgpu::BindGroup {
+        self.global_bind_group
+            .as_ref()
+            .expect("Global bind group must be set to render")
     }
 }
 
@@ -350,6 +407,7 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
             buffer_textures_u8: IdMapVec::with_capacity(32),
             mat4s: IdMapVec::with_capacity(32),
             vec2fs: IdMapVec::with_capacity(32),
+            global_bind_group: None,
         }
     }
 
@@ -362,6 +420,7 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
             ref mut buffer_textures_u8,
             ref mut mat4s,
             ref mut vec2fs,
+            global_bind_group: _,
         } = *self;
         for &entity in entities.last_removed() {
             if texture2ds.remove(entity).is_some() {

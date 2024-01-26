@@ -2,9 +2,9 @@ use crate::vertex::{SkyVertex, SpriteVertex, StaticVertex};
 
 use super::wad_system::WadSystem;
 use engine::{
-    BufferTextureId, BufferTextureType, DependenciesFrom, Entities, EntityId, Error,
-    FloatUniformId, MaterialId, Materials, RenderPipeline, Result, ShaderId, ShaderVertex, Shaders,
-    System, Tick, Uniforms, Window,
+    BufferTextureType, DependenciesFrom, Entities, EntityId, Error, FloatUniformId, MaterialId,
+    Materials, RenderPipeline, Result, ShaderId, ShaderVertex, Shaders, System, Tick, Uniforms,
+    Window,
 };
 use log::{error, info};
 use math::Vec2;
@@ -30,8 +30,8 @@ impl GameShaders {
         self.globals.time
     }
 
-    pub fn lights_buffer_texture(&self) -> BufferTextureId<u8> {
-        self.globals.lights_buffer_texture
+    pub fn lights_buffer(&self) -> &wgpu::Buffer {
+        &self.globals.lights_buffer
     }
 
     pub fn level_materials(&self) -> &LevelMaterials {
@@ -113,8 +113,7 @@ pub struct GameShaders {
 
 struct Globals {
     time: FloatUniformId,
-    lights_buffer_texture: BufferTextureId<u8>,
-    palette: wgpu::Texture,
+    lights_buffer: wgpu::Buffer,
     static_shader: ShaderId,
     sky_shader: ShaderId,
     sprite_shader: ShaderId,
@@ -140,7 +139,7 @@ impl<'context> Dependencies<'context> {
         let time = self
             .uniforms
             .add_float(self.entities, parent, "time_uniform", 0.0)?;
-        let lights_buffer_texture = self.uniforms.add_persistent_buffer_texture_u8(
+        let lights_buffer = self.uniforms.add_persistent_buffer_u8(
             self.window,
             self.entities,
             parent,
@@ -153,10 +152,12 @@ impl<'context> Dependencies<'context> {
         let sky_shader = self.load_shader::<SkyVertex>(parent, "sky_shader", "sky")?;
         let sprite_shader = self.load_shader::<SpriteVertex>(parent, "sprite_shader", "sprite")?;
 
+        self.uniforms
+            .set_globals(self.window.device(), self.shaders, &lights_buffer, &palette);
+
         Ok(Globals {
             time,
-            lights_buffer_texture,
-            palette,
+            lights_buffer,
             static_shader,
             sky_shader,
             sprite_shader,
@@ -180,7 +181,6 @@ impl<'context> Dependencies<'context> {
             .add_uniform("u_modelview", modelview)
             .add_uniform("u_projection", projection)
             .add_uniform("u_time", globals.time)
-            .add_uniform("u_lights", globals.lights_buffer_texture)
             .id();
 
         let walls_atlas = self.load_walls_atlas(parent)?;
@@ -196,7 +196,6 @@ impl<'context> Dependencies<'context> {
             .add_uniform("u_modelview", modelview)
             .add_uniform("u_projection", projection)
             .add_uniform("u_time", globals.time)
-            .add_uniform("u_lights", globals.lights_buffer_texture)
             .id();
 
         let sky_uniforms = self.load_sky_uniforms(parent)?;
@@ -226,7 +225,6 @@ impl<'context> Dependencies<'context> {
             .add_uniform("u_modelview", modelview)
             .add_uniform("u_projection", projection)
             .add_uniform("u_time", globals.time)
-            .add_uniform("u_lights", globals.lights_buffer_texture)
             .id();
 
         Ok(LevelMaterials {
