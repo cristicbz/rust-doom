@@ -401,7 +401,7 @@ impl<'context> Dependencies<'context> {
                 name,
                 pixels,
                 size,
-                wgpu::TextureFormat::Rgba8Unorm,
+                wgpu::TextureFormat::Rg8Unorm,
             )?,
             ImageRef::Opaque { pixels, size } => self.uniforms.add_texture_2d(
                 self.window,
@@ -410,7 +410,7 @@ impl<'context> Dependencies<'context> {
                 name,
                 pixels,
                 size,
-                wgpu::TextureFormat::Rgba8Unorm,
+                wgpu::TextureFormat::R8Unorm,
             )?,
         })
     }

@@ -140,6 +140,11 @@ impl<'a> MaterialRefMut<'a> {
             contents: bytemuck::cast_slice(&atlas_size),
             usage: wgpu::BufferUsages::UNIFORM,
         });
+        let tiled_band_size_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&[0.0f32]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
         self.material.bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &shaders.material_bind_group_layout(),
@@ -151,6 +156,10 @@ impl<'a> MaterialRefMut<'a> {
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: atlas_size_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: tiled_band_size_buffer.as_entire_binding(),
                 },
             ],
         }));
@@ -165,6 +174,11 @@ impl<'a> MaterialRefMut<'a> {
         shaders: &Shaders,
     ) -> &mut Self {
         let texture_view = texture.create_view(&Default::default());
+        let atlas_size_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&[0.0f32, 0.0]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
         let tiled_band_size_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&[tiled_band_size]),
@@ -179,7 +193,11 @@ impl<'a> MaterialRefMut<'a> {
                     resource: wgpu::BindingResource::TextureView(&texture_view),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 3,
+                    binding: 1,
+                    resource: atlas_size_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
                     resource: tiled_band_size_buffer.as_entire_binding(),
                 },
             ],
