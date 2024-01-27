@@ -297,7 +297,7 @@ impl<'context> System<'context> for TextRenderer {
                 layout: Some(&pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &shader_module,
-                    entry_point: "main",
+                    entry_point: "main_vs",
                     buffers: &[TextVertex::desc()],
                 },
                 primitive: wgpu::PrimitiveState {
@@ -321,7 +321,15 @@ impl<'context> System<'context> for TextRenderer {
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
-                fragment: None,
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader_module,
+                    entry_point: "main_fs",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: window.texture_format(),
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::all(),
+                    })],
+                }),
                 multiview: None,
             });
         Ok(Self {
