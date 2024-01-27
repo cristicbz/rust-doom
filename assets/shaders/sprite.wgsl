@@ -35,14 +35,13 @@ const ANIM_FPS: f32 = 8.0 / 35.0;
 @vertex
 fn main_vs(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    v_tile_uv = in.a_tile_uv;
+    out.v_tile_uv = in.a_tile_uv;
     if in.a_num_frames == 1 {
         out.v_atlas_uv = in.a_atlas_uv;
     } else {
-        let frame_index = u_time / ANIM_FPS;
-        frame_index = floor(frame_index % f32(in.a_num_frames));
+        let frame_index = floor((u_time / ANIM_FPS) % f32(in.a_num_frames));
 
-        let atlas_u = in.a_atlas_uv.x + frame_index * in.a_tile_size.x;
+        var atlas_u = in.a_atlas_uv.x + frame_index * in.a_tile_size.x;
         let n_rows_down = ceil((atlas_u + in.a_tile_size.x) / u_atlas_size.x) - 1.0;
         atlas_u += (u_atlas_size.x - in.a_atlas_uv.x) % in.a_tile_size.x * n_rows_down;
 
@@ -69,8 +68,8 @@ fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
     if palette_index.g > .5 {  // Transparent pixel.
         discard;
     } else {
-        float dist_term = min(1.0, 1.0 - DIST_SCALE / (in.v_dist + DIST_SCALE));
-        float light = min(in.v_light, in.v_light * LIGHT_SCALE - dist_term);
+        let dist_term = min(1.0, 1.0 - DIST_SCALE / (in.v_dist + DIST_SCALE));
+        let light = min(in.v_light, in.v_light * LIGHT_SCALE - dist_term);
         return vec4(textureSample(u_palette, u_sampler, vec2(palette_index.r, 1.0 - light)).rgb, 1.0);
     }
 }

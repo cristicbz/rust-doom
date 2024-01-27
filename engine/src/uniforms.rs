@@ -223,7 +223,7 @@ impl Uniforms {
         let buffer = window.device().create_buffer(&wgpu::BufferDescriptor {
             label: Some(name),
             size: size as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         debug!("Buffer texture {:?} created successfully", name);

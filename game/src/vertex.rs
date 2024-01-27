@@ -15,8 +15,8 @@ pub struct StaticVertex {
     pub a_tile_size: [f32; 2],
     pub a_scroll_rate: f32,
     pub a_row_height: f32,
-    pub a_num_frames: u32,
-    pub a_light: u32,
+    pub a_num_frames: i32,
+    pub a_light: i32,
 }
 
 impl ShaderVertex for StaticVertex {
@@ -33,7 +33,7 @@ impl ShaderVertex for StaticVertex {
                         shader_location: 0,
                     },
                     wgpu::VertexAttribute {
-                        format: wgpu::VertexFormat::Float32,
+                        format: wgpu::VertexFormat::Float32x2,
                         offset: offset_of!(StaticVertex, a_atlas_uv) as u64,
                         shader_location: 1,
                     },
@@ -48,7 +48,7 @@ impl ShaderVertex for StaticVertex {
                         shader_location: 3,
                     },
                     wgpu::VertexAttribute {
-                        format: wgpu::VertexFormat::Float32x2,
+                        format: wgpu::VertexFormat::Float32,
                         offset: offset_of!(StaticVertex, a_scroll_rate) as u64,
                         shader_location: 4,
                     },
@@ -58,12 +58,12 @@ impl ShaderVertex for StaticVertex {
                         shader_location: 5,
                     },
                     wgpu::VertexAttribute {
-                        format: wgpu::VertexFormat::Uint32,
+                        format: wgpu::VertexFormat::Sint32,
                         offset: offset_of!(StaticVertex, a_num_frames) as u64,
                         shader_location: 6,
                     },
                     wgpu::VertexAttribute {
-                        format: wgpu::VertexFormat::Uint32,
+                        format: wgpu::VertexFormat::Sint32,
                         offset: offset_of!(StaticVertex, a_light) as u64,
                         shader_location: 7,
                     },
@@ -82,8 +82,8 @@ pub struct SpriteVertex {
     pub a_tile_uv: [f32; 2],
     pub a_tile_size: [f32; 2],
     pub a_local_x: f32,
-    pub a_num_frames: u32,
-    pub a_light: u32,
+    pub a_num_frames: i32,
+    pub a_light: i32,
 }
 
 impl ShaderVertex for SpriteVertex {
@@ -120,12 +120,12 @@ impl ShaderVertex for SpriteVertex {
                         shader_location: 4,
                     },
                     wgpu::VertexAttribute {
-                        format: wgpu::VertexFormat::Uint32,
+                        format: wgpu::VertexFormat::Sint32,
                         offset: offset_of!(SpriteVertex, a_num_frames) as u64,
                         shader_location: 5,
                     },
                     wgpu::VertexAttribute {
-                        format: wgpu::VertexFormat::Uint32,
+                        format: wgpu::VertexFormat::Sint32,
                         offset: offset_of!(SpriteVertex, a_light) as u64,
                         shader_location: 6,
                     },

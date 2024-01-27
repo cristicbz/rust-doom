@@ -529,9 +529,9 @@ impl<'a> Builder<'a> {
             a_tile_uv: [tile_u, tile_v],
             a_tile_size: [bounds.size[0], bounds.size[1]],
             a_scroll_rate: scroll_rate,
-            a_num_frames: bounds.num_frames as u32,
+            a_num_frames: bounds.num_frames as i32,
             a_row_height: bounds.row_height as f32,
-            a_light: light_info as u32,
+            a_light: light_info as i32,
             ..Default::default()
         });
         self
@@ -544,9 +544,9 @@ impl<'a> Builder<'a> {
             a_tile_uv: [-xz[0] * 100.0, -xz[1] * 100.0],
             a_tile_size: [bounds.size[0], bounds.size[1]],
             a_scroll_rate: 0.0,
-            a_num_frames: bounds.num_frames as u32,
+            a_num_frames: bounds.num_frames as i32,
             a_row_height: bounds.row_height as f32,
-            a_light: light_info as u32,
+            a_light: light_info as i32,
             ..Default::default()
         });
         self
@@ -576,7 +576,7 @@ impl<'a> Builder<'a> {
             a_tile_uv: [tile_u, tile_v],
             a_tile_size: [bounds.size[0], bounds.size[1]],
             a_num_frames: 1,
-            a_light: light_info as u32,
+            a_light: light_info as i32,
             ..Default::default()
         });
         self
