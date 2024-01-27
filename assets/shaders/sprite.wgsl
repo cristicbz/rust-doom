@@ -22,7 +22,7 @@ struct VertexInput {
 }
 
 struct VertexOutput {
-    @builtin(position) clip_position: vec3<f32>,
+    @builtin(position) clip_position: vec4<f32>,
     @location(0) v_dist: f32,
     @location(1) v_tile_uv: vec2<f32>,
     @location(2) v_atlas_uv: vec2<f32>,
@@ -40,11 +40,11 @@ fn main_vs(in: VertexInput) -> VertexOutput {
         out.v_atlas_uv = in.a_atlas_uv;
     } else {
         let frame_index = u_time / ANIM_FPS;
-        frame_index = floor(mod(frame_index, f32(in.a_num_frames)));
+        frame_index = floor(frame_index % f32(in.a_num_frames));
 
         let atlas_u = in.a_atlas_uv.x + frame_index * in.a_tile_size.x;
         let n_rows_down = ceil((atlas_u + in.a_tile_size.x) / u_atlas_size.x) - 1.0;
-        atlas_u += mod(u_atlas_size.x - in.a_atlas_uv.x, in.a_tile_size.x) * n_rows_down;
+        atlas_u += (u_atlas_size.x - in.a_atlas_uv.x) % in.a_tile_size.x * n_rows_down;
 
         let atlas_v = in.a_atlas_uv.y + n_rows_down * in.a_tile_size.y;
         out.v_atlas_uv = vec2(atlas_u, atlas_v);
@@ -53,7 +53,7 @@ fn main_vs(in: VertexInput) -> VertexOutput {
 
     let pos = in.a_pos + u_right * in.a_local_x;
     let projected_pos = u_viewproj * (u_model * vec4(pos, 1.0));
-    out.v_light = u_lights[in.a_light];
+    out.v_light = f32(u_lights[in.a_light]);
     out.v_dist = projected_pos.w;
     out.clip_position = projected_pos;
     return out;
@@ -64,7 +64,7 @@ const LIGHT_SCALE: f32 = 2.0;
 
 @fragment
 fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
-    let uv = mod(in.v_tile_uv, in.v_tile_size) + in.v_atlas_uv;
+    let uv = in.v_tile_uv % in.v_tile_size + in.v_atlas_uv;
     let palette_index = textureSample(u_atlas, u_sampler, uv / u_atlas_size).rg;
     if palette_index.g > .5 {  // Transparent pixel.
         discard;

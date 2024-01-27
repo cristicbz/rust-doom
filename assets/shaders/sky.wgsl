@@ -31,11 +31,9 @@ fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
     let uv = vec2(in.v_p.x, in.v_p.y) / in.v_p.w * vec2(1, -1);
     uv = vec2(uv.x - 4.0 * in.v_r.x / 3.14159265358, uv.y + 1.0 + in.v_r.y);
     if uv.y < 0.0 {
-        uv.y = abs(mod(-uv.y + u_tiled_band_size,
-            u_tiled_band_size * 2.0) - u_tiled_band_size);
+        uv.y = abs((-uv.y + u_tiled_band_size) % (u_tiled_band_size * 2.0) - u_tiled_band_size);
     } else if uv.y >= 2.0 {
-        uv.y = abs(mod(uv.y - 2.0 + u_tiled_band_size,
-            u_tiled_band_size * 2.0) - u_tiled_band_size);
+        uv.y = abs((uv.y - 2.0 + u_tiled_band_size) % (u_tiled_band_size * 2.0) - u_tiled_band_size);
     } else if uv.y >= 1.0 {
         uv.y = 1.0 - uv.y;
     }
