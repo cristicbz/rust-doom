@@ -1,3 +1,4 @@
+use engine::LIGHTS_COUNT;
 use wad::{LightEffectKind, LightInfo};
 
 pub struct Lights {
@@ -7,7 +8,7 @@ pub struct Lights {
 impl Lights {
     pub fn new() -> Self {
         Self {
-            lights: Vec::with_capacity(256),
+            lights: Vec::with_capacity(LIGHTS_COUNT),
         }
     }
 

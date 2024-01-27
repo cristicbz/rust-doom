@@ -1,7 +1,7 @@
 @group(0) @binding(0) var<uniform> u_viewproj: mat4x4<f32>;
 // TODO: There should be a separate sampler for the palette, using clamp semantics rather than repeat
 @group(0) @binding(1) var u_sampler: sampler;
-@group(0) @binding(2) var<uniform> u_lights: array<u8>;
+@group(0) @binding(2) var<storage, read> u_lights: array<u8>;
 @group(0) @binding(3) var<uniform> u_time: f32;
 @group(0) @binding(4) var u_palette: texture_2d<f32>;
 

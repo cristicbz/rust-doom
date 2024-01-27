@@ -7,13 +7,15 @@ use crate::internal_derive::DependenciesFrom;
 
 use failchain::ResultExt;
 use idcontain::IdMapVec;
-use log::{debug, error};
+use log::{debug, error, info};
 use math::{Mat4, Vec2, Vec3};
 use std::fs::File;
 use std::io::Read;
 use std::io::Result as IoResult;
-use std::num::{NonZeroU32, NonZeroU64};
+use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
+
+pub const LIGHTS_COUNT: usize = 256;
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Copy, Clone)]
 pub struct ShaderId(pub EntityId);
@@ -169,6 +171,7 @@ impl<'context> InfallibleSystem<'context> for Shaders {
     }
 
     fn create(deps: Dependencies) -> Self {
+        info!("Shaders::create: Enter");
         let global_bind_group_layout = deps.window.device().create_bind_group_layout(
             &wgpu::BindGroupLayoutDescriptor {
                 label: Some("global_bind_group_layout"),
@@ -193,11 +196,13 @@ impl<'context> InfallibleSystem<'context> for Shaders {
                         binding: 2,
                         visibility: wgpu::ShaderStages::VERTEX,
                         ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
-                            min_binding_size: NonZeroU64::new(std::mem::size_of::<u8>() as u64),
+                            min_binding_size: NonZeroU64::new(
+                                (LIGHTS_COUNT * std::mem::size_of::<u8>()) as u64,
+                            ),
                         },
-                        count: NonZeroU32::new(256),
+                        count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 3,
@@ -280,7 +285,7 @@ impl<'context> InfallibleSystem<'context> for Shaders {
                             count: None,
                         },
                         wgpu::BindGroupLayoutEntry {
-                            binding: 0,
+                            binding: 1,
                             visibility: wgpu::ShaderStages::VERTEX,
                             ty: wgpu::BindingType::Buffer {
                                 ty: wgpu::BufferBindingType::Uniform,
