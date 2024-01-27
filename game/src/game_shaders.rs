@@ -129,7 +129,7 @@ impl<'context> Dependencies<'context> {
             "palette",
             &palette.pixels,
             Vec2::new(COLORMAP_SIZE, palette.pixels.len() / PALETTE_SIZE),
-            wgpu::TextureFormat::Rgba8Unorm,
+            wgpu::TextureFormat::R8Unorm,
         )
     }
 
@@ -148,9 +148,24 @@ impl<'context> Dependencies<'context> {
             BufferTextureType::Float,
         )?;
 
-        let static_shader = self.load_shader::<StaticVertex>(parent, "static_shader", "static")?;
-        let sky_shader = self.load_shader::<SkyVertex>(parent, "sky_shader", "sky")?;
-        let sprite_shader = self.load_shader::<SpriteVertex>(parent, "sprite_shader", "sprite")?;
+        let static_shader = self.load_shader::<StaticVertex>(
+            parent,
+            "static_shader",
+            "static",
+            include_str!("../../assets/shaders/static.wgsl"),
+        )?;
+        let sky_shader = self.load_shader::<SkyVertex>(
+            parent,
+            "sky_shader",
+            "sky",
+            include_str!("../../assets/shaders/sky.wgsl"),
+        )?;
+        let sprite_shader = self.load_shader::<SpriteVertex>(
+            parent,
+            "sprite_shader",
+            "sprite",
+            include_str!("../../assets/shaders/sprite.wgsl"),
+        )?;
 
         self.uniforms
             .set_globals(self.window.device(), self.shaders, &lights_buffer, &palette);
@@ -405,9 +420,10 @@ impl<'context> Dependencies<'context> {
         parent: EntityId,
         name: &'static str,
         asset: &'static str,
+        wgsl_source: &'static str,
     ) -> Result<ShaderId> {
         self.shaders
-            .add::<VertexT>(self.window, self.entities, parent, name, asset)
+            .add::<VertexT>(self.window, self.entities, parent, name, asset, wgsl_source)
     }
 }
 

@@ -40,12 +40,10 @@ impl Shaders {
         parent: EntityId,
         name: &'static str,
         asset_path: &'static str,
+        wgsl_source: &'static str,
     ) -> Result<ShaderId> {
         let mut fragment_path = self.root.clone();
         fragment_path.push(asset_path);
-
-        let wgsl_path = fragment_path.clone();
-        fragment_path.set_extension("wgsl");
 
         let mut vertex_path = fragment_path.clone();
         fragment_path.set_extension("frag");
@@ -67,7 +65,7 @@ impl Shaders {
             .device()
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some(name),
-                source: wgpu::ShaderSource::Wgsl(wgsl_path.to_string_lossy().into()),
+                source: wgpu::ShaderSource::Wgsl(wgsl_source.into()),
             });
 
         let pipeline_layout =

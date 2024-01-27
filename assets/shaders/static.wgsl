@@ -67,8 +67,8 @@ fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
     if palette_index.g > .5 {  // Transparent pixel.
         discard;
     } else {
-        float dist_term = min(1.0, 1.0 - DIST_SCALE / (v_dist + DIST_SCALE));
-        float light = v_light * LIGHT_SCALE - dist_term;
+        let dist_term = min(1.0, 1.0 - DIST_SCALE / (v_dist + DIST_SCALE));
+        let light = v_light * LIGHT_SCALE - dist_term;
         return vec4(textureSample(u_palette, u_sampler, vec2(palette_index.r, 1.0 - light)).rgb, 1.0);
     }
 }
