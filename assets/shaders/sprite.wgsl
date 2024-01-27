@@ -12,22 +12,22 @@
 @group(2) @binding(1) var<uniform> u_right: vec3<f32>;
 
 struct VertexInput {
-    @location(0) a_pos: vec3<f32>;
-    @location(1) a_atlas_uv: vec2<f32>;
-    @location(2) a_tile_uv: vec2<f32>;
-    @location(3) a_tile_size: vec2<f32>;
-    @location(4) a_local_x: f32;
-    @location(5) a_num_frames: i32;
-    @location(6) a_light: i32;
+    @location(0) a_pos: vec3<f32>,
+    @location(1) a_atlas_uv: vec2<f32>,
+    @location(2) a_tile_uv: vec2<f32>,
+    @location(3) a_tile_size: vec2<f32>,
+    @location(4) a_local_x: f32,
+    @location(5) a_num_frames: i32,
+    @location(6) a_light: i32,
 }
 
 struct VertexOutput {
-    @builtin(position) clip_position: vec3<f32>;
-    @location(0) v_dist: f32;
-    @location(1) v_tile_uv: vec2<f32>;
-    @location(2) v_atlas_uv: vec2<f32>;
-    @location(3) v_tile_size: vec2<f32>;
-    @location(4) v_light: f32;
+    @builtin(position) clip_position: vec3<f32>,
+    @location(0) v_dist: f32,
+    @location(1) v_tile_uv: vec2<f32>,
+    @location(2) v_atlas_uv: vec2<f32>,
+    @location(3) v_tile_size: vec2<f32>,
+    @location(4) v_light: f32,
 }
 
 const ANIM_FPS: f32 = 8.0 / 35.0;

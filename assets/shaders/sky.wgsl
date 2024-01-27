@@ -9,9 +9,9 @@
 @group(2) @binding(0) var<uniform> u_model: mat4x4<f32>;
 
 struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>;
-    @location(0) v_r: vec2<f32>;
-    @location(1) v_p: vec4<f32>;
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) v_r: vec2<f32>,
+    @location(1) v_p: vec4<f32>,
 }
 
 @vertex
