@@ -2,7 +2,6 @@
 
 use bytemuck::{offset_of, Pod, Zeroable};
 use engine::ShaderVertex;
-use glium::implement_vertex;
 use std::sync::OnceLock;
 use wgpu::VertexAttribute;
 
@@ -74,18 +73,6 @@ impl ShaderVertex for StaticVertex {
     }
 }
 
-implement_vertex! {
-    StaticVertex,
-    a_pos,
-    a_atlas_uv,
-    a_tile_uv,
-    a_tile_size,
-    a_scroll_rate,
-    a_row_height,
-    a_num_frames,
-    a_light,
-}
-
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable, Default)]
 pub struct SpriteVertex {
@@ -148,17 +135,6 @@ impl ShaderVertex for SpriteVertex {
     }
 }
 
-implement_vertex! {
-    SpriteVertex,
-    a_pos,
-    a_atlas_uv,
-    a_tile_uv,
-    a_tile_size,
-    a_local_x,
-    a_num_frames,
-    a_light,
-}
-
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable, Default)]
 pub struct SkyVertex {
@@ -181,9 +157,4 @@ impl ShaderVertex for SkyVertex {
             }),
         }
     }
-}
-
-implement_vertex! {
-    SkyVertex,
-    a_pos,
 }
