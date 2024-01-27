@@ -7,7 +7,7 @@ use crate::internal_derive::DependenciesFrom;
 
 use failchain::ResultExt;
 use idcontain::IdMapVec;
-use log::{debug, error, info};
+use log::{debug, error};
 use math::{Mat4, Vec2, Vec3};
 use std::fs::File;
 use std::io::Read;
@@ -171,7 +171,6 @@ impl<'context> InfallibleSystem<'context> for Shaders {
     }
 
     fn create(deps: Dependencies) -> Self {
-        info!("Shaders::create: Enter");
         let global_bind_group_layout = deps.window.device().create_bind_group_layout(
             &wgpu::BindGroupLayoutDescriptor {
                 label: Some("global_bind_group_layout"),
