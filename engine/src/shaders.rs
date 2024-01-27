@@ -196,7 +196,7 @@ impl<'context> InfallibleSystem<'context> for Shaders {
                             ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
                             min_binding_size: NonZeroU64::new(
-                                (LIGHTS_COUNT * std::mem::size_of::<u8>()) as u64,
+                                (LIGHTS_COUNT * std::mem::size_of::<u32>()) as u64,
                             ),
                         },
                         count: None,

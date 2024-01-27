@@ -4,7 +4,7 @@ use super::wad_system::WadSystem;
 use engine::{
     BufferTextureType, DependenciesFrom, Entities, EntityId, Error, FloatUniformId, MaterialId,
     Materials, RenderPipeline, Result, ShaderId, ShaderVertex, Shaders, System, Tick, Uniforms,
-    Window,
+    Window, LIGHTS_COUNT,
 };
 use log::{error, info};
 use math::Vec2;
@@ -139,12 +139,12 @@ impl<'context> Dependencies<'context> {
         let time = self
             .uniforms
             .add_float(self.entities, parent, "time_uniform", 0.0)?;
-        let lights_buffer = self.uniforms.add_persistent_buffer_u8(
+        let lights_buffer = self.uniforms.add_persistent_buffer(
             self.window,
             self.entities,
             parent,
             "lights_buffer_texture",
-            256,
+            LIGHTS_COUNT * std::mem::size_of::<u32>(),
             BufferTextureType::Float,
         )?;
 

@@ -207,7 +207,7 @@ impl Uniforms {
     }
 
     // TODO(cristicbz): Make u8 a type param.
-    pub fn add_persistent_buffer_u8(
+    pub fn add_persistent_buffer(
         &mut self,
         window: &Window,
         entities: &mut Entities,
@@ -235,13 +235,17 @@ impl Uniforms {
         Ok(buffer)
     }
 
-    pub fn map_buffer_u8<F>(&mut self, buffer: &wgpu::Buffer, writer: F, queue: &wgpu::Queue)
-    where
-        F: FnOnce(&mut [u8]),
+    pub fn map_buffer<F, T: Default + Clone + Pod>(
+        &mut self,
+        buffer: &wgpu::Buffer,
+        writer: F,
+        queue: &wgpu::Queue,
+    ) where
+        F: FnOnce(&mut [T]),
     {
-        let mut data = vec![0u8; buffer.size() as usize];
+        let mut data = vec![T::default(); buffer.size() as usize / std::mem::size_of::<T>()];
         writer(&mut data);
-        queue.write_buffer(buffer, 0, &data);
+        queue.write_buffer(buffer, 0, bytemuck::cast_slice(&data));
     }
 
     #[inline]
