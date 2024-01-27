@@ -11,6 +11,8 @@ use super::transforms::Transforms;
 use super::uniforms::Uniforms;
 use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
+use crate::ErrorKind;
+use failchain::ResultExt;
 use log::{error, info};
 use math::{prelude::*, Mat4};
 
@@ -20,7 +22,7 @@ pub struct Dependencies<'context> {
     meshes: &'context Meshes,
     materials: &'context Materials,
     shaders: &'context Shaders,
-    _text: &'context TextRenderer,
+    text: &'context TextRenderer,
     window: &'context Window,
     transforms: &'context Transforms,
     projections: &'context Projections,
@@ -195,18 +197,18 @@ impl<'context> System<'context> for Renderer {
                 render_pass.draw_indexed(0..mesh.index_count(), 0, 0..1);
             }
 
-            // Render text. TODO(cristicbz): text should render itself :(
-            // TODO
-            // deps.text
-            //     .render(&mut frame)
-            //     .chain_err(|| ErrorKind::System("render bypass", TextRenderer::debug_name()))?;
-
             // Remove any missing models.
             for &index in self.removed.iter().rev() {
                 pipe.models.remove_by_index(index);
             }
             self.removed.clear();
         }
+
+        // Render text. TODO(cristicbz): text should render itself :(
+        deps.text
+            .render(&mut encoder, &self.view)
+            .chain_err(|| ErrorKind::System("render bypass", TextRenderer::debug_name()))?;
+
         deps.window.queue().submit([encoder.finish()]);
         surface_texture.present();
         Ok(())
