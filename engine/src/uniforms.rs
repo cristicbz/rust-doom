@@ -240,9 +240,8 @@ impl Uniforms {
         lights_buffer: &wgpu::Buffer,
         palette: &wgpu::Texture,
     ) {
-        // TODO: Create a second sampler for the palette, using clamp address mode.
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("Texture sampler"),
+        let atlas_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Atlas sampler"),
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::Repeat,
             address_mode_w: wgpu::AddressMode::Repeat,
@@ -252,6 +251,16 @@ impl Uniforms {
             ..Default::default()
         });
         let palette_view = palette.create_view(&Default::default());
+        let palette_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Palette sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
         self.global_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Global bind group"),
             layout: shaders.global_bind_group_layout(),
@@ -262,7 +271,7 @@ impl Uniforms {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
+                    resource: wgpu::BindingResource::Sampler(&atlas_sampler),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
@@ -275,6 +284,10 @@ impl Uniforms {
                 wgpu::BindGroupEntry {
                     binding: 4,
                     resource: wgpu::BindingResource::TextureView(&palette_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::Sampler(&palette_sampler),
                 },
             ],
         }))

@@ -1,9 +1,9 @@
 @group(0) @binding(0) var<uniform> u_viewproj: mat4x4<f32>;
-// TODO: There should be a separate sampler for the palette, using clamp semantics rather than repeat
-@group(0) @binding(1) var u_sampler: sampler;
+@group(0) @binding(1) var u_atlas_sampler: sampler;
 @group(0) @binding(2) var<storage, read> u_lights: array<u32>;
 @group(0) @binding(3) var<uniform> u_time: f32;
 @group(0) @binding(4) var u_palette: texture_2d<f32>;
+@group(0) @binding(5) var u_palette_sampler: sampler;
 
 @group(1) @binding(0) var u_atlas: texture_2d<f32>;
 @group(1) @binding(1) var<uniform> u_atlas_size: vec2<f32>;
@@ -64,12 +64,12 @@ const LIGHT_SCALE: f32 = 2.0;
 @fragment
 fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
     let uv = in.v_tile_uv % in.v_tile_size + in.v_atlas_uv;
-    let palette_index = textureSample(u_atlas, u_sampler, uv / u_atlas_size).rg;
+    let palette_index = textureSample(u_atlas, u_atlas_sampler, uv / u_atlas_size).rg;
     if palette_index.g > .5 {  // Transparent pixel.
         discard;
     } else {
         let dist_term = min(1.0, 1.0 - DIST_SCALE / (in.v_dist + DIST_SCALE));
         let light = min(in.v_light, in.v_light * LIGHT_SCALE - dist_term);
-        return vec4(textureSample(u_palette, u_sampler, vec2(palette_index.r, 1.0 - light)).rgb, 1.0);
+        return vec4(textureSample(u_palette, u_palette_sampler, vec2(palette_index.r, 1.0 - light)).rgb, 1.0);
     }
 }

@@ -1,7 +1,7 @@
 @group(0) @binding(0) var<uniform> u_viewproj: mat4x4<f32>;
-// TODO: There should be a separate sampler for the palette, using clamp semantics rather than repeat
-@group(0) @binding(1) var u_sampler: sampler;
+@group(0) @binding(1) var u_atlas_sampler: sampler;
 @group(0) @binding(4) var u_palette: texture_2d<f32>;
+@group(0) @binding(5) var u_palette_sampler: sampler;
 
 @group(1) @binding(0) var u_texture: texture_2d<f32>;
 @group(1) @binding(2) var<uniform> u_tiled_band_size: f32;
@@ -37,6 +37,6 @@ fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
     } else if uv.y >= 1.0 {
         uv.y = 1.0 - uv.y;
     }
-    let palette_index = textureSample(u_texture, u_sampler, uv).r;
-    return vec4(textureSample(u_palette, u_sampler, vec2(palette_index, 0.0)).rgb, 1.0);
+    let palette_index = textureSample(u_texture, u_atlas_sampler, uv).r;
+    return vec4(textureSample(u_palette, u_palette_sampler, vec2(palette_index, 0.0)).rgb, 1.0);
 }
