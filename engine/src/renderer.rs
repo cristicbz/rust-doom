@@ -175,18 +175,16 @@ impl<'context> System<'context> for Renderer {
                     continue;
                 };
 
-                if let Some(model_transform) = deps.transforms.get_absolute(entity) {
+                let right = if let Some(model_transform) = deps.transforms.get_absolute(entity) {
                     mesh.update_model(*model_transform, deps.window.queue());
-                    let right = view_transform
-                        .inverse_transform_vector(
-                            model_transform.transform_vector(Vector3::new(1.0, 0.0, 0.0)),
-                        )
-                        .expect("view transform should be invertible");
-                    mesh.update_right(right, deps.window.queue());
+                    model_transform.transform_vector(Vector3::new(1.0, 0.0, 0.0))
                 } else {
-                    let right = view_transform.transform_vector(Vector3::new(1.0, 0.0, 0.0));
-                    mesh.update_right(right, deps.window.queue());
-                }
+                    Vector3::new(1.0, 0.0, 0.0)
+                };
+                let right = view_transform
+                    .inverse_transform_vector(right)
+                    .expect("view transform should be invertible");
+                mesh.update_right(right, deps.window.queue());
 
                 let material = if let Some(material) = deps.materials.get(deps.shaders, material) {
                     material
