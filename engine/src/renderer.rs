@@ -180,6 +180,9 @@ impl<'context> System<'context> for Renderer {
                     let right = view_transform
                         .transform_vector(transform.transform_vector(Vector3::new(1.0, 0.0, 0.0)));
                     mesh.update_right(right, deps.window.queue());
+                } else {
+                    let right = view_transform.transform_vector(Vector3::new(1.0, 0.0, 0.0));
+                    mesh.update_right(right, deps.window.queue());
                 }
 
                 let material = if let Some(material) = deps.materials.get(deps.shaders, material) {
