@@ -27,7 +27,3 @@ lock_api = "0.4.11"
 [dependencies.log]
 features = ["release_max_level_info"]
 version = "0.4.14"
-
-[dependencies.glium]
-features = ["glutin"]
-version = "0.34.0"

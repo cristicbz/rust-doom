@@ -41,11 +41,6 @@ pub use self::uniforms::{
     Vec2fUniformId,
 };
 pub use self::window::{Window, WindowConfig};
-pub use glium::texture::buffer_texture::BufferTextureType;
-pub use glium::texture::{ClientFormat, PixelValue};
-pub use glium::uniforms::{
-    MagnifySamplerFilter, MinifySamplerFilter, SamplerBehavior, SamplerWrapFunction,
-};
 
 mod internal_derive {
     pub use super::context::DependenciesFrom;
