@@ -16,7 +16,7 @@ use failchain::ResultExt;
 use log::{error, info};
 use math::{prelude::*, Mat4};
 
-pub(crate) const MSAA_SAMPLE_COUNT: u32 = 1;
+pub(crate) const MSAA_SAMPLE_COUNT: u32 = 4;
 
 #[derive(DependenciesFrom)]
 pub struct Dependencies<'context> {
