@@ -169,6 +169,7 @@ pub struct WadTexturePatchRef {
 }
 
 pub const PALETTE_SIZE: usize = 256 * 3;
+pub const MAPPED_PALETTE_SIZE: usize = 256 * 4;
 pub const COLORMAP_SIZE: usize = 256;
 
 pub struct Palette(pub [u8; PALETTE_SIZE]);

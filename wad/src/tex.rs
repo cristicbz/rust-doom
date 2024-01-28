@@ -141,7 +141,7 @@ impl TextureDirectory {
         colormap_end: usize,
     ) -> MappedPalette {
         let num_colormaps = colormap_end - colormap_start;
-        let mut mapped = vec![0u8; 256 * num_colormaps * 3];
+        let mut mapped = vec![0u8; 256 * num_colormaps * 4];
         let palette = &self.palettes[palette];
 
         let colormaps_with_offsets = self
@@ -154,8 +154,9 @@ impl TextureDirectory {
 
         for (offset, colormap) in colormaps_with_offsets {
             for (i_color, color) in colormap.0.iter().enumerate() {
-                mapped[i_color * 3 + offset..][..3]
+                mapped[i_color * 4 + offset..][..3]
                     .copy_from_slice(&palette.0[usize::from(*color) * 3..][..3]);
+                mapped[i_color * 4 + offset..][3] = 255;
             }
         }
 

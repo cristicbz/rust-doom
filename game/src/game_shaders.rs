@@ -9,7 +9,7 @@ use engine::{
 use log::{error, info};
 use math::Vec2;
 use wad::tex::BoundsLookup;
-use wad::types::{COLORMAP_SIZE, PALETTE_SIZE};
+use wad::types::{COLORMAP_SIZE, MAPPED_PALETTE_SIZE};
 use wad::util::{is_sky_flat, is_untextured};
 use wad::{OpaqueImage as WadOpaqueImage, TransparentImage as WadTransparentImage, WadName};
 
@@ -128,8 +128,8 @@ impl<'context> Dependencies<'context> {
             parent,
             "palette",
             &palette.pixels,
-            Vec2::new(COLORMAP_SIZE, palette.pixels.len() / PALETTE_SIZE),
-            wgpu::TextureFormat::R8Unorm,
+            Vec2::new(COLORMAP_SIZE, palette.pixels.len() / MAPPED_PALETTE_SIZE),
+            wgpu::TextureFormat::Rgba8Unorm,
         )
     }
 
