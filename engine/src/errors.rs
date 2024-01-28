@@ -63,14 +63,4 @@ impl ChainErrorKind for ErrorKind {
     type Error = Error;
 }
 
-pub(crate) trait ConvertGlium: Fail + Sized {
-    fn convert_glium(self, needed_by: String) -> ErrorKind;
-}
-
 pub(crate) trait UnsupportedFeature: Fail + Sized {}
-
-impl<T: UnsupportedFeature> ConvertGlium for T {
-    fn convert_glium(self, needed_by: String) -> ErrorKind {
-        ErrorKind::UnsupportedFeature { needed_by }
-    }
-}
