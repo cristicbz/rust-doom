@@ -1,5 +1,6 @@
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::forget_copy))]
 
+use crate::renderer::MSAA_SAMPLE_COUNT;
 use crate::ShaderVertex;
 
 use super::system::System;
@@ -311,7 +312,7 @@ impl<'context> System<'context> for TextRenderer {
                 },
                 depth_stencil: None,
                 multisample: wgpu::MultisampleState {
-                    count: 1,
+                    count: MSAA_SAMPLE_COUNT,
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
