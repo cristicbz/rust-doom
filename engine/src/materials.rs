@@ -2,7 +2,7 @@ use super::entities::{Entities, Entity, EntityId};
 use super::errors::Result;
 use super::shaders::{ShaderId, Shaders};
 use super::system::InfallibleSystem;
-use super::uniforms::{UniformId, Uniforms};
+use super::uniforms::UniformId;
 use idcontain::IdMapVec;
 use log::{debug, error};
 use wgpu::util::DeviceExt;
@@ -59,7 +59,6 @@ impl Materials {
     pub fn get<'a>(
         &'a self,
         shaders: &'a Shaders,
-        uniforms: &'a Uniforms,
         material_id: MaterialId,
     ) -> Option<MaterialRef<'a>> {
         let material = self.map.get(material_id.0)?;
@@ -71,26 +70,6 @@ impl Materials {
             );
             return None;
         };
-
-        let mut uniform_values = [None; MAX_UNIFORMS];
-        for (value, &uniform) in (&mut uniform_values[..])
-            .iter_mut()
-            .zip(&material.uniforms[..])
-        {
-            if let Some((name, id)) = uniform {
-                if let Some(uniform_value) = uniforms.get_value(id) {
-                    *value = Some((name, uniform_value));
-                } else {
-                    error!(
-                        "Missing uniform for material {:?}: name={:?} id={:?}",
-                        material_id, name, id
-                    );
-                    return None;
-                }
-            } else {
-                break;
-            }
-        }
 
         Some(MaterialRef {
             pipeline,

@@ -174,9 +174,7 @@ impl<'context> System<'context> for Renderer {
 
                 // TODO: Set u_right on the mesh
 
-                let material = if let Some(material) =
-                    deps.materials.get(deps.shaders, deps.uniforms, material)
-                {
+                let material = if let Some(material) = deps.materials.get(deps.shaders, material) {
                     material
                 } else {
                     // If there is a mesh but no material, the model is badly set up. This is an

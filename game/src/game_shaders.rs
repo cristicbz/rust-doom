@@ -2,9 +2,9 @@ use crate::vertex::{SkyVertex, SpriteVertex, StaticVertex};
 
 use super::wad_system::WadSystem;
 use engine::{
-    BufferTextureType, DependenciesFrom, Entities, EntityId, Error, FloatUniformId, MaterialId,
-    Materials, RenderPipeline, Result, ShaderId, ShaderVertex, Shaders, System, Tick, Uniforms,
-    Window, LIGHTS_COUNT,
+    DependenciesFrom, Entities, EntityId, Error, FloatUniformId, MaterialId, Materials,
+    RenderPipeline, Result, ShaderId, ShaderVertex, Shaders, System, Tick, Uniforms, Window,
+    LIGHTS_COUNT,
 };
 use log::{error, info};
 use math::Vec2;
@@ -145,7 +145,6 @@ impl<'context> Dependencies<'context> {
             parent,
             "lights_buffer_texture",
             LIGHTS_COUNT * std::mem::size_of::<u32>(),
-            BufferTextureType::Float,
         )?;
 
         let static_shader = self.load_shader::<StaticVertex>(

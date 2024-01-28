@@ -7,9 +7,6 @@ use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
 use bytemuck::Pod;
 use cgmath::SquareMatrix;
-use glium::buffer::Content as BufferContent;
-use glium::texture::buffer_texture::{BufferTexture, BufferTextureType};
-use glium::uniforms::{AsUniformValue, UniformValue};
 use idcontain::IdMapVec;
 use log::{debug, error};
 use math::{Mat4, Vec2, Vec2f};
@@ -23,10 +20,7 @@ pub struct Texture2dId(EntityId);
 pub struct FloatUniformId(EntityId);
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Copy, Clone)]
-pub struct BufferTextureId<T>
-where
-    [T]: BufferContent,
-{
+pub struct BufferTextureId<T> {
     id: EntityId,
 
     _phantom: PhantomData<*const T>,
@@ -51,7 +45,6 @@ pub struct Uniforms {
     // TODO(cristicbz): Textures should be their own resource!
     texture2ds: IdMapVec<Entity, Texture2d>,
     floats: IdMapVec<Entity, f32>,
-    buffer_textures_u8: IdMapVec<Entity, BufferTexture<u8>>,
     mat4s: IdMapVec<Entity, Mat4>,
     vec2fs: IdMapVec<Entity, Vec2f>,
     global_bind_group: Option<wgpu::BindGroup>,
@@ -66,7 +59,6 @@ impl Uniforms {
         let Uniforms {
             ref mut texture2ds,
             ref mut floats,
-            ref mut buffer_textures_u8,
             ref mut mat4s,
             ref mut vec2fs,
             global_bind_group: _,
@@ -79,9 +71,6 @@ impl Uniforms {
             }
             if floats.remove(entity).is_some() {
                 debug!("Removed uniform<float> {:?}.", entity);
-            }
-            if buffer_textures_u8.remove(entity).is_some() {
-                debug!("Removed uniform<buffer_textures_u8> {:?}.", entity);
             }
             if mat4s.remove(entity).is_some() {
                 debug!("Removed uniform<mat4> {:?}.", entity);
@@ -214,12 +203,8 @@ impl Uniforms {
         parent: EntityId,
         name: &'static str,
         size: usize,
-        texture_type: BufferTextureType,
     ) -> Result<wgpu::Buffer> {
-        debug!(
-            "Creating persistent buffer {:?}, size={:?}, type={:?}",
-            name, size, texture_type
-        );
+        debug!("Creating persistent buffer {:?}, size={:?}", name, size);
         let buffer = window.device().create_buffer(&wgpu::BufferDescriptor {
             label: Some(name),
             size: size as u64,
@@ -246,33 +231,6 @@ impl Uniforms {
         let mut data = vec![T::default(); buffer.size() as usize / std::mem::size_of::<T>()];
         writer(&mut data);
         queue.write_buffer(buffer, 0, bytemuck::cast_slice(&data));
-    }
-
-    #[inline]
-    pub fn get_value(&self, id: UniformId) -> Option<UniformValue> {
-        match id {
-            UniformId::Texture2d(_) => unimplemented!(),
-            UniformId::Float(id) => self
-                .floats
-                .get(id.0)
-                .map(|&value| UniformValue::Float(value)),
-            UniformId::Vec2f(id) => self
-                .vec2fs
-                .get(id.0)
-                .map(|vec2| UniformValue::Vec2([vec2[0], vec2[1]])),
-            UniformId::Mat4(id) => self.mat4s.get(id.0).map(|mat4| {
-                UniformValue::Mat4([
-                    [mat4[0][0], mat4[0][1], mat4[0][2], mat4[0][3]],
-                    [mat4[1][0], mat4[1][1], mat4[1][2], mat4[1][3]],
-                    [mat4[2][0], mat4[2][1], mat4[2][2], mat4[2][3]],
-                    [mat4[3][0], mat4[3][1], mat4[3][2], mat4[3][3]],
-                ])
-            }),
-            UniformId::BufferTextureU8(id) => self
-                .buffer_textures_u8
-                .get(id.id)
-                .map(AsUniformValue::as_uniform_value),
-        }
     }
 
     pub fn set_globals(
@@ -415,7 +373,6 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
         Uniforms {
             texture2ds: IdMapVec::with_capacity(32),
             floats: IdMapVec::with_capacity(32),
-            buffer_textures_u8: IdMapVec::with_capacity(32),
             mat4s: IdMapVec::with_capacity(32),
             vec2fs: IdMapVec::with_capacity(32),
             global_bind_group: None,
@@ -430,7 +387,6 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
         let Uniforms {
             ref mut texture2ds,
             ref mut floats,
-            ref mut buffer_textures_u8,
             ref mut mat4s,
             ref mut vec2fs,
             global_bind_group: _,
@@ -443,9 +399,6 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
             }
             if floats.remove(entity).is_some() {
                 debug!("Removed uniform<float> {:?}.", entity);
-            }
-            if buffer_textures_u8.remove(entity).is_some() {
-                debug!("Removed uniform<buffer_textures<u8>> {:?}.", entity);
             }
             if mat4s.remove(entity).is_some() {
                 debug!("Removed uniform<mat4> {:?}.", entity);
@@ -471,13 +424,6 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
 
         if !self.floats.is_empty() {
             error!("Uniforms <float> leaked, {} instances.", self.floats.len());
-        }
-
-        if !self.buffer_textures_u8.is_empty() {
-            error!(
-                "Uniforms <buffer_textures<u8>> leaked, {} instances.",
-                self.buffer_textures_u8.len()
-            );
         }
 
         if !self.mat4s.is_empty() {
