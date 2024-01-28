@@ -12,6 +12,7 @@ use super::uniforms::Uniforms;
 use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
 use crate::ErrorKind;
+use cgmath::Vector3;
 use failchain::ResultExt;
 use log::{error, info};
 use math::{prelude::*, Mat4};
@@ -174,7 +175,12 @@ impl<'context> System<'context> for Renderer {
                     continue;
                 };
 
-                // TODO: Set u_right on the mesh
+                if let Some(transform) = deps.transforms.get_absolute(entity) {
+                    mesh.update_model(*transform, deps.window.queue());
+                    let right = view_transform
+                        .transform_vector(transform.transform_vector(Vector3::new(1.0, 0.0, 0.0)));
+                    mesh.update_right(right, deps.window.queue());
+                }
 
                 let material = if let Some(material) = deps.materials.get(deps.shaders, material) {
                     material

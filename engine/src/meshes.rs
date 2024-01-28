@@ -4,10 +4,10 @@ use super::entities::{Entities, Entity, EntityId};
 use super::errors::Result;
 use super::system::InfallibleSystem;
 use bytemuck::Pod;
-use cgmath::SquareMatrix;
+use cgmath::{Quaternion, SquareMatrix, Vector3};
 use idcontain::IdMapVec;
 use log::{debug, error};
-use math::Mat4;
+use math::{Decomposed, Mat4};
 use wgpu::util::DeviceExt;
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Copy, Clone)]
@@ -30,13 +30,13 @@ impl Meshes {
         let model_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&model_transform),
-            usage: wgpu::BufferUsages::UNIFORM,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
         let right_vector = [1.0f32, 0.0, 0.0];
         let right_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&right_vector),
-            usage: wgpu::BufferUsages::UNIFORM,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
         let bind_group = create_bind_group(device, shaders, &model_buffer, &right_buffer);
         MeshAdder {
@@ -59,19 +59,21 @@ impl Meshes {
             InternalMeshData::Owned {
                 ref vertices,
                 ref indices,
-                model_buffer: _,
-                right_buffer: _,
+                ref model_buffer,
+                ref right_buffer,
                 ref bind_group,
             } => MeshRef {
                 vertices,
                 indices: indices.as_ref(),
+                model_buffer,
+                right_buffer,
                 bind_group,
             },
             InternalMeshData::Inherit {
                 vertices_from,
                 ref indices,
-                model_buffer: _,
-                right_buffer: _,
+                ref model_buffer,
+                ref right_buffer,
                 ref bind_group,
             } => MeshRef {
                 vertices: match self
@@ -84,6 +86,8 @@ impl Meshes {
                     _ => panic!("unowned mesh in stored vertices_from"),
                 },
                 indices: Some(indices),
+                model_buffer,
+                right_buffer,
                 bind_group,
             },
         })
@@ -123,6 +127,8 @@ pub struct MeshRefMut<'a> {
 pub struct MeshRef<'a> {
     vertices: &'a wgpu::Buffer,
     indices: Option<&'a wgpu::Buffer>,
+    model_buffer: &'a wgpu::Buffer,
+    right_buffer: &'a wgpu::Buffer,
     bind_group: &'a wgpu::BindGroup,
 }
 
@@ -141,6 +147,21 @@ impl<'a> MeshRef<'a> {
 
     pub(crate) fn bind_group(&self) -> &'a wgpu::BindGroup {
         self.bind_group
+    }
+
+    pub(crate) fn update_model(
+        &self,
+        transform: Decomposed<Vector3<f32>, Quaternion<f32>>,
+        queue: &wgpu::Queue,
+    ) {
+        let matrix: Mat4 = transform.into();
+        let matrix: [[f32; 4]; 4] = matrix.into();
+        queue.write_buffer(self.model_buffer, 0, bytemuck::cast_slice(&matrix));
+    }
+
+    pub(crate) fn update_right(&self, right: Vector3<f32>, queue: &wgpu::Queue) {
+        let vector: [f32; 3] = right.into();
+        queue.write_buffer(self.right_buffer, 0, bytemuck::cast_slice(&vector));
     }
 }
 
