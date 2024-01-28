@@ -130,7 +130,7 @@ impl<'context> System<'context> for Renderer {
             .create_command_encoder(&Default::default());
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
+                label: Some("Main render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &self.view,
                     resolve_target: Some(&view),
