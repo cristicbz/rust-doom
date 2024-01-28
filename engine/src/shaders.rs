@@ -1,19 +1,14 @@
 use super::entities::{Entities, Entity, EntityId};
-use super::errors::{ErrorKind, Result};
-use super::platform;
+use super::errors::Result;
 use super::system::InfallibleSystem;
 use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
 
-use failchain::ResultExt;
 use idcontain::IdMapVec;
 use log::{debug, error};
 use math::{Mat4, Vec2, Vec3};
-use std::fs::File;
-use std::io::Read;
-use std::io::Result as IoResult;
 use std::num::NonZeroU64;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub const LIGHTS_COUNT: usize = 256;
 
@@ -26,7 +21,6 @@ pub struct ShaderConfig {
 
 pub struct Shaders {
     map: IdMapVec<Entity, Shader>,
-    root: PathBuf,
     global_bind_group_layout: wgpu::BindGroupLayout,
     material_bind_group_layout: wgpu::BindGroupLayout,
     model_bind_group_layout: wgpu::BindGroupLayout,
@@ -42,24 +36,7 @@ impl Shaders {
         asset_path: &'static str,
         wgsl_source: &'static str,
     ) -> Result<ShaderId> {
-        let mut fragment_path = self.root.clone();
-        fragment_path.push(asset_path);
-
-        let mut vertex_path = fragment_path.clone();
-        fragment_path.set_extension("frag");
-        vertex_path.set_extension("vert");
-
-        let mut fragment_source = format!("#version {}\n", platform::GLSL_VERSION_STRING);
-        let mut vertex_source = fragment_source.clone();
-
-        debug!(
-            "Loading shader {:?} (from {}, fragment={:?} and vert={:?})",
-            name, asset_path, fragment_path, vertex_path
-        );
-        read_utf8_file(&fragment_path, &mut fragment_source)
-            .chain_err(|| ErrorKind::ResourceIo("fragment shader", name))?;
-        read_utf8_file(&vertex_path, &mut vertex_source)
-            .chain_err(|| ErrorKind::ResourceIo("vertex shader", name))?;
+        debug!("Loading shader {:?} (from {})", name, asset_path);
 
         let shader_module = window
             .device()
@@ -156,7 +133,6 @@ pub struct Shader {
 
 #[derive(DependenciesFrom)]
 pub struct Dependencies<'context> {
-    config: &'context ShaderConfig,
     entities: &'context Entities,
     window: &'context Window,
 }
@@ -298,7 +274,6 @@ impl<'context> InfallibleSystem<'context> for Shaders {
 
         Shaders {
             map: IdMapVec::with_capacity(32),
-            root: deps.config.root_path.clone(),
             global_bind_group_layout,
             material_bind_group_layout,
             model_bind_group_layout,
@@ -323,10 +298,6 @@ impl<'context> InfallibleSystem<'context> for Shaders {
             error!("Shaders leaked, {} instances.", self.map.len());
         }
     }
-}
-
-fn read_utf8_file(path: &Path, into: &mut String) -> IoResult<()> {
-    File::open(path)?.read_to_string(into).map(|_| ())
 }
 
 pub trait ShaderVertex {
