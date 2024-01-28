@@ -175,10 +175,13 @@ impl<'context> System<'context> for Renderer {
                     continue;
                 };
 
-                if let Some(transform) = deps.transforms.get_absolute(entity) {
-                    mesh.update_model(*transform, deps.window.queue());
+                if let Some(model_transform) = deps.transforms.get_absolute(entity) {
+                    mesh.update_model(*model_transform, deps.window.queue());
                     let right = view_transform
-                        .transform_vector(transform.transform_vector(Vector3::new(1.0, 0.0, 0.0)));
+                        .inverse_transform_vector(
+                            model_transform.transform_vector(Vector3::new(1.0, 0.0, 0.0)),
+                        )
+                        .expect("view transform should be invertible");
                     mesh.update_right(right, deps.window.queue());
                 } else {
                     let right = view_transform.transform_vector(Vector3::new(1.0, 0.0, 0.0));
