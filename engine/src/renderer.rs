@@ -16,6 +16,8 @@ use failchain::ResultExt;
 use log::{error, info};
 use math::{prelude::*, Mat4};
 
+pub(crate) const MSAA_SAMPLE_COUNT: u32 = 1;
+
 #[derive(DependenciesFrom)]
 pub struct Dependencies<'context> {
     pipe: &'context mut RenderPipeline,
@@ -54,7 +56,7 @@ impl<'context> System<'context> for Renderer {
                 label: Some("Intermediate attachment"),
                 size: deps.window.size(),
                 mip_level_count: 1,
-                sample_count: 1,
+                sample_count: MSAA_SAMPLE_COUNT,
                 dimension: wgpu::TextureDimension::D2,
                 format: deps.window.texture_format(),
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -68,7 +70,7 @@ impl<'context> System<'context> for Renderer {
                 label: Some("Depth atachment"),
                 size: deps.window.size(),
                 mip_level_count: 1,
-                sample_count: 1,
+                sample_count: MSAA_SAMPLE_COUNT,
                 dimension: wgpu::TextureDimension::D2,
                 format: wgpu::TextureFormat::Depth32Float,
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT,

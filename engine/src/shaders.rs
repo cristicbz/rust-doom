@@ -3,6 +3,7 @@ use super::errors::Result;
 use super::system::InfallibleSystem;
 use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
+use crate::renderer::MSAA_SAMPLE_COUNT;
 
 use idcontain::IdMapVec;
 use log::{debug, error};
@@ -85,7 +86,7 @@ impl Shaders {
                     bias: wgpu::DepthBiasState::default(),
                 }),
                 multisample: wgpu::MultisampleState {
-                    count: 1,
+                    count: MSAA_SAMPLE_COUNT,
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
