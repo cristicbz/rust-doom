@@ -23,7 +23,22 @@ impl Meshes {
         entities: &'a mut Entities,
         parent: EntityId,
         name: &'static str,
+        device: &wgpu::Device,
+        shaders: &Shaders,
     ) -> MeshAdder<'a, (), ()> {
+        let model_transform: [[f32; 4]; 4] = Mat4::identity().into();
+        let model_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&model_transform),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        let right_vector = [1.0f32, 0.0, 0.0];
+        let right_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&right_vector),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        let bind_group = create_bind_group(device, shaders, &model_buffer, &right_buffer);
         MeshAdder {
             context: MeshAdderContext {
                 meshes: self,
@@ -33,7 +48,9 @@ impl Meshes {
             },
             vertices: (),
             indices: (),
-            bind_group: None,
+            model_buffer,
+            right_buffer,
+            bind_group,
         }
     }
 
@@ -42,6 +59,8 @@ impl Meshes {
             InternalMeshData::Owned {
                 ref vertices,
                 ref indices,
+                model_buffer: _,
+                right_buffer: _,
                 ref bind_group,
             } => MeshRef {
                 vertices,
@@ -51,6 +70,8 @@ impl Meshes {
             InternalMeshData::Inherit {
                 vertices_from,
                 ref indices,
+                model_buffer: _,
+                right_buffer: _,
                 ref bind_group,
             } => MeshRef {
                 vertices: match self
@@ -73,6 +94,8 @@ impl Meshes {
             InternalMeshData::Owned {
                 ref mut vertices,
                 ref mut indices,
+                model_buffer: _,
+                right_buffer: _,
                 bind_group: _,
             } => MeshRefMut {
                 vertices: Some(vertices),
@@ -81,6 +104,8 @@ impl Meshes {
             InternalMeshData::Inherit {
                 vertices_from: _vertices_from,
                 ref mut indices,
+                model_buffer: _,
+                right_buffer: _,
                 bind_group: _,
             } => MeshRefMut {
                 vertices: None,
@@ -124,7 +149,9 @@ pub struct MeshAdder<'a, VertexDataT, IndexDataT> {
     context: MeshAdderContext<'a>,
     vertices: VertexDataT,
     indices: IndexDataT,
-    bind_group: Option<wgpu::BindGroup>,
+    model_buffer: wgpu::Buffer,
+    right_buffer: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
 }
 
 pub struct OwnedVertexData(wgpu::Buffer);
@@ -136,22 +163,22 @@ impl<'a, IndexDataT> MeshAdder<'a, (), IndexDataT> {
         self,
         vertices: &[VertexT],
         device: &wgpu::Device,
-        shaders: &Shaders,
     ) -> Result<MeshAdder<'a, OwnedVertexData, IndexDataT>>
     where
         VertexT: Pod + Send + 'static,
     {
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
-        let bind_group = create_bind_group(device, shaders);
         Ok(MeshAdder {
-            vertices: OwnedVertexData(buffer),
-            indices: self.indices,
+            vertices: OwnedVertexData(vertex_buffer),
             context: self.context,
-            bind_group: Some(bind_group),
+            indices: self.indices,
+            model_buffer: self.model_buffer,
+            right_buffer: self.right_buffer,
+            bind_group: self.bind_group,
         })
     }
 
@@ -159,31 +186,26 @@ impl<'a, IndexDataT> MeshAdder<'a, (), IndexDataT> {
         self,
         vertices: &[VertexT],
         device: &wgpu::Device,
-        shaders: &Shaders,
     ) -> Result<MeshAdder<'a, OwnedVertexData, IndexDataT>>
     where
         VertexT: Pod + Send + 'static,
     {
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
-        let bind_group = create_bind_group(device, shaders);
         Ok(MeshAdder {
-            vertices: OwnedVertexData(buffer),
-            indices: self.indices,
+            vertices: OwnedVertexData(vertex_buffer),
             context: self.context,
-            bind_group: Some(bind_group),
+            indices: self.indices,
+            model_buffer: self.model_buffer,
+            right_buffer: self.right_buffer,
+            bind_group: self.bind_group,
         })
     }
 
-    pub fn shared(
-        self,
-        vertices_from: MeshId,
-        device: &wgpu::Device,
-        shaders: &Shaders,
-    ) -> MeshAdder<'a, SharedVertexData, IndexDataT> {
+    pub fn shared(self, vertices_from: MeshId) -> MeshAdder<'a, SharedVertexData, IndexDataT> {
         // TODO(cristicbz): If parent comes from a different `Meshes` object, the assertion that
         // the parent is in the map is in incorrect.
         let mut owner = vertices_from;
@@ -197,12 +219,13 @@ impl<'a, IndexDataT> MeshAdder<'a, (), IndexDataT> {
         {
             owner = vertices_from;
         }
-        let bind_group = create_bind_group(device, shaders);
         MeshAdder {
             vertices: SharedVertexData(owner),
-            indices: self.indices,
             context: self.context,
-            bind_group: Some(bind_group),
+            indices: self.indices,
+            model_buffer: self.model_buffer,
+            right_buffer: self.right_buffer,
+            bind_group: self.bind_group,
         }
     }
 }
@@ -212,19 +235,19 @@ impl<'a, VertexDataT> MeshAdder<'a, VertexDataT, ()> {
         self,
         indices: &[u32],
         device: &wgpu::Device,
-        shaders: &Shaders,
     ) -> Result<MeshAdder<'a, VertexDataT, IndexData>> {
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(indices),
             usage: wgpu::BufferUsages::INDEX,
         });
-        let bind_group = create_bind_group(device, shaders);
         Ok(MeshAdder {
-            indices: IndexData(buffer),
-            vertices: self.vertices,
+            indices: IndexData(index_buffer),
             context: self.context,
-            bind_group: Some(bind_group),
+            vertices: self.vertices,
+            model_buffer: self.model_buffer,
+            right_buffer: self.right_buffer,
+            bind_group: self.bind_group,
         })
     }
 
@@ -232,19 +255,19 @@ impl<'a, VertexDataT> MeshAdder<'a, VertexDataT, ()> {
         self,
         indices: &[u32],
         device: &wgpu::Device,
-        shaders: &Shaders,
     ) -> Result<MeshAdder<'a, VertexDataT, IndexData>> {
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(indices),
             usage: wgpu::BufferUsages::INDEX,
         });
-        let bind_group = create_bind_group(device, shaders);
         Ok(MeshAdder {
-            indices: IndexData(buffer),
-            vertices: self.vertices,
+            indices: IndexData(index_buffer),
             context: self.context,
-            bind_group: Some(bind_group),
+            vertices: self.vertices,
+            model_buffer: self.model_buffer,
+            right_buffer: self.right_buffer,
+            bind_group: self.bind_group,
         })
     }
 }
@@ -254,7 +277,9 @@ impl<'a> MeshAdder<'a, OwnedVertexData, ()> {
         self.context.add(InternalMeshData::Owned {
             vertices: self.vertices.0,
             indices: None,
-            bind_group: self.bind_group.expect("missing bind group"),
+            model_buffer: self.model_buffer,
+            right_buffer: self.right_buffer,
+            bind_group: self.bind_group,
         })
     }
 }
@@ -264,7 +289,9 @@ impl<'a> MeshAdder<'a, SharedVertexData, IndexData> {
         self.context.add(InternalMeshData::Inherit {
             vertices_from: self.vertices.0,
             indices: self.indices.0,
-            bind_group: self.bind_group.expect("missing bind group"),
+            model_buffer: self.model_buffer,
+            right_buffer: self.right_buffer,
+            bind_group: self.bind_group,
         })
     }
 }
@@ -274,24 +301,19 @@ impl<'a> MeshAdder<'a, OwnedVertexData, IndexData> {
         self.context.add(InternalMeshData::Owned {
             vertices: self.vertices.0,
             indices: Some(self.indices.0),
-            bind_group: self.bind_group.expect("missing bind group"),
+            model_buffer: self.model_buffer,
+            right_buffer: self.right_buffer,
+            bind_group: self.bind_group,
         })
     }
 }
 
-fn create_bind_group(device: &wgpu::Device, shaders: &Shaders) -> wgpu::BindGroup {
-    let model_transform: [[f32; 4]; 4] = Mat4::identity().into();
-    let model_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: None,
-        contents: bytemuck::cast_slice(&model_transform),
-        usage: wgpu::BufferUsages::UNIFORM,
-    });
-    let right_vector = [1.0f32, 0.0, 0.0];
-    let right_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: None,
-        contents: bytemuck::cast_slice(&right_vector),
-        usage: wgpu::BufferUsages::UNIFORM,
-    });
+fn create_bind_group(
+    device: &wgpu::Device,
+    shaders: &Shaders,
+    model_buffer: &wgpu::Buffer,
+    right_buffer: &wgpu::Buffer,
+) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout: shaders.model_bind_group_layout(),
@@ -350,11 +372,15 @@ enum InternalMeshData {
     Owned {
         vertices: wgpu::Buffer,
         indices: Option<wgpu::Buffer>,
+        model_buffer: wgpu::Buffer,
+        right_buffer: wgpu::Buffer,
         bind_group: wgpu::BindGroup,
     },
     Inherit {
         vertices_from: MeshId,
         indices: wgpu::Buffer,
+        model_buffer: wgpu::Buffer,
+        right_buffer: wgpu::Buffer,
         bind_group: wgpu::BindGroup,
     },
 }
