@@ -9,7 +9,6 @@ use wgpu::VertexAttribute;
 #[derive(Copy, Clone, Pod, Zeroable, Default)]
 pub struct StaticVertex {
     pub a_pos: [f32; 3],
-    pub _padding_1: f32,
     pub a_atlas_uv: [f32; 2],
     pub a_tile_uv: [f32; 2],
     pub a_tile_size: [f32; 2],
@@ -77,7 +76,6 @@ impl ShaderVertex for StaticVertex {
 #[derive(Copy, Clone, Pod, Zeroable, Default)]
 pub struct SpriteVertex {
     pub a_pos: [f32; 3],
-    pub _padding_1: f32,
     pub a_atlas_uv: [f32; 2],
     pub a_tile_uv: [f32; 2],
     pub a_tile_size: [f32; 2],
@@ -139,7 +137,6 @@ impl ShaderVertex for SpriteVertex {
 #[derive(Copy, Clone, Pod, Zeroable, Default)]
 pub struct SkyVertex {
     pub a_pos: [f32; 3],
-    pub _padding_1: f32,
 }
 
 impl ShaderVertex for SkyVertex {
