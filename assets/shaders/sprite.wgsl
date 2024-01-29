@@ -1,6 +1,6 @@
 @group(0) @binding(0) var<uniform> u_viewproj: mat4x4<f32>;
 @group(0) @binding(1) var u_atlas_sampler: sampler;
-@group(0) @binding(2) var<storage, read> u_lights: array<u32>;
+@group(0) @binding(2) var<storage, read> u_lights: array<f32>;
 @group(0) @binding(3) var<uniform> u_time: f32;
 @group(0) @binding(4) var u_palette: texture_2d<f32>;
 @group(0) @binding(5) var u_palette_sampler: sampler;
@@ -52,14 +52,14 @@ fn main_vs(in: VertexInput) -> VertexOutput {
 
     let pos = in.a_pos + u_right * in.a_local_x;
     let projected_pos = u_viewproj * (u_model * vec4(pos, 1.0));
-    out.v_light = f32(u_lights[in.a_light]);
+    out.v_light = u_lights[in.a_light];
     out.v_dist = projected_pos.w;
     out.clip_position = projected_pos;
     return out;
 }
 
-const DIST_SCALE: f32 = 1.0;
-const LIGHT_SCALE: f32 = 2.0;
+const DIST_SCALE: f32 = 1.5;
+const LIGHT_SCALE: f32 = 1.75;
 
 @fragment
 fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
@@ -70,6 +70,6 @@ fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
     } else {
         let dist_term = min(1.0, 1.0 - DIST_SCALE / (in.v_dist + DIST_SCALE));
         let light = min(in.v_light, in.v_light * LIGHT_SCALE - dist_term);
-        return vec4(textureSample(u_palette, u_palette_sampler, vec2(palette_index.r, 1.0 - light)).rgb, 1.0);
+        return vec4(textureSample(u_palette, u_palette_sampler, vec2(palette_index.r, 0.0)).rgb * light, 1.0);
     }
 }

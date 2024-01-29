@@ -88,6 +88,10 @@ impl Uniforms {
         queue.write_buffer(&self.time_buffer, 0, bytemuck::cast_slice(&[self.time]));
     }
 
+    pub fn time(&self) -> f32 {
+        self.time
+    }
+
     pub fn add_float(
         &mut self,
         entities: &mut Entities,

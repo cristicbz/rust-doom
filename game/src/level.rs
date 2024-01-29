@@ -255,10 +255,7 @@ impl<'context> System<'context> for Level {
         }
         self.removed.clear();
 
-        let time = *deps
-            .uniforms
-            .get_float_mut(deps.game_shaders.time())
-            .expect("missing time");
+        let time = deps.uniforms.time();
         let light_infos = &mut self.lights;
         deps.uniforms.map_buffer(
             deps.game_shaders.lights_buffer(),

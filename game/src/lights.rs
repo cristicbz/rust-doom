@@ -24,9 +24,9 @@ impl Lights {
             }) as u8
     }
 
-    pub fn fill_buffer_at(&mut self, time: f32, buffer: &mut [u32]) {
+    pub fn fill_buffer_at(&mut self, time: f32, buffer: &mut [f32]) {
         for (value, info) in buffer.iter_mut().zip(self.lights.iter()) {
-            *value = (clamp(light_level_at(info, time)) * 255.0) as u32;
+            *value = clamp(light_level_at(info, time));
         }
     }
 }
