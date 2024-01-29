@@ -2,11 +2,10 @@ use super::entities::{Entities, Entity, EntityId};
 use super::errors::Result;
 use super::shaders::{ShaderId, Shaders};
 use super::system::InfallibleSystem;
-use super::uniforms::{UniformId, Uniforms};
-use glium::uniforms::{UniformValue, Uniforms as GliumUniforms};
-use glium::Program;
+use super::uniforms::UniformId;
 use idcontain::IdMapVec;
 use log::{debug, error};
+use wgpu::util::DeviceExt;
 
 pub const MAX_UNIFORMS: usize = 64;
 
@@ -39,6 +38,7 @@ impl Materials {
             Material {
                 shader,
                 uniforms: [None; MAX_UNIFORMS],
+                bind_group: None,
             },
         );
         debug!(
@@ -59,43 +59,24 @@ impl Materials {
     pub fn get<'a>(
         &'a self,
         shaders: &'a Shaders,
-        uniforms: &'a Uniforms,
         material_id: MaterialId,
     ) -> Option<MaterialRef<'a>> {
         let material = self.map.get(material_id.0)?;
-        let shader = if let Some(shader) = shaders.get(material.shader) {
-            shader
-        } else {
+
+        let Some(pipeline) = shaders.get_pipeline(material.shader) else {
             error!(
-                "Missing shader {:?} for material {:?}",
+                "Missing pipeline {:?} for material {:?}",
                 material.shader, material_id
             );
             return None;
         };
 
-        let mut uniform_values = [None; MAX_UNIFORMS];
-        for (value, &uniform) in (&mut uniform_values[..])
-            .iter_mut()
-            .zip(&material.uniforms[..])
-        {
-            if let Some((name, id)) = uniform {
-                if let Some(uniform_value) = uniforms.get_value(id) {
-                    *value = Some((name, uniform_value));
-                } else {
-                    error!(
-                        "Missing uniform for material {:?}: name={:?} id={:?}",
-                        material_id, name, id
-                    );
-                    return None;
-                }
-            } else {
-                break;
-            }
-        }
-
         Some(MaterialRef {
-            shader,
-            uniform_values,
+            pipeline,
+            bind_group: material
+                .bind_group
+                .as_ref()
+                .expect("Bind group must be present when rendering"),
         })
     }
 }
@@ -125,14 +106,92 @@ impl<'a> MaterialRefMut<'a> {
         );
     }
 
+    pub fn with_atlas(
+        &mut self,
+        atlas: &wgpu::Texture,
+        device: &wgpu::Device,
+        shaders: &Shaders,
+    ) -> &mut Self {
+        let atlas_view = atlas.create_view(&Default::default());
+        let atlas_size = [atlas.width() as f32, atlas.height() as f32];
+        let atlas_size_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&atlas_size),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        let tiled_band_size_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&[0.0f32]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        self.material.bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &shaders.material_bind_group_layout(),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&atlas_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: atlas_size_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: tiled_band_size_buffer.as_entire_binding(),
+                },
+            ],
+        }));
+        self
+    }
+
+    pub fn with_sky_texture(
+        &mut self,
+        texture: &wgpu::Texture,
+        tiled_band_size: f32,
+        device: &wgpu::Device,
+        shaders: &Shaders,
+    ) -> &mut Self {
+        let texture_view = texture.create_view(&Default::default());
+        let atlas_size_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&[0.0f32, 0.0]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        let tiled_band_size_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&[tiled_band_size]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        self.material.bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &shaders.material_bind_group_layout(),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: atlas_size_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: tiled_band_size_buffer.as_entire_binding(),
+                },
+            ],
+        }));
+        self
+    }
+
     pub fn id(&self) -> MaterialId {
         self.id
     }
 }
 
 pub struct MaterialRef<'a> {
-    shader: &'a Program,
-    uniform_values: [Option<(&'static str, UniformValue<'a>)>; MAX_UNIFORMS],
+    pipeline: &'a wgpu::RenderPipeline,
+    bind_group: &'a wgpu::BindGroup,
 }
 
 impl<'context> InfallibleSystem<'context> for Materials {
@@ -169,27 +228,17 @@ impl<'context> InfallibleSystem<'context> for Materials {
 }
 
 impl<'a> MaterialRef<'a> {
-    pub fn shader(&self) -> &Program {
-        self.shader
+    pub(crate) fn pipeline(&self) -> &'a wgpu::RenderPipeline {
+        &self.pipeline
     }
-}
 
-impl<'material> GliumUniforms for MaterialRef<'material> {
-    fn visit_values<'a, F>(&'a self, mut set_uniform: F)
-    where
-        F: FnMut(&str, UniformValue<'a>),
-    {
-        for uniform in &self.uniform_values[..] {
-            if let Some((name, value)) = *uniform {
-                set_uniform(name, value);
-            } else {
-                break;
-            }
-        }
+    pub(crate) fn bind_group(&self) -> &'a wgpu::BindGroup {
+        &self.bind_group
     }
 }
 
 struct Material {
     shader: ShaderId,
     uniforms: [Option<(&'static str, UniformId)>; MAX_UNIFORMS],
+    bind_group: Option<wgpu::BindGroup>,
 }

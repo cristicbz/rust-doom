@@ -209,14 +209,14 @@ fn deserialize_regex_from_str<'de, D>(deserializer: D) -> StdResult<Regex, D::Er
 where
     D: Deserializer<'de>,
 {
-    Regex::new(<&'de str>::deserialize(deserializer)?).map_err(D::Error::custom)
+    Regex::new(&<String>::deserialize(deserializer)?).map_err(D::Error::custom)
 }
 
 fn deserialize_name_from_str<'de, D>(deserializer: D) -> StdResult<WadName, D::Error>
 where
     D: Deserializer<'de>,
 {
-    WadName::from_str(<&'de str>::deserialize(deserializer)?).map_err(D::Error::custom)
+    WadName::from_str(&<String>::deserialize(deserializer)?).map_err(D::Error::custom)
 }
 
 fn deserialize_move_speed<'de, D>(deserializer: D) -> StdResult<f32, D::Error>
@@ -232,7 +232,7 @@ fn deserialize_name_from_vec_vec_str<'de, D>(
 where
     D: Deserializer<'de>,
 {
-    let strings = <Vec<Vec<&'de str>>>::deserialize(deserializer)?;
+    let strings = <Vec<Vec<String>>>::deserialize(deserializer)?;
     strings
         .iter()
         .map(|strings| {

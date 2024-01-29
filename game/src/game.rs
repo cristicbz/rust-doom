@@ -16,7 +16,7 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 
 pub trait Game {
-    fn run(self) -> !;
+    fn run(self) -> Result<()>;
     fn destroy(&mut self) -> Result<()>;
     fn num_levels(&self) -> usize;
     fn load_level(&mut self, level_index: usize) -> Result<()>;
@@ -107,8 +107,12 @@ impl<WadIndexT, ContextT> Game for GameImpl<WadIndexT, ContextT>
 where
     ContextT: Context + Peek<WadSystem, WadIndexT>,
 {
-    fn run(mut self) -> ! {
-        self.context.take().unwrap().run()
+    fn run(mut self) -> Result<()> {
+        self.context
+            .take()
+            .unwrap()
+            .run()
+            .chain_err(|| ErrorKind("during game run".to_owned()))
     }
 
     fn num_levels(&self) -> usize {

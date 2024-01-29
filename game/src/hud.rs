@@ -1,10 +1,10 @@
 use super::wad_system::WadSystem;
 use engine::{
-    ControlFlow, DependenciesFrom, Gesture, InfallibleSystem, Input, Scancode, TextId,
-    TextRenderer, Window,
+    ControlFlow, DependenciesFrom, Gesture, InfallibleSystem, Input, TextId, TextRenderer, Window,
 };
 use math::prelude::*;
 use math::Pnt2f;
+use winit::keyboard::KeyCode;
 
 pub struct Bindings {
     pub quit: Gesture,
@@ -19,18 +19,18 @@ impl Default for Bindings {
         Bindings {
             quit: Gesture::AnyOf(vec![
                 Gesture::QuitTrigger,
-                Gesture::KeyTrigger(Scancode::Escape),
+                Gesture::KeyTrigger(KeyCode::Escape),
             ]),
             next_level: Gesture::AllOf(vec![
-                Gesture::KeyHold(Scancode::LControl),
-                Gesture::KeyTrigger(Scancode::N),
+                Gesture::KeyHold(KeyCode::ControlLeft),
+                Gesture::KeyTrigger(KeyCode::KeyN),
             ]),
             previous_level: Gesture::AllOf(vec![
-                Gesture::KeyHold(Scancode::LControl),
-                Gesture::KeyTrigger(Scancode::P),
+                Gesture::KeyHold(KeyCode::ControlLeft),
+                Gesture::KeyTrigger(KeyCode::KeyP),
             ]),
-            toggle_mouse: Gesture::KeyTrigger(Scancode::Grave),
-            toggle_help: Gesture::KeyTrigger(Scancode::H),
+            toggle_mouse: Gesture::KeyTrigger(KeyCode::Backquote),
+            toggle_help: Gesture::KeyTrigger(KeyCode::KeyH),
         }
     }
 }

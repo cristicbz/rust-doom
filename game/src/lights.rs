@@ -1,3 +1,4 @@
+use engine::LIGHTS_COUNT;
 use wad::{LightEffectKind, LightInfo};
 
 pub struct Lights {
@@ -7,7 +8,7 @@ pub struct Lights {
 impl Lights {
     pub fn new() -> Self {
         Self {
-            lights: Vec::with_capacity(256),
+            lights: Vec::with_capacity(LIGHTS_COUNT),
         }
     }
 
@@ -23,9 +24,9 @@ impl Lights {
             }) as u8
     }
 
-    pub fn fill_buffer_at(&mut self, time: f32, buffer: &mut [u8]) {
+    pub fn fill_buffer_at(&mut self, time: f32, buffer: &mut [f32]) {
         for (value, info) in buffer.iter_mut().zip(self.lights.iter()) {
-            *value = (clamp(light_level_at(info, time)) * 255.0) as u8;
+            *value = clamp(light_level_at(info, time));
         }
     }
 }

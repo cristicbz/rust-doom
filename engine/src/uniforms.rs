@@ -1,17 +1,17 @@
+use crate::Shaders;
+
 use super::entities::{Entities, Entity, EntityId};
-use super::errors::{ErrorKind, Result};
+use super::errors::Result;
 use super::system::InfallibleSystem;
 use super::window::Window;
-use failchain::bail;
-use glium::buffer::Content as BufferContent;
-use glium::texture::buffer_texture::{BufferTexture, BufferTextureType};
-use glium::texture::{ClientFormat, PixelValue, RawImage2d, Texture2d as GliumTexture2d};
-use glium::uniforms::{AsUniformValue, SamplerBehavior, UniformValue};
+use crate::internal_derive::DependenciesFrom;
+use bytemuck::Pod;
+use cgmath::SquareMatrix;
 use idcontain::IdMapVec;
 use log::{debug, error};
 use math::{Mat4, Vec2, Vec2f};
-use std::borrow::Cow;
 use std::marker::PhantomData;
+use wgpu::util::DeviceExt;
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Copy, Clone)]
 pub struct Texture2dId(EntityId);
@@ -20,10 +20,7 @@ pub struct Texture2dId(EntityId);
 pub struct FloatUniformId(EntityId);
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Copy, Clone)]
-pub struct BufferTextureId<T>
-where
-    [T]: BufferContent,
-{
+pub struct BufferTextureId<T> {
     id: EntityId,
 
     _phantom: PhantomData<*const T>,
@@ -48,9 +45,12 @@ pub struct Uniforms {
     // TODO(cristicbz): Textures should be their own resource!
     texture2ds: IdMapVec<Entity, Texture2d>,
     floats: IdMapVec<Entity, f32>,
-    buffer_textures_u8: IdMapVec<Entity, BufferTexture<u8>>,
     mat4s: IdMapVec<Entity, Mat4>,
     vec2fs: IdMapVec<Entity, Vec2f>,
+    global_bind_group: Option<wgpu::BindGroup>,
+    projection_buffer: wgpu::Buffer,
+    time_buffer: wgpu::Buffer,
+    time: f32,
 }
 
 impl Uniforms {
@@ -60,9 +60,12 @@ impl Uniforms {
         let Uniforms {
             ref mut texture2ds,
             ref mut floats,
-            ref mut buffer_textures_u8,
             ref mut mat4s,
             ref mut vec2fs,
+            global_bind_group: _,
+            projection_buffer: _,
+            time_buffer: _,
+            time: _,
         } = *self;
         for &entity in entities.last_removed() {
             if texture2ds.remove(entity).is_some() {
@@ -71,9 +74,6 @@ impl Uniforms {
             if floats.remove(entity).is_some() {
                 debug!("Removed uniform<float> {:?}.", entity);
             }
-            if buffer_textures_u8.remove(entity).is_some() {
-                debug!("Removed uniform<buffer_textures_u8> {:?}.", entity);
-            }
             if mat4s.remove(entity).is_some() {
                 debug!("Removed uniform<mat4> {:?}.", entity);
             }
@@ -81,6 +81,15 @@ impl Uniforms {
                 debug!("Removed uniform<vec2> {:?}.", entity);
             }
         }
+    }
+
+    pub fn increment_time(&mut self, timestep: f32, queue: &wgpu::Queue) {
+        self.time += timestep;
+        queue.write_buffer(&self.time_buffer, 0, bytemuck::cast_slice(&[self.time]));
+    }
+
+    pub fn time(&self) -> f32 {
+        self.time
     }
 
     pub fn add_float(
@@ -143,7 +152,7 @@ impl Uniforms {
         self.vec2fs.get_mut(id.0)
     }
 
-    pub fn add_texture_2d<'a, PixelT: PixelValue>(
+    pub fn add_texture_2d<'a, PixelT: Pod>(
         &mut self,
         window: &Window,
         entities: &mut Entities,
@@ -151,35 +160,41 @@ impl Uniforms {
         name: &'static str,
         pixels: &'a [PixelT],
         size: Vec2<usize>,
-        format: ClientFormat,
-        sampler: Option<SamplerBehavior>,
-    ) -> Result<Texture2dId> {
+        format: wgpu::TextureFormat,
+    ) -> Result<wgpu::Texture> {
         debug!(
-            "Creating texture {:?}: pixels={}, size={:?}, format={:?}, sampler={:?}",
+            "Creating texture {:?}: pixels={}, size={:?}, format={:?}",
             name,
             pixels.len(),
             size,
             format,
-            sampler,
         );
-        let gl = GliumTexture2d::new(
-            window.facade(),
-            RawImage2d {
-                data: Cow::Borrowed(pixels),
-                width: size[0] as u32,
-                height: size[1] as u32,
+        let texture = window.device().create_texture_with_data(
+            window.queue(),
+            &wgpu::TextureDescriptor {
+                label: Some(name),
+                size: wgpu::Extent3d {
+                    width: size[0] as u32,
+                    height: size[1] as u32,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
                 format,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
             },
-        )
-        .map_err(ErrorKind::glium(name))?;
+            wgpu::util::TextureDataOrder::LayerMajor,
+            bytemuck::cast_slice(pixels),
+        );
         debug!("Texture {:?} created successfully", name);
         let id = entities.add(parent, name)?;
-        self.texture2ds.insert(id, Texture2d { gl, sampler });
         debug!(
             "Added texture {:?} {:?} as child of {:?}.",
             name, id, parent
         );
-        Ok(Texture2dId(id))
+        Ok(texture)
     }
 
     pub fn get_texture_2d_mut(&mut self, texture_id: Texture2dId) -> Option<Texture2dRefMut> {
@@ -192,97 +207,116 @@ impl Uniforms {
     }
 
     // TODO(cristicbz): Make u8 a type param.
-    pub fn add_persistent_buffer_texture_u8(
+    pub fn add_persistent_buffer(
         &mut self,
         window: &Window,
         entities: &mut Entities,
         parent: EntityId,
         name: &'static str,
         size: usize,
-        texture_type: BufferTextureType,
-    ) -> Result<BufferTextureId<u8>> {
-        debug!(
-            "Creating persistent buffer_texture<u7> {:?}, size={:?}, type={:?}",
-            name, size, texture_type
-        );
-        let texture = BufferTexture::empty_persistent(window.facade(), size, texture_type)
-            .map_err(ErrorKind::glium(name))?;
+    ) -> Result<wgpu::Buffer> {
+        debug!("Creating persistent buffer {:?}, size={:?}", name, size);
+        let buffer = window.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some(name),
+            size: size as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         debug!("Buffer texture {:?} created successfully", name);
         let id = entities.add(parent, name)?;
-        self.buffer_textures_u8.insert(id, texture);
         debug!(
-            "Added persistent buffer_texture<u8> {:?} {:?} as child of {:?}.",
+            "Added persistent buffer {:?} {:?} as child of {:?}.",
             name, id, parent
         );
-        Ok(BufferTextureId {
-            id,
-            _phantom: PhantomData,
-        })
+        Ok(buffer)
     }
 
-    pub fn map_buffer_texture_u8<F>(&mut self, id: BufferTextureId<u8>, writer: F)
-    where
-        F: FnOnce(&mut [u8]),
-    {
-        // TODO(cristicbz): Handle missing.
-        if let Some(buffer) = self.buffer_textures_u8.get_mut(id.id) {
-            writer(&mut *buffer.map());
-        }
-    }
-
-    pub fn add_texture2d_size(
+    pub fn map_buffer<F, T: Default + Clone + Pod>(
         &mut self,
-        entities: &mut Entities,
-        name: &'static str,
-        texture: Texture2dId,
-    ) -> Result<Vec2fUniformId> {
-        let size = self.texture2ds.get(texture.0).map(|texture| {
-            let texture = &texture.gl;
-            Vec2::new(
-                texture.get_width() as f32,
-                texture.get_height().unwrap_or(1) as f32,
-            )
-        });
-        let size = if let Some(size) = size {
-            size
-        } else {
-            bail!(ErrorKind::NoSuchComponent {
-                context: "adding size uniform for texture",
-                needed_by: Some(name),
-                id: texture.0.cast(),
-            });
-        };
-        self.add_vec2f(entities, texture.0, name, size)
+        buffer: &wgpu::Buffer,
+        writer: F,
+        queue: &wgpu::Queue,
+    ) where
+        F: FnOnce(&mut [T]),
+    {
+        let mut data = vec![T::default(); buffer.size() as usize / std::mem::size_of::<T>()];
+        writer(&mut data);
+        queue.write_buffer(buffer, 0, bytemuck::cast_slice(&data));
     }
 
-    #[inline]
-    pub fn get_value(&self, id: UniformId) -> Option<UniformValue> {
-        match id {
-            UniformId::Texture2d(id) => self
-                .texture2ds
-                .get(id.0)
-                .map(|texture| UniformValue::Texture2d(&texture.gl, texture.sampler)),
-            UniformId::Float(id) => self
-                .floats
-                .get(id.0)
-                .map(|&value| UniformValue::Float(value)),
-            UniformId::Vec2f(id) => self
-                .vec2fs
-                .get(id.0)
-                .map(|vec2| UniformValue::Vec2([vec2[0], vec2[1]])),
-            UniformId::Mat4(id) => self.mat4s.get(id.0).map(|mat4| {
-                UniformValue::Mat4([
-                    [mat4[0][0], mat4[0][1], mat4[0][2], mat4[0][3]],
-                    [mat4[1][0], mat4[1][1], mat4[1][2], mat4[1][3]],
-                    [mat4[2][0], mat4[2][1], mat4[2][2], mat4[2][3]],
-                    [mat4[3][0], mat4[3][1], mat4[3][2], mat4[3][3]],
-                ])
-            }),
-            UniformId::BufferTextureU8(id) => self
-                .buffer_textures_u8
-                .get(id.id)
-                .map(AsUniformValue::as_uniform_value),
-        }
+    pub fn set_globals(
+        &mut self,
+        device: &wgpu::Device,
+        shaders: &Shaders,
+        lights_buffer: &wgpu::Buffer,
+        palette: &wgpu::Texture,
+    ) {
+        let atlas_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Atlas sampler"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+        let palette_view = palette.create_view(&Default::default());
+        let palette_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Palette sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+        self.global_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Global bind group"),
+            layout: shaders.global_bind_group_layout(),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.projection_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&atlas_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: lights_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: self.time_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(&palette_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::Sampler(&palette_sampler),
+                },
+            ],
+        }))
+    }
+
+    pub(crate) fn global_bind_group(&self) -> &wgpu::BindGroup {
+        self.global_bind_group
+            .as_ref()
+            .expect("Global bind group must be set to render")
+    }
+
+    pub(crate) fn update_projection(&self, projection: Mat4, queue: &wgpu::Queue) {
+        let projection: [[f32; 4]; 4] = projection.into();
+        queue.write_buffer(
+            &self.projection_buffer,
+            0,
+            bytemuck::cast_slice(&projection),
+        );
     }
 }
 
@@ -292,78 +326,106 @@ pub struct Texture2dRefMut<'uniforms> {
 }
 
 impl<'uniforms> Texture2dRefMut<'uniforms> {
-    pub fn get_sampler_mut(&mut self) -> &mut Option<SamplerBehavior> {
-        &mut self.texture.sampler
-    }
-
-    pub fn replace_pixels<'pixels, PixelT: PixelValue>(
+    pub fn replace_pixels<'pixels, PixelT: Pod>(
         &mut self,
         window: &Window,
         pixels: &'pixels [PixelT],
         size: Vec2<usize>,
-        format: ClientFormat,
-        sampler: Option<SamplerBehavior>,
     ) -> Result<()> {
         debug!(
-            "Replacing texture {:?}: pixels={}, size={:?}, format={:?}, sampler={:?}",
+            "Replacing texture {:?}: pixels={}, size={:?}",
             self.texture_id,
             pixels.len(),
             size,
-            format,
-            sampler,
         );
-        self.texture.gl = GliumTexture2d::new(
-            window.facade(),
-            RawImage2d {
-                data: Cow::Borrowed(pixels),
+        window.queue().write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &self.texture.texture,
+                mip_level: 1,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            bytemuck::cast_slice(pixels),
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some((size[0] * std::mem::size_of::<PixelT>()) as u32),
+                rows_per_image: Some(size[1] as u32),
+            },
+            wgpu::Extent3d {
                 width: size[0] as u32,
                 height: size[1] as u32,
-                format,
+                depth_or_array_layers: 1,
             },
-        )
-        .map_err(ErrorKind::glium("texture2d.replace_pixels"))?;
+        );
 
         debug!("Replaced texture {:?} successfully.", self.texture_id,);
         Ok(())
     }
 }
 
+#[derive(DependenciesFrom)]
+pub struct Dependencies<'context> {
+    window: &'context Window,
+    entities: &'context Entities,
+}
+
 impl<'context> InfallibleSystem<'context> for Uniforms {
-    type Dependencies = &'context Entities;
+    type Dependencies = Dependencies<'context>;
 
     fn debug_name() -> &'static str {
         "uniforms"
     }
 
-    fn create(_deps: &Entities) -> Self {
+    fn create(deps: Dependencies<'context>) -> Self {
+        let projection: [[f32; 4]; 4] = Mat4::identity().into();
+        let projection_buffer =
+            deps.window
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Projection buffer"),
+                    contents: bytemuck::cast_slice(&projection),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+        let time = 0.0;
+        let time_buffer =
+            deps.window
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Time buffer"),
+                    contents: bytemuck::cast_slice(&[time]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
         Uniforms {
             texture2ds: IdMapVec::with_capacity(32),
             floats: IdMapVec::with_capacity(32),
-            buffer_textures_u8: IdMapVec::with_capacity(32),
             mat4s: IdMapVec::with_capacity(32),
             vec2fs: IdMapVec::with_capacity(32),
+            global_bind_group: None,
+            projection_buffer,
+            time,
+            time_buffer,
         }
     }
 
-    fn update(&mut self, entities: &Entities) {
+    fn update(&mut self, deps: Dependencies<'context>) {
         // Explicitly destructure all fields since the for-loop needs to be changed when adding a
         // new map.
         let Uniforms {
             ref mut texture2ds,
             ref mut floats,
-            ref mut buffer_textures_u8,
             ref mut mat4s,
             ref mut vec2fs,
+            global_bind_group: _,
+            projection_buffer: _,
+            time_buffer: _,
+            time: _,
         } = *self;
-        for &entity in entities.last_removed() {
+        for &entity in deps.entities.last_removed() {
             if texture2ds.remove(entity).is_some() {
                 debug!("Removed uniform<texture2d> {:?}.", entity);
             }
             if floats.remove(entity).is_some() {
                 debug!("Removed uniform<float> {:?}.", entity);
-            }
-            if buffer_textures_u8.remove(entity).is_some() {
-                debug!("Removed uniform<buffer_textures<u8>> {:?}.", entity);
             }
             if mat4s.remove(entity).is_some() {
                 debug!("Removed uniform<mat4> {:?}.", entity);
@@ -374,12 +436,12 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
         }
     }
 
-    fn teardown(&mut self, entities: &Entities) {
-        self.update(entities);
+    fn teardown(&mut self, deps: Dependencies<'context>) {
+        self.update(deps.entities);
     }
 
-    fn destroy(mut self, entities: &Entities) {
-        self.update(entities);
+    fn destroy(mut self, deps: Dependencies<'context>) {
+        self.update(deps.entities);
         if !self.texture2ds.is_empty() {
             error!(
                 "Uniforms <texture2d> leaked, {} instances.",
@@ -389,13 +451,6 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
 
         if !self.floats.is_empty() {
             error!("Uniforms <float> leaked, {} instances.", self.floats.len());
-        }
-
-        if !self.buffer_textures_u8.is_empty() {
-            error!(
-                "Uniforms <buffer_textures<u8>> leaked, {} instances.",
-                self.buffer_textures_u8.len()
-            );
         }
 
         if !self.mat4s.is_empty() {
@@ -409,8 +464,7 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
 }
 
 struct Texture2d {
-    gl: GliumTexture2d,
-    sampler: Option<SamplerBehavior>,
+    texture: wgpu::Texture,
 }
 
 impl From<Texture2dId> for UniformId {

@@ -1,25 +1,26 @@
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::forget_copy))]
 
+use crate::renderer::MSAA_SAMPLE_COUNT;
+use crate::ShaderVertex;
+
 use super::system::System;
 use super::window::Window;
+use bytemuck::{offset_of, Pod, Zeroable};
 use failchain::{ChainErrorKind, ResultExt, UnboxedError};
 use failure::Fail;
-use glium::index::{NoIndices, PrimitiveType};
-use glium::texture::{ClientFormat, RawImage2d, Texture2d};
-use glium::{
-    implement_vertex, uniform, Blend, DrawParameters, Frame, Program, Surface, VertexBuffer,
-};
 use idcontain::{Id, IdSlab};
 use log::{debug, error};
 use math::Pnt2f;
 use rusttype::{self, Font, GlyphId, Point as FontPoint, PositionedGlyph, Scale};
-use std::borrow::Cow;
 use std::fs::File;
 use std::io::Read;
 use std::ops::{Index, IndexMut};
 use std::result::Result as StdResult;
 use std::str::Chars as StrChars;
+use std::sync::OnceLock;
 use unicode_normalization::{Recompositions, UnicodeNormalization};
+use wgpu::include_wgsl;
+use wgpu::util::DeviceExt;
 
 /// A handle to a piece of text created with a `TextRenderer`.
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -29,9 +30,9 @@ pub struct TextId(Id<Text>);
 pub struct TextRenderer {
     font: Font<'static>,
     slab: IdSlab<Text>,
-    program: Program,
-    draw_params: DrawParameters<'static>,
     pixel_buffer: Vec<u16>,
+    pipeline: wgpu::RenderPipeline,
+    bind_group_layout: wgpu::BindGroupLayout,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Fail)]
@@ -49,33 +50,71 @@ impl TextRenderer {
     pub fn insert(&mut self, win: &Window, text: &str, pos: Pnt2f, padding: u32) -> TextId {
         debug!("Creating text...");
         let (width, height) = self.rasterise(text, padding);
-        let texture = Texture2d::new(
-            win.facade(),
-            RawImage2d {
-                data: Cow::Borrowed(&self.pixel_buffer),
-                width,
-                height,
-                format: ClientFormat::U8U8,
+        let texture = win.device().create_texture_with_data(
+            win.queue(),
+            &wgpu::TextureDescriptor {
+                label: Some("Text texture"),
+                size: wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rg8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
             },
-        )
-        .unwrap();
+            wgpu::util::TextureDataOrder::LayerMajor,
+            bytemuck::cast_slice(&self.pixel_buffer),
+        );
+        let sampler = win.device().create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Text sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+        let bind_group = win.device().create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Text bind group"),
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(
+                        &texture.create_view(&Default::default()),
+                    ),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+        });
         let (w, h) = (
             width as f32 / win.width() as f32 * 2.0,
             height as f32 / win.height() as f32 * 2.0,
         );
         let (x, y) = (pos.x * 2.0 - 1.0, 1.0 - pos.y * 2.0 - h);
-        let text = Text {
-            buffer: VertexBuffer::immutable(
-                win.facade(),
-                &[
+        let buffer = win
+            .device()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Text vertex buffer"),
+                contents: bytemuck::cast_slice(&[
                     vertex(x, y, 0.0, 1.0),
                     vertex(x, y + h, 0.0, 0.0),
                     vertex(x + w, y, 1.0, 1.0),
                     vertex(x + w, y + h, 1.0, 0.0),
-                ],
-            )
-            .unwrap(),
-            texture,
+                ]),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+        let text = Text {
+            buffer,
+            bind_group,
             visible: true,
         };
         let id = self.slab.insert(text);
@@ -96,25 +135,33 @@ impl TextRenderer {
         self.slab.get_mut(id.0)
     }
 
-    pub fn render(&self, frame: &mut Frame) -> Result<()> {
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        target_view: &wgpu::TextureView,
+    ) {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Text render pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                resolve_target: Some(target_view),
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+                view,
+            })],
+            ..Default::default()
+        });
+        render_pass.set_pipeline(&self.pipeline);
         for text in &self.slab {
             if !text.visible {
                 continue;
             }
-            let uniforms = uniform! {
-                u_tex: &text.texture,
-            };
-            frame
-                .draw(
-                    &text.buffer,
-                    NoIndices(PrimitiveType::TriangleStrip),
-                    &self.program,
-                    &uniforms,
-                    &self.draw_params,
-                )
-                .unwrap();
+            render_pass.set_vertex_buffer(0, text.buffer.slice(..));
+            render_pass.set_bind_group(0, &text.bind_group, &[]);
+            render_pass.draw(0..4, 0..1);
         }
-        Ok(())
     }
 
     fn rasterise(&mut self, text: &str, padding: u32) -> (u32, u32) {
@@ -214,16 +261,84 @@ impl<'context> System<'context> for TextRenderer {
         File::open(FONT_PATH)
             .and_then(|mut file| file.read_to_end(&mut font_bytes))
             .chain_err(|| ErrorKind(format!("Cannot read font at {}", FONT_PATH)))?;
+        let bind_group_layout =
+            window
+                .device()
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Text bind group layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                });
+        let pipeline_layout =
+            window
+                .device()
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Text pipeline layout"),
+                    bind_group_layouts: &[&bind_group_layout],
+                    push_constant_ranges: &[],
+                });
+        let shader_module = window
+            .device()
+            .create_shader_module(include_wgsl!("../../assets/shaders/text.wgsl"));
+        let pipeline = window
+            .device()
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Text pipeline"),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader_module,
+                    entry_point: "main_vs",
+                    buffers: &[TextVertex::desc()],
+                },
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleStrip,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Cw,
+                    cull_mode: None,
+                    unclipped_depth: false,
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: MSAA_SAMPLE_COUNT,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader_module,
+                    entry_point: "main_fs",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: window.texture_format(),
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::all(),
+                    })],
+                }),
+                multiview: None,
+            });
         Ok(Self {
             font: Font::try_from_vec_and_index(font_bytes, 0)
                 .ok_or_else(|| ErrorKind(format!("Failed to parse font at {:?}.", FONT_PATH)))?,
             slab: IdSlab::with_capacity(16),
-            program: Program::from_source(window.facade(), VERTEX_SRC, FRAGMENT_SRC, None).unwrap(),
-            draw_params: DrawParameters {
-                blend: Blend::alpha_blending(),
-                ..DrawParameters::default()
-            },
             pixel_buffer: Vec::new(),
+            bind_group_layout,
+            pipeline,
         })
     }
 
@@ -240,8 +355,8 @@ impl<'context> System<'context> for TextRenderer {
 }
 
 pub struct Text {
-    texture: Texture2d,
-    buffer: VertexBuffer<TextVertex>,
+    buffer: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
     visible: bool,
 }
 
@@ -283,36 +398,36 @@ const FONT_PATH: &str = "assets/ttf/OpenSans-Regular.ttf";
 /// Hard-coded font size.
 const POINT_SIZE: f32 = 24.0;
 
-const VERTEX_SRC: &str = r#"
-    #version 140
-    in vec2 a_pos;
-    in vec2 a_uv;
-    out vec2 v_uv;
-    void main() {
-        v_uv = a_uv;
-        gl_Position = vec4(a_pos, 0.0, 1.0);
-    }
-"#;
-
-const FRAGMENT_SRC: &str = r#"
-    #version 140
-    uniform sampler2D u_tex;
-    in vec2 v_uv;
-    out vec4 color;
-    void main() {
-        vec4 tex_color = texture(u_tex, v_uv);
-        color = vec4(tex_color.g, tex_color.g, tex_color.g, tex_color.r);
-    }
-"#;
-
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Pod, Zeroable, Default)]
 struct TextVertex {
     a_pos: [f32; 2],
     a_uv: [f32; 2],
 }
 
-implement_vertex!(TextVertex, a_pos, a_uv);
+impl ShaderVertex for TextVertex {
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        static ATTRIBUTES: OnceLock<Vec<wgpu::VertexAttribute>> = OnceLock::new();
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<TextVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &ATTRIBUTES.get_or_init(|| {
+                vec![
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x2,
+                        offset: offset_of!(TextVertex, a_pos) as u64,
+                        shader_location: 0,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x2,
+                        offset: offset_of!(TextVertex, a_uv) as u64,
+                        shader_location: 1,
+                    },
+                ]
+            }),
+        }
+    }
+}
 
 fn vertex(x: f32, y: f32, u: f32, v: f32) -> TextVertex {
     TextVertex {
