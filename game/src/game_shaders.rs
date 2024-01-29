@@ -2,9 +2,8 @@ use crate::vertex::{SkyVertex, SpriteVertex, StaticVertex};
 
 use super::wad_system::WadSystem;
 use engine::{
-    DependenciesFrom, Entities, EntityId, Error, FloatUniformId, MaterialId, Materials,
-    RenderPipeline, Result, ShaderId, ShaderVertex, Shaders, System, Tick, Uniforms, Window,
-    LIGHTS_COUNT,
+    DependenciesFrom, Entities, EntityId, Error, FloatUniformId, MaterialId, Materials, Result,
+    ShaderId, ShaderVertex, Shaders, System, Tick, Uniforms, Window, LIGHTS_COUNT,
 };
 use log::{error, info};
 use math::Vec2;
@@ -46,7 +45,6 @@ pub struct Dependencies<'context> {
     entities: &'context mut Entities,
     shaders: &'context mut Shaders,
     uniforms: &'context mut Uniforms,
-    render: &'context mut RenderPipeline,
     materials: &'context mut Materials,
 
     wad: &'context mut WadSystem,
@@ -179,9 +177,6 @@ impl<'context> Dependencies<'context> {
     }
 
     fn load_level(&mut self, globals: &Globals, parent: EntityId) -> Result<LevelMaterials> {
-        let modelview = self.render.modelview();
-        let projection = self.render.projection();
-
         let flats_atlas = self.load_flats_atlas(parent)?;
         let flats_material = self
             .materials
@@ -192,9 +187,6 @@ impl<'context> Dependencies<'context> {
                 "flats_material",
             )?
             .with_atlas(&flats_atlas.texture, self.window.device(), self.shaders)
-            .add_uniform("u_modelview", modelview)
-            .add_uniform("u_projection", projection)
-            .add_uniform("u_time", globals.time)
             .id();
 
         let walls_atlas = self.load_walls_atlas(parent)?;
@@ -207,9 +199,6 @@ impl<'context> Dependencies<'context> {
                 "walls_material",
             )?
             .with_atlas(&walls_atlas.texture, self.window.device(), self.shaders)
-            .add_uniform("u_modelview", modelview)
-            .add_uniform("u_projection", projection)
-            .add_uniform("u_time", globals.time)
             .id();
 
         let sky_uniforms = self.load_sky_uniforms(parent)?;
@@ -222,8 +211,6 @@ impl<'context> Dependencies<'context> {
                 self.window.device(),
                 self.shaders,
             )
-            .add_uniform("u_modelview", modelview)
-            .add_uniform("u_projection", projection)
             .id();
 
         let decor_atlas = self.load_decor_atlas(parent)?;
@@ -236,9 +223,6 @@ impl<'context> Dependencies<'context> {
                 "decor_material",
             )?
             .with_atlas(&decor_atlas.texture, self.window.device(), self.shaders)
-            .add_uniform("u_modelview", modelview)
-            .add_uniform("u_projection", projection)
-            .add_uniform("u_time", globals.time)
             .id();
 
         Ok(LevelMaterials {
