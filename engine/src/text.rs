@@ -50,20 +50,25 @@ impl TextRenderer {
     pub fn insert(&mut self, win: &Window, text: &str, pos: Pnt2f, padding: u32) -> TextId {
         debug!("Creating text...");
         let (width, height) = self.rasterise(text, padding);
-        let texture = win.device().create_texture(&wgpu::TextureDescriptor {
-            label: Some("Text texture"),
-            size: wgpu::Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
+        let texture = win.device().create_texture_with_data(
+            win.queue(),
+            &wgpu::TextureDescriptor {
+                label: Some("Text texture"),
+                size: wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rg8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
             },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rg8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
+            wgpu::util::TextureDataOrder::LayerMajor,
+            bytemuck::cast_slice(&self.pixel_buffer),
+        );
         let sampler = win.device().create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Text sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -304,8 +309,8 @@ impl<'context> System<'context> for TextRenderer {
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleStrip,
                     strip_index_format: None,
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
+                    front_face: wgpu::FrontFace::Cw,
+                    cull_mode: None,
                     unclipped_depth: false,
                     polygon_mode: wgpu::PolygonMode::Fill,
                     conservative: false,
