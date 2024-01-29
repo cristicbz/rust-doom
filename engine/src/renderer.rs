@@ -103,15 +103,19 @@ impl<'context> System<'context> for Renderer {
         };
 
         // Compute view transform by inverting the camera entity transform.
-        let view_transform = if let Some(transform) = deps.transforms.get_absolute(camera_id) {
-            transform
-                .inverse_transform()
-                .expect("singular view transform")
-        } else {
-            info!("Camera transform missing, disabling renderer.");
-            pipe.camera = None;
-            return Ok(());
-        };
+        let (camera_transform, view_transform) =
+            if let Some(transform) = deps.transforms.get_absolute(camera_id) {
+                (
+                    transform,
+                    transform
+                        .inverse_transform()
+                        .expect("singular view transform"),
+                )
+            } else {
+                info!("Camera transform missing, disabling renderer.");
+                pipe.camera = None;
+                return Ok(());
+            };
         let view_matrix: Mat4 = view_transform.into();
 
         // Set view-projection.
@@ -181,9 +185,7 @@ impl<'context> System<'context> for Renderer {
                 } else {
                     Vector3::new(1.0, 0.0, 0.0)
                 };
-                let right = view_transform
-                    .inverse_transform_vector(right)
-                    .expect("view transform should be invertible");
+                let right = camera_transform.transform_vector(right);
                 mesh.update_right(right, deps.window.queue());
 
                 let material = if let Some(material) = deps.materials.get(deps.shaders, material) {
