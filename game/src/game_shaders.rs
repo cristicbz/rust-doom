@@ -85,10 +85,8 @@ impl<'context> System<'context> for GameShaders {
                 .get_float_mut(self.globals.time)
                 .expect("missing time") = 0.0;
         } else {
-            *deps
-                .uniforms
-                .get_float_mut(self.globals.time)
-                .expect("missing time") += deps.tick.timestep();
+            deps.uniforms
+                .increment_time(deps.tick.timestep(), deps.window.queue());
         }
 
         Ok(())

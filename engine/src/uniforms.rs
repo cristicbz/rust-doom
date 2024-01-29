@@ -50,6 +50,7 @@ pub struct Uniforms {
     global_bind_group: Option<wgpu::BindGroup>,
     projection_buffer: wgpu::Buffer,
     time_buffer: wgpu::Buffer,
+    time: f32,
 }
 
 impl Uniforms {
@@ -64,6 +65,7 @@ impl Uniforms {
             global_bind_group: _,
             projection_buffer: _,
             time_buffer: _,
+            time: _,
         } = *self;
         for &entity in entities.last_removed() {
             if texture2ds.remove(entity).is_some() {
@@ -79,6 +81,11 @@ impl Uniforms {
                 debug!("Removed uniform<vec2> {:?}.", entity);
             }
         }
+    }
+
+    pub fn increment_time(&mut self, timestep: f32, queue: &wgpu::Queue) {
+        self.time += timestep;
+        queue.write_buffer(&self.time_buffer, 0, bytemuck::cast_slice(&[self.time]));
     }
 
     pub fn add_float(
@@ -375,12 +382,13 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
                     contents: bytemuck::cast_slice(&projection),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
+        let time = 0.0;
         let time_buffer =
             deps.window
                 .device()
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Time buffer"),
-                    contents: bytemuck::cast_slice(&[0.0f32]),
+                    contents: bytemuck::cast_slice(&[time]),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
         Uniforms {
@@ -390,6 +398,7 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
             vec2fs: IdMapVec::with_capacity(32),
             global_bind_group: None,
             projection_buffer,
+            time,
             time_buffer,
         }
     }
@@ -405,6 +414,7 @@ impl<'context> InfallibleSystem<'context> for Uniforms {
             global_bind_group: _,
             projection_buffer: _,
             time_buffer: _,
+            time: _,
         } = *self;
         for &entity in deps.entities.last_removed() {
             if texture2ds.remove(entity).is_some() {
