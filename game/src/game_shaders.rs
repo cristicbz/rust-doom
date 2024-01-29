@@ -125,7 +125,7 @@ impl<'context> Dependencies<'context> {
             "palette",
             &palette.pixels,
             Vec2::new(COLORMAP_SIZE, palette.pixels.len() / MAPPED_PALETTE_SIZE),
-            wgpu::TextureFormat::Rgba8Unorm,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
         )
     }
 

@@ -56,8 +56,8 @@ fn main_vs(in: VertexInput) -> VertexOutput {
     return out;
 }
 
-const DIST_SCALE: f32 = 1.5;
-const LIGHT_SCALE: f32 = 1.75;
+const DIST_SCALE: f32 = 0.9;
+const LIGHT_SCALE: f32 = 2.0;
 
 @fragment
 fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
