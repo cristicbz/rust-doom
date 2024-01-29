@@ -61,7 +61,7 @@ const LIGHT_SCALE: f32 = 2.0;
 
 @fragment
 fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
-    let uv = in.v_tile_uv % in.v_tile_size + in.v_atlas_uv;
+    let uv = ((in.v_tile_uv % in.v_tile_size) + in.v_tile_size) % in.v_tile_size + in.v_atlas_uv;
     let palette_index = textureSample(u_atlas, u_atlas_sampler, uv / u_atlas_size).rg;
     if palette_index.g > .5 {  // Transparent pixel.
         discard;
