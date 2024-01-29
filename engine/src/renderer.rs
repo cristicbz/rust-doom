@@ -11,9 +11,7 @@ use super::transforms::Transforms;
 use super::uniforms::Uniforms;
 use super::window::Window;
 use crate::internal_derive::DependenciesFrom;
-use crate::ErrorKind;
 use cgmath::Vector3;
-use failchain::ResultExt;
 use log::{error, info};
 use math::{prelude::*, Mat4};
 
@@ -217,9 +215,7 @@ impl<'context> System<'context> for Renderer {
         }
 
         // Render text. TODO(cristicbz): text should render itself :(
-        deps.text
-            .render(&mut encoder, &self.view)
-            .chain_err(|| ErrorKind::System("render bypass", TextRenderer::debug_name()))?;
+        deps.text.render(&mut encoder, &self.view, &view);
 
         deps.window.queue().submit([encoder.finish()]);
         surface_texture.present();

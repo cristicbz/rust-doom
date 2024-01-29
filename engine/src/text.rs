@@ -134,11 +134,12 @@ impl TextRenderer {
         &self,
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
-    ) -> Result<()> {
+        target_view: &wgpu::TextureView,
+    ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Text render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                resolve_target: None,
+                resolve_target: Some(target_view),
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
                     store: wgpu::StoreOp::Store,
@@ -156,7 +157,6 @@ impl TextRenderer {
             render_pass.set_bind_group(0, &text.bind_group, &[]);
             render_pass.draw(0..4, 0..1);
         }
-        Ok(())
     }
 
     fn rasterise(&mut self, text: &str, padding: u32) -> (u32, u32) {
@@ -302,7 +302,7 @@ impl<'context> System<'context> for TextRenderer {
                     buffers: &[TextVertex::desc()],
                 },
                 primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    topology: wgpu::PrimitiveTopology::TriangleStrip,
                     strip_index_format: None,
                     front_face: wgpu::FrontFace::Ccw,
                     cull_mode: Some(wgpu::Face::Back),
@@ -321,7 +321,7 @@ impl<'context> System<'context> for TextRenderer {
                     entry_point: "main_fs",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: window.texture_format(),
-                        blend: Some(wgpu::BlendState::REPLACE),
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::all(),
                     })],
                 }),
